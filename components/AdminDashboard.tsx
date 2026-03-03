@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getBookings, updateBookingStatus } from '../services/firebase';
+import { getBookings, updateBookingStatus } from '../services/supabase';
 import { BookingRecord, BookingStatus } from '../types';
 import { 
   ArrowLeft, 
