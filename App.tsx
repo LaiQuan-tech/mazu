@@ -12,8 +12,16 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
-  Settings
+  Settings,
+  MessageCircle
 } from 'lucide-react';
+
+const LineIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M24 10.304c0-5.232-5.383-9.488-12-9.488s-12 4.256-12 9.488c0 4.69 4.27 8.604 10.04 9.344.39.084.92.258 1.05.592.12.303.08.777.04 1.084l-.17 1.023c-.05.303-.24 1.187 1.04.647 1.27-.54 6.88-4.05 9.39-6.93 1.77-1.92 2.61-3.77 2.61-5.764zm-16.14 3.77h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v4.66c0 .23-.18.41-.41.41zm3.83 0h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v4.66c0 .23-.18.41-.41.41zm5.12-2.11c0 .23-.18.41-.41.41h-1.22v1.29c0 .23-.18.41-.41.41h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v1.29h1.22c.23 0 .41.18.41.41v1.67zm4.27 2.11h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v4.66c0 .23-.18.41-.41.41z"/>
+  </svg>
+);
+
 import { BookingData, ConsultationType, DonationData, DonationType } from './types';
 import { submitBooking, submitDonation } from './services/firebase';
 import AdminDashboard from './components/AdminDashboard';
@@ -155,8 +163,8 @@ const App: React.FC = () => {
                </div>
             </div>
             
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-8">
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="flex items-baseline space-x-8">
                 {['home', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
                   <button
                     key={item}
@@ -177,6 +185,15 @@ const App: React.FC = () => {
                   </button>
                 ))}
               </div>
+              <a 
+                href="https://line.me/ti/p/@heshengaltar" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="bg-[#06C755] text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#05b34c] transition-colors shadow-lg"
+              >
+                <LineIcon className="w-4 h-4" />
+                LINE 諮詢
+              </a>
             </div>
 
             <div className="-mr-2 flex md:hidden">
@@ -210,6 +227,17 @@ const App: React.FC = () => {
                     }[item]}
                   </button>
                ))}
+               <div className="px-3 py-4">
+                 <a 
+                  href="https://line.me/ti/p/@heshengaltar" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full bg-[#06C755] text-white px-4 py-3 rounded-lg text-center font-bold flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <LineIcon className="w-5 h-5" />
+                  加入 LINE 官方帳號
+                </a>
+               </div>
             </div>
           </div>
         )}
@@ -701,6 +729,15 @@ const App: React.FC = () => {
                 歡迎各界善男信女蒞臨參香指導，共沐神恩。
               </p>
               <div className="flex space-x-4">
+                 <a 
+                   href="https://line.me/ti/p/@heshengaltar" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center hover:scale-110 transition-transform text-white"
+                 >
+                   <span className="sr-only">LINE</span>
+                   <LineIcon className="h-5 w-5" />
+                 </a>
                  <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
                    <span className="sr-only">Facebook</span>
                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
@@ -753,6 +790,19 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Floating LINE Button */}
+      <a 
+        href="https://line.me/ti/p/@heshengaltar" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center gap-2 group"
+      >
+        <LineIcon className="w-6 h-6" />
+        <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 ease-in-out whitespace-nowrap font-bold">
+          加入 LINE 諮詢
+        </span>
+      </a>
     </div>
   );
 };
