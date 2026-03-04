@@ -823,7 +823,7 @@ const App: React.FC = () => {
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
             <p>&copy; {new Date().getFullYear()} 和聖壇. All rights reserved. 網站設計：信徒志工團</p>
             <button
-              onClick={() => setShowLoginModal(true)}
+              onClick={() => setShowAdmin(true)} // TODO: 測試用，改回 setShowLoginModal(true)
               className="mt-4 md:mt-0 flex items-center hover:text-temple-gold transition-colors"
             >
               <Settings className="w-4 h-4 mr-1" /> 管理員登入
@@ -838,9 +838,9 @@ const App: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
         title="加入 LINE 諮詢"
-        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white w-14 h-14 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
+        className="fixed bottom-8 right-8 z-[60] shadow-2xl hover:scale-110 transition-transform"
       >
-        <LineIcon className="w-7 h-7" />
+        <img src="/line.jpg" alt="加入 LINE 諮詢" className="w-16 h-16 rounded-2xl object-cover shadow-2xl" />
       </a>
 
       {/* Admin Login Modal */}
