@@ -49,6 +49,10 @@ export interface DonationData {
   createdAt?: any;
 }
 
+export interface DonationRecord extends DonationData {
+  id: string;
+}
+
 export interface ServiceItem {
   title: string;
   description: string;

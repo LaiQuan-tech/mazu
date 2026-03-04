@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, DonationData } from '../types';
+import { BookingData, BookingRecord, BookingStatus, DonationData, DonationRecord } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -74,7 +74,6 @@ export const submitDonation = async (data: DonationData): Promise<boolean> => {
     amount: data.amount,
     type: data.type,
     notes: data.notes || null,
-    status: 'pending',
   }]);
 
   if (error) {
@@ -82,4 +81,26 @@ export const submitDonation = async (data: DonationData): Promise<boolean> => {
     throw error;
   }
   return true;
+};
+
+export const getDonations = async (): Promise<DonationRecord[]> => {
+  const { data, error } = await supabase
+    .from('donations')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching donations:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    amount: row.amount,
+    type: row.type,
+    notes: row.notes,
+    createdAt: row.created_at,
+  }));
 };
