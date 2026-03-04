@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { getBookings, updateBookingStatus, getDonations, supabase } from '../services/supabase';
 import { BookingRecord, BookingStatus, DonationRecord } from '../types';
 import {
@@ -42,13 +43,18 @@ const statusBadge = (status?: BookingStatus) => {
   );
 };
 
-const exportCSV = (filename: string, rows: string[][], headers: string[]) => {
-  const bom = '\uFEFF';
-  const csv = bom + [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = filename;
-  a.click();
+const exportExcel = (filename: string, rows: (string | number)[][], headers: string[]) => {
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  // 自動調整欄寬
+  ws['!cols'] = headers.map((_, i) => ({
+    wch: Math.max(
+      headers[i].length * 2,
+      ...rows.map(r => String(r[i] ?? '').length)
+    ) + 2
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '資料');
+  XLSX.writeFile(wb, filename);
 };
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
@@ -133,7 +139,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
   }), [bookings, search, filterStatus, filterType]);
 
   const handleExport = () => {
-    exportCSV('預約資料.csv', filtered.map(b => [
+    exportExcel('預約資料.xlsx', filtered.map(b => [
       b.name, b.phone, b.birthDate, b.bookingDate,
       b.bookingTime === 'evening' ? '晚上' : b.bookingTime,
       b.type, b.status || '', b.notes || '', fmtDate(b.createdAt)
@@ -150,7 +156,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
         </h2>
         <button onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-          <Download className="w-4 h-4" /> 匯出 CSV
+          <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
 
@@ -253,8 +259,8 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
   const types = [...new Set(donations.map(d => d.type))];
 
   const handleExport = () => {
-    exportCSV('捐款資料.csv', filtered.map(d => [
-      d.name, d.phone, String(d.amount), d.type, d.notes || '', fmtDate(d.createdAt)
+    exportExcel('捐款資料.xlsx', filtered.map(d => [
+      d.name, d.phone, Number(d.amount), d.type, d.notes || '', fmtDate(d.createdAt)
     ]), ['姓名', '電話', '金額', '捐款類型', '備註', '建立時間']);
   };
 
@@ -271,7 +277,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
         </div>
         <button onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-          <Download className="w-4 h-4" /> 匯出 CSV
+          <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
 
