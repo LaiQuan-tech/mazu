@@ -840,7 +840,7 @@ const App: React.FC = () => {
         title="加入 LINE 諮詢"
         className="fixed bottom-8 right-8 z-[60] shadow-2xl hover:scale-110 transition-transform"
       >
-        <img src="/line.jpg" alt="加入 LINE 諮詢" className="w-16 h-16 rounded-2xl object-cover shadow-2xl" />
+        <img src="/line.jpg" alt="加入 LINE 諮詢" className="w-16 h-16 rounded-full object-cover shadow-2xl" />
       </a>
 
       {/* Admin Login Modal */}
