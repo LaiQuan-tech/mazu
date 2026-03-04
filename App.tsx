@@ -837,12 +837,10 @@ const App: React.FC = () => {
         href="https://line.me/ti/p/@heshengaltar"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center gap-2 group"
+        title="加入 LINE 諮詢"
+        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white w-14 h-14 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
       >
-        <LineIcon className="w-6 h-6" />
-        <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 ease-in-out whitespace-nowrap font-bold">
-          加入 LINE 諮詢
-        </span>
+        <LineIcon className="w-7 h-7" />
       </a>
 
       {/* Admin Login Modal */}
