@@ -30,8 +30,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, RegistrationData } from './types';
-import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData } from './types';
+import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
@@ -53,7 +53,10 @@ const App: React.FC = () => {
   const [registerBulletin, setRegisterBulletin] = useState<BulletinRecord | null>(null);
   const [regForm, setRegForm] = useState<RegistrationData>({ bulletinId: '', name: '', phone: '', numPeople: 1, notes: '' });
   const [regStatus, setRegStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [heroImageUrl, setHeroImageUrl] = useState('https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop');
+  const HERO_FALLBACK = 'https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop';
+  const [heroSlides, setHeroSlides] = useState<HeroSlideRecord[]>([]);
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+  const heroIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
   const [deities, setDeities] = useState<DeityRecord[]>([]);
 
@@ -107,20 +110,33 @@ const App: React.FC = () => {
     notes: ''
   });
 
+  const startHeroInterval = (totalSlides: number) => {
+    if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
+    if (totalSlides <= 1) return;
+    heroIntervalRef.current = setInterval(() => {
+      setHeroSlideIndex(prev => (prev + 1) % totalSlides);
+    }, 5000);
+  };
+
   useEffect(() => {
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(setDeities).catch(console.error);
     getSiteImages().then(images => {
       for (const img of images) {
-        const url = getSiteImagePublicUrl(img.storagePath);
-        if (img.sectionKey === 'hero') setHeroImageUrl(url);
-        if (img.sectionKey === 'about') setAboutImageUrl(url);
+        if (img.sectionKey === 'about') setAboutImageUrl(getSiteImagePublicUrl(img.storagePath));
       }
+    }).catch(console.error);
+    getHeroSlides().then(slides => {
+      setHeroSlides(slides);
+      startHeroInterval(slides.length);
     }).catch(console.error);
 
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
+    };
   }, []);
 
   const filteredBulletins = bulletinFilter === 'all'
@@ -350,14 +366,26 @@ const App: React.FC = () => {
 
       {/* Hero Section */}
       <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Image Placeholder */}
+        {/* Slideshow Background */}
         <div className="absolute inset-0 z-0">
-          <img
-            src={heroImageUrl}
-            alt="Temple Background"
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
+          {heroSlides.length > 0 ? (
+            heroSlides.map((slide, index) => (
+              <img
+                key={slide.id}
+                src={getSiteImagePublicUrl(slide.imagePath)}
+                alt={`投影片 ${index + 1}`}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${index === heroSlideIndex ? 'opacity-100' : 'opacity-0'}`}
+                referrerPolicy="no-referrer"
+              />
+            ))
+          ) : (
+            <img
+              src={HERO_FALLBACK}
+              alt="Temple Background"
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-temple-red/70 to-temple-dark/80 mix-blend-multiply" />
         </div>
 
@@ -391,6 +419,22 @@ const App: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Dot Indicators */}
+        {heroSlides.length > 1 && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+            {heroSlides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setHeroSlideIndex(i);
+                  startHeroInterval(heroSlides.length);
+                }}
+                className={`h-2 rounded-full transition-all duration-300 ${i === heroSlideIndex ? 'bg-temple-gold w-6' : 'bg-white/50 w-2 hover:bg-white/80'}`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Decorative Divider */}
         <div className="absolute bottom-0 w-full h-16 bg-temple-bg" style={{ clipPath: 'polygon(50% 100%, 100% 0, 100% 100%, 0 100%, 0 0)' }}></div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -1049,7 +1049,96 @@ const DEFAULT_IMAGES: Record<string, string> = {
   about: '/picture/Introduction 1.jpg',
 };
 
-const PhotosTab = ({ siteImages, onRefresh }: { siteImages: SiteImageRecord[]; onRefresh: () => void }) => {
+const HeroSlidesSection = ({ slides, onRefresh }: { slides: HeroSlideRecord[]; onRefresh: () => void }) => {
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setUploadError('請選擇圖片檔案'); return; }
+    if (file.size > 5 * 1024 * 1024) { setUploadError('圖片大小不能超過 5MB'); return; }
+    setUploadError(null);
+    setUploading(true);
+    try {
+      await uploadHeroSlide(file);
+      onRefresh();
+    } catch {
+      setUploadError('上傳失敗，請稍後再試');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDelete = async (slide: HeroSlideRecord) => {
+    if (!confirm(`確定要刪除這張投影片嗎？`)) return;
+    setDeleting(slide.id);
+    try {
+      await deleteHeroSlide(slide.id, slide.imagePath);
+      onRefresh();
+    } catch {
+      alert('刪除失敗，請稍後再試');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold text-gray-800">首頁輪播圖</h4>
+          <p className="text-xs text-gray-400 mt-0.5">自動每 5 秒切換，至少上傳 2 張才會開始輪播</p>
+        </div>
+        <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400' : 'bg-temple-red text-white hover:bg-red-800'}`}>
+          {uploading ? <><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</> : <><Upload className="w-4 h-4" /> 新增投影片</>}
+          <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+        </label>
+      </div>
+      <div className="p-6">
+        {uploadError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {uploadError}
+          </div>
+        )}
+        {slides.length === 0 ? (
+          <div className="text-center py-10 text-gray-400">
+            <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">尚未上傳投影片</p>
+            <p className="text-xs mt-1">上傳後會自動顯示在首頁</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {slides.map((slide, i) => (
+              <div key={slide.id} className="relative group rounded-xl overflow-hidden aspect-video bg-gray-100">
+                <img
+                  src={getSiteImagePublicUrl(slide.imagePath)}
+                  alt={`投影片 ${i + 1}`}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                  #{i + 1}
+                </div>
+                <button
+                  onClick={() => handleDelete(slide)}
+                  disabled={deleting === slide.id}
+                  className="absolute top-1 right-1 p-1.5 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting === slide.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PhotosTab = ({ siteImages, heroSlides, onRefresh }: { siteImages: SiteImageRecord[]; heroSlides: HeroSlideRecord[]; onRefresh: () => void }) => {
   const [uploading, setUploading] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ section: string; file: File; url: string } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -1106,6 +1195,8 @@ const PhotosTab = ({ siteImages, onRefresh }: { siteImages: SiteImageRecord[]; o
         <h3 className="text-lg font-bold text-gray-800 mb-1">網站照片管理</h3>
         <p className="text-sm text-gray-500">管理網站各區塊的展示照片，上傳後前台會自動更新。</p>
       </div>
+
+      <HeroSlidesSection slides={heroSlides} onRefresh={onRefresh} />
 
       {uploadError && (
         <div className="mb-4 px-4 py-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2">
@@ -1193,6 +1284,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [siteImages, setSiteImages] = useState<SiteImageRecord[]>([]);
   const [deitiesList, setDeitiesList] = useState<DeityRecord[]>([]);
+  const [heroSlidesList, setHeroSlidesList] = useState<HeroSlideRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -1201,12 +1293,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities()]);
+      const [b, d, bl, si, dt, hs] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides()]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
       setSiteImages(si);
       setDeitiesList(dt);
+      setHeroSlidesList(hs);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -1304,7 +1397,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
-              {tab === 'photos'   && <PhotosTab siteImages={siteImages} onRefresh={fetchAll} />}
+              {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
             </>
           )}
         </div>

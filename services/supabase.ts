@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, RegistrationData, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, RegistrationData, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -398,4 +398,69 @@ export const uploadDeityImage = async (file: File): Promise<string> => {
   }
 
   return storagePath;
+};
+
+// ─── Hero Slides (首頁輪播) ──────────────────────────────────────────────────
+
+export const getHeroSlides = async (): Promise<HeroSlideRecord[]> => {
+  const { data, error } = await supabase
+    .from('hero_slides')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching hero slides:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    imagePath: row.image_path,
+    displayOrder: row.display_order,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+  }));
+};
+
+export const uploadHeroSlide = async (file: File): Promise<HeroSlideRecord> => {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const storagePath = `hero-slides/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(SITE_IMAGES_BUCKET)
+    .upload(storagePath, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+
+  if (uploadError) throw uploadError;
+
+  const { data: existing } = await supabase
+    .from('hero_slides')
+    .select('display_order')
+    .order('display_order', { ascending: false })
+    .limit(1)
+    .single();
+
+  const nextOrder = existing ? (existing.display_order + 1) : 0;
+
+  const { data, error: dbError } = await supabase
+    .from('hero_slides')
+    .insert({ image_path: storagePath, display_order: nextOrder })
+    .select()
+    .single();
+
+  if (dbError) throw dbError;
+
+  return {
+    id: data.id,
+    imagePath: data.image_path,
+    displayOrder: data.display_order,
+    isActive: data.is_active,
+    createdAt: data.created_at,
+  };
+};
+
+export const deleteHeroSlide = async (id: string, imagePath: string): Promise<void> => {
+  const { error: dbError } = await supabase.from('hero_slides').delete().eq('id', id);
+  if (dbError) throw dbError;
+  await supabase.storage.from(SITE_IMAGES_BUCKET).remove([imagePath]);
 };

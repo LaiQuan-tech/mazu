@@ -105,6 +105,15 @@ export interface SiteImageRecord {
   updatedAt: string;
 }
 
+// ─── Hero Slides (首頁輪播) ──────────────────────────────
+export interface HeroSlideRecord {
+  id: string;
+  imagePath: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;
