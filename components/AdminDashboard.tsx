@@ -1093,6 +1093,7 @@ const HeroSlidesSection = ({ slides, onRefresh }: { slides: HeroSlideRecord[]; o
         <div>
           <h4 className="font-semibold text-gray-800">首頁輪播圖</h4>
           <p className="text-xs text-gray-400 mt-0.5">自動每 5 秒切換，至少上傳 2 張才會開始輪播</p>
+          <p className="text-xs text-gray-400">建議尺寸：1920 × 1080 px（橫式 16:9）・JPG、PNG、WebP，最大 5MB</p>
         </div>
         <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400' : 'bg-temple-red text-white hover:bg-red-800'}`}>
           {uploading ? <><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</> : <><Upload className="w-4 h-4" /> 新增投影片</>}
