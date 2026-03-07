@@ -1030,7 +1030,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-            <p>&copy; {new Date().getFullYear()} 和聖壇. All rights reserved. 網站設計：信徒志工團</p>
+            <p>&copy; {new Date().getFullYear()} 和聖壇. All rights reserved. 網站設計：和聖壇管理委員會</p>
             <button
               onClick={() => setShowLoginModal(true)}
               className="mt-4 md:mt-0 flex items-center hover:text-temple-gold transition-colors"
