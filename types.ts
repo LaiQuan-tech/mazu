@@ -58,3 +58,23 @@ export interface ServiceItem {
   description: string;
   icon: React.ReactNode;
 }
+
+// ─── Bulletin (公佈欄) ────────────────────────────────────
+export enum BulletinCategory {
+  GENERAL = '一般公告',
+  EVENT = '活動公告',
+  CEREMONY = '法會通知'
+}
+
+export interface BulletinData {
+  title: string;
+  content: string;
+  category: BulletinCategory;
+  isPinned: boolean;
+}
+
+export interface BulletinRecord extends BulletinData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, DonationRecord } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DonationRecord } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
   BookOpen, HeartHandshake, Search, Download, ChevronDown,
-  TrendingUp, Users, Banknote, AlertCircle, LogOut
+  TrendingUp, Users, Banknote, AlertCircle, LogOut,
+  Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members';
+type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -570,12 +571,189 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
   );
 };
 
+// ─── Bulletins Tab (公佈欄管理) ────────────────────────────────────────────────
+
+const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; onRefresh: () => void }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<BulletinData>({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false });
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  const filtered = bulletins.filter(b =>
+    b.title.includes(search) || b.content.includes(search) || b.category.includes(search)
+  );
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false });
+    setShowModal(true);
+  };
+
+  const openEdit = (b: BulletinRecord) => {
+    setEditingId(b.id);
+    setForm({ title: b.title, content: b.content, category: b.category as BulletinCategory, isPinned: b.isPinned });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title.trim() || !form.content.trim()) return alert('請填寫標題和內容');
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateBulletin(editingId, form);
+      } else {
+        await createBulletin(form);
+      }
+      setShowModal(false);
+      onRefresh();
+    } catch {
+      alert('儲存失敗，請稍後再試');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('確定要刪除這則公告嗎？')) return;
+    setDeletingId(id);
+    try {
+      await deleteBulletin(id);
+      onRefresh();
+    } catch {
+      alert('刪除失敗');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleTogglePin = async (b: BulletinRecord) => {
+    try {
+      await updateBulletin(b.id, { isPinned: !b.isPinned });
+      onRefresh();
+    } catch {
+      alert('更新失敗');
+    }
+  };
+
+  const categoryColor = (cat: string) => {
+    if (cat === '活動公告') return 'bg-blue-100 text-blue-700';
+    if (cat === '法會通知') return 'bg-purple-100 text-purple-700';
+    return 'bg-gray-100 text-gray-600';
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input type="text" placeholder="搜尋公告..." value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red" />
+        </div>
+        <button onClick={openCreate}
+          className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-red-800 transition-colors shadow-sm">
+          <Plus className="w-4 h-4" /> 新增公告
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+            <tr>
+              <th className="px-5 py-3 text-left">標題</th>
+              <th className="px-5 py-3 text-left">分類</th>
+              <th className="px-5 py-3 text-left">日期</th>
+              <th className="px-5 py-3 text-center">置頂</th>
+              <th className="px-5 py-3 text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {filtered.length === 0 ? (
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">尚無公告</td></tr>
+            ) : filtered.map(b => (
+              <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-5 py-4 font-medium text-gray-800">{b.title}</td>
+                <td className="px-5 py-4">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>{b.category}</span>
+                </td>
+                <td className="px-5 py-4 text-gray-500">{fmtDate(b.createdAt)}</td>
+                <td className="px-5 py-4 text-center">
+                  <button onClick={() => handleTogglePin(b)}
+                    className={`p-1.5 rounded-lg transition-colors ${b.isPinned ? 'text-temple-gold hover:bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}>
+                    {b.isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                  </button>
+                </td>
+                <td className="px-5 py-4 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <button onClick={() => openEdit(b)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(b.id)} disabled={deletingId === b.id}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-bold text-gray-800">{editingId ? '編輯公告' : '新增公告'}</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">標題</label>
+                <input type="text" value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red" placeholder="公告標題" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">分類</label>
+                <select value={form.category} onChange={e => setForm({...form, category: e.target.value as BulletinCategory})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red">
+                  {Object.values(BulletinCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">內容</label>
+                <textarea value={form.content} onChange={e => setForm({...form, content: e.target.value})} rows={6}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red resize-none" placeholder="公告內容..." />
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.isPinned} onChange={e => setForm({...form, isPinned: e.target.checked})}
+                  className="w-4 h-4 text-temple-red rounded border-gray-300 focus:ring-temple-red" />
+                <span className="text-sm text-gray-700">置頂公告</span>
+              </label>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
+              <button onClick={handleSave} disabled={saving}
+                className="px-6 py-2 text-sm bg-temple-red text-white rounded-xl font-medium hover:bg-red-800 transition-colors disabled:opacity-50">
+                {saving ? '儲存中...' : '儲存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [tab, setTab] = useState<Tab>('overview');
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [donations, setDonations] = useState<DonationRecord[]>([]);
+  const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -584,9 +762,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const [b, d] = await Promise.all([getBookings(), getDonations()]);
+      const [b, d, bl] = await Promise.all([getBookings(), getDonations(), getBulletins()]);
       setBookings(b);
       setDonations(d);
+      setBulletins(bl);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -618,6 +797,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'bookings',  label: '預約管理',  icon: <BookOpen className="w-4 h-4" /> },
     { key: 'donations', label: '捐款管理',  icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'members',   label: '會員管理',  icon: <Users className="w-4 h-4" /> },
+    { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
   ];
 
   return (
@@ -679,6 +859,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} />}
               {tab === 'donations' && <DonationsTab donations={donations} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} />}
+              {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
             </>
           )}
         </div>

@@ -16,7 +16,11 @@ import {
   MessageCircle,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Megaphone,
+  Pin,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
@@ -25,8 +29,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-import { BookingData, ConsultationType, DonationData, DonationType } from './types';
-import { submitBooking, submitDonation, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DonationData, DonationType } from './types';
+import { submitBooking, submitDonation, getBulletins, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
@@ -41,6 +45,9 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
+  const [bulletinFilter, setBulletinFilter] = useState<string>('all');
+  const [expandedBulletin, setExpandedBulletin] = useState<string | null>(null);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +98,14 @@ const App: React.FC = () => {
     type: DonationType.GENERAL,
     notes: ''
   });
+
+  useEffect(() => {
+    getBulletins().then(setBulletins).catch(console.error);
+  }, []);
+
+  const filteredBulletins = bulletinFilter === 'all'
+    ? bulletins
+    : bulletins.filter(b => b.category === bulletinFilter);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -206,7 +221,7 @@ const App: React.FC = () => {
 
             <div className="hidden md:flex items-center space-x-4">
               <div className="flex items-baseline space-x-8">
-                {['home', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
+                {['home', 'bulletin', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
                   <button
                     key={item}
                     onClick={() => scrollToSection(item)}
@@ -217,6 +232,7 @@ const App: React.FC = () => {
                   >
                     {{
                       'home': '首頁',
+                      'bulletin': '公佈欄',
                       'about': '和聖壇緣起',
                       'services': '宮廟服務',
                       'booking': '預約諮詢',
@@ -252,7 +268,7 @@ const App: React.FC = () => {
         {isMenuOpen && (
           <div className="md:hidden bg-temple-red border-t border-temple-gold/30">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              {['home', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
+              {['home', 'bulletin', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -260,6 +276,7 @@ const App: React.FC = () => {
                 >
                   {{
                     'home': '首頁',
+                    'bulletin': '公佈欄',
                     'about': '和聖壇緣起',
                     'services': '宮廟服務',
                     'booking': '預約諮詢',
@@ -332,6 +349,93 @@ const App: React.FC = () => {
         <div className="absolute bottom-0 w-full h-16 bg-temple-bg" style={{ clipPath: 'polygon(50% 100%, 100% 0, 100% 100%, 0 100%, 0 0)' }}></div>
       </section>
 
+      {/* Bulletin Section (公佈欄) */}
+      <section id="bulletin" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 mb-4">
+              <Megaphone className="w-6 h-6 text-temple-red" />
+              <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest">最新消息</h2>
+            </div>
+            <h3 className="text-4xl font-bold text-temple-dark font-serif">公佈欄</h3>
+          </div>
+
+          {/* Category Filter */}
+          <div className="flex flex-wrap justify-center gap-3 mb-10">
+            {['all', ...Object.values(BulletinCategory)].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setBulletinFilter(cat)}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                  bulletinFilter === cat
+                    ? 'bg-temple-red text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {cat === 'all' ? '全部' : cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Bulletin List */}
+          {filteredBulletins.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Megaphone className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">目前沒有公告</p>
+            </div>
+          ) : (
+            <div className="space-y-4 max-w-4xl mx-auto">
+              {filteredBulletins.map((bulletin) => (
+                <div
+                  key={bulletin.id}
+                  className={`bg-temple-bg rounded-xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 ${
+                    bulletin.isPinned ? 'border-temple-gold' : 'border-temple-red/30'
+                  }`}
+                >
+                  <div
+                    className="flex items-start justify-between cursor-pointer"
+                    onClick={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        {bulletin.isPinned && (
+                          <span className="inline-flex items-center gap-1 bg-temple-gold/20 text-temple-gold px-2 py-0.5 rounded-full text-xs font-bold">
+                            <Pin className="w-3 h-3" /> 置頂
+                          </span>
+                        )}
+                        <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${
+                          bulletin.category === '活動公告' ? 'bg-blue-100 text-blue-700' :
+                          bulletin.category === '法會通知' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {bulletin.category}
+                        </span>
+                        <span className="text-gray-400 text-sm">
+                          {new Date(bulletin.createdAt).toLocaleDateString('zh-TW')}
+                        </span>
+                      </div>
+                      <h4 className="text-lg font-bold text-temple-dark font-serif">{bulletin.title}</h4>
+                    </div>
+                    <div className="ml-4 text-gray-400 flex-shrink-0">
+                      {expandedBulletin === bulletin.id ? (
+                        <ChevronUp className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
+                      )}
+                    </div>
+                  </div>
+                  {expandedBulletin === bulletin.id && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {bulletin.content}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* About Section */}
       <section id="about" className="py-20 bg-temple-bg relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -351,7 +455,7 @@ const App: React.FC = () => {
                 關於和聖壇
               </h2>
               <h3 className="text-4xl font-bold text-temple-dark mb-6 font-serif">
-                百年香火，世代傳承
+                虔誠信仰，世代傳承
               </h3>
               <p className="text-gray-600 mb-6 leading-relaxed text-lg">
                 和聖壇供奉神明，自建廟以來，香火鼎盛，神威顯赫。神明慈悲為懷，聞聲救苦，庇佑子民平安順遂。
@@ -362,8 +466,8 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold">
-                  <span className="text-4xl font-bold text-temple-red font-serif block mb-2">1892</span>
-                  <span className="text-gray-500">建廟年份</span>
+                  <span className="text-4xl font-bold text-temple-red font-serif block mb-2">1986</span>
+                  <span className="text-gray-500">建壇年份</span>
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold">
                   <span className="text-4xl font-bold text-temple-red font-serif block mb-2">10萬+</span>
