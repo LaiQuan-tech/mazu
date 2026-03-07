@@ -386,7 +386,7 @@ const App: React.FC = () => {
               referrerPolicy="no-referrer"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-temple-red/70 to-temple-dark/80 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
         </div>
 
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
