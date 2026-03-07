@@ -20,7 +20,8 @@ import {
   Megaphone,
   Pin,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  UserPlus
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
@@ -29,8 +30,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DonationData, DonationType } from './types';
-import { submitBooking, submitDonation, getBulletins, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, RegistrationData } from './types';
+import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
@@ -48,6 +49,12 @@ const App: React.FC = () => {
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [bulletinFilter, setBulletinFilter] = useState<string>('all');
   const [expandedBulletin, setExpandedBulletin] = useState<string | null>(null);
+  const [registerBulletin, setRegisterBulletin] = useState<BulletinRecord | null>(null);
+  const [regForm, setRegForm] = useState<RegistrationData>({ bulletinId: '', name: '', phone: '', numPeople: 1, notes: '' });
+  const [regStatus, setRegStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [heroImageUrl, setHeroImageUrl] = useState('https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop');
+  const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
+  const [deities, setDeities] = useState<DeityRecord[]>([]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,11 +108,37 @@ const App: React.FC = () => {
 
   useEffect(() => {
     getBulletins().then(setBulletins).catch(console.error);
+    getDeities().then(setDeities).catch(console.error);
+    getSiteImages().then(images => {
+      for (const img of images) {
+        const url = getSiteImagePublicUrl(img.storagePath);
+        if (img.sectionKey === 'hero') setHeroImageUrl(url);
+        if (img.sectionKey === 'about') setAboutImageUrl(url);
+      }
+    }).catch(console.error);
   }, []);
 
   const filteredBulletins = bulletinFilter === 'all'
     ? bulletins
     : bulletins.filter(b => b.category === bulletinFilter);
+
+  const openRegisterModal = (bulletin: BulletinRecord) => {
+    setRegisterBulletin(bulletin);
+    setRegForm({ bulletinId: bulletin.id, name: '', phone: '', numPeople: 1, notes: '' });
+    setRegStatus('idle');
+  };
+
+  const handleRegSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regForm.name.trim() || !regForm.phone.trim()) return;
+    setRegStatus('loading');
+    try {
+      await submitRegistration(regForm);
+      setRegStatus('success');
+    } catch {
+      setRegStatus('error');
+    }
+  };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -221,7 +254,7 @@ const App: React.FC = () => {
 
             <div className="hidden md:flex items-center space-x-4">
               <div className="flex items-baseline space-x-8">
-                {['home', 'bulletin', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
+                {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
                   <button
                     key={item}
                     onClick={() => scrollToSection(item)}
@@ -234,6 +267,7 @@ const App: React.FC = () => {
                       'home': '首頁',
                       'bulletin': '公佈欄',
                       'about': '和聖壇緣起',
+                      'deities': '神明介紹',
                       'services': '宮廟服務',
                       'booking': '預約諮詢',
                       'donation': '捐獻護持',
@@ -243,7 +277,7 @@ const App: React.FC = () => {
                 ))}
               </div>
               <a
-                href="https://line.me/ti/p/@heshengaltar"
+                href="https://lin.ee/lj0gLqR"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-[#06C755] text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#05b34c] transition-colors shadow-lg"
@@ -268,7 +302,7 @@ const App: React.FC = () => {
         {isMenuOpen && (
           <div className="md:hidden bg-temple-red border-t border-temple-gold/30">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              {['home', 'bulletin', 'about', 'services', 'booking', 'donation', 'contact'].map((item) => (
+              {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -278,6 +312,7 @@ const App: React.FC = () => {
                     'home': '首頁',
                     'bulletin': '公佈欄',
                     'about': '和聖壇緣起',
+                    'deities': '神明介紹',
                     'services': '宮廟服務',
                     'booking': '預約諮詢',
                     'donation': '捐獻護持',
@@ -287,7 +322,7 @@ const App: React.FC = () => {
               ))}
               <div className="px-3 py-4">
                 <a
-                  href="https://line.me/ti/p/@heshengaltar"
+                  href="https://lin.ee/lj0gLqR"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full bg-[#06C755] text-white px-4 py-3 rounded-lg text-center font-bold flex items-center justify-center gap-2 shadow-lg"
@@ -306,7 +341,7 @@ const App: React.FC = () => {
         {/* Background Image Placeholder */}
         <div className="absolute inset-0 z-0">
           <img
-            src="https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop"
+            src={heroImageUrl}
             alt="Temple Background"
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
@@ -425,8 +460,16 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   {expandedBulletin === bulletin.id && (
-                    <div className="mt-4 pt-4 border-t border-gray-200 text-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {bulletin.content}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>
+                      {bulletin.allowRegistration && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openRegisterModal(bulletin); }}
+                          className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-red-800 transition-colors shadow-sm"
+                        >
+                          <UserPlus className="w-4 h-4" /> 我要報名
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -443,8 +486,8 @@ const App: React.FC = () => {
             <div className="relative">
               <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0"></div>
               <img
-                src="https://images.unsplash.com/photo-1599557470872-4632a76f2f9f?q=80&w=1974&auto=format&fit=crop"
-                alt="Altar Statue"
+                src={aboutImageUrl}
+                alt="和聖壇介紹"
                 className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
                 referrerPolicy="no-referrer"
               />
@@ -476,6 +519,44 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Deities Section */}
+      <section id="deities" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center">
+              <span className="w-8 h-1 bg-temple-red mr-3"></span>
+              神明介紹
+              <span className="w-8 h-1 bg-temple-red ml-3"></span>
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark font-serif">供奉神明</h3>
+          </div>
+          {deities.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {deities.map((deity) => (
+                <div key={deity.id} className="bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
+                  <div className="h-48 bg-gradient-to-br from-temple-red/10 to-temple-gold/10 flex items-center justify-center overflow-hidden">
+                    {deity.imagePath ? (
+                      <img src={getSiteImagePublicUrl(deity.imagePath)} alt={deity.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="text-center">
+                        <Flame className="w-16 h-16 text-temple-gold/60 mx-auto mb-2" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6 text-center">
+                    <h4 className="text-xl font-bold text-temple-dark font-serif mb-1">{deity.name}</h4>
+                    {deity.title && <p className="text-temple-red text-sm font-medium mb-3">{deity.title}</p>}
+                    <p className="text-gray-600 text-sm leading-relaxed">{deity.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-400">載入中...</p>
+          )}
         </div>
       </section>
 
@@ -608,7 +689,7 @@ const App: React.FC = () => {
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-1">出生年月日 (請填寫農曆) *</label>
+                      <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-1">農曆出生年月日 *</label>
                       <input
                         type="text"
                         name="birthDate"
@@ -617,7 +698,7 @@ const App: React.FC = () => {
                         value={formData.birthDate}
                         onChange={handleInputChange}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="例如：農曆75年8月15日 辰時"
+                        placeholder="例如：農曆75年8月15日"
                       />
                     </div>
                     <div>
@@ -875,7 +956,7 @@ const App: React.FC = () => {
               </p>
               <div className="flex space-x-4">
                 <a
-                  href="https://line.me/ti/p/@heshengaltar"
+                  href="https://lin.ee/lj0gLqR"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center hover:scale-110 transition-transform text-white"
@@ -883,10 +964,10 @@ const App: React.FC = () => {
                   <span className="sr-only">LINE</span>
                   <LineIcon className="h-5 w-5" />
                 </a>
-                <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
+                <a href="https://www.facebook.com/100064534546570" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
                   <span className="sr-only">Facebook</span>
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
-                </button>
+                </a>
                 <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
                   <span className="sr-only">Instagram</span>
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465C9.673 2.013 10.03 2 12.484 2h.05m0 5.238a5.238 5.238 0 110 10.476 5.238 5.238 0 010-10.476zm0 2.162a3.077 3.077 0 100 6.154 3.077 3.077 0 000-6.154zM20.24 6.388a1.44 1.44 0 10-2.88 0 1.44 1.44 0 002.88 0z" clipRule="evenodd" /></svg>
@@ -950,7 +1031,7 @@ const App: React.FC = () => {
 
       {/* Floating LINE Button */}
       <a
-        href="https://line.me/ti/p/@heshengaltar"
+        href="https://lin.ee/lj0gLqR"
         target="_blank"
         rel="noopener noreferrer"
         title="加入 LINE 諮詢"
@@ -959,6 +1040,91 @@ const App: React.FC = () => {
         <LineIcon className="w-7 h-7" />
         <span className="text-[11px] font-bold tracking-wider leading-none">LINE</span>
       </a>
+
+      {/* Registration Modal (活動報名) */}
+      {registerBulletin && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setRegisterBulletin(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-temple-red px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-full">
+                  <UserPlus className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-white text-lg font-bold font-serif tracking-wide">活動報名</h2>
+              </div>
+              <button onClick={() => setRegisterBulletin(null)} className="text-white/70 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="bg-temple-bg rounded-lg p-3 mb-5">
+                <p className="text-sm text-gray-500">報名活動</p>
+                <p className="font-bold text-temple-dark font-serif">{registerBulletin.title}</p>
+              </div>
+
+              {regStatus === 'success' ? (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h3>
+                  <p className="text-gray-500 mb-6">我們已收到您的報名資訊，感謝您的參與。</p>
+                  <button onClick={() => setRegisterBulletin(null)}
+                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-red-800 transition-colors">
+                    關閉
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRegSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+                    <input type="text" required value={regForm.name}
+                      onChange={e => setRegForm({...regForm, name: e.target.value})}
+                      placeholder="請輸入姓名"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                    <input type="tel" required value={regForm.phone}
+                      onChange={e => setRegForm({...regForm, phone: e.target.value})}
+                      placeholder="請輸入聯絡電話"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">報名人數</label>
+                    <input type="number" min={1} max={99} value={regForm.numPeople}
+                      onChange={e => setRegForm({...regForm, numPeople: Number(e.target.value) || 1})}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">備註</label>
+                    <textarea value={regForm.notes || ''} rows={2}
+                      onChange={e => setRegForm({...regForm, notes: e.target.value})}
+                      placeholder="其他需要告知的事項..."
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent resize-none" />
+                  </div>
+
+                  {regStatus === 'error' && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" /> 報名失敗，請稍後再試。
+                    </p>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setRegisterBulletin(null)}
+                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                      取消
+                    </button>
+                    <button type="submit" disabled={regStatus === 'loading'}
+                      className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-red-800 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                      {regStatus === 'loading' ? '報名中...' : <><UserPlus className="w-4 h-4" /> 確認報名</>}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Login Modal */}
       {showLoginModal && (

@@ -71,9 +71,50 @@ export interface BulletinData {
   content: string;
   category: BulletinCategory;
   isPinned: boolean;
+  allowRegistration: boolean;
 }
 
 export interface BulletinRecord extends BulletinData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Bulletin Registration (活動報名) ─────────────────────
+export interface RegistrationData {
+  bulletinId: string;
+  name: string;
+  phone: string;
+  numPeople: number;
+  notes?: string;
+}
+
+export interface RegistrationRecord extends RegistrationData {
+  id: string;
+  createdAt: string;
+}
+
+// ─── Site Images (照片管理) ───────────────────────────────
+export type SiteImageSection = 'hero' | 'about';
+
+export interface SiteImageRecord {
+  id: string;
+  sectionKey: SiteImageSection;
+  storagePath: string;
+  originalFilename: string | null;
+  updatedAt: string;
+}
+
+// ─── Deities (神明介紹) ──────────────────────────────────
+export interface DeityData {
+  name: string;
+  title: string;
+  description: string;
+  imagePath: string | null;
+  displayOrder: number;
+}
+
+export interface DeityRecord extends DeityData {
   id: string;
   createdAt: string;
   updatedAt: string;

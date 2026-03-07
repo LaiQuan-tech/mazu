@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DonationRecord } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
   BookOpen, HeartHandshake, Search, Download, ChevronDown,
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
-  Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X
+  Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
+  Image as ImageIcon, Upload, Flame, GripVertical
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins';
+type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -576,10 +577,13 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
 const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; onRefresh: () => void }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<BulletinData>({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false });
+  const [form, setForm] = useState<BulletinData>({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false, allowRegistration: false });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [viewRegBulletin, setViewRegBulletin] = useState<BulletinRecord | null>(null);
+  const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
+  const [regLoading, setRegLoading] = useState(false);
 
   const filtered = bulletins.filter(b =>
     b.title.includes(search) || b.content.includes(search) || b.category.includes(search)
@@ -587,14 +591,37 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false });
+    setForm({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false, allowRegistration: false });
     setShowModal(true);
   };
 
   const openEdit = (b: BulletinRecord) => {
     setEditingId(b.id);
-    setForm({ title: b.title, content: b.content, category: b.category as BulletinCategory, isPinned: b.isPinned });
+    setForm({ title: b.title, content: b.content, category: b.category as BulletinCategory, isPinned: b.isPinned, allowRegistration: b.allowRegistration });
     setShowModal(true);
+  };
+
+  const openRegistrations = async (b: BulletinRecord) => {
+    setViewRegBulletin(b);
+    setRegLoading(true);
+    try {
+      const regs = await getRegistrations(b.id);
+      setRegistrations(regs);
+    } catch {
+      setRegistrations([]);
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
+  const handleDeleteReg = async (id: string) => {
+    if (!confirm('確定要刪除這筆報名嗎？')) return;
+    try {
+      await deleteRegistration(id);
+      setRegistrations(prev => prev.filter(r => r.id !== id));
+    } catch {
+      alert('刪除失敗');
+    }
   };
 
   const handleSave = async () => {
@@ -665,12 +692,13 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
               <th className="px-5 py-3 text-left">分類</th>
               <th className="px-5 py-3 text-left">日期</th>
               <th className="px-5 py-3 text-center">置頂</th>
+              <th className="px-5 py-3 text-center">報名</th>
               <th className="px-5 py-3 text-center">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-12 text-gray-400">尚無公告</td></tr>
+              <tr><td colSpan={6} className="text-center py-12 text-gray-400">尚無公告</td></tr>
             ) : filtered.map(b => (
               <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-5 py-4 font-medium text-gray-800">{b.title}</td>
@@ -683,6 +711,16 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     className={`p-1.5 rounded-lg transition-colors ${b.isPinned ? 'text-temple-gold hover:bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}>
                     {b.isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
                   </button>
+                </td>
+                <td className="px-5 py-4 text-center">
+                  {b.allowRegistration ? (
+                    <button onClick={() => openRegistrations(b)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                      <UserPlus className="w-3 h-3" /> 查看報名
+                    </button>
+                  ) : (
+                    <span className="text-gray-300 text-xs">未開放</span>
+                  )}
                 </td>
                 <td className="px-5 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -700,6 +738,72 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
           </tbody>
         </table>
       </div>
+
+      {/* Registration Detail Modal */}
+      {viewRegBulletin && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setViewRegBulletin(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-temple-red" /> 報名名單
+                </h3>
+                <p className="text-sm text-gray-500 mt-0.5">{viewRegBulletin.title}</p>
+              </div>
+              <button onClick={() => setViewRegBulletin(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {regLoading ? (
+                <div className="text-center py-12 text-gray-400">載入中...</div>
+              ) : registrations.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <UserPlus className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                  <p>尚無報名</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="text-sm text-gray-500">共 {registrations.length} 筆報名</span>
+                    <span className="text-sm text-gray-500">・</span>
+                    <span className="text-sm font-medium text-temple-red">
+                      合計 {registrations.reduce((s, r) => s + r.numPeople, 0)} 人
+                    </span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                      <tr>
+                        <th className="px-4 py-2 text-left">姓名</th>
+                        <th className="px-4 py-2 text-left">電話</th>
+                        <th className="px-4 py-2 text-center">人數</th>
+                        <th className="px-4 py-2 text-left">備註</th>
+                        <th className="px-4 py-2 text-left">報名時間</th>
+                        <th className="px-4 py-2 text-center">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {registrations.map(r => (
+                        <tr key={r.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
+                          <td className="px-4 py-3 text-gray-600">{r.phone}</td>
+                          <td className="px-4 py-3 text-center">{r.numPeople}</td>
+                          <td className="px-4 py-3 text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
+                          <td className="px-4 py-3 text-gray-500">{fmtDate(r.createdAt)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={() => handleDeleteReg(r.id)}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       {showModal && (
@@ -727,11 +831,18 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 <textarea value={form.content} onChange={e => setForm({...form, content: e.target.value})} rows={6}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red resize-none" placeholder="公告內容..." />
               </div>
+              <div className="flex flex-col gap-3">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={form.isPinned} onChange={e => setForm({...form, isPinned: e.target.checked})}
                   className="w-4 h-4 text-temple-red rounded border-gray-300 focus:ring-temple-red" />
                 <span className="text-sm text-gray-700">置頂公告</span>
               </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.allowRegistration} onChange={e => setForm({...form, allowRegistration: e.target.checked})}
+                  className="w-4 h-4 text-temple-red rounded border-gray-300 focus:ring-temple-red" />
+                <span className="text-sm text-gray-700">開放報名</span>
+              </label>
+            </div>
             </div>
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
@@ -747,6 +858,332 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
   );
 };
 
+// ─── Deities Tab (神明管理) ──────────────────────────────────────────────────────
+
+const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh: () => void }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<DeityData>({ name: '', title: '', description: '', imagePath: null, displayOrder: 0 });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ name: '', title: '', description: '', imagePath: null, displayOrder: deities.length + 1 });
+    setImageFile(null);
+    setImagePreview(null);
+    setShowModal(true);
+  };
+
+  const openEdit = (d: DeityRecord) => {
+    setEditingId(d.id);
+    setForm({ name: d.name, title: d.title, description: d.description, imagePath: d.imagePath, displayOrder: d.displayOrder });
+    setImageFile(null);
+    setImagePreview(d.imagePath ? getSiteImagePublicUrl(d.imagePath) : null);
+    setShowModal(true);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) { alert('圖片大小不能超過 5MB'); return; }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.description.trim()) return;
+    setSaving(true);
+    try {
+      let imagePath = form.imagePath;
+      if (imageFile) {
+        imagePath = await uploadDeityImage(imageFile);
+      }
+      const data = { ...form, imagePath };
+      if (editingId) {
+        await updateDeity(editingId, data);
+      } else {
+        await createDeity(data);
+      }
+      setShowModal(false);
+      onRefresh();
+    } catch {
+      alert('儲存失敗，請稍後再試');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`確定要刪除「${name}」嗎？`)) return;
+    try {
+      await deleteDeity(id);
+      onRefresh();
+    } catch {
+      alert('刪除失敗');
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">神明管理</h3>
+          <p className="text-sm text-gray-500">管理前台「神明介紹」區塊的神明資料。</p>
+        </div>
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-red-800 transition-colors">
+          <Plus className="w-4 h-4" /> 新增神明
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+            <tr>
+              <th className="px-6 py-3 text-left">排序</th>
+              <th className="px-6 py-3 text-left">圖片</th>
+              <th className="px-6 py-3 text-left">名稱</th>
+              <th className="px-6 py-3 text-left">尊稱</th>
+              <th className="px-6 py-3 text-left">介紹</th>
+              <th className="px-6 py-3 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {deities.map((d) => (
+              <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 text-gray-500"><GripVertical className="w-4 h-4 inline mr-1" />{d.displayOrder}</td>
+                <td className="px-6 py-4">
+                  {d.imagePath ? (
+                    <img src={getSiteImagePublicUrl(d.imagePath)} alt={d.name} className="w-12 h-12 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center"><Flame className="w-5 h-5 text-gray-300" /></div>
+                  )}
+                </td>
+                <td className="px-6 py-4 font-medium text-gray-800">{d.name}</td>
+                <td className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
+                <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
+                <td className="px-6 py-4 text-right">
+                  <button onClick={() => openEdit(d)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(d.id, d.name)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+            {deities.length === 0 && (
+              <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">尚無神明資料</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !saving && setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h4 className="font-semibold text-gray-800">{editingId ? '編輯神明' : '新增神明'}</h4>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">名稱 *</label>
+                <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="例如：天上聖母" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">尊稱</label>
+                <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="例如：媽祖" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">介紹 *</label>
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={4}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none" placeholder="神明介紹文字..." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">圖片</label>
+                {imagePreview ? (
+                  <div className="relative mb-2">
+                    <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
+                    <button onClick={() => { setImageFile(null); setImagePreview(null); setForm({ ...form, imagePath: null }); }}
+                      className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-temple-red/40 transition-colors">
+                    <Upload className="w-6 h-6 text-gray-300 mb-1" />
+                    <span className="text-sm text-gray-500">點擊上傳圖片</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                  </label>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">排序（數字越小越前面）</label>
+                <input type="number" value={form.displayOrder} onChange={e => setForm({ ...form, displayOrder: parseInt(e.target.value) || 0 })}
+                  className="w-24 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setShowModal(false)} disabled={saving} className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
+              <button onClick={handleSave} disabled={saving || !form.name.trim() || !form.description.trim()}
+                className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-red-800 transition-colors disabled:opacity-50">
+                {saving ? '儲存中...' : (editingId ? '更新' : '新增')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Photos Tab (照片管理) ──────────────────────────────────────────────────────
+
+const SECTION_LABELS: Record<string, { label: string; description: string }> = {
+  hero: { label: '首頁背景圖', description: '網站首頁的全螢幕背景圖片（建議尺寸：1920x1080 以上）' },
+  about: { label: '關於我們照片', description: '「關於和聖壇」區塊的介紹照片（建議尺寸：800x600 以上）' },
+};
+
+const DEFAULT_IMAGES: Record<string, string> = {
+  hero: 'https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop',
+  about: '/picture/Introduction 1.jpg',
+};
+
+const PhotosTab = ({ siteImages, onRefresh }: { siteImages: SiteImageRecord[]; onRefresh: () => void }) => {
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ section: string; file: File; url: string } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const getCurrentUrl = (section: string): string | null => {
+    const img = siteImages.find(i => i.sectionKey === section);
+    if (!img) return null;
+    return getSiteImagePublicUrl(img.storagePath);
+  };
+
+  const getImageRecord = (section: string) => siteImages.find(i => i.sectionKey === section);
+
+  const handleFileSelect = (section: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadError('請選擇圖片檔案（JPG、PNG、WebP 等）');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('圖片大小不能超過 5MB');
+      return;
+    }
+    setUploadError(null);
+    setPreview({ section, file, url: URL.createObjectURL(file) });
+  };
+
+  const handleUpload = async () => {
+    if (!preview) return;
+    setUploading(preview.section);
+    setUploadError(null);
+    try {
+      await uploadSiteImage(preview.section as SiteImageSection, preview.file);
+      URL.revokeObjectURL(preview.url);
+      setPreview(null);
+      onRefresh();
+    } catch {
+      setUploadError('上傳失敗，請稍後再試');
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleCancelPreview = () => {
+    if (preview) {
+      URL.revokeObjectURL(preview.url);
+      setPreview(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-1">網站照片管理</h3>
+        <p className="text-sm text-gray-500">管理網站各區塊的展示照片，上傳後前台會自動更新。</p>
+      </div>
+
+      {uploadError && (
+        <div className="mb-4 px-4 py-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" /> {uploadError}
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {Object.entries(SECTION_LABELS).map(([section, { label, description }]) => {
+          const currentUrl = getCurrentUrl(section);
+          const displayUrl = currentUrl || DEFAULT_IMAGES[section];
+          const imageRecord = getImageRecord(section);
+          const isUploading = uploading === section;
+
+          return (
+            <div key={section} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h4 className="font-semibold text-gray-800">{label}</h4>
+                <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+              </div>
+              <div className="p-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* 目前圖片 */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">目前圖片</p>
+                    <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden">
+                      <img src={displayUrl} alt={label} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      {!currentUrl && (
+                        <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 text-white text-xs rounded">預設圖片</div>
+                      )}
+                    </div>
+                    {imageRecord && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        最後更新：{fmtDate(imageRecord.updatedAt)}
+                        {imageRecord.originalFilename && ` (${imageRecord.originalFilename})`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 上傳區域 */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">上傳新圖片</p>
+                    {preview && preview.section === section ? (
+                      <div>
+                        <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden mb-3">
+                          <img src={preview.url} alt="Preview" className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2 px-2 py-1 bg-temple-gold text-white text-xs rounded font-medium">預覽</div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={handleUpload} disabled={isUploading}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-red-800 transition-colors disabled:opacity-50">
+                            {isUploading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</>) : (<><Upload className="w-4 h-4" /> 確認上傳</>)}
+                          </button>
+                          <button onClick={handleCancelPreview} disabled={isUploading}
+                            className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50">
+                            取消
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center aspect-video bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-temple-red/40 hover:bg-red-50/30 transition-colors">
+                        <Upload className="w-8 h-8 text-gray-300 mb-2" />
+                        <span className="text-sm text-gray-500">點擊選擇圖片</span>
+                        <span className="text-xs text-gray-400 mt-1">JPG、PNG、WebP（最大 5MB）</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(section, e)} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
@@ -754,6 +1191,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
+  const [siteImages, setSiteImages] = useState<SiteImageRecord[]>([]);
+  const [deitiesList, setDeitiesList] = useState<DeityRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -762,10 +1201,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const [b, d, bl] = await Promise.all([getBookings(), getDonations(), getBulletins()]);
+      const [b, d, bl, si, dt] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities()]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
+      setSiteImages(si);
+      setDeitiesList(dt);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -798,6 +1239,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'donations', label: '捐款管理',  icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'members',   label: '會員管理',  icon: <Users className="w-4 h-4" /> },
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
+    { key: 'deities',   label: '神明管理',  icon: <Flame className="w-4 h-4" /> },
+    { key: 'photos',    label: '照片管理',  icon: <ImageIcon className="w-4 h-4" /> },
   ];
 
   return (
@@ -860,6 +1303,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'donations' && <DonationsTab donations={donations} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
+              {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
+              {tab === 'photos'   && <PhotosTab siteImages={siteImages} onRefresh={fetchAll} />}
             </>
           )}
         </div>

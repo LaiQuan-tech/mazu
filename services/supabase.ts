@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DonationData, DonationRecord } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, RegistrationData, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -125,6 +125,7 @@ export const getBulletins = async (): Promise<BulletinRecord[]> => {
     content: row.content,
     category: row.category,
     isPinned: row.is_pinned,
+    allowRegistration: row.allow_registration ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -136,6 +137,7 @@ export const createBulletin = async (data: BulletinData): Promise<boolean> => {
     content: data.content,
     category: data.category,
     is_pinned: data.isPinned,
+    allow_registration: data.allowRegistration,
   }]);
 
   if (error) {
@@ -151,6 +153,7 @@ export const updateBulletin = async (id: string, data: Partial<BulletinData>): P
   if (data.content !== undefined) updateData.content = data.content;
   if (data.category !== undefined) updateData.category = data.category;
   if (data.isPinned !== undefined) updateData.is_pinned = data.isPinned;
+  if (data.allowRegistration !== undefined) updateData.allow_registration = data.allowRegistration;
 
   const { error } = await supabase
     .from('bulletins')
@@ -175,4 +178,224 @@ export const deleteBulletin = async (id: string): Promise<boolean> => {
     throw error;
   }
   return true;
+};
+
+// ─── Bulletin Registrations (活動報名) ─────────────────────────────────────
+
+export const submitRegistration = async (data: RegistrationData): Promise<boolean> => {
+  const { error } = await supabase.from('bulletin_registrations').insert([{
+    bulletin_id: data.bulletinId,
+    name: data.name,
+    phone: data.phone,
+    num_people: data.numPeople,
+    notes: data.notes || null,
+  }]);
+
+  if (error) {
+    console.error('Error submitting registration:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const getRegistrations = async (bulletinId?: string): Promise<RegistrationRecord[]> => {
+  let query = supabase
+    .from('bulletin_registrations')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (bulletinId) {
+    query = query.eq('bulletin_id', bulletinId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching registrations:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    bulletinId: row.bulletin_id,
+    name: row.name,
+    phone: row.phone,
+    numPeople: row.num_people,
+    notes: row.notes,
+    createdAt: row.created_at,
+  }));
+};
+
+export const deleteRegistration = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('bulletin_registrations')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting registration:', error);
+    throw error;
+  }
+  return true;
+};
+
+// ─── Site Images (照片管理) ────────────────────────────────────────────────────
+
+const SITE_IMAGES_BUCKET = 'site-images';
+
+export const getSiteImages = async (): Promise<SiteImageRecord[]> => {
+  const { data, error } = await supabase
+    .from('site_images')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching site images:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    sectionKey: row.section_key as SiteImageSection,
+    storagePath: row.storage_path,
+    originalFilename: row.original_filename,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const uploadSiteImage = async (
+  section: SiteImageSection,
+  file: File
+): Promise<string> => {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const storagePath = `${section}/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(SITE_IMAGES_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error('Error uploading site image:', uploadError);
+    throw uploadError;
+  }
+
+  const { error: dbError } = await supabase
+    .from('site_images')
+    .upsert({
+      section_key: section,
+      storage_path: storagePath,
+      original_filename: file.name,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'section_key' });
+
+  if (dbError) {
+    console.error('Error updating site_images record:', dbError);
+    throw dbError;
+  }
+
+  return storagePath;
+};
+
+export const getSiteImagePublicUrl = (storagePath: string): string => {
+  const { data } = supabase.storage
+    .from(SITE_IMAGES_BUCKET)
+    .getPublicUrl(storagePath);
+  return data.publicUrl;
+};
+
+// ─── Deities (神明介紹) ────────────────────────────────────────────────────────
+
+export const getDeities = async (): Promise<DeityRecord[]> => {
+  const { data, error } = await supabase
+    .from('deities')
+    .select('*')
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching deities:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    title: row.title || '',
+    description: row.description,
+    imagePath: row.image_path,
+    displayOrder: row.display_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const createDeity = async (data: DeityData): Promise<boolean> => {
+  const { error } = await supabase.from('deities').insert([{
+    name: data.name,
+    title: data.title || null,
+    description: data.description,
+    image_path: data.imagePath || null,
+    display_order: data.displayOrder,
+  }]);
+
+  if (error) {
+    console.error('Error creating deity:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const updateDeity = async (id: string, data: Partial<DeityData>): Promise<boolean> => {
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.imagePath !== undefined) updateData.image_path = data.imagePath;
+  if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
+
+  const { error } = await supabase
+    .from('deities')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating deity:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const deleteDeity = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('deities')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting deity:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const uploadDeityImage = async (file: File): Promise<string> => {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const storagePath = `deities/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(SITE_IMAGES_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Error uploading deity image:', error);
+    throw error;
+  }
+
+  return storagePath;
 };
