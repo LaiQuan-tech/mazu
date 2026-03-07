@@ -1013,6 +1013,8 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
                   <label className="flex flex-col items-center justify-center h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-temple-red/40 transition-colors">
                     <Upload className="w-6 h-6 text-gray-300 mb-1" />
                     <span className="text-sm text-gray-500">點擊上傳圖片</span>
+                    <span className="text-xs text-gray-400 mt-1">建議尺寸：600 × 800 px（直式）</span>
+                    <span className="text-xs text-gray-300">JPG、PNG、WebP，最大 5MB</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
                   </label>
                 )}
