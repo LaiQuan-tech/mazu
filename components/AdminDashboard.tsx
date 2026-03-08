@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection } from '../types';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -142,10 +142,10 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
 
   const handleExport = () => {
     exportExcel('預約資料.xlsx', filtered.map(b => [
-      b.name, b.phone, b.birthDate, b.bookingDate,
+      b.name, b.phone, b.birthDate, b.zodiac || '', b.bookingDate,
       b.bookingTime === 'evening' ? '晚上' : b.bookingTime,
       b.type, b.status || '', b.notes || '', fmtDate(b.createdAt)
-    ]), ['姓名', '電話', '農曆生日', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間']);
+    ]), ['姓名', '電話', '農曆生日', '生肖', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間']);
   };
 
   const types = [...new Set(bookings.map(b => b.type))];
@@ -209,7 +209,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{b.name}</p>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{b.phone}</p>
-                          <p className="text-xs text-gray-400">生日：{b.birthDate}</p>
+                          <p className="text-xs text-gray-400">生日：{b.birthDate}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
                         </div>
                       </div>
                     </td>

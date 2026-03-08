@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -13,6 +13,7 @@ export const submitBooking = async (data: BookingData): Promise<boolean> => {
     name: data.name,
     phone: data.phone,
     birth_date: data.birthDate,
+    zodiac: data.zodiac || null,
     booking_date: data.bookingDate,
     booking_time: data.bookingTime,
     type: data.type,
@@ -43,6 +44,7 @@ export const getBookings = async (): Promise<BookingRecord[]> => {
     name: row.name,
     phone: row.phone,
     birthDate: row.birth_date,
+    zodiac: row.zodiac as ZodiacSign | undefined,
     bookingDate: row.booking_date,
     bookingTime: row.booking_time,
     type: row.type,

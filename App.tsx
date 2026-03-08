@@ -30,7 +30,7 @@ const LineIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData } from './types';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData, ZodiacSign } from './types';
 import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -98,6 +98,7 @@ const App: React.FC = () => {
     name: '',
     phone: '',
     birthDate: '',
+    zodiac: undefined,
     bookingDate: '',
     bookingTime: '',
     type: ConsultationType.CAREER,
@@ -177,6 +178,11 @@ const App: React.FC = () => {
       }
     }
 
+    if (name === 'zodiac') {
+      setFormData(prev => ({ ...prev, zodiac: (value as ZodiacSign) || undefined }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -235,6 +241,7 @@ const App: React.FC = () => {
         name: '',
         phone: '',
         birthDate: '',
+        zodiac: undefined,
         bookingDate: '',
         bookingTime: '',
         type: ConsultationType.CAREER,
@@ -776,20 +783,36 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">問事項目 *</label>
+                      <label htmlFor="zodiac" className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
                       <select
-                        name="type"
-                        id="type"
-                        required
-                        value={formData.type}
+                        name="zodiac"
+                        id="zodiac"
+                        value={formData.zodiac || ''}
                         onChange={handleInputChange}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
                       >
-                        {Object.values(ConsultationType).map((type) => (
-                          <option key={type} value={type}>{type}</option>
+                        <option value="">請選擇生肖</option>
+                        {Object.values(ZodiacSign).map((z) => (
+                          <option key={z} value={z}>{z}</option>
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">問事項目 *</label>
+                    <select
+                      name="type"
+                      id="type"
+                      required
+                      value={formData.type}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
+                    >
+                      {Object.values(ConsultationType).map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">

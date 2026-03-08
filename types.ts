@@ -9,6 +9,21 @@ export enum ConsultationType {
   OTHER = '其他疑難'
 }
 
+export enum ZodiacSign {
+  RAT    = '鼠',
+  OX     = '牛',
+  TIGER  = '虎',
+  RABBIT = '兔',
+  DRAGON = '龍',
+  SNAKE  = '蛇',
+  HORSE  = '馬',
+  GOAT   = '羊',
+  MONKEY = '猴',
+  ROOSTER = '雞',
+  DOG    = '狗',
+  PIG    = '豬'
+}
+
 export enum BookingStatus {
   PENDING = '待處理',
   CONFIRMED = '已確認',
@@ -20,6 +35,7 @@ export interface BookingData {
   name: string;
   phone: string;
   birthDate: string; // Lunar birthday is often preferred, but standard date for simplicity
+  zodiac?: ZodiacSign;
   bookingDate: string;
   bookingTime: string;
   type: ConsultationType;
