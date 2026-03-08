@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, RegistrationData, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -462,5 +462,75 @@ export const uploadHeroSlide = async (file: File): Promise<HeroSlideRecord> => {
 export const deleteHeroSlide = async (id: string, imagePath: string): Promise<void> => {
   const { error: dbError } = await supabase.from('hero_slides').delete().eq('id', id);
   if (dbError) throw dbError;
+  await supabase.storage.from(SITE_IMAGES_BUCKET).remove([imagePath]);
+};
+
+// ─── Scripture Verses (聖母經) ──────────────────────────────────────────────
+
+export const getScriptureVerses = async (): Promise<ScriptureVerseRecord[]> => {
+  const { data, error } = await supabase
+    .from('scripture_verses')
+    .select('*')
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching scripture verses:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    sectionNumber: row.section_number,
+    bookPage: row.book_page,
+    verse: row.verse,
+    annotation: row.annotation,
+    imagePath: row.image_path,
+    displayOrder: row.display_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const updateScriptureVerse = async (id: string, data: Partial<ScriptureVerseData>): Promise<boolean> => {
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.verse !== undefined) updateData.verse = data.verse;
+  if (data.annotation !== undefined) updateData.annotation = data.annotation;
+  if (data.imagePath !== undefined) updateData.image_path = data.imagePath;
+  if (data.bookPage !== undefined) updateData.book_page = data.bookPage;
+  if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
+
+  const { error } = await supabase
+    .from('scripture_verses')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating scripture verse:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const uploadScriptureImage = async (file: File): Promise<string> => {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const storagePath = `scripture/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(SITE_IMAGES_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Error uploading scripture image:', error);
+    throw error;
+  }
+
+  return storagePath;
+};
+
+export const deleteScriptureImage = async (imagePath: string): Promise<void> => {
   await supabase.storage.from(SITE_IMAGES_BUCKET).remove([imagePath]);
 };

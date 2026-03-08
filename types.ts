@@ -114,6 +114,22 @@ export interface HeroSlideRecord {
   createdAt: string;
 }
 
+// ─── Scripture Verses (聖母經) ────────────────────────────
+export interface ScriptureVerseData {
+  sectionNumber: number;
+  bookPage: number;
+  verse: string;
+  annotation: string;
+  imagePath: string | null;
+  displayOrder: number;
+}
+
+export interface ScriptureVerseRecord extends ScriptureVerseData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;

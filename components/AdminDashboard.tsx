@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, RegistrationRecord, SiteImageRecord, SiteImageSection } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
   BookOpen, HeartHandshake, Search, Download, ChevronDown,
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
-  Image as ImageIcon, Upload, Flame, GripVertical
+  Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities';
+type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -1278,6 +1278,262 @@ const PhotosTab = ({ siteImages, heroSlides, onRefresh }: { siteImages: SiteImag
   );
 };
 
+// ─── Scripture Tab (聖母經管理) ─────────────────────────────────────────────
+
+const SCRIPTURE_STORAGE_BASE = `https://keosbjepuvqqqhzyuplb.supabase.co/storage/v1/object/public/site-images`;
+
+const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; onRefresh: () => void }) => {
+  const [search, setSearch] = useState('');
+  const [editingVerse, setEditingVerse] = useState<ScriptureVerseRecord | null>(null);
+  const [formVerse, setFormVerse] = useState('');
+  const [formAnnotation, setFormAnnotation] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const imgInputRef = React.useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return verses;
+    const q = search.trim().toLowerCase();
+    return verses.filter(v =>
+      String(v.sectionNumber).includes(q) ||
+      v.verse.toLowerCase().includes(q) ||
+      v.annotation.toLowerCase().includes(q)
+    );
+  }, [verses, search]);
+
+  const openEdit = (v: ScriptureVerseRecord) => {
+    setEditingVerse(v);
+    setFormVerse(v.verse);
+    setFormAnnotation(v.annotation);
+    setNewImageFile(null);
+    setPreviewUrl(null);
+  };
+
+  const closeEdit = () => {
+    setEditingVerse(null);
+    setNewImageFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('請選擇圖片檔案'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('檔案不可超過 5MB'); return; }
+    setNewImageFile(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleSave = async () => {
+    if (!editingVerse) return;
+    setSaving(true);
+    try {
+      let newImagePath = editingVerse.imagePath;
+
+      // Upload new image if selected
+      if (newImageFile) {
+        const uploadedPath = await uploadScriptureImage(newImageFile);
+        // Delete old image if it exists and is different
+        if (editingVerse.imagePath && editingVerse.imagePath !== uploadedPath) {
+          try { await deleteScriptureImage(editingVerse.imagePath); } catch { /* ignore */ }
+        }
+        newImagePath = uploadedPath;
+      }
+
+      await updateScriptureVerse(editingVerse.id, {
+        verse: formVerse,
+        annotation: formAnnotation,
+        imagePath: newImagePath,
+      });
+
+      closeEdit();
+      onRefresh();
+    } catch (err) {
+      alert('儲存失敗：' + (err instanceof Error ? err.message : '未知錯誤'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return null;
+    return `${SCRIPTURE_STORAGE_BASE}/${imagePath}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">聖母經內容管理</h3>
+          <p className="text-sm text-gray-500 mt-1">共 {verses.length} 節・可編輯經文、註解及插圖</p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="搜尋節號或關鍵字..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="max-h-[600px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="text-left px-4 py-3 text-gray-500 font-medium w-16">節</th>
+                <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">插圖</th>
+                <th className="text-left px-4 py-3 text-gray-500 font-medium">經文</th>
+                <th className="text-left px-4 py-3 text-gray-500 font-medium">註解</th>
+                <th className="text-center px-4 py-3 text-gray-500 font-medium w-20">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map(v => (
+                <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-3 font-mono text-gray-600 font-medium">{v.sectionNumber}</td>
+                  <td className="px-4 py-3">
+                    {v.imagePath ? (
+                      <img
+                        src={getImageUrl(v.imagePath)!}
+                        alt={`第${v.sectionNumber}節`}
+                        className="w-12 h-12 object-cover rounded"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-gray-400">
+                        <ImageIcon className="w-4 h-4" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700 max-w-[200px]">
+                    <p className="truncate">{v.verse.replace(/\n/g, ' ')}</p>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 max-w-[300px]">
+                    <p className="truncate">{v.annotation.substring(0, 50)}...</p>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => openEdit(v)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-temple-red hover:bg-red-50 transition-colors"
+                      title="編輯"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={5} className="text-center py-12 text-gray-400">找不到符合的章節</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Edit Modal */}
+      {editingVerse && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={closeEdit}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800">編輯第 {editingVerse.sectionNumber} 節</h3>
+              <button onClick={closeEdit} className="p-1 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">插圖</label>
+                <div className="flex items-start gap-4">
+                  <div className="w-32 h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 shrink-0 flex items-center justify-center">
+                    {(previewUrl || getImageUrl(editingVerse.imagePath)) ? (
+                      <img
+                        src={previewUrl || getImageUrl(editingVerse.imagePath)!}
+                        alt="插圖預覽"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-gray-300" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => imgInputRef.current?.click()}
+                      className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="w-4 h-4" /> 更換插圖
+                    </button>
+                    <input
+                      ref={imgInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <p className="text-xs text-gray-400">JPG、PNG、WebP，最大 5MB</p>
+                    {newImageFile && (
+                      <p className="text-xs text-green-600">已選擇：{newImageFile.name}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Verse */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">經文（每行一句）</label>
+                <textarea
+                  value={formVerse}
+                  onChange={e => setFormVerse(e.target.value)}
+                  rows={5}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-vertical"
+                  placeholder="每行一句經文..."
+                />
+              </div>
+
+              {/* Annotation */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">註解</label>
+                <textarea
+                  value={formAnnotation}
+                  onChange={e => setFormAnnotation(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-vertical"
+                  placeholder="經文的詳細註解..."
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={closeEdit} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                取消
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2 text-sm text-white bg-temple-red rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? '儲存中...' : '儲存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
@@ -1288,6 +1544,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [siteImages, setSiteImages] = useState<SiteImageRecord[]>([]);
   const [deitiesList, setDeitiesList] = useState<DeityRecord[]>([]);
   const [heroSlidesList, setHeroSlidesList] = useState<HeroSlideRecord[]>([]);
+  const [scriptureVerses, setScriptureVerses] = useState<ScriptureVerseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -1296,13 +1553,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides()]);
+      const [b, d, bl, si, dt, hs, sv] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses()]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
       setSiteImages(si);
       setDeitiesList(dt);
       setHeroSlidesList(hs);
+      setScriptureVerses(sv);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -1337,6 +1595,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
     { key: 'deities',   label: '神明管理',  icon: <Flame className="w-4 h-4" /> },
     { key: 'photos',    label: '照片管理',  icon: <ImageIcon className="w-4 h-4" /> },
+    { key: 'scripture', label: '聖母經',    icon: <BookOpenCheck className="w-4 h-4" /> },
   ];
 
   return (
@@ -1401,6 +1660,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
+              {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
             </>
           )}
         </div>

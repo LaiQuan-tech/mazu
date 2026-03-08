@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
-import { SCRIPTURE_SECTIONS } from '../data/scriptureData';
+import { ScriptureVerseRecord } from '../types';
 
-const ScripturePage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const STORAGE_BASE = 'https://keosbjepuvqqqhzyuplb.supabase.co/storage/v1/object/public/site-images';
+
+interface ScripturePageProps {
+  onBack: () => void;
+  verses: ScriptureVerseRecord[];
+}
+
+const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, verses }) => {
   const [atTop, setAtTop] = useState(true);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -13,7 +20,7 @@ const ScripturePage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Reveal on scroll
+  // Reveal on scroll — re-observe whenever verses change
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('sp-in'); }),
@@ -21,7 +28,12 @@ const ScripturePage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     );
     document.querySelectorAll('.sp-up, .sp-left, .sp-right').forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [verses]);
+
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return null;
+    return `${STORAGE_BASE}/${imagePath}`;
+  };
 
   return (
     <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
@@ -70,7 +82,7 @@ const ScripturePage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
           <p style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2 }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
-          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16 }}>全經共 {SCRIPTURE_SECTIONS.length} 節</p>
+          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16 }}>全經共 {verses.length} 節</p>
         </div>
         <div onClick={() => window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' })}
           style={{ position: 'absolute', bottom: 32, left: '50%', color: 'rgba(107,64,16,.4)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, animation: 'sp-bounce 2.2s ease-in-out infinite' }}>
@@ -89,33 +101,36 @@ const ScripturePage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </div>
 
       {/* ── 各章節 ── */}
-      {SCRIPTURE_SECTIONS.map((section, idx) => {
+      {verses.map((section, idx) => {
         const isEven = idx % 2 === 0;
+        const imgUrl = getImageUrl(section.imagePath);
         return (
           <div key={section.id}>
             <hr className="brush-line" />
             <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
               {/* watermark number */}
               <span style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
-                {String(section.id).padStart(3, '0')}
+                {String(section.sectionNumber).padStart(3, '0')}
               </span>
 
               <div style={{ maxWidth: 1060, margin: '0 auto', width: '100%', display: 'flex', flexDirection: isEven ? 'row' : 'row-reverse', alignItems: 'center', gap: 'clamp(24px,5vw,72px)', flexWrap: 'wrap' }}>
                 {/* illustration */}
-                <div className={isEven ? 'sp-left' : 'sp-right'} style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
-                  <img
-                    src={section.illustrationUrl}
-                    alt={`第${section.id}節`}
-                    loading="lazy"
-                    style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 6px 24px rgba(90,48,16,.10))' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                </div>
+                {imgUrl && (
+                  <div className={isEven ? 'sp-left' : 'sp-right'} style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
+                    <img
+                      src={imgUrl}
+                      alt={`第${section.sectionNumber}節`}
+                      loading="lazy"
+                      style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 6px 24px rgba(90,48,16,.10))' }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                )}
 
                 {/* text */}
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <p className="sp-up" style={{ color: 'rgba(107,64,16,.4)', fontSize: 11, letterSpacing: '.4em', marginBottom: 18 }}>
-                    第 {section.id} 節
+                    第 {section.sectionNumber} 節
                   </p>
                   {/* vertical verse */}
                   <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
