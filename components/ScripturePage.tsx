@@ -65,12 +65,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   }, [verses]);
 
   // Parallax for illustration wrappers — runs on every scroll via rAF
+  // Mobile (<768px): disabled to avoid image clipping when sections stack vertically
   useEffect(() => {
     if (verses.length === 0) return;
     const tick = () => {
+      const isMobile = window.innerWidth < 768;
       document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
         const rect = el.getBoundingClientRect();
-        const offset = ((rect.top + rect.height / 2) - window.innerHeight / 2) * 0.30;
+        const factor = isMobile ? 0 : 0.45;
+        const offset = ((rect.top + rect.height / 2) - window.innerHeight / 2) * factor;
         el.style.transform = `translateY(${offset}px)`;
       });
     };
@@ -151,6 +154,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, #c9a870, transparent); opacity:.3; margin:0 auto; max-width:560px; }
         .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,#8b1a1a,#c0392b,#8b1a1a); opacity:.12; pointer-events:none; z-index:40; }
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
+        /* ── Mobile adjustments ── */
+        @media (max-width: 767px) {
+          .sp-left  { transform:translateX(-44px) scale(0.97) !important; }
+          .sp-right { transform:translateX(44px)  scale(0.97) !important; }
+          .sp-progress { display:none !important; }
+        }
       `}</style>
 
       {/* Left decorative rail */}
@@ -159,7 +168,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       {/* ── Right-side scroll progress indicator ── */}
       <div className="scroll-rail" style={{ right: 0 }} />
       {!loading && verses.length > 0 && (
-        <div style={{
+        <div className="sp-progress" style={{
           position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)',
           zIndex: 46, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           pointerEvents: 'none',
