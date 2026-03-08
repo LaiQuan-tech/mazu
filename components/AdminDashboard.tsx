@@ -8,7 +8,7 @@ import {
   BookOpen, HeartHandshake, Search, Download, ChevronDown,
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
-  Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck
+  Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List
 } from 'lucide-react';
 
 type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture';
@@ -1291,6 +1291,22 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const imgInputRef = React.useRef<HTMLInputElement>(null);
+  const annotationRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // 在游標所在行首插入「• 」清單符號
+  const insertBullet = () => {
+    const el = annotationRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const val = el.value;
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const newVal = val.slice(0, lineStart) + '• ' + val.slice(lineStart);
+    setFormAnnotation(newVal);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + 2, start + 2);
+    });
+  };
 
   const filtered = useMemo(() => {
     if (!search.trim()) return verses;
@@ -1503,14 +1519,27 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
 
               {/* Annotation */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">註解</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">註解</label>
+                  <button
+                    type="button"
+                    onClick={insertBullet}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-600 rounded border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    title="在游標處插入清單項目"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    插入清單
+                  </button>
+                </div>
                 <textarea
+                  ref={annotationRef}
                   value={formAnnotation}
                   onChange={e => setFormAnnotation(e.target.value)}
                   rows={8}
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-vertical"
                   placeholder="經文的詳細註解..."
                 />
+                <p className="text-xs text-gray-400 mt-1">以「• 」開頭的行，前台會顯示為清單項目</p>
               </div>
             </div>
 

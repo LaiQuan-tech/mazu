@@ -91,6 +91,41 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     return `${STORAGE_BASE}/${imagePath}`;
   };
 
+  // 解析「• 」開頭的行為清單，其餘保持段落
+  const renderAnnotation = (text: string): React.ReactNode[] => {
+    const lines = text.split('\n');
+    const nodes: React.ReactNode[] = [];
+    let bullets: string[] = [];
+
+    const flushBullets = (key: string) => {
+      if (bullets.length === 0) return;
+      nodes.push(
+        <ul key={key} style={{ margin: '6px 0', padding: 0, listStyle: 'none' }}>
+          {bullets.map((b, j) => (
+            <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4em', marginBottom: 3 }}>
+              <span style={{ color: '#c9a870', flexShrink: 0, lineHeight: 'inherit' }}>•</span>
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      bullets = [];
+    };
+
+    lines.forEach((line, i) => {
+      if (line.startsWith('• ')) {
+        bullets.push(line.slice(2));
+      } else {
+        flushBullets(`ul-${i}`);
+        if (line.trim()) {
+          nodes.push(<span key={`t-${i}`}>{line}<br /></span>);
+        }
+      }
+    });
+    flushBullets('ul-last');
+    return nodes;
+  };
+
   return (
     <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
       <style>{`
@@ -246,9 +281,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                     </div>
                   </div>
                   <div className="sp-up sp-d2" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />
-                  <p className="sp-up sp-d3" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(12.5px,1.5vw,14.5px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 460 }}>
-                    {section.annotation}
-                  </p>
+                  <div className="sp-up sp-d3" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(12.5px,1.5vw,14.5px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 460 }}>
+                    {renderAnnotation(section.annotation)}
+                  </div>
                 </div>
               </div>
             </section>
