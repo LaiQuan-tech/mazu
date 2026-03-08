@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
@@ -13,6 +13,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   const [atTop, setAtTop] = useState(true);
   const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [currentSection, setCurrentSection] = useState(0);
+  const rafRef = useRef<number>(0);
 
   // 每次開啟頁面都重新 fetch 最新資料
   useEffect(() => {
@@ -24,8 +27,13 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       .finally(() => setLoading(false));
   }, []);
 
+  // Nav transparency + scroll progress bar
   useEffect(() => {
-    const onScroll = () => setAtTop(window.scrollY < window.innerHeight * 0.9);
+    const onScroll = () => {
+      setAtTop(window.scrollY < window.innerHeight * 0.9);
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollProgress(docHeight > 0 ? window.scrollY / docHeight : 0);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -34,10 +42,48 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('sp-in'); }),
-      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+      { threshold: 0.10, rootMargin: '0px 0px -30px 0px' }
     );
     document.querySelectorAll('.sp-up, .sp-left, .sp-right').forEach((el) => observer.observe(el));
     return () => observer.disconnect();
+  }, [verses]);
+
+  // Current section tracker
+  useEffect(() => {
+    if (verses.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) {
+          const idx = parseInt((e.target as HTMLElement).dataset.sectionIdx || '0');
+          setCurrentSection(idx + 1);
+        }
+      }),
+      { threshold: 0.4 }
+    );
+    document.querySelectorAll('[data-section-idx]').forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [verses]);
+
+  // Parallax for illustration wrappers — runs on every scroll via rAF
+  useEffect(() => {
+    if (verses.length === 0) return;
+    const tick = () => {
+      document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const offset = ((rect.top + rect.height / 2) - window.innerHeight / 2) * 0.18;
+        el.style.transform = `translateY(${offset}px)`;
+      });
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    tick(); // set initial positions
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafRef.current);
+    };
   }, [verses]);
 
   const getImageUrl = (imagePath: string | null) => {
@@ -48,19 +94,56 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   return (
     <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
       <style>{`
-        .sp-up   { opacity:0; transform:translateY(36px);  transition:opacity .9s ease, transform .9s ease; }
-        .sp-left { opacity:0; transform:translateX(-40px);  transition:opacity .9s ease, transform .9s ease; }
-        .sp-right{ opacity:0; transform:translateX(40px);   transition:opacity .9s ease, transform .9s ease; }
-        .sp-up.sp-in, .sp-left.sp-in, .sp-right.sp-in { opacity:1; transform:translate(0,0); }
-        .sp-d1 { transition-delay:.12s; } .sp-d2 { transition-delay:.26s; } .sp-d3 { transition-delay:.42s; }
+        /* ── Entrance animations (spring easing + blur) ── */
+        .sp-up   { opacity:0; transform:translateY(64px);  filter:blur(4px);
+                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
+                              transform 1.15s cubic-bezier(0.16,1,0.3,1),
+                              filter 1.0s ease; }
+        .sp-left { opacity:0; transform:translateX(-88px) scale(0.96);
+                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
+                              transform 1.15s cubic-bezier(0.16,1,0.3,1); }
+        .sp-right{ opacity:0; transform:translateX(88px)  scale(0.96);
+                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
+                              transform 1.15s cubic-bezier(0.16,1,0.3,1); }
+        .sp-up.sp-in   { opacity:1; transform:translateY(0);      filter:blur(0); }
+        .sp-left.sp-in { opacity:1; transform:translateX(0) scale(1); }
+        .sp-right.sp-in{ opacity:1; transform:translateX(0) scale(1); }
+        .sp-d1 { transition-delay:.14s; } .sp-d2 { transition-delay:.30s; } .sp-d3 { transition-delay:.48s; }
+        /* ── Parallax wrapper ── */
+        .sp-parallax-wrap { will-change:transform; }
+        /* ── Helpers ── */
         .vert { writing-mode:vertical-rl; text-orientation:mixed; }
         .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, #c9a870, transparent); opacity:.3; margin:0 auto; max-width:560px; }
-        .scroll-rail { position:fixed; top:0; bottom:0; width:5px; background:linear-gradient(to bottom,#8b1a1a,#c0392b,#8b1a1a); opacity:.15; pointer-events:none; z-index:40; }
+        .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,#8b1a1a,#c0392b,#8b1a1a); opacity:.12; pointer-events:none; z-index:40; }
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
       `}</style>
 
+      {/* Left decorative rail */}
       <div className="scroll-rail" style={{ left: 0 }} />
+
+      {/* ── Right-side scroll progress indicator ── */}
       <div className="scroll-rail" style={{ right: 0 }} />
+      {!loading && verses.length > 0 && (
+        <div style={{
+          position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)',
+          zIndex: 46, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+          pointerEvents: 'none',
+        }}>
+          <span style={{
+            color: 'rgba(107,64,16,.45)', fontSize: 9, letterSpacing: '.1em',
+            writingMode: 'vertical-rl', lineHeight: 1.2, textAlign: 'center',
+          }}>
+            {currentSection > 0 ? currentSection : '―'}&thinsp;/&thinsp;{verses.length}
+          </span>
+          <div style={{ width: 2, height: 72, background: 'rgba(184,145,90,.18)', borderRadius: 1, overflow: 'hidden' }}>
+            <div style={{
+              width: '100%', height: `${scrollProgress * 100}%`,
+              background: 'linear-gradient(to bottom, #8b1a1a, #c9a870)',
+              borderRadius: 1, transition: 'height .2s ease',
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* ── Nav ── */}
       <div style={{
@@ -117,31 +200,46 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         const isEven = idx % 2 === 0;
         const imgUrl = getImageUrl(section.imagePath);
         return (
-          <div key={section.id}>
+          <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
             <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
-              {/* watermark number */}
+
+              {/* Subtle per-section background glow */}
+              <div style={{
+                position: 'absolute',
+                [isEven ? 'right' : 'left']: '-8%',
+                top: '15%',
+                width: '55%', height: '70%',
+                background: 'radial-gradient(ellipse, rgba(188,140,60,.045), transparent 68%)',
+                borderRadius: '50%',
+                pointerEvents: 'none',
+              }} />
+
+              {/* Watermark section number */}
               <span style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
                 {String(section.sectionNumber).padStart(3, '0')}
               </span>
 
               <div style={{ maxWidth: 1060, margin: '0 auto', width: '100%', display: 'flex', flexDirection: isEven ? 'row' : 'row-reverse', alignItems: 'center', gap: 'clamp(24px,5vw,72px)', flexWrap: 'wrap' }}>
-                {/* illustration */}
+
+                {/* Illustration: parallax wrapper + entrance animation */}
                 {imgUrl && (
-                  <div className={isEven ? 'sp-left' : 'sp-right'} style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
-                    <img
-                      src={imgUrl}
-                      alt={`第${section.sectionNumber}節`}
-                      loading="lazy"
-                      style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 6px 24px rgba(90,48,16,.10))' }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
+                  <div className="sp-parallax-wrap" style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
+                    <div className={isEven ? 'sp-left' : 'sp-right'}>
+                      <img
+                        src={imgUrl}
+                        alt=""
+                        loading="lazy"
+                        style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 8px 32px rgba(90,48,16,.13))' }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
                   </div>
                 )}
 
-                {/* text */}
+                {/* Text */}
                 <div style={{ flex: 1, minWidth: 200 }}>
-                  {/* vertical verse */}
+                  {/* Vertical verse */}
                   <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
                     <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 300, letterSpacing: '.28em', lineHeight: 1.75, height: 'clamp(110px,16vw,200px)', overflow: 'hidden' }}>
                       {section.verse}
