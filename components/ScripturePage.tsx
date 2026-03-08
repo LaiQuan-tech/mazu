@@ -242,7 +242,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b4010', fontSize: 13, background: 'rgba(107,64,16,.08)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '5px 14px', cursor: 'pointer' }}>
             <ChevronLeft size={15} /> 返回首頁
           </button>
-          <span style={{ color: '#5a3010', fontSize: 15, letterSpacing: '.35em' }}>聖 母 經</span>
+          <span style={{ color: '#5a3010', fontSize: 15, letterSpacing: '.35em' }}>天 上 聖 母 經</span>
           <div style={{ width: 88 }} />
         </div>
       </div>
@@ -254,10 +254,10 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
           <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32 }}>台 北 古 亭 和 聖 壇</p>
-          {/* hero-char: three title characters move at 0.25x */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(24px,5vw,60px)', marginBottom: 36 }}>
-            {['聖', '母', '經'].map((ch, i) => (
-              <span key={i} className="hero-char" style={{ fontSize: 'clamp(60px,9vw,112px)', color: '#3a2008', fontWeight: 300, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
+          {/* hero-char: five title characters move at 0.25x */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 36 }}>
+            {['天', '上', '聖', '母', '經'].map((ch, i) => (
+              <span key={i} className="hero-char" style={{ fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 300, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
             ))}
           </div>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
