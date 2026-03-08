@@ -70,7 +70,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     const tick = () => {
       document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
         const rect = el.getBoundingClientRect();
-        const offset = ((rect.top + rect.height / 2) - window.innerHeight / 2) * 0.18;
+        const offset = ((rect.top + rect.height / 2) - window.innerHeight / 2) * 0.30;
         el.style.transform = `translateY(${offset}px)`;
       });
     };
