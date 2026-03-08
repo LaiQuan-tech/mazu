@@ -2028,7 +2028,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'deities',   label: '神明管理',  icon: <Flame className="w-4 h-4" /> },
     { key: 'photos',    label: '照片管理',  icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '聖母經',    icon: <BookOpenCheck className="w-4 h-4" /> },
-    { key: 'lamps',     label: '點燈服務',  icon: <Flame className="w-4 h-4" /> },
+    { key: 'lamps',     label: '點燈',      icon: <Flame className="w-4 h-4" /> },
   ];
 
   return (

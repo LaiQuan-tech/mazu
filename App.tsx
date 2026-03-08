@@ -332,7 +332,7 @@ const App: React.FC = () => {
                     'about': '緣起',
                     'deities': '神明介紹',
                     'services': '服務',
-                    'lamps': '點燈服務',
+                    'lamps': '點燈',
                     'booking': '預約',
                     'donation': '捐獻',
                     'contact': '聯絡'
@@ -389,7 +389,7 @@ const App: React.FC = () => {
                   'about': '和聖壇緣起',
                   'deities': '神明介紹',
                   'services': '宮廟服務',
-                  'lamps': '點燈服務',
+                  'lamps': '點燈',
                   'booking': '預約問事',
                   'donation': '捐獻護持',
                   'contact': '聯絡我們'
