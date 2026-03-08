@@ -333,7 +333,7 @@ const App: React.FC = () => {
                     'deities': '神明介紹',
                     'services': '服務',
                     'lamps': '點燈',
-                    'booking': '預約',
+                    'booking': '問事',
                     'donation': '捐獻',
                     'contact': '聯絡'
                   }[item]}
@@ -390,7 +390,7 @@ const App: React.FC = () => {
                   'deities': '神明介紹',
                   'services': '宮廟服務',
                   'lamps': '點燈',
-                  'booking': '預約問事',
+                  'booking': '問事',
                   'donation': '捐獻護持',
                   'contact': '聯絡我們'
                 }[item]}
