@@ -153,7 +153,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-xl font-bold text-gray-800">預約管理
+        <h2 className="text-xl font-bold text-gray-800">問事管理
           <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 筆</span>
         </h2>
         <button onClick={handleExport}
@@ -2021,7 +2021,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
   const navItems: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview',  label: '總覽',     icon: <LayoutDashboard className="w-4 h-4" /> },
-    { key: 'bookings',  label: '預約管理',  icon: <BookOpen className="w-4 h-4" /> },
+    { key: 'bookings',  label: '問事管理',  icon: <BookOpen className="w-4 h-4" /> },
     { key: 'donations', label: '捐款管理',  icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'members',   label: '會員管理',  icon: <Users className="w-4 h-4" /> },
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
