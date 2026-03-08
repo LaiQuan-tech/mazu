@@ -1,18 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
+import { getScriptureVerses } from '../services/supabase';
 
 const STORAGE_BASE = 'https://keosbjepuvqqqhzyuplb.supabase.co/storage/v1/object/public/site-images';
 
 interface ScripturePageProps {
   onBack: () => void;
-  verses: ScriptureVerseRecord[];
 }
 
-const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, verses }) => {
+const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   const [atTop, setAtTop] = useState(true);
+  const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // 每次開啟頁面都重新 fetch 最新資料
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setLoading(true);
+    getScriptureVerses()
+      .then(setVerses)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setAtTop(window.scrollY < window.innerHeight * 0.9);
@@ -82,7 +92,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, verses }) => {
           </div>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
           <p style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2 }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
-          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16 }}>全經共 {verses.length} 節</p>
+          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16 }}>
+            {loading ? '載入中…' : `全經共 ${verses.length} 節`}
+          </p>
         </div>
         <div onClick={() => window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' })}
           style={{ position: 'absolute', bottom: 32, left: '50%', color: 'rgba(107,64,16,.4)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, animation: 'sp-bounce 2.2s ease-in-out infinite' }}>

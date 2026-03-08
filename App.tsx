@@ -30,8 +30,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData, ScriptureVerseRecord } from './types';
-import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getScriptureVerses, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData } from './types';
+import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 
@@ -61,7 +61,6 @@ const App: React.FC = () => {
   const heroIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
   const [deities, setDeities] = useState<DeityRecord[]>([]);
-  const [scriptureVerses, setScriptureVerses] = useState<ScriptureVerseRecord[]>([]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +132,6 @@ const App: React.FC = () => {
       setHeroSlides(slides);
       startHeroInterval(slides.length);
     }).catch(console.error);
-    getScriptureVerses().then(setScriptureVerses).catch(console.error);
 
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -262,7 +260,7 @@ const App: React.FC = () => {
   }
 
   if (showScripture) {
-    return <ScripturePage onBack={() => setShowScripture(false)} verses={scriptureVerses} />;
+    return <ScripturePage onBack={() => setShowScripture(false)} />;
   }
 
   return (
