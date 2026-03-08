@@ -33,9 +33,11 @@ const LineIcon = ({ className }: { className?: string }) => (
 import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData } from './types';
 import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
+import ScripturePage from './components/ScripturePage';
 
 const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showScripture, setShowScripture] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
   const [isScrolled, setIsScrolled] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -257,6 +259,10 @@ const App: React.FC = () => {
     return <AdminDashboard onBack={() => setShowAdmin(false)} />;
   }
 
+  if (showScripture) {
+    return <ScripturePage onBack={() => setShowScripture(false)} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col text-temple-dark selection:bg-temple-red selection:text-white">
       {/* Navigation */}
@@ -302,6 +308,12 @@ const App: React.FC = () => {
                   )}
                 </button>
               ))}
+              <button
+                onClick={() => setShowScripture(true)}
+                className="relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap text-temple-gold/80 hover:bg-temple-gold/10 hover:text-temple-gold border border-temple-gold/30"
+              >
+                聖母經
+              </button>
               <div className="w-px h-6 bg-white/20 mx-1" />
               <a
                 href="https://lin.ee/lj0gLqR"
@@ -349,6 +361,12 @@ const App: React.FC = () => {
                 }[item]}
               </button>
             ))}
+            <button
+              onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
+              className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-gold border border-temple-gold/30 hover:bg-temple-gold/10"
+            >
+              ✦ 聖母經
+            </button>
             <div className="pt-2">
               <a
                 href="https://lin.ee/lj0gLqR"
