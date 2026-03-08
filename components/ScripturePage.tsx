@@ -275,7 +275,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           {/* hero-char: five title characters move at 0.25x */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 36 }}>
             {['天', '上', '聖', '母', '經'].map((ch, i) => (
-              <span key={i} className="hero-char" style={{ fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 300, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
+              <span key={i} className="hero-char" style={{ fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 900, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
             ))}
           </div>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
@@ -347,7 +347,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 <div style={{ flex: 1, minWidth: 200 }}>
                   {/* Vertical verse */}
                   <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
-                    <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 300, letterSpacing: '.28em', lineHeight: 1.75, height: 'clamp(110px,16vw,200px)', overflow: 'hidden' }}>
+                    <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, height: 'clamp(110px,16vw,200px)', overflow: 'hidden' }}>
                       {section.verse}
                     </div>
                   </div>
