@@ -64,25 +64,65 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     return () => io.disconnect();
   }, [verses]);
 
-  // Parallax for illustration wrappers — runs on every scroll via rAF
-  // Mobile (<768px): disabled to avoid image clipping when sections stack vertically
+  // ── Unified scroll effects ────────────────────────────────────────────────
+  // 1. 插圖視差 + 縮放呼吸感   (desktop: parallax 0.45x + scale 0.95~1.04)
+  // 2. 多層視差：水印數字        (desktop: 0.10x — 慢 = 更遠)
+  // 3. Hero 視差                 (三字 0.25x / 光暈 0.12x / 副標 0.08x)
+  // 4. 閱讀焦點淡出              (desktop: 已過章節 opacity 0.55)
   useEffect(() => {
     if (verses.length === 0) return;
     const tick = () => {
       const isMobile = window.innerWidth < 768;
+      const vhCenter = window.innerHeight / 2;
+      const scrollY = window.scrollY;
+
+      // 1. Illustration parallax + scale breathing
       document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
         const rect = el.getBoundingClientRect();
-        const factor = isMobile ? 0 : 0.45;
-        const offset = ((rect.top + rect.height / 2) - window.innerHeight / 2) * factor;
-        el.style.transform = `translateY(${offset}px)`;
+        const raw = (rect.top + rect.height / 2) - vhCenter;
+        if (isMobile) { el.style.transform = 'translateY(0px)'; return; }
+        const offset = raw * 0.45;
+        const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.75));
+        const scale = 1.04 - 0.09 * normalized; // 1.04 at center → 0.95 at edge
+        el.style.transform = `translateY(${offset}px) scale(${scale})`;
       });
+
+      // 2. Watermark number: slower speed = deeper layer
+      if (!isMobile) {
+        document.querySelectorAll<HTMLElement>('.sp-watermark').forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const raw = (rect.top + rect.height / 2) - vhCenter;
+          el.style.transform = `translateY(calc(-50% + ${raw * 0.10}px))`;
+        });
+      }
+
+      // 3. Hero parallax (only while hero section is visible)
+      if (scrollY < window.innerHeight * 1.2) {
+        document.querySelectorAll<HTMLElement>('.hero-char').forEach((el) => {
+          el.style.transform = `translateY(${-scrollY * 0.25}px)`;
+        });
+        const heroGlow = document.querySelector<HTMLElement>('.hero-glow');
+        if (heroGlow) heroGlow.style.transform = `translateX(-50%) translateY(${-scrollY * 0.12}px)`;
+        const heroSub = document.querySelector<HTMLElement>('.hero-sub');
+        if (heroSub) heroSub.style.transform = `translateY(${-scrollY * 0.08}px)`;
+      }
+
+      // 4. Reading focus: past sections dim (desktop only)
+      if (!isMobile) {
+        document.querySelectorAll<HTMLElement>('[data-section-idx]').forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          el.style.transition = 'opacity 0.9s ease';
+          el.style.opacity = rect.bottom < -80 ? '0.55' : '1';
+        });
+      }
     };
+
     const onScroll = () => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(tick);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    tick(); // set initial positions
+    tick();
     return () => {
       window.removeEventListener('scroll', onScroll);
       cancelAnimationFrame(rafRef.current);
@@ -147,8 +187,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         .sp-left.sp-in { opacity:1; transform:translateX(0) scale(1); }
         .sp-right.sp-in{ opacity:1; transform:translateX(0) scale(1); }
         .sp-d1 { transition-delay:.14s; } .sp-d2 { transition-delay:.30s; } .sp-d3 { transition-delay:.48s; }
-        /* ── Parallax wrapper ── */
+        /* ── Parallax wrappers ── */
         .sp-parallax-wrap { will-change:transform; }
+        .sp-watermark     { will-change:transform; }
         /* ── Helpers ── */
         .vert { writing-mode:vertical-rl; text-orientation:mixed; }
         .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, #c9a870, transparent); opacity:.3; margin:0 auto; max-width:560px; }
@@ -209,16 +250,19 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       {/* ── Hero ── */}
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 45%, #f0dbb8, #f5edd8 65%)' }} />
-        <div style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.10), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+        {/* hero-glow: moves at 0.12x scroll speed */}
+        <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
           <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32 }}>台 北 古 亭 和 聖 壇</p>
+          {/* hero-char: three title characters move at 0.25x */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(24px,5vw,60px)', marginBottom: 36 }}>
             {['聖', '母', '經'].map((ch, i) => (
-              <span key={i} style={{ fontSize: 'clamp(60px,9vw,112px)', color: '#3a2008', fontWeight: 300, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9 }}>{ch}</span>
+              <span key={i} className="hero-char" style={{ fontSize: 'clamp(60px,9vw,112px)', color: '#3a2008', fontWeight: 300, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
             ))}
           </div>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
-          <p style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2 }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
+          {/* hero-sub: subtitle drifts at 0.08x */}
+          <p className="hero-sub" style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2 }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
           <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16 }}>
             {loading ? '載入中…' : `全經共 ${verses.length} 節`}
           </p>
@@ -259,14 +303,14 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 pointerEvents: 'none',
               }} />
 
-              {/* Watermark section number */}
-              <span style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
+              {/* Watermark section number — sp-watermark for multi-layer parallax */}
+              <span className="sp-watermark" style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
                 {String(section.sectionNumber).padStart(3, '0')}
               </span>
 
               <div style={{ maxWidth: 1060, margin: '0 auto', width: '100%', display: 'flex', flexDirection: isEven ? 'row' : 'row-reverse', alignItems: 'center', gap: 'clamp(24px,5vw,72px)', flexWrap: 'wrap' }}>
 
-                {/* Illustration: parallax wrapper + entrance animation */}
+                {/* Illustration: parallax + scale wrapper + entrance animation */}
                 {imgUrl && (
                   <div className="sp-parallax-wrap" style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
                     <div className={isEven ? 'sp-left' : 'sp-right'}>
