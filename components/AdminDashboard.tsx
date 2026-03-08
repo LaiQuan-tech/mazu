@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -11,7 +11,7 @@ import {
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture';
+type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -1563,6 +1563,405 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
   );
 };
 
+// ─── Lamps Tab (點燈服務管理) ─────────────────────────────────────────────────
+
+const LampsTab = ({
+  configs, registrations, onRefresh,
+}: {
+  configs: LampServiceConfig[];
+  registrations: LampRegistrationRecord[];
+  onRefresh: () => void;
+}) => {
+  const [view, setView] = useState<'configs' | 'registrations'>('configs');
+
+  // ── Service config state ──
+  const [editingConfig, setEditingConfig] = useState<LampServiceConfig | null>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configForm, setConfigForm] = useState<LampServiceConfigData>({ name: '', fee: 0, description: '', isActive: true, displayOrder: 0 });
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ── Registration state ──
+  const [regSearch, setRegSearch] = useState('');
+  const [regServiceFilter, setRegServiceFilter] = useState('');
+  const [regStatusFilter, setRegStatusFilter] = useState('');
+  const [updatingRegId, setUpdatingRegId] = useState<string | null>(null);
+
+  // ── Config helpers ──
+  const openAddConfig = () => {
+    setEditingConfig(null);
+    setConfigForm({ name: '', fee: 0, description: '', isActive: true, displayOrder: configs.length });
+    setShowConfigModal(true);
+  };
+
+  const openEditConfig = (c: LampServiceConfig) => {
+    setEditingConfig(c);
+    setConfigForm({ name: c.name, fee: c.fee, description: c.description, isActive: c.isActive, displayOrder: c.displayOrder });
+    setShowConfigModal(true);
+  };
+
+  const handleSaveConfig = async () => {
+    if (!configForm.name.trim()) { alert('請輸入服務名稱'); return; }
+    setSavingConfig(true);
+    try {
+      if (editingConfig) {
+        await updateLampServiceConfig(editingConfig.id, configForm);
+      } else {
+        await createLampServiceConfig(configForm);
+      }
+      setShowConfigModal(false);
+      onRefresh();
+    } catch (err) {
+      alert('儲存失敗：' + (err instanceof Error ? err.message : '未知錯誤'));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleDeleteConfig = async (id: string) => {
+    if (!confirm('確定刪除此服務項目？相關報名紀錄可能受影響。')) return;
+    setDeletingId(id);
+    try {
+      await deleteLampServiceConfig(id);
+      onRefresh();
+    } catch (err) {
+      alert('刪除失敗：' + (err instanceof Error ? err.message : '未知錯誤'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleToggleActive = async (c: LampServiceConfig) => {
+    try {
+      await updateLampServiceConfig(c.id, { isActive: !c.isActive });
+      onRefresh();
+    } catch {
+      alert('更新失敗');
+    }
+  };
+
+  // ── Registration helpers ──
+  const filteredRegs = useMemo(() => {
+    return registrations.filter(r => {
+      const matchSearch = !regSearch.trim() ||
+        r.name.toLowerCase().includes(regSearch.toLowerCase()) ||
+        r.phone.includes(regSearch);
+      const matchService = !regServiceFilter || r.serviceId === regServiceFilter;
+      const matchStatus = !regStatusFilter || r.status === regStatusFilter;
+      return matchSearch && matchService && matchStatus;
+    });
+  }, [registrations, regSearch, regServiceFilter, regStatusFilter]);
+
+  const getServiceName = (serviceId: string) =>
+    configs.find(c => c.id === serviceId)?.name || serviceId;
+
+  const handleRegStatusChange = async (id: string, status: LampRegistrationStatus) => {
+    setUpdatingRegId(id);
+    try {
+      await updateLampRegistrationStatus(id, status);
+      onRefresh();
+    } catch {
+      alert('更新狀態失敗');
+    } finally {
+      setUpdatingRegId(null);
+    }
+  };
+
+  const handleDeleteReg = async (id: string) => {
+    if (!confirm('確定刪除此登記紀錄？')) return;
+    try {
+      await deleteLampRegistration(id);
+      onRefresh();
+    } catch {
+      alert('刪除失敗');
+    }
+  };
+
+  const exportRegsExcel = () => {
+    exportExcel('點燈登記.xlsx', filteredRegs.map(r => [
+      getServiceName(r.serviceId), r.name, r.phone, r.birthDate, r.zodiac || '',
+      r.status, r.notes || '', fmtDate(r.createdAt)
+    ]), ['服務項目', '姓名', '電話', '農曆生日', '生肖', '狀態', '備註', '建立時間']);
+  };
+
+  const lampStatusBadge = (status: LampRegistrationStatus) => {
+    const map: Record<string, { bg: string; text: string }> = {
+      '待處理': { bg: 'bg-yellow-100', text: 'text-yellow-800' },
+      '已確認': { bg: 'bg-blue-100',   text: 'text-blue-800' },
+      '已完成': { bg: 'bg-green-100',  text: 'text-green-800' },
+      '已取消': { bg: 'bg-red-100',    text: 'text-red-800' },
+    };
+    const cfg = map[status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>{status}</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header + sub-view toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">點燈服務管理</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {view === 'configs' ? `共 ${configs.length} 個服務項目` : `共 ${registrations.length} 筆登記紀錄`}
+          </p>
+        </div>
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => setView('configs')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${view === 'configs' ? 'bg-temple-red text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            服務設定
+          </button>
+          <button
+            onClick={() => setView('registrations')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${view === 'registrations' ? 'bg-temple-red text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            登記紀錄
+          </button>
+        </div>
+      </div>
+
+      {/* ── Service Configs View ── */}
+      {view === 'configs' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              onClick={openAddConfig}
+              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> 新增服務
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">啟用</th>
+                  <th className="text-left px-4 py-3 text-gray-500 font-medium">服務名稱</th>
+                  <th className="text-left px-4 py-3 text-gray-500 font-medium w-32">費用</th>
+                  <th className="text-left px-4 py-3 text-gray-500 font-medium">說明</th>
+                  <th className="text-center px-4 py-3 text-gray-500 font-medium w-24">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {configs.map(c => (
+                  <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleToggleActive(c)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${c.isActive ? 'bg-green-500' : 'bg-gray-300'}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${c.isActive ? 'translate-x-4' : 'translate-x-1'}`} />
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{c.name}</td>
+                    <td className="px-4 py-3 text-temple-red font-semibold">NT$ {c.fee.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-xs">
+                      <p className="truncate">{c.description}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openEditConfig(c)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-temple-red hover:bg-red-50 transition-colors"
+                          title="編輯"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteConfig(c.id)}
+                          disabled={deletingId === c.id}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          title="刪除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {configs.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-12 text-gray-400">尚無服務項目，請點「新增服務」建立</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Registrations View ── */}
+      {view === 'registrations' && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="搜尋姓名或電話..."
+                value={regSearch}
+                onChange={e => setRegSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+              />
+            </div>
+            <select
+              value={regServiceFilter}
+              onChange={e => setRegServiceFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 outline-none focus:ring-2 focus:ring-temple-red/20"
+            >
+              <option value="">所有服務</option>
+              {configs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select
+              value={regStatusFilter}
+              onChange={e => setRegStatusFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 outline-none focus:ring-2 focus:ring-temple-red/20"
+            >
+              <option value="">所有狀態</option>
+              {Object.values(LampRegistrationStatus).map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button
+              onClick={exportRegsExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              <Download className="w-4 h-4" /> 匯出 Excel
+            </button>
+          </div>
+
+          {/* Cards */}
+          <div className="space-y-3">
+            {filteredRegs.map(r => (
+              <div key={r.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4">
+                <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
+                  <Flame className="w-5 h-5 text-orange-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-gray-800">{r.name}</p>
+                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                      {getServiceName(r.serviceId)}
+                    </span>
+                    {lampStatusBadge(r.status)}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    <Phone className="w-3 h-3 inline mr-1" />{r.phone}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    生日：{r.birthDate}{r.zodiac ? `　生肖：${r.zodiac}` : ''}
+                  </p>
+                  {r.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{r.notes}</p>}
+                  <p className="text-xs text-gray-300 mt-1">{fmtDate(r.createdAt)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={r.status}
+                    disabled={updatingRegId === r.id}
+                    onChange={e => handleRegStatusChange(r.id, e.target.value as LampRegistrationStatus)}
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-temple-red/20 disabled:opacity-50"
+                  >
+                    {Object.values(LampRegistrationStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button
+                    onClick={() => handleDeleteReg(r.id)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    title="刪除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {filteredRegs.length === 0 && (
+              <div className="text-center py-16 text-gray-400">
+                <Flame className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p>尚無符合的登記紀錄</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Config Modal ── */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowConfigModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800">{editingConfig ? '編輯服務項目' : '新增服務項目'}</h3>
+              <button onClick={() => setShowConfigModal(false)} className="p-1 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">服務名稱 *</label>
+                <input
+                  type="text"
+                  value={configForm.name}
+                  onChange={e => setConfigForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="例：光明燈"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">費用（元）*</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={configForm.fee}
+                  onChange={e => setConfigForm(p => ({ ...p, fee: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">說明文字</label>
+                <textarea
+                  rows={3}
+                  value={configForm.description}
+                  onChange={e => setConfigForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="服務說明..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">排序</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={configForm.displayOrder}
+                    onChange={e => setConfigForm(p => ({ ...p, displayOrder: Number(e.target.value) }))}
+                    className="mt-1 w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">啟用</label>
+                  <button
+                    type="button"
+                    onClick={() => setConfigForm(p => ({ ...p, isActive: !p.isActive }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${configForm.isActive ? 'bg-green-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${configForm.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setShowConfigModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
+              <button
+                onClick={handleSaveConfig}
+                disabled={savingConfig}
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {savingConfig ? '儲存中...' : '儲存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
@@ -1574,6 +1973,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [deitiesList, setDeitiesList] = useState<DeityRecord[]>([]);
   const [heroSlidesList, setHeroSlidesList] = useState<HeroSlideRecord[]>([]);
   const [scriptureVerses, setScriptureVerses] = useState<ScriptureVerseRecord[]>([]);
+  const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
+  const [lampRegistrations, setLampRegistrations] = useState<LampRegistrationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -1582,7 +1983,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses()]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs(), getLampRegistrations()]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -1590,6 +1991,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setDeitiesList(dt);
       setHeroSlidesList(hs);
       setScriptureVerses(sv);
+      setLampConfigs(lc);
+      setLampRegistrations(lr);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -1625,6 +2028,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'deities',   label: '神明管理',  icon: <Flame className="w-4 h-4" /> },
     { key: 'photos',    label: '照片管理',  icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '聖母經',    icon: <BookOpenCheck className="w-4 h-4" /> },
+    { key: 'lamps',     label: '點燈服務',  icon: <Flame className="w-4 h-4" /> },
   ];
 
   return (
@@ -1690,6 +2094,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
               {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
+              {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} />}
             </>
           )}
         </div>

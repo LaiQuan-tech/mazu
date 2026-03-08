@@ -146,6 +146,43 @@ export interface ScriptureVerseRecord extends ScriptureVerseData {
   updatedAt: string;
 }
 
+// ─── Lamp Services (點燈服務) ────────────────────────────
+export enum LampRegistrationStatus {
+  PENDING   = '待處理',
+  CONFIRMED = '已確認',
+  COMPLETED = '已完成',
+  CANCELLED = '已取消'
+}
+
+export interface LampServiceConfigData {
+  name: string;
+  fee: number;
+  description: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface LampServiceConfig extends LampServiceConfigData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LampRegistrationData {
+  serviceId: string;
+  name: string;
+  phone: string;
+  birthDate: string;
+  zodiac?: ZodiacSign;
+  notes?: string;
+}
+
+export interface LampRegistrationRecord extends LampRegistrationData {
+  id: string;
+  status: LampRegistrationStatus;
+  createdAt: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;

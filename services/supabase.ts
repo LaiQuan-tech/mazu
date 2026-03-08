@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -535,4 +535,154 @@ export const uploadScriptureImage = async (file: File): Promise<string> => {
 
 export const deleteScriptureImage = async (imagePath: string): Promise<void> => {
   await supabase.storage.from(SITE_IMAGES_BUCKET).remove([imagePath]);
+};
+
+// ─── Lamp Service Configs (點燈服務設定) ──────────────────────────────────────
+
+export const getLampServiceConfigs = async (activeOnly = false): Promise<LampServiceConfig[]> => {
+  let query = supabase
+    .from('lamp_service_configs')
+    .select('*')
+    .order('display_order', { ascending: true });
+
+  if (activeOnly) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching lamp service configs:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    fee: row.fee,
+    description: row.description,
+    isActive: row.is_active,
+    displayOrder: row.display_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const createLampServiceConfig = async (data: LampServiceConfigData): Promise<boolean> => {
+  const { error } = await supabase.from('lamp_service_configs').insert([{
+    name: data.name,
+    fee: data.fee,
+    description: data.description,
+    is_active: data.isActive,
+    display_order: data.displayOrder,
+  }]);
+
+  if (error) {
+    console.error('Error creating lamp service config:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const updateLampServiceConfig = async (id: string, data: Partial<LampServiceConfigData>): Promise<boolean> => {
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.fee !== undefined) updateData.fee = data.fee;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.isActive !== undefined) updateData.is_active = data.isActive;
+  if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
+
+  const { error } = await supabase
+    .from('lamp_service_configs')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating lamp service config:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const deleteLampServiceConfig = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('lamp_service_configs')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting lamp service config:', error);
+    throw error;
+  }
+  return true;
+};
+
+// ─── Lamp Registrations (點燈報名) ───────────────────────────────────────────
+
+export const submitLampRegistration = async (data: LampRegistrationData): Promise<boolean> => {
+  const { error } = await supabase.from('lamp_registrations').insert([{
+    service_id: data.serviceId,
+    name: data.name,
+    phone: data.phone,
+    birth_date: data.birthDate,
+    zodiac: data.zodiac || null,
+    notes: data.notes || null,
+    status: LampRegistrationStatus.PENDING,
+  }]);
+
+  if (error) {
+    console.error('Error submitting lamp registration:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const getLampRegistrations = async (): Promise<LampRegistrationRecord[]> => {
+  const { data, error } = await supabase
+    .from('lamp_registrations')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching lamp registrations:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    serviceId: row.service_id,
+    name: row.name,
+    phone: row.phone,
+    birthDate: row.birth_date,
+    zodiac: row.zodiac as ZodiacSign | undefined,
+    notes: row.notes,
+    status: row.status as LampRegistrationStatus,
+    createdAt: row.created_at,
+  }));
+};
+
+export const updateLampRegistrationStatus = async (id: string, status: LampRegistrationStatus): Promise<boolean> => {
+  const { error } = await supabase
+    .from('lamp_registrations')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating lamp registration status:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const deleteLampRegistration = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('lamp_registrations')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting lamp registration:', error);
+    throw error;
+  }
+  return true;
 };

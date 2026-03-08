@@ -30,8 +30,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, RegistrationData, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, RegistrationData, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 
@@ -61,6 +61,9 @@ const App: React.FC = () => {
   const heroIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
   const [deities, setDeities] = useState<DeityRecord[]>([]);
+  const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
+  const [lampForm, setLampForm] = useState<LampRegistrationData>({ serviceId: '', name: '', phone: '', birthDate: '', zodiac: undefined, notes: '' });
+  const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +127,7 @@ const App: React.FC = () => {
   useEffect(() => {
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(setDeities).catch(console.error);
+    getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
     getSiteImages().then(images => {
       for (const img of images) {
         if (img.sectionKey === 'about') setAboutImageUrl(getSiteImagePublicUrl(img.storagePath));
@@ -253,6 +257,28 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLampInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    if (name === 'zodiac') {
+      setLampForm(prev => ({ ...prev, zodiac: (value as ZodiacSign) || undefined }));
+      return;
+    }
+    setLampForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLampSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lampForm.serviceId || !lampForm.name.trim() || !lampForm.phone.trim() || !lampForm.birthDate.trim()) return;
+    setLampStatus('loading');
+    try {
+      await submitLampRegistration(lampForm);
+      setLampStatus('success');
+      setLampForm({ serviceId: '', name: '', phone: '', birthDate: '', zodiac: undefined, notes: '' });
+    } catch {
+      setLampStatus('error');
+    }
+  };
+
   const scrollToSection = (id: string) => {
     setActiveSection(id);
     const element = document.getElementById(id);
@@ -291,7 +317,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden lg:flex items-center gap-1">
-              {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
+              {['home', 'bulletin', 'about', 'deities', 'services', 'lamps', 'booking', 'donation', 'contact'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -306,6 +332,7 @@ const App: React.FC = () => {
                     'about': '緣起',
                     'deities': '神明介紹',
                     'services': '服務',
+                    'lamps': '點燈服務',
                     'booking': '預約',
                     'donation': '捐獻',
                     'contact': '聯絡'
@@ -347,7 +374,7 @@ const App: React.FC = () => {
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-temple-red/95 backdrop-blur-md border-t border-temple-gold/20 px-4 pt-2 pb-4 space-y-1">
-            {['home', 'bulletin', 'about', 'deities', 'services', 'booking', 'donation', 'contact'].map((item) => (
+            {['home', 'bulletin', 'about', 'deities', 'services', 'lamps', 'booking', 'donation', 'contact'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
@@ -362,6 +389,7 @@ const App: React.FC = () => {
                   'about': '和聖壇緣起',
                   'deities': '神明介紹',
                   'services': '宮廟服務',
+                  'lamps': '點燈服務',
                   'booking': '預約問事',
                   'donation': '捐獻護持',
                   'contact': '聯絡我們'
@@ -661,9 +689,9 @@ const App: React.FC = () => {
               <p className="text-gray-600 mb-6">
                 農曆新年期間，提供安太歲、點光明燈、文昌燈、財利燈服務，祈求流年順遂，元辰光彩。
               </p>
-              <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+              <button onClick={() => scrollToSection('lamps')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 立即登記 <ChevronRight className="w-4 h-4 ml-1" />
-              </a>
+              </button>
             </div>
 
             {/* Service 2 */}
@@ -695,6 +723,192 @@ const App: React.FC = () => {
               <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 線上預約 <ChevronRight className="w-4 h-4 ml-1" />
               </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Lamps Section */}
+      <section id="lamps" className="py-20 bg-temple-bg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="text-center mb-14">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 inline-block border-b-2 border-temple-gold pb-1">
+              點燈服務
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark mb-4 font-serif">
+              祈福點燈，光明護佑
+            </h3>
+            <p className="text-gray-500 max-w-xl mx-auto">
+              為本人或家人點燃平安燈，祈求諸事順遂、光明護佑。歡迎線上登記，廟方人員將與您確認細節。
+            </p>
+          </div>
+
+          {/* Service Cards */}
+          {lampConfigs.length > 0 ? (
+            <div className={`grid gap-6 mb-16 ${lampConfigs.length <= 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : lampConfigs.length === 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+              {lampConfigs.map(cfg => (
+                <div key={cfg.id} className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 flex flex-col items-center text-center hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
+                  <div className="w-14 h-14 bg-temple-red/10 rounded-full flex items-center justify-center mb-4">
+                    <Flame className="w-7 h-7 text-temple-red" />
+                  </div>
+                  <h4 className="text-xl font-bold text-temple-dark font-serif mb-2">{cfg.name}</h4>
+                  <p className="text-gray-500 text-sm leading-relaxed mb-4 flex-1">{cfg.description}</p>
+                  <div className="mt-auto">
+                    <span className="text-2xl font-bold text-temple-red">NT$ {cfg.fee.toLocaleString()}</span>
+                    <span className="text-gray-400 text-sm ml-1">/ 年</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 mb-16 py-8">
+              <Flame className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p>點燈服務資訊載入中...</p>
+            </div>
+          )}
+
+          {/* Registration Form */}
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+              <div className="bg-temple-red px-8 py-5">
+                <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-temple-gold" />
+                  線上登記點燈
+                </h4>
+                <p className="text-red-100 text-sm mt-1">填妥資料後送出，廟方人員將主動聯繫確認。</p>
+              </div>
+              <div className="p-8">
+                {lampStatus === 'success' ? (
+                  <div className="text-center py-10">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h5 className="text-xl font-bold text-gray-800 mb-2">登記成功！</h5>
+                    <p className="text-gray-500 mb-6">感謝您的登記，廟方人員將盡快與您聯繫確認。</p>
+                    <button
+                      onClick={() => setLampStatus('idle')}
+                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                      再登記一筆
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleLampSubmit} className="space-y-5">
+                    {/* Service type */}
+                    <div>
+                      <label htmlFor="lamp-service" className="block text-sm font-medium text-gray-700 mb-1">服務項目 *</label>
+                      <select
+                        id="lamp-service"
+                        name="serviceId"
+                        required
+                        value={lampForm.serviceId}
+                        onChange={handleLampInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                      >
+                        <option value="">請選擇服務項目</option>
+                        {lampConfigs.map(cfg => (
+                          <option key={cfg.id} value={cfg.id}>
+                            {cfg.name}　NT$ {cfg.fee.toLocaleString()} / 年
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Name + Phone */}
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div>
+                        <label htmlFor="lamp-name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
+                        <input
+                          type="text"
+                          id="lamp-name"
+                          name="name"
+                          required
+                          value={lampForm.name}
+                          onChange={handleLampInputChange}
+                          placeholder="請輸入姓名"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="lamp-phone" className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                        <input
+                          type="tel"
+                          id="lamp-phone"
+                          name="phone"
+                          required
+                          value={lampForm.phone}
+                          onChange={handleLampInputChange}
+                          placeholder="例：0912-345-678"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* BirthDate + Zodiac */}
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div>
+                        <label htmlFor="lamp-birthdate" className="block text-sm font-medium text-gray-700 mb-1">農曆出生年月日 *</label>
+                        <input
+                          type="text"
+                          id="lamp-birthdate"
+                          name="birthDate"
+                          required
+                          value={lampForm.birthDate}
+                          onChange={handleLampInputChange}
+                          placeholder="例：民國 60 年 3 月 15 日"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="lamp-zodiac" className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
+                        <select
+                          id="lamp-zodiac"
+                          name="zodiac"
+                          value={lampForm.zodiac || ''}
+                          onChange={handleLampInputChange}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                        >
+                          <option value="">請選擇生肖</option>
+                          {Object.values(ZodiacSign).map(z => (
+                            <option key={z} value={z}>{z}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label htmlFor="lamp-notes" className="block text-sm font-medium text-gray-700 mb-1">備註（可選）</label>
+                      <textarea
+                        id="lamp-notes"
+                        name="notes"
+                        rows={3}
+                        value={lampForm.notes || ''}
+                        onChange={handleLampInputChange}
+                        placeholder="如有特殊需求或說明，請填寫於此..."
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none"
+                      />
+                    </div>
+
+                    {lampStatus === 'error' && (
+                      <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-lg">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        登記失敗，請稍後再試或直接與廟方聯繫。
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={lampStatus === 'loading'}
+                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-red-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      <Flame className="w-4 h-4" />
+                      {lampStatus === 'loading' ? '送出中...' : '送出登記'}
+                    </button>
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         </div>
