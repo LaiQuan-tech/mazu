@@ -1481,6 +1481,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                       onChange={handleImageSelect}
                       className="hidden"
                     />
+                    <p className="text-xs text-gray-400">建議尺寸：600 × 800 px（直式）</p>
                     <p className="text-xs text-gray-400">JPG、PNG、WebP，最大 5MB</p>
                     {newImageFile && (
                       <p className="text-xs text-green-600">已選擇：{newImageFile.name}</p>
