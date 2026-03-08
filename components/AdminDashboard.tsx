@@ -1983,7 +1983,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs(), getLampRegistrations()]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
