@@ -170,7 +170,7 @@ const App: React.FC = () => {
       const date = new Date(value);
       const day = date.getDay(); // 0 is Sunday, 6 is Saturday
       if (day !== 6) {
-        alert('抱歉，目前僅開放每週六預約諮詢。');
+        alert('抱歉，目前僅開放每週六預約問事。');
         return;
       }
     }
@@ -343,7 +343,7 @@ const App: React.FC = () => {
                   'about': '和聖壇緣起',
                   'deities': '神明介紹',
                   'services': '宮廟服務',
-                  'booking': '預約諮詢',
+                  'booking': '預約問事',
                   'donation': '捐獻護持',
                   'contact': '聯絡我們'
                 }[item]}
@@ -408,7 +408,7 @@ const App: React.FC = () => {
               className="px-8 py-4 bg-temple-gold hover:bg-yellow-400 text-temple-red font-bold rounded-md shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg"
             >
               <Calendar className="w-5 h-5" />
-              立即預約諮詢
+              立即預約問事
             </button>
             <button
               onClick={() => scrollToSection('services')}
@@ -663,9 +663,9 @@ const App: React.FC = () => {
               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
                 <HeartHandshake className="w-8 h-8 text-white" />
               </div>
-              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">問事諮詢</h4>
+              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">問事服務</h4>
               <p className="text-gray-600 mb-6">
-                事業、感情、家運遇有瓶頸，誠心向神明請示。本壇提供一對一專人解籤與諮詢服務。
+                事業、感情、家運遇有瓶頸，誠心向神明請示。本壇提供一對一專人解籤與問事服務。
               </p>
               <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 線上預約 <ChevronRight className="w-4 h-4 ml-1" />
@@ -686,10 +686,10 @@ const App: React.FC = () => {
               線上服務
             </h2>
             <h3 className="text-4xl font-bold mb-4 font-serif">
-              預約諮詢表單
+              預約問事表單
             </h3>
             <p className="text-red-100 max-w-2xl mx-auto">
-              請填寫下方資料，我們將儘速為您安排諮詢時間。<br />
+              請填寫下方資料，我們將儘速為您安排問事時間。<br />
               <span className="text-temple-gold font-bold">※ 目前僅開放每週六晚上 (19:00 - 21:00) 時段預約。</span>
             </p>
           </div>
@@ -703,7 +703,7 @@ const App: React.FC = () => {
                   </div>
                   <h4 className="text-2xl font-bold text-gray-900 mb-2">預約成功！</h4>
                   <p className="text-gray-600 mb-8">
-                    感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終諮詢時間。
+                    感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終問事時間。
                   </p>
                   <button
                     onClick={() => setBookingStatus('idle')}
@@ -758,7 +758,7 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">諮詢項目 *</label>
+                      <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">問事項目 *</label>
                       <select
                         name="type"
                         id="type"
@@ -1090,7 +1090,7 @@ const App: React.FC = () => {
         href="https://lin.ee/lj0gLqR"
         target="_blank"
         rel="noopener noreferrer"
-        title="加入 LINE 諮詢"
+        title="加入 LINE 問事"
         className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-transform flex flex-col items-center justify-center gap-0.5"
       >
         <LineIcon className="w-7 h-7" />

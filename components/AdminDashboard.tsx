@@ -145,7 +145,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
       b.name, b.phone, b.birthDate, b.bookingDate,
       b.bookingTime === 'evening' ? '晚上' : b.bookingTime,
       b.type, b.status || '', b.notes || '', fmtDate(b.createdAt)
-    ]), ['姓名', '電話', '農曆生日', '預約日期', '時段', '諮詢項目', '狀態', '備註', '建立時間']);
+    ]), ['姓名', '電話', '農曆生日', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間']);
   };
 
   const types = [...new Set(bookings.map(b => b.type))];
@@ -438,7 +438,7 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
               <table className="min-w-full divide-y divide-gray-50">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['姓名', '預約日期', '諮詢項目', '狀態', '備註'].map(h => (
+                    {['姓名', '預約日期', '問事項目', '狀態', '備註'].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>
                     ))}
                   </tr>
