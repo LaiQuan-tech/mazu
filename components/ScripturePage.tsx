@@ -129,9 +129,6 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, verses }) => {
 
                 {/* text */}
                 <div style={{ flex: 1, minWidth: 200 }}>
-                  <p className="sp-up" style={{ color: 'rgba(107,64,16,.4)', fontSize: 11, letterSpacing: '.4em', marginBottom: 18 }}>
-                    第 {section.sectionNumber} 節
-                  </p>
                   {/* vertical verse */}
                   <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
                     <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 300, letterSpacing: '.28em', lineHeight: 1.75, height: 'clamp(110px,16vw,200px)', overflow: 'hidden' }}>

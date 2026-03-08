@@ -1391,7 +1391,6 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
           <table className="w-full text-sm">
             <thead className="bg-gray-50 sticky top-0">
               <tr>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium w-16">節</th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">插圖</th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">經文</th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">註解</th>
@@ -1401,7 +1400,6 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
             <tbody className="divide-y divide-gray-50">
               {filtered.map(v => (
                 <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-gray-600 font-medium">{v.sectionNumber}</td>
                   <td className="px-4 py-3">
                     {v.imagePath ? (
                       <img
@@ -1434,7 +1432,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-12 text-gray-400">找不到符合的章節</td></tr>
+                <tr><td colSpan={4} className="text-center py-12 text-gray-400">找不到符合的內容</td></tr>
               )}
             </tbody>
           </table>
@@ -1446,7 +1444,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={closeEdit}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">編輯第 {editingVerse.sectionNumber} 節</h3>
+              <h3 className="font-semibold text-gray-800">編輯插圖與內容</h3>
               <button onClick={closeEdit} className="p-1 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
             </div>
 
