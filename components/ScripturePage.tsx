@@ -257,8 +257,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         transition: 'all .4s ease',
       }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b4010', fontSize: 13, background: 'rgba(107,64,16,.08)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '5px 14px', cursor: 'pointer' }}>
-            <ChevronLeft size={15} /> 返回首頁
+          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b4010', background: 'rgba(107,64,16,.08)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '6px 8px', cursor: 'pointer' }} title="返回首頁">
+            <ChevronLeft size={18} />
           </button>
           <span style={{ color: '#5a3010', fontSize: 15, letterSpacing: '.35em' }}>天 上 聖 母 經</span>
           <div style={{ width: 88 }} />
@@ -372,8 +372,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           <hr className="brush-line sp-up sp-d1" style={{ margin: '40px auto' }} />
           <p className="sp-up sp-d2" style={{ color: 'rgba(90,48,16,.45)', fontSize: 13, letterSpacing: '.4em', lineHeight: 2.4 }}>台北古亭和聖壇　敬獻</p>
           <div className="sp-up sp-d3" style={{ marginTop: 44 }}>
-            <button onClick={onBack} style={{ color: '#6b4010', fontSize: 13, background: 'rgba(107,64,16,.07)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '9px 26px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, letterSpacing: '.1em' }}>
-              <ChevronLeft size={15} /> 返回首頁
+            <button onClick={onBack} style={{ color: '#6b4010', background: 'rgba(107,64,16,.07)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '10px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="返回首頁">
+              <ChevronLeft size={20} />
             </button>
           </div>
         </div>
