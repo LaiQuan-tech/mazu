@@ -1490,13 +1490,14 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
 
               {/* Verse */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">經文（每行一句）</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">經文（每行十個字，換行請按 Enter）</label>
                 <textarea
                   value={formVerse}
                   onChange={e => setFormVerse(e.target.value)}
-                  rows={5}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-vertical"
-                  placeholder="每行一句經文..."
+                  rows={8}
+                  className="px-3 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none"
+                  style={{ fontFamily: '"Noto Serif TC", "思源宋體", serif', fontSize: '16px', letterSpacing: '0.1em', width: '12em' }}
+                  placeholder="每行十個字..."
                 />
               </div>
 
