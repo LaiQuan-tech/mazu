@@ -76,11 +76,23 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       const vhCenter = window.innerHeight / 2;
       const scrollY = window.scrollY;
 
-      // 1. Illustration parallax + scale breathing
+      // 1. Illustration: desktop = parallax + scale, mobile = scroll-to-center drift
       document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
         const rect = el.getBoundingClientRect();
         const raw = (rect.top + rect.height / 2) - vhCenter;
-        if (isMobile) { el.style.transform = 'translateY(0px)'; return; }
+
+        if (isMobile) {
+          // Scroll-to-center: progress 0 (just entered bottom) → 1 (reached center)
+          const progress = Math.max(0, Math.min(1,
+            (window.innerHeight - rect.top) / (window.innerHeight * 0.65)
+          ));
+          const maxOffset = 56;
+          const dir = el.dataset.side === 'left' ? -1 : 1;
+          el.style.transform = `translateX(${dir * maxOffset * (1 - progress)}px)`;
+          return;
+        }
+
+        // Desktop: parallax + scale breathing
         const offset = raw * 0.45;
         const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.75));
         const scale = 1.04 - 0.09 * normalized; // 1.04 at center → 0.95 at edge
@@ -197,8 +209,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
         /* ── Mobile adjustments ── */
         @media (max-width: 767px) {
-          .sp-left  { transform:translateX(-44px) scale(0.97) !important; }
-          .sp-right { transform:translateX(44px)  scale(0.97) !important; }
+          /* translateX handled by JS scroll-to-center; CSS only controls opacity */
+          .sp-left, .sp-right {
+            transform: none !important;
+            transition: opacity 1.0s cubic-bezier(0.16,1,0.3,1) !important;
+          }
+          .sp-left.sp-in, .sp-right.sp-in { transform: none !important; }
           .sp-progress { display:none !important; }
         }
       `}</style>
@@ -312,7 +328,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
 
                 {/* Illustration: parallax + scale wrapper + entrance animation */}
                 {imgUrl && (
-                  <div className="sp-parallax-wrap" style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
+                  <div className="sp-parallax-wrap" data-side={isEven ? 'left' : 'right'} style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
                     <div className={isEven ? 'sp-left' : 'sp-right'}>
                       <img
                         src={imgUrl}
