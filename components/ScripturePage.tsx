@@ -352,7 +352,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                     </div>
                   </div>
                   <div className="sp-up sp-d2" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />
-                  <div className="sp-up sp-d3" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(12.5px,1.5vw,14.5px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 460 }}>
+                  <div className="sp-up sp-d3" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 460 }}>
                     {renderAnnotation(section.annotation)}
                   </div>
                 </div>
