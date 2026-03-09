@@ -176,7 +176,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   };
 
   return (
-    <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
+    <div style={{ background: 'linear-gradient(168deg, #ede3bf 0%, #f4ecd4 22%, #f0e8ce 50%, #ece2c2 78%, #e7dbb8 100%)', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
       <style>{`
         /* ── Entrance animations (spring easing + blur) ── */
         .sp-up   { opacity:0; transform:translateY(64px);  filter:blur(4px);
@@ -216,7 +216,37 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           .sp-right.sp-in { transform: translateY(0) scale(1) !important; }
           .sp-progress { display:none !important; }
         }
+        /* ── 仿古紙質三層疊加 ── */
+        /* 1. 紙纖維噪點 (SVG feTurbulence) */
+        .paper-grain {
+          position:fixed; inset:0; pointer-events:none; z-index:100;
+          opacity:0.038; mix-blend-mode:multiply;
+          background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C%2Fsvg%3E");
+          background-repeat:repeat; background-size:200px 200px;
+        }
+        /* 2. 四角暈染 (老紙邊緣自然加深) */
+        .paper-vignette {
+          position:fixed; inset:0; pointer-events:none; z-index:100;
+          background:
+            radial-gradient(ellipse at 50% 42%, transparent 48%, rgba(82,48,6,.13) 100%),
+            linear-gradient(to bottom, rgba(80,45,5,.04) 0%, transparent 8%, transparent 92%, rgba(80,45,5,.05) 100%);
+        }
+        /* 3. 仿舊斑漬 (四角+中央隨機老化感) */
+        .paper-aging {
+          position:fixed; inset:0; pointer-events:none; z-index:100;
+          background:
+            radial-gradient(ellipse at  4%  6%, rgba(110,65,8,.07)  0%, transparent 32%),
+            radial-gradient(ellipse at 97%  4%, rgba( 95,52,5,.06)  0%, transparent 28%),
+            radial-gradient(ellipse at  2% 96%, rgba(115,68,8,.07)  0%, transparent 30%),
+            radial-gradient(ellipse at 98% 97%, rgba(100,58,5,.06)  0%, transparent 26%),
+            radial-gradient(ellipse at 50% 52%, rgba(108,62,12,.02) 0%, transparent 38%);
+        }
       `}</style>
+
+      {/* ── 仿古紙質覆蓋層（pointer-events:none，不影響點擊）── */}
+      <div className="paper-grain" />
+      <div className="paper-vignette" />
+      <div className="paper-aging" />
 
       {/* Left decorative rail */}
       <div className="scroll-rail" style={{ left: 0 }} />
