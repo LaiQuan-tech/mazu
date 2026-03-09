@@ -49,9 +49,18 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('sp-in'); }),
-      { threshold: 0.10, rootMargin: '0px 0px -30px 0px' }
+      { threshold: 0.05, rootMargin: '0px 0px 60px 0px' }
     );
-    document.querySelectorAll('.sp-up, .sp-left, .sp-right').forEach((el) => observer.observe(el));
+    document.querySelectorAll<Element>('.sp-up, .sp-left, .sp-right').forEach((el) => {
+      observer.observe(el);
+      // 資料非同步載入時，user 可能已滑過第一節，
+      // Observer 只在元素「進入」時觸發，不補觸發已滑過的元素。
+      // → 觀察前先手動檢查：若元素已在視口範圍內（含上方），立即顯示。
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight) {
+        el.classList.add('sp-in');
+      }
+    });
     return () => observer.disconnect();
   }, [verses]);
 
