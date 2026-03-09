@@ -212,15 +212,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @media (max-width: 767px) {
           /* 圖片包裝器改全寬 */
           .sp-parallax-wrap { width:100% !important; flex:none !important; }
-          /* 從螢幕外滑入 — CSS 主控，不用 JS parallax */
-          .sp-left  { transform: translateX(-110vw) scale(0.95) !important;
-                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
-                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-right { transform: translateX(110vw)  scale(0.95) !important;
-                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
-                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-left.sp-in  { transform: translateX(0) scale(1) !important; }
-          .sp-right.sp-in { transform: translateX(0) scale(1) !important; }
+          /* 手機版：小幅度滑入（不能用 110vw，會讓 IntersectionObserver 偵測不到） */
+          .sp-left  { opacity:0; transform: translateX(-60px) scale(0.96) !important;
+                      transition: opacity 1.2s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-right { opacity:0; transform: translateX(60px)  scale(0.96) !important;
+                      transition: opacity 1.2s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-left.sp-in  { opacity:1; transform: translateX(0) scale(1) !important; }
+          .sp-right.sp-in { opacity:1; transform: translateX(0) scale(1) !important; }
           .sp-progress { display:none !important; }
         }
         /* ── 仿古紙質三層疊加 ── */
@@ -304,8 +304,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       </div>
 
       {/* ── Hero ── */}
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 45%, #f0dbb8, #f5edd8 65%)' }} />
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         {/* hero-glow: moves at 0.12x scroll speed */}
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
@@ -347,7 +346,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         return (
           <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
-            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
 
               {/* Subtle per-section background glow */}
               <div style={{
