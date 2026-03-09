@@ -82,7 +82,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         const raw = (rect.top + rect.height / 2) - vhCenter;
 
         if (isMobile) {
-          // 手機版：CSS 主控從螢幕外滑入，JS 不介入
+          // 手機：輕微 Y 視差 (0.10x)，讓滑動時圖片有深度感
+          const offset = raw * 0.10;
+          el.style.transform = `translateY(${offset}px)`;
           return;
         }
 
@@ -205,15 +207,42 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @media (max-width: 767px) {
           /* 圖片包裝器改全寬 */
           .sp-parallax-wrap { width:100% !important; flex:none !important; }
-          /* 手機改用 Y 軸小幅位移+淡入，避免被 section overflow:hidden 裁掉導致 IntersectionObserver 失效 */
-          .sp-left  { transform: translateY(32px) scale(0.97) !important;
-                      transition: opacity 1.2s cubic-bezier(0.16,1,0.3,1),
-                                  transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-right { transform: translateY(32px) scale(0.97) !important;
-                      transition: opacity 1.2s cubic-bezier(0.16,1,0.3,1),
-                                  transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-left.sp-in  { transform: translateY(0) scale(1) !important; }
-          .sp-right.sp-in { transform: translateY(0) scale(1) !important; }
+          /* ── 手機入場：clip-path 橫向揭幕 + 縮放 + 模糊 ──
+             clip-path 不影響 layout box，IntersectionObserver 可正常觸發 */
+          .sp-left {
+            opacity:0 !important;
+            clip-path: inset(0 100% 0 0 round 6px) !important;
+            transform: scale(0.92) translateX(-10px) !important;
+            filter: blur(5px) !important;
+            transition:
+              clip-path 1.6s cubic-bezier(0.16,1,0.3,1),
+              opacity    0.9s ease,
+              transform  1.6s cubic-bezier(0.16,1,0.3,1),
+              filter     1.3s ease !important;
+          }
+          .sp-right {
+            opacity:0 !important;
+            clip-path: inset(0 0 0 100% round 6px) !important;
+            transform: scale(0.92) translateX(10px) !important;
+            filter: blur(5px) !important;
+            transition:
+              clip-path 1.6s cubic-bezier(0.16,1,0.3,1),
+              opacity    0.9s ease,
+              transform  1.6s cubic-bezier(0.16,1,0.3,1),
+              filter     1.3s ease !important;
+          }
+          .sp-left.sp-in {
+            opacity:1 !important;
+            clip-path: inset(0 0% 0 0 round 0px) !important;
+            transform: scale(1) translateX(0) !important;
+            filter: blur(0) !important;
+          }
+          .sp-right.sp-in {
+            opacity:1 !important;
+            clip-path: inset(0 0 0 0% round 0px) !important;
+            transform: scale(1) translateX(0) !important;
+            filter: blur(0) !important;
+          }
           .sp-progress { display:none !important; }
         }
         /* ── 仿古紙質三層疊加 ── */
