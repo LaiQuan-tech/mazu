@@ -1373,10 +1373,9 @@ const App: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
         title="加入 LINE 問事"
-        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] text-white w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-transform flex flex-col items-center justify-center gap-0.5"
+        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
       >
-        <LineIcon className="w-7 h-7" />
-        <span className="text-[11px] font-bold tracking-wider leading-none">LINE</span>
+        <LineIcon className="w-10 h-10" />
       </a>
 
       {/* Registration Modal (活動報名) */}
