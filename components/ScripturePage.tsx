@@ -301,7 +301,6 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
 
       {/* ── Hero ── */}
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 45%, #f0dbb8, #f5edd8 65%)' }} />
         {/* hero-glow: moves at 0.12x scroll speed */}
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
