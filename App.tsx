@@ -325,12 +325,9 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
             <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => scrollToSection('home')}>
-              <div className={`bg-white rounded-full border-2 border-temple-gold/50 shadow-md transition-all duration-300 ${isScrolled ? 'p-0.5' : 'p-0.5'}`}>
-                <img src="/logo.png" alt="和聖壇 Logo" className={`object-contain transition-all duration-300 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`} referrerPolicy="no-referrer" />
-              </div>
+              <img src="/logo.png" alt="台北古亭和聖壇 Logo" className={`object-contain transition-all duration-300 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`} referrerPolicy="no-referrer" />
               <div className="hidden sm:block">
-                <h1 className={`text-temple-dark font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>和聖壇</h1>
-                <p className="text-[10px] tracking-widest text-temple-red/70 uppercase">He Sheng Altar</p>
+                <h1 className={`text-temple-dark font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-base' : 'text-lg'}`}>台北古亭和聖壇</h1>
               </div>
             </div>
 
@@ -342,13 +339,13 @@ const App: React.FC = () => {
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${activeSection === item
                       ? 'bg-temple-gold/15 text-temple-red font-semibold'
-                      : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
+                      : 'text-temple-gold hover:bg-[#C49820]/10 hover:text-temple-red'}`}
                 >
                   {{
                     'home': '首頁',
                     'bulletin': '公佈欄',
                     'about': '緣起',
-                    'deities': '神明介紹',
+                    'deities': '神明',
                     'services': '服務',
                     'lamps': '點燈',
                     'booking': '問事',
@@ -399,13 +396,13 @@ const App: React.FC = () => {
                 className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200
                   ${activeSection === item
                     ? 'bg-temple-gold/15 text-temple-red font-semibold'
-                    : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
+                    : 'text-temple-gold hover:bg-[#C49820]/10 hover:text-temple-red'}`}
               >
                 {{
                   'home': '首頁',
                   'bulletin': '公佈欄',
                   'about': '和聖壇緣起',
-                  'deities': '神明介紹',
+                  'deities': '神明',
                   'services': '宮廟服務',
                   'lamps': '點燈',
                   'booking': '問事',
