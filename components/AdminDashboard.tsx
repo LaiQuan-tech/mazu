@@ -294,7 +294,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
     return matchSearch && matchType;
   }), [donations, search, filterType]);
 
-  useEffect(() => { setPage(0); }, [donations, search, filterType]);
+  useEffect(() => { setPage(0); }, [search, filterType]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const total = filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0);
@@ -636,7 +636,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
     b.title.includes(search) || b.content.includes(search) || b.category.includes(search)
   );
 
-  useEffect(() => { setPage(0); }, [search, bulletins]);
+  useEffect(() => { setPage(0); }, [search]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const openCreate = () => {
@@ -1370,7 +1370,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
     );
   }, [verses, search]);
 
-  useEffect(() => { setPage(0); }, [verses, search]);
+  useEffect(() => { setPage(0); }, [search]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const openEdit = (v: ScriptureVerseRecord) => {
@@ -1707,7 +1707,7 @@ const LampsTab = ({
     });
   }, [registrations, regSearch, regServiceFilter, regStatusFilter]);
 
-  useEffect(() => { setRegPage(0); }, [registrations, regSearch, regServiceFilter, regStatusFilter]);
+  useEffect(() => { setRegPage(0); }, [regSearch, regServiceFilter, regStatusFilter]);
   const pagedRegs = filteredRegs.slice(regPage * PAGE_SIZE, (regPage + 1) * PAGE_SIZE);
 
   const getServiceName = (serviceId: string) =>
