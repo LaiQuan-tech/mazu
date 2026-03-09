@@ -89,9 +89,17 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         const raw = (rect.top + rect.height / 2) - vhCenter;
 
         if (isMobile) {
-          // 手機：Y 視差 (0.22x)，明顯的前後深度感
-          const offset = raw * 0.22;
-          el.style.transform = `translateY(${offset}px)`;
+          // 手機：視差作用在 IMG 上（而非 wrapper），搭配 scale(1.25)
+          // → 圖片比容器大 25%，在 overflow:hidden 容器內滑動
+          // → 不會疊到文字，邊緣被裁切看不到
+          const img = el.querySelector<HTMLElement>('img');
+          if (img) {
+            // 平滑壓縮：靠近中心靈敏，邊緣柔和封頂 ±28px
+            const ratio = raw / (window.innerHeight * 0.45);
+            const eased = Math.tanh(ratio * 0.7);
+            const offset = eased * 28;
+            img.style.transform = `scale(1.25) translateY(${offset}px)`;
+          }
           return;
         }
 
@@ -212,8 +220,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
         /* ── Mobile adjustments ── */
         @media (max-width: 767px) {
-          /* 圖片包裝器改全寬 */
-          .sp-parallax-wrap { width:100% !important; flex:none !important; }
+          /* 圖片：全寬 + overflow:hidden 做視差容器，圖片在框內滑動不會疊到文字 */
+          .sp-parallax-wrap {
+            width:100% !important; flex:none !important;
+            overflow:hidden !important; border-radius:8px !important;
+            margin-bottom:16px !important;
+          }
           /* ── 手機入場：scale 爆出 + 重度模糊溶入 + clip-path 橫向揭幕三重效果 ──
              clip-path 不影響 layout box，IntersectionObserver 可正常觸發 */
           .sp-left {
@@ -378,7 +390,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         return (
           <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
-            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
+            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
 
               {/* Subtle per-section background glow */}
               <div style={{
