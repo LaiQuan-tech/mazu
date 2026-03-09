@@ -36,22 +36,6 @@ import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 
 // 水墨筆刷分隔線元件
-const BrushDivider = ({ className = '' }: { className?: string }) => (
-  <div className={`w-full flex justify-center py-4 ${className}`} aria-hidden="true">
-    <svg width="360" height="18" viewBox="0 0 360 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M10,9 C50,3 90,15 140,8 C190,1 240,14 290,8 C315,5 340,11 350,9"
-        stroke="#7C5C1E" strokeWidth="5" strokeLinecap="round"
-        opacity="0.18" fill="none" style={{ filter: 'blur(0.4px)' }}
-      />
-      <path
-        d="M0,11 C35,6 70,15 110,9 C150,3 190,13 230,8 C270,3 310,12 360,9"
-        stroke="#C49820" strokeWidth="1.5" strokeLinecap="round"
-        opacity="0.25" fill="none"
-      />
-    </svg>
-  </div>
-);
 
 const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -508,9 +492,7 @@ const App: React.FC = () => {
         <div className="absolute bottom-0 w-full h-16 bg-temple-bg" style={{ clipPath: 'polygon(50% 100%, 100% 0, 100% 100%, 0 100%, 0 0)' }}></div>
       </section>
 
-      <BrushDivider />
-
-      {/* Bulletin Section (公佈欄) */}
+{/* Bulletin Section (公佈欄) */}
       <section id="bulletin" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -610,9 +592,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      <BrushDivider />
-
-      {/* About Section */}
+{/* About Section */}
       <section id="about" className="py-20 bg-temple-bg relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -660,9 +640,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      <BrushDivider />
-
-      {/* Deities Section */}
+{/* Deities Section */}
       <section id="deities" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -764,9 +742,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      <BrushDivider />
-
-      {/* Lamps Section */}
+{/* Lamps Section */}
       <section id="lamps" className="py-20 bg-temple-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -957,9 +933,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      <BrushDivider />
-
-      {/* Booking Section */}
+{/* Booking Section */}
       <section id="booking" className="py-20 bg-temple-red relative text-white">
         {/* Pattern Overlay */}
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#C49820 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
@@ -1158,9 +1132,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      <BrushDivider />
-
-      {/* Donation Section */}
+{/* Donation Section */}
       <section id="donation" className="py-20 bg-temple-bg relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
