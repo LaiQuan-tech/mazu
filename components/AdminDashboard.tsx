@@ -74,6 +74,37 @@ const StatCard = ({ icon, label, value, sub, color }: {
   </div>
 );
 
+const PAGE_SIZE = 25;
+
+// ─── Paginator ───────────────────────────────────────────────────────────────
+const Paginator = ({ total, page, onChange }: { total: number; page: number; onChange: (p: number) => void }) => {
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (totalPages <= 1) return null;
+  const start = page * PAGE_SIZE + 1;
+  const end = Math.min((page + 1) * PAGE_SIZE, total);
+  return (
+    <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-white">
+      <span className="text-sm text-gray-500">{start}–{end} / 共 {total} 筆</span>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onChange(0)} disabled={page === 0}
+          className="px-2 py-1 text-xs rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50">«</button>
+        <button onClick={() => onChange(page - 1)} disabled={page === 0}
+          className="px-3 py-1 text-xs rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50">上一頁</button>
+        {Array.from({ length: totalPages }, (_, i) => i).filter(i => Math.abs(i - page) <= 2).map(i => (
+          <button key={i} onClick={() => onChange(i)}
+            className={`px-3 py-1 text-xs rounded border ${i === page ? 'bg-temple-red text-white border-temple-red' : 'border-gray-200 hover:bg-gray-50'}`}>
+            {i + 1}
+          </button>
+        ))}
+        <button onClick={() => onChange(page + 1)} disabled={page >= totalPages - 1}
+          className="px-3 py-1 text-xs rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50">下一頁</button>
+        <button onClick={() => onChange(totalPages - 1)} disabled={page >= totalPages - 1}
+          className="px-2 py-1 text-xs rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50">»</button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 const OverviewTab = ({ bookings, donations }: { bookings: BookingRecord[]; donations: DonationRecord[] }) => {
@@ -131,6 +162,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => bookings.filter(b => {
     const q = search.toLowerCase();
@@ -139,6 +171,9 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
     const matchType = !filterType || b.type === filterType;
     return matchSearch && matchStatus && matchType;
   }), [bookings, search, filterStatus, filterType]);
+
+  useEffect(() => { setPage(0); }, [search, filterStatus, filterType]);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const handleExport = () => {
     exportExcel('預約資料.xlsx', filtered.map(b => [
@@ -199,7 +234,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(b => (
+                {paged.map(b => (
                   <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -237,6 +272,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
                 ))}
               </tbody>
             </table>
+            <Paginator total={filtered.length} page={page} onChange={setPage} />
           </div>
         )}
       </div>
@@ -249,6 +285,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
 const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => donations.filter(d => {
     const q = search.toLowerCase();
@@ -256,6 +293,9 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
     const matchType = !filterType || d.type === filterType;
     return matchSearch && matchType;
   }), [donations, search, filterType]);
+
+  useEffect(() => { setPage(0); }, [donations, search, filterType]);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const total = filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const types = [...new Set(donations.map(d => d.type))];
@@ -314,7 +354,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(d => (
+                {paged.map(d => (
                   <tr key={d.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -343,6 +383,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
                 ))}
               </tbody>
             </table>
+            <Paginator total={filtered.length} page={page} onChange={setPage} />
           </div>
         )}
       </div>
@@ -355,6 +396,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
 const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donations: DonationRecord[] }) => {
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   // 依電話聚合成「虛擬會員」
   const members = useMemo(() => {
@@ -384,6 +426,9 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
     const q = search.toLowerCase();
     return members.filter(m => m.name.toLowerCase().includes(q) || m.phone.includes(q));
   }, [members, search]);
+
+  useEffect(() => { setPage(0); }, [search]);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const selected = useMemo(() =>
     selectedPhone ? members.find(m => m.phone === selectedPhone) ?? null : null,
@@ -535,7 +580,7 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(m => {
+                {paged.map(m => {
                   const totalDonation = m.donations.reduce((s, d) => s + Number(d.amount), 0);
                   return (
                     <tr key={m.phone} onClick={() => setSelectedPhone(m.phone)}
@@ -565,6 +610,7 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
                 })}
               </tbody>
             </table>
+            <Paginator total={filtered.length} page={page} onChange={setPage} />
           </div>
         )}
       </div>
@@ -584,10 +630,14 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
   const [viewRegBulletin, setViewRegBulletin] = useState<BulletinRecord | null>(null);
   const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
   const [regLoading, setRegLoading] = useState(false);
+  const [page, setPage] = useState(0);
 
   const filtered = bulletins.filter(b =>
     b.title.includes(search) || b.content.includes(search) || b.category.includes(search)
   );
+
+  useEffect(() => { setPage(0); }, [search, bulletins]);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const openCreate = () => {
     setEditingId(null);
@@ -699,7 +749,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
           <tbody className="divide-y divide-gray-50">
             {filtered.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-12 text-gray-400">尚無公告</td></tr>
-            ) : filtered.map(b => (
+            ) : paged.map(b => (
               <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-5 py-4 font-medium text-gray-800">{b.title}</td>
                 <td className="px-5 py-4">
@@ -737,6 +787,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             ))}
           </tbody>
         </table>
+        <Paginator total={filtered.length} page={page} onChange={setPage} />
       </div>
 
       {/* Registration Detail Modal */}
@@ -1284,6 +1335,7 @@ const SCRIPTURE_STORAGE_BASE = `https://keosbjepuvqqqhzyuplb.supabase.co/storage
 
 const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; onRefresh: () => void }) => {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
   const [editingVerse, setEditingVerse] = useState<ScriptureVerseRecord | null>(null);
   const [formVerse, setFormVerse] = useState('');
   const [formAnnotation, setFormAnnotation] = useState('');
@@ -1317,6 +1369,9 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
       v.annotation.toLowerCase().includes(q)
     );
   }, [verses, search]);
+
+  useEffect(() => { setPage(0); }, [verses, search]);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const openEdit = (v: ScriptureVerseRecord) => {
     setEditingVerse(v);
@@ -1403,56 +1458,55 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="max-h-[600px] overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">插圖</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">經文</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">註解</th>
-                <th className="text-center px-4 py-3 text-gray-500 font-medium w-20">操作</th>
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">插圖</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium">經文</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium">註解</th>
+              <th className="text-center px-4 py-3 text-gray-500 font-medium w-20">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {paged.map(v => (
+              <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-3">
+                  {v.imagePath ? (
+                    <img
+                      src={getImageUrl(v.imagePath)!}
+                      alt={`第${v.sectionNumber}節`}
+                      className="w-12 h-12 object-cover rounded"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-gray-400">
+                      <ImageIcon className="w-4 h-4" />
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-700 max-w-[200px]">
+                  <p className="truncate">{v.verse.replace(/\n/g, ' ')}</p>
+                </td>
+                <td className="px-4 py-3 text-gray-500 max-w-[300px]">
+                  <p className="truncate">{v.annotation.substring(0, 50)}...</p>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <button
+                    onClick={() => openEdit(v)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-temple-red hover:bg-red-50 transition-colors"
+                    title="編輯"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map(v => (
-                <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3">
-                    {v.imagePath ? (
-                      <img
-                        src={getImageUrl(v.imagePath)!}
-                        alt={`第${v.sectionNumber}節`}
-                        className="w-12 h-12 object-cover rounded"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-gray-400">
-                        <ImageIcon className="w-4 h-4" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 max-w-[200px]">
-                    <p className="truncate">{v.verse.replace(/\n/g, ' ')}</p>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 max-w-[300px]">
-                    <p className="truncate">{v.annotation.substring(0, 50)}...</p>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => openEdit(v)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-temple-red hover:bg-red-50 transition-colors"
-                      title="編輯"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={4} className="text-center py-12 text-gray-400">找不到符合的內容</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={4} className="text-center py-12 text-gray-400">找不到符合的內容</td></tr>
+            )}
+          </tbody>
+        </table>
+        <Paginator total={filtered.length} page={page} onChange={setPage} />
       </div>
 
       {/* Edit Modal */}
@@ -1586,6 +1640,7 @@ const LampsTab = ({
   const [regServiceFilter, setRegServiceFilter] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('');
   const [updatingRegId, setUpdatingRegId] = useState<string | null>(null);
+  const [regPage, setRegPage] = useState(0);
 
   // ── Config helpers ──
   const openAddConfig = () => {
@@ -1651,6 +1706,9 @@ const LampsTab = ({
       return matchSearch && matchService && matchStatus;
     });
   }, [registrations, regSearch, regServiceFilter, regStatusFilter]);
+
+  useEffect(() => { setRegPage(0); }, [registrations, regSearch, regServiceFilter, regStatusFilter]);
+  const pagedRegs = filteredRegs.slice(regPage * PAGE_SIZE, (regPage + 1) * PAGE_SIZE);
 
   const getServiceName = (serviceId: string) =>
     configs.find(c => c.id === serviceId)?.name || serviceId;
@@ -1831,7 +1889,7 @@ const LampsTab = ({
 
           {/* Cards */}
           <div className="space-y-3">
-            {filteredRegs.map(r => (
+            {pagedRegs.map(r => (
               <div key={r.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4">
                 <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
                   <Flame className="w-5 h-5 text-orange-500" />
@@ -1876,6 +1934,11 @@ const LampsTab = ({
               <div className="text-center py-16 text-gray-400">
                 <Flame className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p>尚無符合的登記紀錄</p>
+              </div>
+            )}
+            {filteredRegs.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <Paginator total={filteredRegs.length} page={regPage} onChange={setRegPage} />
               </div>
             )}
           </div>
