@@ -45,22 +45,33 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Reveal on scroll — re-observe whenever verses change
+  // Reveal on scroll — 觀察整個 section（有穩定高度），再批次顯示子元素
+  // 原本觀察 .sp-left/.sp-right（圖片容器），但 lazy 圖片載入前高度為 0，
+  // IntersectionObserver 無法偵測 0 面積元素，導致圖片永遠不顯示。
   useEffect(() => {
+    const revealSection = (el: Element) => {
+      el.querySelectorAll('.sp-up, .sp-left, .sp-right').forEach(child => child.classList.add('sp-in'));
+    };
+
     const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('sp-in'); }),
-      { threshold: 0.05, rootMargin: '0px 0px 60px 0px' }
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) revealSection(e.target); }),
+      { threshold: 0.03, rootMargin: '0px 0px 80px 0px' }
     );
-    document.querySelectorAll<Element>('.sp-up, .sp-left, .sp-right').forEach((el) => {
-      observer.observe(el);
-      // 資料非同步載入時，user 可能已滑過第一節，
-      // Observer 只在元素「進入」時觸發，不補觸發已滑過的元素。
-      // → 觀察前先手動檢查：若元素已在視口範圍內（含上方），立即顯示。
-      const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight) {
-        el.classList.add('sp-in');
-      }
+
+    // 觀察開場區塊
+    const intro = document.querySelector<Element>('[data-intro]');
+    if (intro) {
+      observer.observe(intro);
+      if (intro.getBoundingClientRect().top < window.innerHeight) revealSection(intro);
+    }
+
+    // 觀察各章節 wrapper（有 minHeight: 70vh，高度穩定）
+    document.querySelectorAll<Element>('[data-section-idx]').forEach((section) => {
+      observer.observe(section);
+      // 若資料載入後 user 已滑過該節，立即補顯示
+      if (section.getBoundingClientRect().top < window.innerHeight) revealSection(section);
     });
+
     return () => observer.disconnect();
   }, [verses]);
 
@@ -340,7 +351,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       </div>
 
       {/* ── 開場 ── */}
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '72px 32px 56px', textAlign: 'center' }}>
+      <div data-intro="true" style={{ maxWidth: 680, margin: '0 auto', padding: '72px 32px 56px', textAlign: 'center' }}>
         <p className="sp-up" style={{ color: 'rgba(90,48,16,.55)', fontSize: 12, letterSpacing: '.5em', marginBottom: 18 }}>✦ 按章節閱讀 ✦</p>
         <p className="sp-up sp-d1" style={{ color: 'rgba(58,32,8,.7)', fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
           聖母經乃歷代信眾虔誠奉誦之頌詞，記載天上聖母慈悲護佑之事蹟。<br />
