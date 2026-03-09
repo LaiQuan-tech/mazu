@@ -25,9 +25,7 @@ import {
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M24 10.304c0-5.232-5.383-9.488-12-9.488s-12 4.256-12 9.488c0 4.69 4.27 8.604 10.04 9.344.39.084.92.258 1.05.592.12.303.08.777.04 1.084l-.17 1.023c-.05.303-.24 1.187 1.04.647 1.27-.54 6.88-4.05 9.39-6.93 1.77-1.92 2.61-3.77 2.61-5.764zm-16.14 3.77h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v4.66c0 .23-.18.41-.41.41zm3.83 0h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v4.66c0 .23-.18.41-.41.41zm5.12-2.11c0 .23-.18.41-.41.41h-1.22v1.29c0 .23-.18.41-.41.41h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v1.29h1.22c.23 0 .41.18.41.41v1.67zm4.27 2.11h-1.63c-.23 0-.41-.18-.41-.41v-4.66c0-.23.18-.41.41-.41h1.63c.23 0 .41.18.41.41v4.66c0 .23-.18.41-.41.41z" />
-  </svg>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
 import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, RegistrationData, ZodiacSign } from './types';
