@@ -317,7 +317,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden lg:flex items-center gap-1">
-              {['home', 'bulletin', 'about', 'deities', 'services', 'lamps', 'booking', 'donation', 'contact'].map((item) => (
+              {['home', 'about', 'deities', 'lamps', 'booking', 'donation'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -374,7 +374,7 @@ const App: React.FC = () => {
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-temple-red/95 backdrop-blur-md border-t border-temple-gold/20 px-4 pt-2 pb-4 space-y-1">
-            {['home', 'bulletin', 'about', 'deities', 'services', 'lamps', 'booking', 'donation', 'contact'].map((item) => (
+            {['home', 'about', 'deities', 'lamps', 'booking', 'donation'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
