@@ -347,7 +347,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 <div style={{ flex: 1, minWidth: 200 }}>
                   {/* Vertical verse */}
                   <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
-                    <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, height: 'clamp(110px,16vw,200px)', overflow: 'hidden' }}>
+                    <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, height: 'clamp(280px,36vw,500px)', overflow: 'hidden' }}>
                       {section.verse}
                     </div>
                   </div>
