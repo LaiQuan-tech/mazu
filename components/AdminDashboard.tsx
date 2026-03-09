@@ -729,7 +729,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red" />
         </div>
         <button onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5A3E0A] transition-colors shadow-sm">
+          className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors shadow-sm">
           <Plus className="w-4 h-4" /> 新增公告
         </button>
       </div>
@@ -898,7 +898,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving}
-                className="px-6 py-2 text-sm bg-temple-red text-white rounded-xl font-medium hover:bg-[#5A3E0A] transition-colors disabled:opacity-50">
+                className="px-6 py-2 text-sm bg-temple-red text-white rounded-xl font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
                 {saving ? '儲存中...' : '儲存'}
               </button>
             </div>
@@ -984,7 +984,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
           <h3 className="text-lg font-bold text-gray-800 mb-1">神明管理</h3>
           <p className="text-sm text-gray-500">管理前台「神明介紹」區塊的神明資料。</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5A3E0A] transition-colors">
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors">
           <Plus className="w-4 h-4" /> 新增神明
         </button>
       </div>
@@ -1079,7 +1079,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
               <button onClick={() => setShowModal(false)} disabled={saving} className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving || !form.name.trim() || !form.description.trim()}
-                className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5A3E0A] transition-colors disabled:opacity-50">
+                className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
                 {saving ? '儲存中...' : (editingId ? '更新' : '新增')}
               </button>
             </div>
@@ -1146,7 +1146,7 @@ const HeroSlidesSection = ({ slides, onRefresh }: { slides: HeroSlideRecord[]; o
           <p className="text-xs text-gray-400 mt-0.5">自動每 5 秒切換，至少上傳 2 張才會開始輪播</p>
           <p className="text-xs text-gray-400">建議尺寸：1920 × 1080 px（橫式 16:9）・JPG、PNG、WebP，最大 5MB</p>
         </div>
-        <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400' : 'bg-temple-red text-white hover:bg-[#5A3E0A]'}`}>
+        <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400' : 'bg-temple-red text-white hover:bg-[#5C1A04]'}`}>
           {uploading ? <><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</> : <><Upload className="w-4 h-4" /> 新增投影片</>}
           <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
@@ -1301,7 +1301,7 @@ const PhotosTab = ({ siteImages, heroSlides, onRefresh }: { siteImages: SiteImag
                         </div>
                         <div className="flex gap-2">
                           <button onClick={handleUpload} disabled={isUploading}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5A3E0A] transition-colors disabled:opacity-50">
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
                             {isUploading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</>) : (<><Upload className="w-4 h-4" /> 確認上傳</>)}
                           </button>
                           <button onClick={handleCancelPreview} disabled={isUploading}
@@ -1604,7 +1604,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 text-sm text-white bg-temple-red rounded-lg hover:bg-[#5A3E0A] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 text-sm text-white bg-temple-red rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : '儲存'}
@@ -1785,7 +1785,7 @@ const LampsTab = ({
           <div className="flex justify-end">
             <button
               onClick={openAddConfig}
-              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5A3E0A] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors"
             >
               <Plus className="w-4 h-4" /> 新增服務
             </button>
@@ -2012,7 +2012,7 @@ const LampsTab = ({
               <button
                 onClick={handleSaveConfig}
                 disabled={savingConfig}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5A3E0A] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {savingConfig ? '儲存中...' : '儲存'}
