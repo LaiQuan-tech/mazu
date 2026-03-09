@@ -41,12 +41,12 @@ const BrushDivider = ({ className = '' }: { className?: string }) => (
     <svg width="360" height="18" viewBox="0 0 360 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M10,9 C50,3 90,15 140,8 C190,1 240,14 290,8 C315,5 340,11 350,9"
-        stroke="#3D5A3E" strokeWidth="5" strokeLinecap="round"
+        stroke="#7C5C1E" strokeWidth="5" strokeLinecap="round"
         opacity="0.18" fill="none" style={{ filter: 'blur(0.4px)' }}
       />
       <path
         d="M0,11 C35,6 70,15 110,9 C150,3 190,13 230,8 C270,3 310,12 360,9"
-        stroke="#B8965A" strokeWidth="1.5" strokeLinecap="round"
+        stroke="#C49820" strokeWidth="1.5" strokeLinecap="round"
         opacity="0.25" fill="none"
       />
     </svg>
@@ -319,8 +319,8 @@ const App: React.FC = () => {
       {/* Navigation */}
       <nav className={`fixed w-full z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-temple-red/95 backdrop-blur-md shadow-xl border-b-2 border-temple-gold/60'
-          : 'bg-temple-red/80 backdrop-blur-sm border-b-2 border-temple-gold/30'
+          ? 'bg-[#F0E9CE]/98 backdrop-blur-md shadow-md border-b border-[#C49820]/50'
+          : 'bg-[#F0E9CE]/92 backdrop-blur-sm border-b border-[#C49820]/20'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
@@ -329,8 +329,8 @@ const App: React.FC = () => {
                 <img src="/logo.png" alt="和聖壇 Logo" className={`object-contain transition-all duration-300 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`} referrerPolicy="no-referrer" />
               </div>
               <div className="hidden sm:block">
-                <h1 className={`font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>和聖壇</h1>
-                <p className="text-[10px] tracking-widest text-temple-gold/80 uppercase">He Sheng Altar</p>
+                <h1 className={`text-temple-dark font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>和聖壇</h1>
+                <p className="text-[10px] tracking-widest text-temple-red/70 uppercase">He Sheng Altar</p>
               </div>
             </div>
 
@@ -341,8 +341,8 @@ const App: React.FC = () => {
                   onClick={() => scrollToSection(item)}
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${activeSection === item
-                      ? 'bg-temple-gold/20 text-temple-gold'
-                      : 'text-white/90 hover:bg-white/10 hover:text-white'}`}
+                      ? 'bg-temple-gold/15 text-temple-red font-semibold'
+                      : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
                 >
                   {{
                     'home': '首頁',
@@ -362,11 +362,11 @@ const App: React.FC = () => {
               ))}
               <button
                 onClick={() => setShowScripture(true)}
-                className="relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap text-temple-gold/80 hover:bg-temple-gold/10 hover:text-temple-gold border border-temple-gold/30"
+                className="relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap text-temple-red/80 hover:bg-temple-red/10 hover:text-temple-red border border-temple-red/30"
               >
                 聖母經
               </button>
-              <div className="w-px h-6 bg-white/20 mx-1" />
+              <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
               <a
                 href="https://lin.ee/lj0gLqR"
                 target="_blank"
@@ -381,7 +381,7 @@ const App: React.FC = () => {
             <div className="-mr-2 flex lg:hidden">
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center p-2 rounded-full text-temple-gold hover:text-white hover:bg-white/10 transition-colors"
+                className="inline-flex items-center justify-center p-2 rounded-full text-temple-red hover:text-temple-dark hover:bg-[#C49820]/10 transition-colors"
               >
                 {isMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
               </button>
@@ -391,15 +391,15 @@ const App: React.FC = () => {
 
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="bg-temple-red/95 backdrop-blur-md border-t border-temple-gold/20 px-4 pt-2 pb-4 space-y-1">
+          <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1">
             {['home', 'about', 'deities', 'lamps', 'booking', 'donation'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
                 className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200
                   ${activeSection === item
-                    ? 'bg-temple-gold/15 text-temple-gold'
-                    : 'text-white hover:bg-white/10 hover:text-temple-gold'}`}
+                    ? 'bg-temple-gold/15 text-temple-red font-semibold'
+                    : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
               >
                 {{
                   'home': '首頁',
@@ -416,7 +416,7 @@ const App: React.FC = () => {
             ))}
             <button
               onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
-              className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-gold border border-temple-gold/30 hover:bg-temple-gold/10"
+              className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
             >
               ✦ 聖母經
             </button>
@@ -522,6 +522,11 @@ const App: React.FC = () => {
               <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest">最新消息</h2>
             </div>
             <h3 className="text-4xl font-bold text-temple-dark font-serif">公佈欄</h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-2">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
           </div>
 
           {/* Category Filter */}
@@ -594,7 +599,7 @@ const App: React.FC = () => {
                       {bulletin.allowRegistration && (
                         <button
                           onClick={(e) => { e.stopPropagation(); openRegisterModal(bulletin); }}
-                          className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#2E4830] transition-colors shadow-sm"
+                          className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5A3E0A] transition-colors shadow-sm"
                         >
                           <UserPlus className="w-4 h-4" /> 我要報名
                         </button>
@@ -625,12 +630,17 @@ const App: React.FC = () => {
             </div>
             <div>
               <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center">
-                <span className="w-8 h-1 bg-temple-red mr-3"></span>
+                <span className="w-8 h-1 bg-temple-gold mr-3"></span>
                 關於和聖壇
               </h2>
-              <h3 className="text-4xl font-bold text-temple-dark mb-6 font-serif">
+              <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
                 虔誠信仰，世代傳承
               </h3>
+              <div className="flex items-center gap-3 mt-2 mb-6">
+                <span className="w-8 h-px bg-temple-gold/70" />
+                <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+                <span className="w-20 h-px bg-temple-gold/70" />
+              </div>
               <p className="text-gray-600 mb-6 leading-relaxed text-lg">
                 和聖壇供奉神明，自建廟以來，香火鼎盛，神威顯赫。神明慈悲為懷，聞聲救苦，庇佑子民平安順遂。
               </p>
@@ -660,11 +670,16 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center">
-              <span className="w-8 h-1 bg-temple-red mr-3"></span>
+              <span className="w-8 h-1 bg-temple-gold mr-3"></span>
               神明介紹
-              <span className="w-8 h-1 bg-temple-red ml-3"></span>
+              <span className="w-8 h-1 bg-temple-gold ml-3"></span>
             </h2>
             <h3 className="text-4xl font-bold text-temple-dark font-serif">供奉神明</h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-2">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
           </div>
           {deities.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -762,9 +777,14 @@ const App: React.FC = () => {
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 inline-block border-b-2 border-temple-gold pb-1">
               點燈服務
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-4 font-serif">
+            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
               祈福點燈，光明護佑
             </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
             <p className="text-gray-500 max-w-xl mx-auto">
               為本人或家人點燃平安燈，祈求諸事順遂、光明護佑。歡迎線上登記，廟方人員將與您確認細節。
             </p>
@@ -814,7 +834,7 @@ const App: React.FC = () => {
                     <p className="text-gray-500 mb-6">感謝您的登記，廟方人員將盡快與您聯繫確認。</p>
                     <button
                       onClick={() => setLampStatus('idle')}
-                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#2E4830] transition-colors text-sm font-medium"
+                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5A3E0A] transition-colors text-sm font-medium"
                     >
                       再登記一筆
                     </button>
@@ -927,7 +947,7 @@ const App: React.FC = () => {
                     <button
                       type="submit"
                       disabled={lampStatus === 'loading'}
-                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-[#2E4830] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-[#5A3E0A] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       <Flame className="w-4 h-4" />
                       {lampStatus === 'loading' ? '送出中...' : '送出登記'}
@@ -945,16 +965,21 @@ const App: React.FC = () => {
       {/* Booking Section */}
       <section id="booking" className="py-20 bg-temple-red relative text-white">
         {/* Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#B8965A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#C49820 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
             <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2">
               線上服務
             </h2>
-            <h3 className="text-4xl font-bold mb-4 font-serif">
+            <h3 className="text-4xl font-bold mb-2 font-serif">
               預約問事表單
             </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/60" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/60" />
+            </div>
             <p className="text-red-100 max-w-2xl mx-auto">
               請填寫下方資料，我們將儘速為您安排問事時間。<br />
               <span className="text-temple-gold font-bold">※ 目前僅開放每週六晚上 (19:00 - 21:00) 時段預約。</span>
@@ -974,7 +999,7 @@ const App: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setBookingStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#2E4830] transition-colors"
+                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#5A3E0A] transition-colors"
                   >
                     再預約一筆
                   </button>
@@ -1145,9 +1170,14 @@ const App: React.FC = () => {
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">
               功德無量
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-4 font-serif">
+            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
               隨喜捐獻 / 護持項目
             </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
             <p className="text-gray-600 max-w-2xl mx-auto">
               您的每一分心意，都是支持和聖壇持續弘揚神恩、服務大眾的力量。
             </p>
@@ -1166,7 +1196,7 @@ const App: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setDonationStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#2E4830] transition-colors"
+                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#5A3E0A] transition-colors"
                   >
                     返回
                   </button>
@@ -1261,7 +1291,7 @@ const App: React.FC = () => {
                       className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
                         ${donationStatus === 'loading'
                           ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-temple-red text-white hover:bg-[#2E4830] hover:shadow-xl transform hover:-translate-y-1'}`}
+                          : 'bg-temple-red text-white hover:bg-[#5A3E0A] hover:shadow-xl transform hover:-translate-y-1'}`}
                     >
                       {donationStatus === 'loading' ? (
                         <span>處理中...</span>
@@ -1410,7 +1440,7 @@ const App: React.FC = () => {
                   <h3 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h3>
                   <p className="text-gray-500 mb-6">我們已收到您的報名資訊，感謝您的參與。</p>
                   <button onClick={() => setRegisterBulletin(null)}
-                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#2E4830] transition-colors">
+                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5A3E0A] transition-colors">
                     關閉
                   </button>
                 </div>
@@ -1456,7 +1486,7 @@ const App: React.FC = () => {
                       取消
                     </button>
                     <button type="submit" disabled={regStatus === 'loading'}
-                      className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#2E4830] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                      className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5A3E0A] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                       {regStatus === 'loading' ? '報名中...' : <><UserPlus className="w-4 h-4" /> 確認報名</>}
                     </button>
                   </div>
@@ -1545,7 +1575,7 @@ const App: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#2E4830] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5A3E0A] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loginLoading ? (
                     <span className="flex items-center gap-2"><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>登入中...</span>
