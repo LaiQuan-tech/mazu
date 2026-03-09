@@ -82,13 +82,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         const raw = (rect.top + rect.height / 2) - vhCenter;
 
         if (isMobile) {
-          // Scroll-to-center: image is full-width, slides in from left/right edge
-          const progress = Math.max(0, Math.min(1,
-            (window.innerHeight - rect.top) / (window.innerHeight * 0.60)
-          ));
-          const maxOffset = 92;
-          const dir = el.dataset.side === 'left' ? -1 : 1;
-          el.style.transform = `translateX(${dir * maxOffset * (1 - progress)}px)`;
+          // 手機版：CSS 主控從螢幕外滑入，JS 不介入
           return;
         }
 
@@ -209,14 +203,17 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
         /* ── Mobile adjustments ── */
         @media (max-width: 767px) {
-          /* 圖片包裝器改全寬，讓「至中」有意義；超出邊緣由 section overflow:hidden 裁切 */
+          /* 圖片包裝器改全寬 */
           .sp-parallax-wrap { width:100% !important; flex:none !important; }
-          /* translateX 由 JS 控制；CSS 只負責 opacity */
-          .sp-left, .sp-right {
-            transform: none !important;
-            transition: opacity 1.0s cubic-bezier(0.16,1,0.3,1) !important;
-          }
-          .sp-left.sp-in, .sp-right.sp-in { transform: none !important; }
+          /* 從螢幕外滑入 — CSS 主控，不用 JS parallax */
+          .sp-left  { transform: translateX(-110vw) scale(0.95) !important;
+                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-right { transform: translateX(110vw)  scale(0.95) !important;
+                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-left.sp-in  { transform: translateX(0) scale(1) !important; }
+          .sp-right.sp-in { transform: translateX(0) scale(1) !important; }
           .sp-progress { display:none !important; }
         }
       `}</style>
