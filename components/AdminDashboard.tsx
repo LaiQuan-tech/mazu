@@ -2039,11 +2039,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   const [lampRegistrations, setLampRegistrations] = useState<LampRegistrationRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const fetchAll = async () => {
-    setLoading(true);
+  const fetchAll = async (initial = false) => {
+    if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
       const [b, d, bl, si, dt, hs, sv, lc, lr] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[])]);
@@ -2060,10 +2061,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setError('無法載入資料，請稍後再試。');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(true); }, []);
 
   const handleStatusChange = async (id: string, status: BookingStatus) => {
     setUpdatingId(id);
@@ -2131,9 +2133,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           <h2 className="font-semibold text-gray-700">
             {navItems.find(n => n.key === tab)?.label}
           </h2>
-          <button onClick={fetchAll} disabled={loading}
+          <button onClick={() => fetchAll(false)} disabled={refreshing}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> 重新整理
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> 重新整理
           </button>
         </div>
 
