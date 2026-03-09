@@ -17,10 +17,10 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   const [currentSection, setCurrentSection] = useState(0);
   const rafRef = useRef<number>(0);
 
-  // 掛載時把 body 背景改成紙色，卸載時還原，避免捲動時露出白色 body 底
+  // 掛載時把 body 背景改成紙色，避免捲動慣性時露出白底
   useEffect(() => {
     const prev = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = '#c8b882';
+    document.body.style.backgroundColor = '#e8dfbf';
     return () => { document.body.style.backgroundColor = prev; };
   }, []);
 
@@ -89,17 +89,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         const raw = (rect.top + rect.height / 2) - vhCenter;
 
         if (isMobile) {
-          // 手機：視差作用在 IMG 上（而非 wrapper），搭配 scale(1.25)
-          // → 圖片比容器大 25%，在 overflow:hidden 容器內滑動
-          // → 不會疊到文字，邊緣被裁切看不到
-          const img = el.querySelector<HTMLElement>('img');
-          if (img) {
-            // 平滑壓縮：靠近中心靈敏，邊緣柔和封頂 ±28px
-            const ratio = raw / (window.innerHeight * 0.45);
-            const eased = Math.tanh(ratio * 0.7);
-            const offset = eased * 28;
-            img.style.transform = `scale(1.25) translateY(${offset}px)`;
-          }
+          // 手機版：CSS 主控從螢幕外滑入，JS 不介入
           return;
         }
 
@@ -220,52 +210,20 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
         /* ── Mobile adjustments ── */
         @media (max-width: 767px) {
-          /* 圖片：全寬 + overflow:hidden 做視差容器，圖片在框內滑動不會疊到文字 */
-          .sp-parallax-wrap {
-            width:100% !important; flex:none !important;
-            overflow:hidden !important; border-radius:8px !important;
-            margin-bottom:16px !important;
-          }
-          /* ── 手機入場：scale 爆出 + 重度模糊溶入 + clip-path 橫向揭幕三重效果 ──
-             clip-path 不影響 layout box，IntersectionObserver 可正常觸發 */
-          .sp-left {
-            opacity:0 !important;
-            clip-path: inset(0 100% 0 0) !important;
-            transform: scale(0.65) translateX(-16px) !important;
-            filter: blur(16px) !important;
-            transition:
-              clip-path 2.0s cubic-bezier(0.16,1,0.3,1),
-              opacity    0.8s ease,
-              transform  2.0s cubic-bezier(0.16,1,0.3,1),
-              filter     1.6s ease !important;
-          }
-          .sp-right {
-            opacity:0 !important;
-            clip-path: inset(0 0 0 100%) !important;
-            transform: scale(0.65) translateX(16px) !important;
-            filter: blur(16px) !important;
-            transition:
-              clip-path 2.0s cubic-bezier(0.16,1,0.3,1),
-              opacity    0.8s ease,
-              transform  2.0s cubic-bezier(0.16,1,0.3,1),
-              filter     1.6s ease !important;
-          }
-          .sp-left.sp-in {
-            opacity:1 !important;
-            clip-path: inset(0 0% 0 0) !important;
-            transform: scale(1) translateX(0) !important;
-            filter: blur(0) !important;
-          }
-          .sp-right.sp-in {
-            opacity:1 !important;
-            clip-path: inset(0 0 0 0%) !important;
-            transform: scale(1) translateX(0) !important;
-            filter: blur(0) !important;
-          }
+          /* 圖片包裝器改全寬 */
+          .sp-parallax-wrap { width:100% !important; flex:none !important; }
+          /* 從螢幕外滑入 — CSS 主控，不用 JS parallax */
+          .sp-left  { transform: translateX(-110vw) scale(0.95) !important;
+                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-right { transform: translateX(110vw)  scale(0.95) !important;
+                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-left.sp-in  { transform: translateX(0) scale(1) !important; }
+          .sp-right.sp-in { transform: translateX(0) scale(1) !important; }
           .sp-progress { display:none !important; }
         }
         /* ── 仿古紙質三層疊加 ── */
-        /* 1. 紙纖維噪點 — CSS 點陣（cross-browser 可靠） */
         .paper-grain {
           position:fixed; inset:0; pointer-events:none; z-index:100;
           background-image:
@@ -275,7 +233,6 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           background-size: 3px 3px, 7px 7px, 5px 5px;
           background-position: 0 0, 2px 3px, 4px 1px;
         }
-        /* 2. 四角暈染 — 明顯加深邊緣 */
         .paper-vignette {
           position:fixed; inset:0; pointer-events:none; z-index:100;
           background:
@@ -284,7 +241,6 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
             linear-gradient(to right,  rgba(70,40,5,.06) 0%, transparent 10%, transparent 90%, rgba(70,40,5,.06) 100%);
           box-shadow: inset 0 0 140px rgba(70,38,5,.14);
         }
-        /* 3. 仿舊斑漬 — 四角+散點老化感 */
         .paper-aging {
           position:fixed; inset:0; pointer-events:none; z-index:100;
           background:
@@ -298,7 +254,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         }
       `}</style>
 
-      {/* ── 仿古紙質覆蓋層（pointer-events:none，不影響點擊）── */}
+      {/* 仿古紙質覆蓋層 */}
       <div className="paper-grain" />
       <div className="paper-vignette" />
       <div className="paper-aging" />
@@ -348,7 +304,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       </div>
 
       {/* ── Hero ── */}
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 45%, #f0dbb8, #f5edd8 65%)' }} />
         {/* hero-glow: moves at 0.12x scroll speed */}
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
