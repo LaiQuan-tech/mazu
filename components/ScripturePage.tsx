@@ -17,6 +17,13 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   const [currentSection, setCurrentSection] = useState(0);
   const rafRef = useRef<number>(0);
 
+  // 掛載時把 body 背景改成紙色，卸載時還原，避免捲動時露出白色 body 底
+  useEffect(() => {
+    const prev = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#c8b882';
+    return () => { document.body.style.backgroundColor = prev; };
+  }, []);
+
   // 每次開啟頁面都重新 fetch 最新資料
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -82,8 +89,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         const raw = (rect.top + rect.height / 2) - vhCenter;
 
         if (isMobile) {
-          // 手機：輕微 Y 視差 (0.10x)，讓滑動時圖片有深度感
-          const offset = raw * 0.10;
+          // 手機：Y 視差 (0.22x)，明顯的前後深度感
+          const offset = raw * 0.22;
           el.style.transform = `translateY(${offset}px)`;
           return;
         }
@@ -207,39 +214,39 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @media (max-width: 767px) {
           /* 圖片包裝器改全寬 */
           .sp-parallax-wrap { width:100% !important; flex:none !important; }
-          /* ── 手機入場：clip-path 橫向揭幕 + 縮放 + 模糊 ──
+          /* ── 手機入場：scale 爆出 + 重度模糊溶入 + clip-path 橫向揭幕三重效果 ──
              clip-path 不影響 layout box，IntersectionObserver 可正常觸發 */
           .sp-left {
             opacity:0 !important;
-            clip-path: inset(0 100% 0 0 round 6px) !important;
-            transform: scale(0.92) translateX(-10px) !important;
-            filter: blur(5px) !important;
+            clip-path: inset(0 100% 0 0) !important;
+            transform: scale(0.65) translateX(-16px) !important;
+            filter: blur(16px) !important;
             transition:
-              clip-path 1.6s cubic-bezier(0.16,1,0.3,1),
-              opacity    0.9s ease,
-              transform  1.6s cubic-bezier(0.16,1,0.3,1),
-              filter     1.3s ease !important;
+              clip-path 2.0s cubic-bezier(0.16,1,0.3,1),
+              opacity    0.8s ease,
+              transform  2.0s cubic-bezier(0.16,1,0.3,1),
+              filter     1.6s ease !important;
           }
           .sp-right {
             opacity:0 !important;
-            clip-path: inset(0 0 0 100% round 6px) !important;
-            transform: scale(0.92) translateX(10px) !important;
-            filter: blur(5px) !important;
+            clip-path: inset(0 0 0 100%) !important;
+            transform: scale(0.65) translateX(16px) !important;
+            filter: blur(16px) !important;
             transition:
-              clip-path 1.6s cubic-bezier(0.16,1,0.3,1),
-              opacity    0.9s ease,
-              transform  1.6s cubic-bezier(0.16,1,0.3,1),
-              filter     1.3s ease !important;
+              clip-path 2.0s cubic-bezier(0.16,1,0.3,1),
+              opacity    0.8s ease,
+              transform  2.0s cubic-bezier(0.16,1,0.3,1),
+              filter     1.6s ease !important;
           }
           .sp-left.sp-in {
             opacity:1 !important;
-            clip-path: inset(0 0% 0 0 round 0px) !important;
+            clip-path: inset(0 0% 0 0) !important;
             transform: scale(1) translateX(0) !important;
             filter: blur(0) !important;
           }
           .sp-right.sp-in {
             opacity:1 !important;
-            clip-path: inset(0 0 0 0% round 0px) !important;
+            clip-path: inset(0 0 0 0%) !important;
             transform: scale(1) translateX(0) !important;
             filter: blur(0) !important;
           }
@@ -329,7 +336,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       </div>
 
       {/* ── Hero ── */}
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         {/* hero-glow: moves at 0.12x scroll speed */}
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
@@ -371,7 +378,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         return (
           <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
-            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
 
               {/* Subtle per-section background glow */}
               <div style={{
