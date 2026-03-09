@@ -1283,10 +1283,8 @@ const App: React.FC = () => {
           <div className="grid md:grid-cols-3 gap-12 mb-12">
             <div>
               <div className="flex items-center space-x-3 mb-6">
-                <div className="bg-white p-0.5 rounded-full border border-temple-gold/30">
-                  <img src="/logo.png" alt="和聖壇 Logo" className="w-10 h-10 object-contain" referrerPolicy="no-referrer" />
-                </div>
-                <span className="text-xl font-bold font-serif tracking-widest">和聖壇</span>
+                <img src="/logo.png" alt="台北古亭和聖壇 Logo" className="w-10 h-10 object-contain" referrerPolicy="no-referrer" />
+                <span className="text-xl font-bold font-serif tracking-widest">台北古亭和聖壇</span>
               </div>
               <p className="text-gray-400 leading-relaxed mb-6">
                 神明慈悲為懷，庇佑十方善信。<br />
@@ -1356,7 +1354,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-            <p>&copy; {new Date().getFullYear()} 和聖壇. All rights reserved. 網站設計：和聖壇管理委員會</p>
+            <p>&copy; {new Date().getFullYear()} 台北古亭和聖壇. All rights reserved. 網站設計：和聖壇管理委員會</p>
             <button
               onClick={() => setShowLoginModal(true)}
               className="mt-4 md:mt-0 flex items-center hover:text-temple-gold transition-colors"

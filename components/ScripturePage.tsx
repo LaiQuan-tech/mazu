@@ -270,11 +270,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
           <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32 }}>台 北 古 亭 和 聖 壇</p>
           {/* hero-char: five title characters move at 0.25x */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 36 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 16 }}>
             {['天', '上', '聖', '母', '經'].map((ch, i) => (
               <span key={i} className="hero-char" style={{ fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 900, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
             ))}
           </div>
+          <p style={{ color: 'rgba(107,64,16,.55)', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500 }}>的　註　解　與　故　事</p>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
           {/* hero-sub: subtitle drifts at 0.08x */}
           <p className="hero-sub" style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2 }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
