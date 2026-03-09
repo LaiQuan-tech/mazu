@@ -35,6 +35,24 @@ import { submitBooking, submitDonation, getBulletins, submitRegistration, getSit
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 
+// 水墨筆刷分隔線元件
+const BrushDivider = ({ className = '' }: { className?: string }) => (
+  <div className={`w-full flex justify-center py-4 ${className}`} aria-hidden="true">
+    <svg width="360" height="18" viewBox="0 0 360 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M10,9 C50,3 90,15 140,8 C190,1 240,14 290,8 C315,5 340,11 350,9"
+        stroke="#3D5A3E" strokeWidth="5" strokeLinecap="round"
+        opacity="0.18" fill="none" style={{ filter: 'blur(0.4px)' }}
+      />
+      <path
+        d="M0,11 C35,6 70,15 110,9 C150,3 190,13 230,8 C270,3 310,12 360,9"
+        stroke="#B8965A" strokeWidth="1.5" strokeLinecap="round"
+        opacity="0.25" fill="none"
+      />
+    </svg>
+  </div>
+);
+
 const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showScripture, setShowScripture] = useState(false);
@@ -458,7 +476,7 @@ const App: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={() => scrollToSection('booking')}
-              className="px-8 py-4 bg-temple-gold hover:bg-yellow-400 text-temple-red font-bold rounded-md shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg"
+              className="px-8 py-4 bg-temple-gold hover:bg-amber-400 text-temple-red font-bold rounded-md shadow-[0_0_20px_rgba(184,150,90,0.4)] transition-all transform hover:scale-105 flex items-center justify-center gap-2 text-lg"
             >
               <Calendar className="w-5 h-5" />
               立即預約問事
@@ -492,6 +510,8 @@ const App: React.FC = () => {
         {/* Decorative Divider */}
         <div className="absolute bottom-0 w-full h-16 bg-temple-bg" style={{ clipPath: 'polygon(50% 100%, 100% 0, 100% 100%, 0 100%, 0 0)' }}></div>
       </section>
+
+      <BrushDivider />
 
       {/* Bulletin Section (公佈欄) */}
       <section id="bulletin" className="py-20 bg-white">
@@ -574,7 +594,7 @@ const App: React.FC = () => {
                       {bulletin.allowRegistration && (
                         <button
                           onClick={(e) => { e.stopPropagation(); openRegisterModal(bulletin); }}
-                          className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-red-800 transition-colors shadow-sm"
+                          className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#2E4830] transition-colors shadow-sm"
                         >
                           <UserPlus className="w-4 h-4" /> 我要報名
                         </button>
@@ -587,6 +607,8 @@ const App: React.FC = () => {
           )}
         </div>
       </section>
+
+      <BrushDivider />
 
       {/* About Section */}
       <section id="about" className="py-20 bg-temple-bg relative">
@@ -630,6 +652,8 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+
+      <BrushDivider />
 
       {/* Deities Section */}
       <section id="deities" className="py-20 bg-white">
@@ -728,6 +752,8 @@ const App: React.FC = () => {
         </div>
       </section>
 
+      <BrushDivider />
+
       {/* Lamps Section */}
       <section id="lamps" className="py-20 bg-temple-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -788,7 +814,7 @@ const App: React.FC = () => {
                     <p className="text-gray-500 mb-6">感謝您的登記，廟方人員將盡快與您聯繫確認。</p>
                     <button
                       onClick={() => setLampStatus('idle')}
-                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#2E4830] transition-colors text-sm font-medium"
                     >
                       再登記一筆
                     </button>
@@ -901,7 +927,7 @@ const App: React.FC = () => {
                     <button
                       type="submit"
                       disabled={lampStatus === 'loading'}
-                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-red-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-[#2E4830] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       <Flame className="w-4 h-4" />
                       {lampStatus === 'loading' ? '送出中...' : '送出登記'}
@@ -914,10 +940,12 @@ const App: React.FC = () => {
         </div>
       </section>
 
+      <BrushDivider />
+
       {/* Booking Section */}
       <section id="booking" className="py-20 bg-temple-red relative text-white">
         {/* Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4AF37 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#B8965A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
@@ -946,7 +974,7 @@ const App: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setBookingStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-red-800 transition-colors"
+                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#2E4830] transition-colors"
                   >
                     再預約一筆
                   </button>
@@ -1086,7 +1114,7 @@ const App: React.FC = () => {
                       className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
                         ${bookingStatus === 'loading'
                           ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-temple-gold text-temple-red hover:bg-yellow-400 hover:shadow-xl transform hover:-translate-y-1'}`}
+                          : 'bg-temple-gold text-temple-red hover:bg-amber-400 hover:shadow-xl transform hover:-translate-y-1'}`}
                     >
                       {bookingStatus === 'loading' ? (
                         <span>處理中...</span>
@@ -1107,6 +1135,8 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+
+      <BrushDivider />
 
       {/* Donation Section */}
       <section id="donation" className="py-20 bg-temple-bg relative">
@@ -1136,7 +1166,7 @@ const App: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setDonationStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-red-800 transition-colors"
+                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#2E4830] transition-colors"
                   >
                     返回
                   </button>
@@ -1231,7 +1261,7 @@ const App: React.FC = () => {
                       className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
                         ${donationStatus === 'loading'
                           ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-temple-red text-white hover:bg-red-800 hover:shadow-xl transform hover:-translate-y-1'}`}
+                          : 'bg-temple-red text-white hover:bg-[#2E4830] hover:shadow-xl transform hover:-translate-y-1'}`}
                     >
                       {donationStatus === 'loading' ? (
                         <span>處理中...</span>
@@ -1380,7 +1410,7 @@ const App: React.FC = () => {
                   <h3 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h3>
                   <p className="text-gray-500 mb-6">我們已收到您的報名資訊，感謝您的參與。</p>
                   <button onClick={() => setRegisterBulletin(null)}
-                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-red-800 transition-colors">
+                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#2E4830] transition-colors">
                     關閉
                   </button>
                 </div>
@@ -1426,7 +1456,7 @@ const App: React.FC = () => {
                       取消
                     </button>
                     <button type="submit" disabled={regStatus === 'loading'}
-                      className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-red-800 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                      className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#2E4830] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                       {regStatus === 'loading' ? '報名中...' : <><UserPlus className="w-4 h-4" /> 確認報名</>}
                     </button>
                   </div>
@@ -1515,7 +1545,7 @@ const App: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#2E4830] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loginLoading ? (
                     <span className="flex items-center gap-2"><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>登入中...</span>
