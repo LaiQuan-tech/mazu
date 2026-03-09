@@ -205,15 +205,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @media (max-width: 767px) {
           /* 圖片包裝器改全寬 */
           .sp-parallax-wrap { width:100% !important; flex:none !important; }
-          /* 從螢幕外滑入 — CSS 主控，不用 JS parallax */
-          .sp-left  { transform: translateX(-110vw) scale(0.95) !important;
-                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
-                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-right { transform: translateX(110vw)  scale(0.95) !important;
-                      transition: opacity 1.4s cubic-bezier(0.16,1,0.3,1),
-                                  transform 1.4s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-left.sp-in  { transform: translateX(0) scale(1) !important; }
-          .sp-right.sp-in { transform: translateX(0) scale(1) !important; }
+          /* 手機改用 Y 軸小幅位移+淡入，避免被 section overflow:hidden 裁掉導致 IntersectionObserver 失效 */
+          .sp-left  { transform: translateY(32px) scale(0.97) !important;
+                      transition: opacity 1.2s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-right { transform: translateY(32px) scale(0.97) !important;
+                      transition: opacity 1.2s cubic-bezier(0.16,1,0.3,1),
+                                  transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-left.sp-in  { transform: translateY(0) scale(1) !important; }
+          .sp-right.sp-in { transform: translateY(0) scale(1) !important; }
           .sp-progress { display:none !important; }
         }
       `}</style>
