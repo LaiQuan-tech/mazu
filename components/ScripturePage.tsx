@@ -176,7 +176,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   };
 
   return (
-    <div style={{ background: 'linear-gradient(168deg, #ede3bf 0%, #f4ecd4 22%, #f0e8ce 50%, #ece2c2 78%, #e7dbb8 100%)', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
+    <div style={{ background: 'linear-gradient(158deg, #cfc09a 0%, #f0e5c8 18%, #ede8d0 50%, #e8dfbf 80%, #c8b882 100%)', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
       <style>{`
         /* ── Entrance animations (spring easing + blur) ── */
         .sp-up   { opacity:0; transform:translateY(64px);  filter:blur(4px);
@@ -217,29 +217,36 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           .sp-progress { display:none !important; }
         }
         /* ── 仿古紙質三層疊加 ── */
-        /* 1. 紙纖維噪點 (SVG feTurbulence) */
+        /* 1. 紙纖維噪點 — CSS 點陣（cross-browser 可靠） */
         .paper-grain {
           position:fixed; inset:0; pointer-events:none; z-index:100;
-          opacity:0.038; mix-blend-mode:multiply;
-          background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C%2Fsvg%3E");
-          background-repeat:repeat; background-size:200px 200px;
+          background-image:
+            radial-gradient(circle, rgba(90,55,8,.22) 1px, transparent 1px),
+            radial-gradient(circle, rgba(80,48,6,.14) 1px, transparent 1px),
+            radial-gradient(circle, rgba(70,42,5,.10) 1px, transparent 1px);
+          background-size: 3px 3px, 7px 7px, 5px 5px;
+          background-position: 0 0, 2px 3px, 4px 1px;
         }
-        /* 2. 四角暈染 (老紙邊緣自然加深) */
+        /* 2. 四角暈染 — 明顯加深邊緣 */
         .paper-vignette {
           position:fixed; inset:0; pointer-events:none; z-index:100;
           background:
-            radial-gradient(ellipse at 50% 42%, transparent 48%, rgba(82,48,6,.13) 100%),
-            linear-gradient(to bottom, rgba(80,45,5,.04) 0%, transparent 8%, transparent 92%, rgba(80,45,5,.05) 100%);
+            radial-gradient(ellipse at 50% 44%, transparent 36%, rgba(75,40,5,.28) 100%),
+            linear-gradient(to bottom, rgba(80,48,5,.10) 0%, transparent 12%, transparent 88%, rgba(80,48,5,.12) 100%),
+            linear-gradient(to right,  rgba(70,40,5,.06) 0%, transparent 10%, transparent 90%, rgba(70,40,5,.06) 100%);
+          box-shadow: inset 0 0 140px rgba(70,38,5,.14);
         }
-        /* 3. 仿舊斑漬 (四角+中央隨機老化感) */
+        /* 3. 仿舊斑漬 — 四角+散點老化感 */
         .paper-aging {
           position:fixed; inset:0; pointer-events:none; z-index:100;
           background:
-            radial-gradient(ellipse at  4%  6%, rgba(110,65,8,.07)  0%, transparent 32%),
-            radial-gradient(ellipse at 97%  4%, rgba( 95,52,5,.06)  0%, transparent 28%),
-            radial-gradient(ellipse at  2% 96%, rgba(115,68,8,.07)  0%, transparent 30%),
-            radial-gradient(ellipse at 98% 97%, rgba(100,58,5,.06)  0%, transparent 26%),
-            radial-gradient(ellipse at 50% 52%, rgba(108,62,12,.02) 0%, transparent 38%);
+            radial-gradient(ellipse at  3%  5%, rgba(120,70,8,.20)  0%, transparent 30%),
+            radial-gradient(ellipse at 97%  4%, rgba(105,58,5,.17)  0%, transparent 27%),
+            radial-gradient(ellipse at  2% 97%, rgba(125,72,8,.20)  0%, transparent 29%),
+            radial-gradient(ellipse at 98% 96%, rgba(110,62,5,.17)  0%, transparent 25%),
+            radial-gradient(ellipse at 28% 32%, rgba(130,75,10,.06) 0%, transparent 18%),
+            radial-gradient(ellipse at 72% 68%, rgba(120,65,8,.05)  0%, transparent 16%),
+            radial-gradient(ellipse at 50% 52%, rgba(115,65,12,.04) 0%, transparent 35%);
         }
       `}</style>
 
