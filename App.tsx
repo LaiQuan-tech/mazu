@@ -301,15 +301,16 @@ const App: React.FC = () => {
       {/* Navigation */}
       <nav className={`fixed w-full z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-temple-dark/95 backdrop-blur-md shadow-lg border-b border-temple-gold/30'
-          : 'bg-temple-dark/85 backdrop-blur-sm border-b border-temple-gold/15'
+          ? 'bg-[#F0E9CE]/98 backdrop-blur-md shadow-md border-b border-[#C49820]/50'
+          : 'bg-[#F0E9CE]/92 backdrop-blur-sm border-b border-[#C49820]/20'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
             <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => scrollToSection('home')}>
               <img src="/logo.png" alt="台北古亭和聖壇 Logo" className={`object-contain transition-all duration-300 ${isScrolled ? 'w-10 h-10' : 'w-14 h-14'}`} referrerPolicy="no-referrer" />
               <div className="hidden sm:block">
-                <h1 className={`text-white font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-base' : 'text-lg'}`}>台北古亭和聖壇</h1>
+                <h1 className={`text-temple-dark font-bold tracking-widest font-serif transition-all duration-300 ${isScrolled ? 'text-base' : 'text-lg'}`}>台北古亭和聖壇</h1>
+                <p className="text-[10px] tracking-widest text-temple-red/70 uppercase hidden lg:block">He Sheng Altar</p>
               </div>
             </div>
 
@@ -320,8 +321,8 @@ const App: React.FC = () => {
                   onClick={() => scrollToSection(item)}
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${activeSection === item
-                      ? 'bg-temple-gold/20 text-temple-gold font-semibold'
-                      : 'text-white/85 hover:bg-white/10 hover:text-temple-gold'}`}
+                      ? 'bg-temple-gold/15 text-temple-red font-semibold'
+                      : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
                 >
                   {{
                     'home': '首頁',
@@ -341,11 +342,11 @@ const App: React.FC = () => {
               ))}
               <button
                 onClick={() => setShowScripture(true)}
-                className="relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap text-temple-gold/80 hover:bg-temple-gold/10 hover:text-temple-gold border border-temple-gold/30"
+                className="relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap text-temple-red/80 hover:bg-temple-red/10 hover:text-temple-red border border-temple-red/30"
               >
                 聖母經
               </button>
-              <div className="w-px h-6 bg-white/20 mx-1" />
+              <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
               <a
                 href="https://lin.ee/lj0gLqR"
                 target="_blank"
@@ -360,7 +361,7 @@ const App: React.FC = () => {
             <div className="-mr-2 flex lg:hidden">
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center p-2 rounded-full text-temple-gold hover:text-white hover:bg-white/10 transition-colors"
+                className="inline-flex items-center justify-center p-2 rounded-full text-temple-red hover:text-temple-dark hover:bg-[#C49820]/10 transition-colors"
               >
                 {isMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
               </button>
@@ -370,15 +371,15 @@ const App: React.FC = () => {
 
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="bg-temple-dark/95 backdrop-blur-md border-t border-temple-gold/20 px-4 pt-2 pb-4 space-y-1">
+          <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1">
             {['home', 'about', 'deities', 'lamps', 'booking', 'donation'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
                 className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200
                   ${activeSection === item
-                    ? 'bg-temple-gold/15 text-temple-gold font-semibold'
-                    : 'text-white/85 hover:bg-white/10 hover:text-temple-gold'}`}
+                    ? 'bg-temple-gold/15 text-temple-red font-semibold'
+                    : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red'}`}
               >
                 {{
                   'home': '首頁',
@@ -395,7 +396,7 @@ const App: React.FC = () => {
             ))}
             <button
               onClick={() => { setShowScripture(true); setIsMenuOpen(false); }}
-              className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-gold border border-temple-gold/30 hover:bg-temple-gold/10"
+              className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
             >
               ✦ 聖母經
             </button>
@@ -684,12 +685,19 @@ const App: React.FC = () => {
       {/* Services Section */}
       <section id="services" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 inline-block border-b-2 border-temple-gold pb-1">
+          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-2">
+            <span className="w-8 h-1 bg-temple-gold"></span>
             宮廟服務
+            <span className="w-8 h-1 bg-temple-gold"></span>
           </h2>
-          <h3 className="text-4xl font-bold text-temple-dark mb-16 font-serif">
+          <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
             祈福保平安，點燈開智慧
           </h3>
+          <div className="flex items-center justify-center gap-3 mt-3 mb-12">
+            <span className="w-12 h-px bg-temple-gold/70" />
+            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+            <span className="w-12 h-px bg-temple-gold/70" />
+          </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {/* Service 1 */}

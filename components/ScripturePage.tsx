@@ -77,8 +77,10 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       const scrollY = window.scrollY;
 
       // ── 1. Reveal：批次顯示進入視口的節 ──
+      // 閾值用 1.15 × vh：元素在進入畫面「前」就先觸發動畫，
+      // 確保使用者滑到時內容已完全可見，不會感覺一頁空白。
       pending = pending.filter(el => {
-        if (el.getBoundingClientRect().top < window.innerHeight * 0.88) {
+        if (el.getBoundingClientRect().top < window.innerHeight * 1.15) {
           el.querySelectorAll('.sp-up, .sp-left, .sp-right')
             .forEach(child => child.classList.add('sp-in'));
           return false;
@@ -194,20 +196,19 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
       <style>{`
         /* ── Entrance animations ── */
-        .sp-up   { opacity:0; transform:translateY(64px);  filter:blur(4px);
-                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
-                              transform 1.15s cubic-bezier(0.16,1,0.3,1),
-                              filter 1.0s ease; }
-        .sp-left { opacity:0; transform:translateX(-88px) scale(0.96);
-                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
-                              transform 1.15s cubic-bezier(0.16,1,0.3,1); }
-        .sp-right{ opacity:0; transform:translateX(88px)  scale(0.96);
-                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
-                              transform 1.15s cubic-bezier(0.16,1,0.3,1); }
-        .sp-up.sp-in   { opacity:1; transform:translateY(0);      filter:blur(0); }
+        .sp-up   { opacity:0; transform:translateY(40px);
+                   transition:opacity 0.85s cubic-bezier(0.16,1,0.3,1),
+                              transform 0.85s cubic-bezier(0.16,1,0.3,1); }
+        .sp-left { opacity:0; transform:translateX(-72px) scale(0.96);
+                   transition:opacity 0.85s cubic-bezier(0.16,1,0.3,1),
+                              transform 0.85s cubic-bezier(0.16,1,0.3,1); }
+        .sp-right{ opacity:0; transform:translateX(72px)  scale(0.96);
+                   transition:opacity 0.85s cubic-bezier(0.16,1,0.3,1),
+                              transform 0.85s cubic-bezier(0.16,1,0.3,1); }
+        .sp-up.sp-in   { opacity:1; transform:translateY(0); }
         .sp-left.sp-in { opacity:1; transform:translateX(0) scale(1); }
         .sp-right.sp-in{ opacity:1; transform:translateX(0) scale(1); }
-        .sp-d1 { transition-delay:.14s; } .sp-d2 { transition-delay:.30s; } .sp-d3 { transition-delay:.48s; }
+        .sp-d1 { transition-delay:.10s; } .sp-d2 { transition-delay:.22s; } .sp-d3 { transition-delay:.36s; }
         /* ── Parallax wrappers ── */
         .sp-parallax-wrap { will-change:transform; }
         .sp-watermark     { will-change:transform; }
@@ -223,12 +224,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           /* 手機內容方向強制改 column：繪圖在上，經文與註解在下 */
           .sp-section-inner { flex-direction: column !important; }
           /* 手機版入場：小幅 translateX（不用 110vw，否則 getBoundingClientRect 會偏移） */
-          .sp-left  { opacity:0; transform:translateX(-50px) scale(0.96) !important;
-                      transition:opacity 1.2s cubic-bezier(0.16,1,0.3,1),
-                                 transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
-          .sp-right { opacity:0; transform:translateX(50px)  scale(0.96) !important;
-                      transition:opacity 1.2s cubic-bezier(0.16,1,0.3,1),
-                                 transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-left  { opacity:0; transform:translateX(-40px) scale(0.96) !important;
+                      transition:opacity 0.85s cubic-bezier(0.16,1,0.3,1),
+                                 transform 0.85s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-right { opacity:0; transform:translateX(40px)  scale(0.96) !important;
+                      transition:opacity 0.85s cubic-bezier(0.16,1,0.3,1),
+                                 transform 0.85s cubic-bezier(0.16,1,0.3,1) !important; }
           .sp-left.sp-in  { opacity:1; transform:translateX(0) scale(1) !important; }
           .sp-right.sp-in { opacity:1; transform:translateX(0) scale(1) !important; }
           .sp-progress { display:none !important; }
@@ -304,7 +305,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       </div>
 
       {/* ── 開場 ── */}
-      <div data-intro="true" style={{ maxWidth: 680, margin: '0 auto', padding: '72px 32px 56px', textAlign: 'center' }}>
+      <div data-intro="true" style={{ maxWidth: 680, margin: '0 auto', padding: '20px 32px 40px', textAlign: 'center' }}>
         <p className="sp-up" style={{ color: 'rgba(90,48,16,.55)', fontSize: 12, letterSpacing: '.5em', marginBottom: 18 }}>✦ 按章節閱讀 ✦</p>
         <p className="sp-up sp-d1" style={{ color: 'rgba(58,32,8,.7)', fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
           聖母經乃歷代信眾虔誠奉誦之頌詞，記載天上聖母慈悲護佑之事蹟。<br />
