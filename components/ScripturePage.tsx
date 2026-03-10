@@ -218,7 +218,10 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         .vert { writing-mode:vertical-rl; text-orientation:mixed; }
         .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, #c9a870, transparent); opacity:.3; margin:0 auto; max-width:560px; }
         .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,#8b1a1a,#c0392b,#8b1a1a); opacity:.12; pointer-events:none; z-index:40; }
-        @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
+        @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
+        @keyframes sp-ring   { 0%{box-shadow:0 0 0 0 rgba(184,145,90,.45)} 70%{box-shadow:0 0 0 16px rgba(184,145,90,.0)} 100%{box-shadow:0 0 0 0 rgba(184,145,90,.0)} }
+        .sp-scroll-btn { transition: opacity .25s, transform .25s; }
+        .sp-scroll-btn:hover { opacity:.95; transform: translateX(-50%) scale(1.04) !important; }
         /* ── Mobile ── */
         @media (max-width: 767px) {
           /* 圖片包裝器全寬，讓繪圖永遠在最上方 */
@@ -299,10 +302,20 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
             {loading ? '載入中…' : `全經共 ${verses.length} 節`}
           </p>
         </div>
-        <div onClick={() => window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' })}
-          style={{ position: 'absolute', bottom: 32, left: '50%', color: 'rgba(107,64,16,.4)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, animation: 'sp-bounce 2.2s ease-in-out infinite' }}>
-          <span style={{ fontSize: 11, letterSpacing: '.3em' }}>scroll</span>
-          <ChevronDown size={17} />
+        <div className="sp-scroll-btn"
+          onClick={() => window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' })}
+          style={{ position: 'absolute', bottom: 36, left: '50%', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: 'sp-bounce 2.4s ease-in-out infinite', userSelect: 'none' }}>
+          <span style={{ color: 'rgba(90,48,16,.65)', fontSize: 12, letterSpacing: '.6em' }}>開 始 閱 讀</span>
+          <div style={{
+            width: 50, height: 50, borderRadius: '50%',
+            border: '1.5px solid rgba(184,145,90,.6)',
+            background: 'rgba(188,140,60,.10)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'rgba(107,64,16,.80)',
+            animation: 'sp-ring 2.1s ease-out infinite',
+          }}>
+            <ChevronDown size={22} />
+          </div>
         </div>
       </div>
 
