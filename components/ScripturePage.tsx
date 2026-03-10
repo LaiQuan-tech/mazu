@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
 
+const STORAGE_BASE = 'https://keosbjepuvqqqhzyuplb.supabase.co/storage/v1/object/public/site-images';
+
 interface ScripturePageProps {
   onBack: () => void;
 }
@@ -15,14 +17,14 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   const [currentSection, setCurrentSection] = useState(0);
   const rafRef = useRef<number>(0);
 
-  // body 背景色：避免捲動慣性時露出白底
+  // 掛載時把 body 背景改成頁面底色，避免捲動慣性時露白
   useEffect(() => {
     const prev = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = '#e8dfbf';
+    document.body.style.backgroundColor = '#f5edd8';
     return () => { document.body.style.backgroundColor = prev; };
   }, []);
 
-  // 每次開啟頁面都重新 fetch
+  // 每次開啟頁面都重新 fetch 最新資料
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
@@ -32,106 +34,18 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Nav 透明度 + 進度條（獨立 handler，不依賴 verses）
+  // Nav transparency + scroll progress bar
   useEffect(() => {
     const onScroll = () => {
       setAtTop(window.scrollY < window.innerHeight * 0.9);
-      const docH = document.documentElement.scrollHeight - window.innerHeight;
-      setScrollProgress(docH > 0 ? window.scrollY / docH : 0);
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollProgress(docHeight > 0 ? window.scrollY / docHeight : 0);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ── 核心：scroll-based reveal ＋ 多層視差 ──────────────────────────────
-  // 用 scroll event 取代 IntersectionObserver：可靠、無競態、跨裝置一致
-  useEffect(() => {
-    if (verses.length === 0) return;
-
-    // pending: 尚未顯示的區塊列表（只查一次 DOM，後續用 filter 縮小）
-    let pending: Element[] = [];
-
-    const tick = () => {
-      const isMobile = window.innerWidth < 768;
-      const scrollY = window.scrollY;
-      const vhCenter = window.innerHeight / 2;
-
-      // ── 1. Reveal：批次顯示已進入視口的區塊 ──
-      pending = pending.filter(el => {
-        const top = el.getBoundingClientRect().top;
-        if (top < window.innerHeight * 0.88) {
-          el.querySelectorAll('.sp-up').forEach(child => child.classList.add('sp-in'));
-          return false; // 已顯示，移出 pending
-        }
-        return true;
-      });
-
-      // ── 2. Hero 視差 ──
-      if (scrollY < window.innerHeight * 1.2) {
-        document.querySelectorAll<HTMLElement>('.hero-char').forEach(el => {
-          el.style.transform = `translateY(${-scrollY * 0.25}px)`;
-        });
-        const heroGlow = document.querySelector<HTMLElement>('.hero-glow');
-        if (heroGlow) heroGlow.style.transform = `translateX(-50%) translateY(${-scrollY * 0.12}px)`;
-        const heroSub = document.querySelector<HTMLElement>('.hero-sub');
-        if (heroSub) heroSub.style.transform = `translateY(${-scrollY * 0.08}px)`;
-      }
-
-      // ── 3. 桌機：內容多層視差 ──
-      if (!isMobile) {
-        // 經文字體（主體）：最慢，彷彿漂浮在前景
-        document.querySelectorAll<HTMLElement>('.sp-verse').forEach(el => {
-          const rect = el.getBoundingClientRect();
-          const raw = (rect.top + rect.height / 2) - vhCenter;
-          el.style.transform = `translateY(${raw * 0.10}px)`;
-        });
-
-        // 註解文字：稍快，稍遠的層次
-        document.querySelectorAll<HTMLElement>('.sp-anno').forEach(el => {
-          const rect = el.getBoundingClientRect();
-          const raw = (rect.top + rect.height / 2) - vhCenter;
-          el.style.transform = `translateY(${raw * 0.16}px)`;
-        });
-
-        // 水印數字：最慢，最深的背景層
-        document.querySelectorAll<HTMLElement>('.sp-watermark').forEach(el => {
-          const rect = el.getBoundingClientRect();
-          const raw = (rect.top + rect.height / 2) - vhCenter;
-          el.style.transform = `translateY(calc(-50% + ${raw * 0.05}px))`;
-        });
-
-        // 閱讀焦點：已過節淡出
-        document.querySelectorAll<HTMLElement>('[data-section-idx]').forEach(el => {
-          const rect = el.getBoundingClientRect();
-          el.style.transition = 'opacity 0.8s ease';
-          el.style.opacity = rect.bottom < -80 ? '0.45' : '1';
-        });
-      }
-    };
-
-    const onScroll = () => {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    // rAF：確保 React commit 後瀏覽器完成 layout，再查 DOM
-    const initRaf = requestAnimationFrame(() => {
-      pending = Array.from(
-        document.querySelectorAll('[data-intro], [data-section-idx]')
-      );
-      tick(); // 立即檢查（處理資料載入時已滑到的節）
-    });
-
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(rafRef.current);
-      cancelAnimationFrame(initRaf);
-    };
-  }, [verses]);
-
-  // 當前節追蹤（IntersectionObserver 只用於計數顯示，不影響可見性）
+  // Current section tracker
   useEffect(() => {
     if (verses.length === 0) return;
     const io = new IntersectionObserver(
@@ -147,7 +61,101 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     return () => io.disconnect();
   }, [verses]);
 
-  // 解析「• 」開頭的行為清單
+  // ── Scroll effects：視差 ＋ scroll-based reveal（整合在同一個 tick）──────
+  // Reveal 用 scroll event + pending[] 取代 IntersectionObserver，
+  // 避免非同步競態（資料載入後 user 已滑過的節不補觸發）以及
+  // lazy 圖片高度為 0 時 IntersectionObserver 偵測不到的問題。
+  useEffect(() => {
+    if (verses.length === 0) return;
+
+    let pending: Element[] = [];
+    let initRaf = 0;
+
+    const tick = () => {
+      const isMobile = window.innerWidth < 768;
+      const vhCenter = window.innerHeight / 2;
+      const scrollY = window.scrollY;
+
+      // ── 1. Reveal：批次顯示進入視口的節 ──
+      pending = pending.filter(el => {
+        if (el.getBoundingClientRect().top < window.innerHeight * 0.88) {
+          el.querySelectorAll('.sp-up, .sp-left, .sp-right')
+            .forEach(child => child.classList.add('sp-in'));
+          return false;
+        }
+        return true;
+      });
+
+      // ── 2. 插圖視差 + 縮放呼吸感（desktop only）──
+      if (!isMobile) {
+        document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const raw = (rect.top + rect.height / 2) - vhCenter;
+          const offset = raw * 0.45;
+          const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.75));
+          const scale = 1.04 - 0.09 * normalized;
+          el.style.transform = `translateY(${offset}px) scale(${scale})`;
+        });
+      }
+
+      // ── 3. 水印數字視差（desktop only）──
+      if (!isMobile) {
+        document.querySelectorAll<HTMLElement>('.sp-watermark').forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const raw = (rect.top + rect.height / 2) - vhCenter;
+          el.style.transform = `translateY(calc(-50% + ${raw * 0.10}px))`;
+        });
+      }
+
+      // ── 4. Hero 視差 ──
+      if (scrollY < window.innerHeight * 1.2) {
+        document.querySelectorAll<HTMLElement>('.hero-char').forEach((el) => {
+          el.style.transform = `translateY(${-scrollY * 0.25}px)`;
+        });
+        const heroGlow = document.querySelector<HTMLElement>('.hero-glow');
+        if (heroGlow) heroGlow.style.transform = `translateX(-50%) translateY(${-scrollY * 0.12}px)`;
+        const heroSub = document.querySelector<HTMLElement>('.hero-sub');
+        if (heroSub) heroSub.style.transform = `translateY(${-scrollY * 0.08}px)`;
+      }
+
+      // ── 5. 閱讀焦點淡出（desktop only）──
+      if (!isMobile) {
+        document.querySelectorAll<HTMLElement>('[data-section-idx]').forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          el.style.transition = 'opacity 0.9s ease';
+          el.style.opacity = rect.bottom < -80 ? '0.55' : '1';
+        });
+      }
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // rAF：確保 React DOM commit 完成後再查 DOM（layout 穩定）
+    initRaf = requestAnimationFrame(() => {
+      pending = Array.from(
+        document.querySelectorAll('[data-intro], [data-section-idx]')
+      );
+      tick();
+    });
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(initRaf);
+    };
+  }, [verses]);
+
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return null;
+    return `${STORAGE_BASE}/${imagePath}`;
+  };
+
+  // 解析「• 」開頭的行為清單，其餘保持段落
   const renderAnnotation = (text: string): React.ReactNode[] => {
     const lines = text.split('\n');
     const nodes: React.ReactNode[] = [];
@@ -159,7 +167,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         <ul key={key} style={{ margin: '6px 0', padding: 0, listStyle: 'none' }}>
           {bullets.map((b, j) => (
             <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4em', marginBottom: 3 }}>
-              <span style={{ color: '#c9a870', flexShrink: 0 }}>•</span>
+              <span style={{ color: '#c9a870', flexShrink: 0, lineHeight: 'inherit' }}>•</span>
               <span>{b}</span>
             </li>
           ))}
@@ -173,7 +181,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         bullets.push(line.slice(2));
       } else {
         flushBullets(`ul-${i}`);
-        if (line.trim()) nodes.push(<span key={`t-${i}`}>{line}<br /></span>);
+        if (line.trim()) {
+          nodes.push(<span key={`t-${i}`}>{line}<br /></span>);
+        }
       }
     });
     flushBullets('ul-last');
@@ -181,92 +191,55 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   };
 
   return (
-    <div style={{
-      background: 'linear-gradient(158deg, #cfc09a 0%, #f0e5c8 18%, #ede8d0 50%, #e8dfbf 80%, #c8b882 100%)',
-      minHeight: '100vh',
-      fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif',
-      overflowX: 'hidden',
-    }}>
+    <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
       <style>{`
-        /* ── 入場動畫：只用 opacity + translateY，穩定可靠 ── */
-        .sp-up {
-          opacity: 0;
-          transform: translateY(48px);
-          filter: blur(3px);
-          transition:
-            opacity 1.1s cubic-bezier(0.16,1,0.3,1),
-            transform 1.1s cubic-bezier(0.16,1,0.3,1),
-            filter 0.9s ease;
-        }
-        .sp-up.sp-in {
-          opacity: 1;
-          transform: translateY(0);
-          filter: blur(0);
-        }
-        .sp-d1 { transition-delay: .12s; }
-        .sp-d2 { transition-delay: .26s; }
-        .sp-d3 { transition-delay: .42s; }
-
-        /* ── 視差包裝器 will-change ── */
-        .sp-verse, .sp-anno, .sp-watermark { will-change: transform; }
-
-        /* ── 工具 ── */
-        .vert { writing-mode: vertical-rl; text-orientation: mixed; }
-        .brush-line {
-          border: none; height: 1px;
-          background: linear-gradient(to right, transparent, #c9a870, transparent);
-          opacity: .28; margin: 0 auto; max-width: 560px;
-        }
-        .scroll-rail {
-          position: fixed; top: 0; bottom: 0; width: 3px;
-          background: linear-gradient(to bottom, #8b1a1a, #c0392b, #8b1a1a);
-          opacity: .10; pointer-events: none; z-index: 40;
-        }
-        @keyframes sp-bounce {
-          0%,100% { transform: translateX(-50%) translateY(0); }
-          50%      { transform: translateX(-50%) translateY(10px); }
-        }
-
-        /* ── 仿古紙質三層 ── */
-        .paper-grain {
-          position: fixed; inset: 0; pointer-events: none; z-index: 100;
-          background-image:
-            radial-gradient(circle, rgba(90,55,8,.22) 1px, transparent 1px),
-            radial-gradient(circle, rgba(80,48,6,.14) 1px, transparent 1px),
-            radial-gradient(circle, rgba(70,42,5,.10) 1px, transparent 1px);
-          background-size: 3px 3px, 7px 7px, 5px 5px;
-          background-position: 0 0, 2px 3px, 4px 1px;
-        }
-        .paper-vignette {
-          position: fixed; inset: 0; pointer-events: none; z-index: 100;
-          background:
-            radial-gradient(ellipse at 50% 44%, transparent 36%, rgba(75,40,5,.28) 100%),
-            linear-gradient(to bottom, rgba(80,48,5,.10) 0%, transparent 12%, transparent 88%, rgba(80,48,5,.12) 100%),
-            linear-gradient(to right,  rgba(70,40,5,.06) 0%, transparent 10%, transparent 90%, rgba(70,40,5,.06) 100%);
-          box-shadow: inset 0 0 140px rgba(70,38,5,.14);
-        }
-        .paper-aging {
-          position: fixed; inset: 0; pointer-events: none; z-index: 100;
-          background:
-            radial-gradient(ellipse at  3%  5%, rgba(120,70,8,.20)  0%, transparent 30%),
-            radial-gradient(ellipse at 97%  4%, rgba(105,58,5,.17)  0%, transparent 27%),
-            radial-gradient(ellipse at  2% 97%, rgba(125,72,8,.20)  0%, transparent 29%),
-            radial-gradient(ellipse at 98% 96%, rgba(110,62,5,.17)  0%, transparent 25%),
-            radial-gradient(ellipse at 28% 32%, rgba(130,75,10,.06) 0%, transparent 18%),
-            radial-gradient(ellipse at 72% 68%, rgba(120,65,8,.05)  0%, transparent 16%);
+        /* ── Entrance animations ── */
+        .sp-up   { opacity:0; transform:translateY(64px);  filter:blur(4px);
+                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
+                              transform 1.15s cubic-bezier(0.16,1,0.3,1),
+                              filter 1.0s ease; }
+        .sp-left { opacity:0; transform:translateX(-88px) scale(0.96);
+                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
+                              transform 1.15s cubic-bezier(0.16,1,0.3,1); }
+        .sp-right{ opacity:0; transform:translateX(88px)  scale(0.96);
+                   transition:opacity 1.15s cubic-bezier(0.16,1,0.3,1),
+                              transform 1.15s cubic-bezier(0.16,1,0.3,1); }
+        .sp-up.sp-in   { opacity:1; transform:translateY(0);      filter:blur(0); }
+        .sp-left.sp-in { opacity:1; transform:translateX(0) scale(1); }
+        .sp-right.sp-in{ opacity:1; transform:translateX(0) scale(1); }
+        .sp-d1 { transition-delay:.14s; } .sp-d2 { transition-delay:.30s; } .sp-d3 { transition-delay:.48s; }
+        /* ── Parallax wrappers ── */
+        .sp-parallax-wrap { will-change:transform; }
+        .sp-watermark     { will-change:transform; }
+        /* ── Helpers ── */
+        .vert { writing-mode:vertical-rl; text-orientation:mixed; }
+        .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, #c9a870, transparent); opacity:.3; margin:0 auto; max-width:560px; }
+        .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,#8b1a1a,#c0392b,#8b1a1a); opacity:.12; pointer-events:none; z-index:40; }
+        @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
+        /* ── Mobile ── */
+        @media (max-width: 767px) {
+          /* 圖片包裝器全寬，讓繪圖永遠在最上方 */
+          .sp-parallax-wrap { width:100% !important; flex:none !important; }
+          /* 手機內容方向強制改 column：繪圖在上，經文與註解在下 */
+          .sp-section-inner { flex-direction: column !important; }
+          /* 手機版入場：小幅 translateX（不用 110vw，否則 getBoundingClientRect 會偏移） */
+          .sp-left  { opacity:0; transform:translateX(-50px) scale(0.96) !important;
+                      transition:opacity 1.2s cubic-bezier(0.16,1,0.3,1),
+                                 transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-right { opacity:0; transform:translateX(50px)  scale(0.96) !important;
+                      transition:opacity 1.2s cubic-bezier(0.16,1,0.3,1),
+                                 transform 1.2s cubic-bezier(0.16,1,0.3,1) !important; }
+          .sp-left.sp-in  { opacity:1; transform:translateX(0) scale(1) !important; }
+          .sp-right.sp-in { opacity:1; transform:translateX(0) scale(1) !important; }
+          .sp-progress { display:none !important; }
         }
       `}</style>
 
-      {/* 紙質覆蓋層 */}
-      <div className="paper-grain" />
-      <div className="paper-vignette" />
-      <div className="paper-aging" />
-
-      {/* 側邊裝飾線 */}
+      {/* Left decorative rail */}
       <div className="scroll-rail" style={{ left: 0 }} />
-      <div className="scroll-rail" style={{ right: 0 }} />
 
-      {/* 右側進度指示器 */}
+      {/* ── Right-side scroll progress indicator ── */}
+      <div className="scroll-rail" style={{ right: 0 }} />
       {!loading && verses.length > 0 && (
         <div className="sp-progress" style={{
           position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)',
@@ -274,12 +247,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           pointerEvents: 'none',
         }}>
           <span style={{
-            color: 'rgba(107,64,16,.4)', fontSize: 9, letterSpacing: '.1em',
+            color: 'rgba(107,64,16,.45)', fontSize: 9, letterSpacing: '.1em',
             writingMode: 'vertical-rl', lineHeight: 1.2, textAlign: 'center',
           }}>
-            {currentSection > 0 ? currentSection : '—'}&thinsp;/&thinsp;{verses.length}
+            {currentSection > 0 ? currentSection : '―'}&thinsp;/&thinsp;{verses.length}
           </span>
-          <div style={{ width: 2, height: 72, background: 'rgba(184,145,90,.15)', borderRadius: 1, overflow: 'hidden' }}>
+          <div style={{ width: 2, height: 72, background: 'rgba(184,145,90,.18)', borderRadius: 1, overflow: 'hidden' }}>
             <div style={{
               width: '100%', height: `${scrollProgress * 100}%`,
               background: 'linear-gradient(to bottom, #8b1a1a, #c9a870)',
@@ -289,7 +262,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* ── 導覽列 ── */}
+      {/* ── Nav ── */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
         background: atTop ? 'transparent' : 'rgba(245,237,216,0.92)',
@@ -306,7 +279,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* ── 封面 ── */}
+      {/* ── Hero（無獨立背景 div，與內文頁同色，自然銜接） ── */}
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
@@ -330,103 +303,70 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* ── 開場說明 ── */}
-      <div data-intro="true" style={{ maxWidth: 640, margin: '0 auto', padding: '72px 32px 56px', textAlign: 'center' }}>
-        <p className="sp-up" style={{ color: 'rgba(90,48,16,.5)', fontSize: 11, letterSpacing: '.55em', marginBottom: 20 }}>✦ 按章節閱讀 ✦</p>
-        <p className="sp-up sp-d1" style={{ color: 'rgba(58,32,8,.65)', fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
+      {/* ── 開場 ── */}
+      <div data-intro="true" style={{ maxWidth: 680, margin: '0 auto', padding: '72px 32px 56px', textAlign: 'center' }}>
+        <p className="sp-up" style={{ color: 'rgba(90,48,16,.55)', fontSize: 12, letterSpacing: '.5em', marginBottom: 18 }}>✦ 按章節閱讀 ✦</p>
+        <p className="sp-up sp-d1" style={{ color: 'rgba(58,32,8,.7)', fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
           聖母經乃歷代信眾虔誠奉誦之頌詞，記載天上聖母慈悲護佑之事蹟。<br />
-          以下各節，輔以說解，願讀者沐浴聖恩，心生清淨。
+          以下各節，輔以圖繪與說解，願讀者沐浴聖恩，心生清淨。
         </p>
       </div>
 
-      {/* ── 各章節（無底圖版，文字為主） ── */}
+      {/* ── 各章節 ── */}
       {verses.map((section, idx) => {
         const isEven = idx % 2 === 0;
+        const imgUrl = getImageUrl(section.imagePath);
         return (
           <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
-            <section style={{
-              minHeight: '85vh',
-              padding: 'clamp(56px,8vh,100px) clamp(20px,6vw,80px)',
-              display: 'flex',
-              alignItems: 'center',
-              position: 'relative',
-            }}>
+            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
 
-              {/* 光暈（每節右或左上角） */}
+              {/* Per-section background glow */}
               <div style={{
                 position: 'absolute',
-                [isEven ? 'right' : 'left']: '-5%',
-                top: '10%',
-                width: '50%', height: '80%',
-                background: 'radial-gradient(ellipse, rgba(188,140,60,.04), transparent 65%)',
+                [isEven ? 'right' : 'left']: '-8%',
+                top: '15%',
+                width: '55%', height: '70%',
+                background: 'radial-gradient(ellipse, rgba(188,140,60,.045), transparent 68%)',
                 borderRadius: '50%',
                 pointerEvents: 'none',
               }} />
 
-              {/* 水印數字（最慢層，視差 0.05x） */}
-              <span className="sp-watermark" style={{
-                position: 'absolute',
-                top: '50%',
-                [isEven ? 'right' : 'left']: '2%',
-                fontSize: 'clamp(80px,14vw,200px)',
-                color: 'rgba(184,145,90,.04)',
-                fontWeight: 900,
-                lineHeight: 1,
-                userSelect: 'none',
-                pointerEvents: 'none',
-              }}>
-                {String(section.sectionNumber).padStart(2, '0')}
+              {/* Watermark section number */}
+              <span className="sp-watermark" style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
+                {String(section.sectionNumber).padStart(3, '0')}
               </span>
 
-              {/* 主要內容：經文 ＋ 註解 並排 */}
-              <div style={{
-                maxWidth: 960,
-                margin: '0 auto',
-                width: '100%',
-                display: 'flex',
-                flexDirection: isEven ? 'row' : 'row-reverse',
-                alignItems: 'center',
-                gap: 'clamp(32px,7vw,96px)',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-              }}>
+              {/* sp-section-inner：手機版 CSS 強制 column（繪圖在上） */}
+              <div className="sp-section-inner" style={{ maxWidth: 1060, margin: '0 auto', width: '100%', display: 'flex', flexDirection: isEven ? 'row' : 'row-reverse', alignItems: 'center', gap: 'clamp(24px,5vw,72px)', flexWrap: 'wrap' }}>
 
-                {/* 經文：竪排，視差 0.10x */}
-                <div className="sp-verse" style={{ flex: '0 0 auto' }}>
-                  <div className="sp-up">
-                    <div className="vert" style={{
-                      color: '#3a2008',
-                      fontSize: 'clamp(22px,3.5vw,46px)',
-                      fontWeight: 900,
-                      letterSpacing: '.32em',
-                      lineHeight: 1.85,
-                      whiteSpace: 'pre',
-                    }}>
+                {/* 插圖：視差 + 縮放 + 入場動畫 */}
+                {imgUrl && (
+                  <div className="sp-parallax-wrap" style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
+                    <div className={isEven ? 'sp-left' : 'sp-right'}>
+                      <img
+                        src={imgUrl}
+                        alt=""
+                        loading="lazy"
+                        style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 8px 32px rgba(90,48,16,.13))' }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 文字 */}
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
+                    <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
                       {section.verse}
                     </div>
                   </div>
-                </div>
-
-                {/* 分隔線 ＋ 註解：視差 0.16x */}
-                <div className="sp-anno" style={{ flex: '1 1 220px', maxWidth: 520 }}>
-                  <div className="sp-up sp-d1" style={{
-                    height: 1,
-                    marginBottom: 22,
-                    background: isEven
-                      ? 'linear-gradient(to right, rgba(184,145,90,.4), transparent)'
-                      : 'linear-gradient(to left, rgba(184,145,90,.4), transparent)',
-                  }} />
-                  <div className="sp-up sp-d2" style={{
-                    color: 'rgba(58,32,8,.60)',
-                    fontSize: 'clamp(13px,1.4vw,15px)',
-                    lineHeight: 2.3,
-                    letterSpacing: '.05em',
-                  }}>
+                  <div className="sp-up sp-d2" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />
+                  <div className="sp-up sp-d3" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 640 }}>
                     {renderAnnotation(section.annotation)}
                   </div>
                 </div>
-
               </div>
             </section>
           </div>
@@ -435,7 +375,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
 
       {/* ── 結尾 ── */}
       <hr className="brush-line" />
-      <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '72px 32px' }}>
+      <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '72px 32px', background: 'linear-gradient(to bottom, #f5edd8, #efe3c4)' }}>
         <div style={{ textAlign: 'center' }}>
           <div className="vert sp-up" style={{ color: '#3a2008', fontSize: 'clamp(16px,2.5vw,28px)', fontWeight: 300, letterSpacing: '.35em', lineHeight: 1.9, height: 'clamp(180px,26vw,320px)', margin: '0 auto' }}>
             {'天上聖母\n護佑眾生\n萬古流芳\n聖恩永沐'}
