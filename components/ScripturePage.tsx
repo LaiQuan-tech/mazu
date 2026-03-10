@@ -89,13 +89,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       });
 
       // ── 2. 插圖視差 + 縮放呼吸感（desktop only）──
+      // 原 section 的 overflow:hidden 已移除，translateY 可正常顯示。
+      // 係數 0.12（原 0.45）→ ±50px 最大位移，視差感明顯但不過激。
       if (!isMobile) {
         document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
           const rect = el.getBoundingClientRect();
           const raw = (rect.top + rect.height / 2) - vhCenter;
-          const offset = raw * 0.45;
+          const offset = Math.max(-52, Math.min(52, raw * 0.12));
           const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.75));
-          const scale = 1.04 - 0.09 * normalized;
+          const scale = 1.03 - 0.05 * normalized;
           el.style.transform = `translateY(${offset}px) scale(${scale})`;
         });
       }
@@ -320,7 +322,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         return (
           <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
-            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
 
               {/* Per-section background glow */}
               <div style={{
