@@ -352,10 +352,10 @@ const App: React.FC = () => {
               <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
               <button
                 onClick={() => setShowMemberPortal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border border-temple-gold/50 text-temple-red hover:bg-temple-gold/10 transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold bg-temple-red text-white shadow-md hover:bg-[#5C1A04] hover:shadow-lg hover:scale-105 transition-all duration-200"
               >
                 <UserIcon className="w-4 h-4" />
-                {member ? '會員' : '登入'}
+                {member ? '會員中心' : '登入 / 註冊'}
               </button>
             </div>
 
