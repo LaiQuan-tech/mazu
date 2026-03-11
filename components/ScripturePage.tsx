@@ -89,24 +89,37 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       });
 
       // ── 2. 插圖視差 + 縮放呼吸感（desktop only）──
-      // 原 section 的 overflow:hidden 已移除，translateY 可正常顯示。
-      // 係數 0.12（原 0.45）→ ±50px 最大位移，視差感明顯但不過激。
+      // ⚠ getBoundingClientRect() 包含已套用的 transform 位移，
+      //   直接用作輸入會形成「回授迴圈」（越算越偏）。
+      //   修法：先減去上一次套用的 translateY，還原真實版面位置，再算新偏移。
       if (!isMobile) {
         document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
+          const m = el.style.transform.match(/translateY\(([-\d.]+)px\)/);
+          const prevY = m ? parseFloat(m[1]) : 0;          // 先前套用的 Y 偏移
           const rect = el.getBoundingClientRect();
-          const raw = (rect.top + rect.height / 2) - vhCenter;
+          const trueTop = rect.top - prevY;                 // 還原真實（無 transform）的 viewport top
+          const h = el.offsetHeight;                        // 未縮放的實際高度
+          const raw = (trueTop + h / 2) - vhCenter;
           const offset = Math.max(-52, Math.min(52, raw * 0.12));
           const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.75));
           const scale = 1.03 - 0.05 * normalized;
           el.style.transform = `translateY(${offset}px) scale(${scale})`;
         });
+      } else {
+        // 手機切換時清除可能殘留的桌機 transform
+        document.querySelectorAll<HTMLElement>('.sp-parallax-wrap').forEach((el) => {
+          el.style.transform = '';
+        });
       }
 
       // ── 3. 水印數字視差（desktop only）──
+      // 用 closest('section') 的中心計算 raw，避免自身 transform 產生回授
       if (!isMobile) {
         document.querySelectorAll<HTMLElement>('.sp-watermark').forEach((el) => {
-          const rect = el.getBoundingClientRect();
-          const raw = (rect.top + rect.height / 2) - vhCenter;
+          const section = el.closest<HTMLElement>('section');
+          if (!section) return;
+          const sr = section.getBoundingClientRect();
+          const raw = (sr.top + sr.height / 2) - vhCenter;
           el.style.transform = `translateY(calc(-50% + ${raw * 0.10}px))`;
         });
       }
