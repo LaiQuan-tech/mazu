@@ -427,6 +427,16 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
 
   // ── contact handlers ──
   const handleSaveContact = async (data: MemberContactData) => {
+    // 帳號至少需有一筆電話號碼
+    if (!data.phone?.trim()) {
+      const otherWithPhone = contacts.filter(
+        c => c.id !== editingContact?.id && c.phone?.trim()
+      );
+      if (otherWithPhone.length === 0) {
+        alert('帳號至少需填寫一組手機號碼，請補上電話後再儲存。');
+        return;
+      }
+    }
     setSaving(true);
     try {
       if (editingContact) {
