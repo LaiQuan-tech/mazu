@@ -200,6 +200,15 @@ export interface MemberContact extends MemberContactData {
   createdAt: string;
 }
 
+export interface ProfileData {
+  name: string;
+  phone: string;
+  birthDate: string;
+  zodiac?: ZodiacSign;
+  gender?: string;
+  address?: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;

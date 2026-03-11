@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -766,6 +766,48 @@ export const deleteMemberContact = async (id: string): Promise<boolean> => {
 
   if (error) {
     console.error('Error deleting member contact:', error);
+    throw error;
+  }
+  return true;
+};
+
+// ─── Member Profile (個人資料) ────────────────────────────
+export const getProfile = async (): Promise<ProfileData | null> => {
+  const { data, error } = await supabase
+    .from('member_profiles')
+    .select('*')
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return {
+    name: data.name || '',
+    phone: data.phone || '',
+    birthDate: data.birth_date || '',
+    zodiac: data.zodiac || undefined,
+    gender: data.gender || undefined,
+    address: data.address || undefined,
+  };
+};
+
+export const saveProfile = async (data: ProfileData): Promise<boolean> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { error } = await supabase
+    .from('member_profiles')
+    .upsert({
+      user_id: user.id,
+      name: data.name,
+      phone: data.phone,
+      birth_date: data.birthDate,
+      zodiac: data.zodiac || null,
+      gender: data.gender || null,
+      address: data.address || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('Error saving profile:', error);
     throw error;
   }
   return true;

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser, RefreshCw } from 'lucide-react';
 import { Solar, Lunar, LunarYear } from 'lunar-javascript';
 import { supabase } from '../services/supabase';
-import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact } from '../services/supabase';
-import { MemberContact, MemberContactData, ZodiacSign } from '../types';
+import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile } from '../services/supabase';
+import { MemberContact, MemberContactData, ProfileData, ZodiacSign } from '../types';
 
 // 簡繁對映（lunar-javascript 部分生肖用簡體）
 const SHENGXIAO_MAP: Record<string, ZodiacSign> = {
@@ -453,6 +453,270 @@ const ContactFormModal = ({
   );
 };
 
+// ── ProfileFormInline（個人資料，行內表單，非 modal）──────────────────────────
+const ProfileFormInline = ({
+  initial,
+  onSave,
+  savedAddresses,
+}: {
+  initial: ProfileData;
+  onSave: (d: ProfileData) => Promise<void>;
+  savedAddresses: string[];
+}) => {
+  const parsedInitial = parseBirthDate(initial.birthDate || '');
+  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(() => parsedInitial ? 'lunar' : 'solar');
+  const [form, setForm] = useState<ProfileData>(initial);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const [solarYear, setSolarYear] = useState(0);
+  const [solarMonth, setSolarMonth] = useState(0);
+  const [solarDay, setSolarDay] = useState(0);
+
+  const [lunarYear, setLunarYear] = useState(() => parsedInitial?.gregorianYear ?? 0);
+  const [lunarMonthValue, setLunarMonthValue] = useState(() => parsedInitial?.monthValue ?? '0');
+  const [lunarDay, setLunarDay] = useState(() => parsedInitial?.dayNum ?? 0);
+  const [birthHour, setBirthHour] = useState(() => parsedInitial?.birthHour ?? '');
+
+  // 當 profile 從 DB 載入後同步到表單
+  const [synced, setSynced] = useState(false);
+  useEffect(() => {
+    if (synced || !initial.name) return;
+    const parsed = parseBirthDate(initial.birthDate || '');
+    setForm(initial);
+    setInputMode(parsed ? 'lunar' : 'solar');
+    setLunarYear(parsed?.gregorianYear ?? 0);
+    setLunarMonthValue(parsed?.monthValue ?? '0');
+    setLunarDay(parsed?.dayNum ?? 0);
+    setBirthHour(parsed?.birthHour ?? '');
+    setSynced(true);
+  }, [initial.name]);
+
+  const set = (key: keyof ProfileData, val: string) =>
+    setForm(f => ({ ...f, [key]: val || undefined }));
+
+  const applySolar = (y: number, m: number, d: number) => {
+    const result = buildSolarResult(y, m, d);
+    if (result) setForm(f => ({ ...f, birthDate: result.birthDate + birthHour, zodiac: result.zodiac }));
+    else setForm(f => ({ ...f, birthDate: birthHour }));
+  };
+
+  const applyLunar = (y: number, mv: string, d: number) => {
+    const result = buildLunarResult(y, mv, d);
+    if (result) setForm(f => ({ ...f, birthDate: result.birthDate + birthHour, zodiac: result.zodiac ?? f.zodiac }));
+    else setForm(f => ({ ...f, birthDate: birthHour }));
+  };
+
+  const solarMaxDays = (solarYear > 0 && solarMonth > 0) ? solarDaysInMonth(solarYear, solarMonth) : 31;
+  const lunarMonthOptions = getLunarMonthOptions(lunarYear);
+  const lunarMonthValid = lunarMonthOptions.some(o => o.value === lunarMonthValue);
+
+  const handleSolarYearChange = (y: number) => {
+    setSolarYear(y);
+    const maxD = (y > 0 && solarMonth > 0) ? solarDaysInMonth(y, solarMonth) : 31;
+    const d = solarDay > 0 ? Math.min(solarDay, maxD) : 0;
+    setSolarDay(d);
+    applySolar(y, solarMonth, d);
+  };
+  const handleSolarMonthChange = (m: number) => {
+    setSolarMonth(m);
+    const maxD = (solarYear > 0 && m > 0) ? solarDaysInMonth(solarYear, m) : 31;
+    const d = solarDay > 0 ? Math.min(solarDay, maxD) : 0;
+    setSolarDay(d);
+    applySolar(solarYear, m, d);
+  };
+  const handleSolarDayChange = (d: number) => { setSolarDay(d); applySolar(solarYear, solarMonth, d); };
+
+  const handleLunarYearChange = (y: number) => {
+    setLunarYear(y);
+    const newOptions = getLunarMonthOptions(y);
+    let mv = lunarMonthValue;
+    if (mv !== '0' && !newOptions.some(o => o.value === mv)) {
+      mv = mv.startsWith('L') ? mv.slice(1) : mv;
+      setLunarMonthValue(mv);
+    }
+    applyLunar(y, mv, lunarDay);
+  };
+  const handleLunarMonthChange = (mv: string) => { setLunarMonthValue(mv); applyLunar(lunarYear, mv, lunarDay); };
+  const handleLunarDayChange = (d: number) => { setLunarDay(d); applyLunar(lunarYear, lunarMonthValue, d); };
+
+  const handleBirthHourChange = (hour: string) => {
+    setBirthHour(hour);
+    setForm(f => {
+      const base = f.birthDate.replace(/[子丑寅卯辰巳午未申酉戌亥]時$/, '');
+      return { ...f, birthDate: base + hour };
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) { alert('請填寫姓名'); return; }
+    setSaving(true);
+    setSaved(false);
+    try {
+      await onSave(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      alert('儲存失敗，請稍後再試。');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selCls = "w-full px-2 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white";
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* 性別 */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">性別</label>
+        <select
+          value={form.gender || ''}
+          onChange={e => setForm(f => ({ ...f, gender: e.target.value || undefined }))}
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white"
+        >
+          <option value="">不指定</option>
+          {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+      </div>
+
+      {/* 姓名 */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+        <input
+          type="text" required placeholder="王小明"
+          value={form.name} onChange={e => set('name', e.target.value)}
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+        />
+      </div>
+
+      {/* 聯絡電話（個人資料必填） */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+        <input
+          type="tel" required placeholder="0912-345-678"
+          value={form.phone} onChange={e => set('phone', e.target.value)}
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+        />
+      </div>
+
+      {/* 居住地址 */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">居住地址</label>
+        <input
+          list="profile-address-suggestions"
+          type="text" placeholder="台北市中正區和平西路一段…"
+          value={form.address || ''} onChange={e => setForm(f => ({ ...f, address: e.target.value || undefined }))}
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+        />
+        {savedAddresses.length > 0 && (
+          <datalist id="profile-address-suggestions">
+            {savedAddresses.map((a, i) => <option key={i} value={a} />)}
+          </datalist>
+        )}
+      </div>
+
+      {/* 生日 */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">生日</label>
+          <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs">
+            <button type="button" onClick={() => setInputMode('solar')}
+              className={`px-3 py-1 transition-colors ${inputMode === 'solar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              國曆
+            </button>
+            <button type="button" onClick={() => setInputMode('lunar')}
+              className={`px-3 py-1 transition-colors ${inputMode === 'lunar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              農曆
+            </button>
+          </div>
+        </div>
+
+        {inputMode === 'solar' ? (
+          <div className="space-y-2">
+            <select value={solarYear} onChange={e => handleSolarYearChange(Number(e.target.value))} className={selCls}>
+              {YEAR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={solarMonth} onChange={e => handleSolarMonthChange(Number(e.target.value))} className={selCls}>
+                {SOLAR_MONTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <select value={solarDay} onChange={e => handleSolarDayChange(Number(e.target.value))} className={selCls}>
+                <option value={0}>吉</option>
+                {Array.from({ length: solarMaxDays }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>{d}日</option>
+                ))}
+              </select>
+            </div>
+            {form.birthDate && (
+              <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
+                <RefreshCw className="w-3.5 h-3.5 text-temple-gold flex-shrink-0" />
+                <span className="text-sm text-temple-dark font-medium">{form.birthDate}</span>
+                <span className="text-xs text-gray-400 ml-1">（農曆換算）</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <select value={lunarYear} onChange={e => handleLunarYearChange(Number(e.target.value))} className={selCls}>
+              {YEAR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={lunarMonthValid ? lunarMonthValue : (lunarMonthOptions[0]?.value ?? '1')}
+                onChange={e => handleLunarMonthChange(e.target.value)} className={selCls}>
+                {lunarMonthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <select value={lunarDay} onChange={e => handleLunarDayChange(Number(e.target.value))} className={selCls}>
+                <option value={0}>吉</option>
+                {LUNAR_DAYS.map((d, i) => <option key={i} value={i + 1}>{d}</option>)}
+              </select>
+            </div>
+            {form.birthDate && (
+              <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2 flex-wrap">
+                <span className="text-sm text-temple-dark font-medium">{form.birthDate}</span>
+                {!lunarYear && (
+                  <span className="text-xs text-gray-400 ml-1">（未填年份，生肖請手動選）</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 時辰 */}
+        <div className="mt-2">
+          <label className="block text-xs font-medium text-gray-500 mb-1">時辰</label>
+          <select value={birthHour} onChange={e => handleBirthHourChange(e.target.value)} className={selCls}>
+            {SHICHEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* 生肖 */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
+        <select
+          value={form.zodiac || ''}
+          onChange={e => set('zodiac', e.target.value)}
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+        >
+          <option value="">不指定</option>
+          {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
+        </select>
+      </div>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="w-full py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+      >
+        {saving ? '儲存中…' : saved ? <><CheckCircle2 className="w-4 h-4" /> 已儲存</> : '儲存個人資料'}
+      </button>
+    </form>
+  );
+};
+
 // ── MemberPortal 主元件 ───────────────────────────────────────────────────────
 const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
   // ── auth state ──
@@ -465,6 +729,12 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState<{ email: string } | null>(null);
+
+  // ── portal tab ──
+  const [portalTab, setPortalTab] = useState<'profile' | 'contacts'>('profile');
+
+  // ── profile state ──
+  const [profile, setProfile] = useState<ProfileData | null>(null);
 
   // ── contacts state ──
   const [contacts, setContacts] = useState<MemberContact[]>([]);
@@ -481,6 +751,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
       if (user?.email) {
         setCurrentUser({ email: user.email });
         loadContacts();
+        loadProfile();
       }
     });
   }, []);
@@ -497,6 +768,20 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
     }
   };
 
+  const loadProfile = async () => {
+    try {
+      const data = await getProfile();
+      setProfile(data);
+    } catch {
+      // 靜默處理
+    }
+  };
+
+  const handleSaveProfile = async (data: ProfileData) => {
+    await saveProfile(data);
+    setProfile(data);
+  };
+
   // ── auth handlers ──
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -508,6 +793,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
       if (data.user?.email) {
         setCurrentUser({ email: data.user.email });
         loadContacts();
+        loadProfile();
       }
     } catch {
       setAuthError('登入失敗，請稍後再試。');
@@ -539,6 +825,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setContacts([]);
+    setProfile(null);
     setEmail('');
     setPassword('');
     setConfirmPassword('');
@@ -740,10 +1027,10 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
                 )}
               </div>
             ) : (
-              /* ── 已登入：Contacts View ── */
+              /* ── 已登入：Portal View ── */
               <div className="p-6">
                 {/* 使用者資訊列 */}
-                <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">已登入</p>
                     <p className="text-sm font-medium text-temple-dark">{currentUser.email}</p>
@@ -757,92 +1044,131 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
                   </button>
                 </div>
 
-                {/* 通訊錄標題 + 新增按鈕 */}
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-temple-dark font-serif flex items-center gap-2">
-                    <BookUser className="w-4 h-4 text-temple-red" />
-                    親友通訊錄
-                  </h4>
+                {/* Tab 切換 */}
+                <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-5">
                   <button
-                    onClick={openAdd}
-                    className="flex items-center gap-1.5 text-sm font-medium text-white bg-temple-red px-3 py-1.5 rounded-full hover:bg-[#5C1A04] transition-colors"
+                    onClick={() => setPortalTab('profile')}
+                    className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                      portalTab === 'profile'
+                        ? 'bg-temple-red text-white'
+                        : 'text-gray-500 hover:text-temple-dark hover:bg-gray-50'
+                    }`}
                   >
-                    <Plus className="w-4 h-4" />
-                    新增
+                    <User className="w-3.5 h-3.5" />
+                    個人資料
+                  </button>
+                  <button
+                    onClick={() => setPortalTab('contacts')}
+                    className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                      portalTab === 'contacts'
+                        ? 'bg-temple-red text-white'
+                        : 'text-gray-500 hover:text-temple-dark hover:bg-gray-50'
+                    }`}
+                  >
+                    <BookUser className="w-3.5 h-3.5" />
+                    親友通訊錄
                   </button>
                 </div>
 
-                {/* 聯絡人列表 */}
-                {loadingContacts ? (
-                  <p className="text-center text-gray-400 py-8 text-sm">載入中…</p>
-                ) : contacts.length === 0 ? (
-                  <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl">
-                    <BookUser className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-400 text-sm mb-1">通訊錄目前為空</p>
-                    <p className="text-gray-300 text-xs">點擊上方「新增」儲存本人或親友資料</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {contacts.map(c => (
-                      <div
-                        key={c.id}
-                        className="flex items-start gap-3 bg-temple-bg/60 border border-temple-gold/20 rounded-xl p-4"
-                      >
-                        {/* Label badge */}
-                        <span className="flex-shrink-0 text-xs font-bold bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full border border-temple-red/20 mt-0.5">
-                          {c.label}
-                        </span>
-
-                        {/* 資料 */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold text-temple-dark text-sm">{c.name}</p>
-                            {c.gender && (
-                              <span className="text-xs bg-temple-red/10 text-temple-red px-1.5 py-0.5 rounded-full">
-                                {c.gender}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                            {c.phone && <span className="text-xs text-gray-500">{c.phone}</span>}
-                            {c.birthDate && <span className="text-xs text-gray-500">{c.birthDate}</span>}
-                            {c.zodiac && (
-                              <span className="text-xs bg-temple-gold/15 text-temple-dark px-1.5 rounded">
-                                {c.zodiac}年
-                              </span>
-                            )}
-                            {c.address && <span className="text-xs text-gray-400 w-full truncate">{c.address}</span>}
-                          </div>
-                        </div>
-
-                        {/* 操作 */}
-                        <div className="flex gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => openEdit(c)}
-                            className="p-1.5 text-gray-400 hover:text-temple-red rounded-lg hover:bg-temple-red/10 transition-colors"
-                            title="編輯"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(c.id)}
-                            disabled={deletingId === c.id}
-                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                            title="刪除"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {/* ── 個人資料 tab ── */}
+                {portalTab === 'profile' && (
+                  <ProfileFormInline
+                    initial={profile ?? { name: '', phone: '', birthDate: '' }}
+                    onSave={handleSaveProfile}
+                    savedAddresses={Array.from(new Set(contacts.map(c => c.address).filter((a): a is string => !!a)))}
+                  />
                 )}
 
-                {/* 說明文字 */}
-                {contacts.length > 0 && (
-                  <p className="text-xs text-gray-400 text-center mt-4">
-                    在點燈、問事、捐款表單中點擊「通訊錄」可快速帶入資料
-                  </p>
+                {/* ── 親友通訊錄 tab ── */}
+                {portalTab === 'contacts' && (
+                  <>
+                    {/* 通訊錄標題 + 新增按鈕 */}
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-temple-dark font-serif flex items-center gap-2">
+                        <BookUser className="w-4 h-4 text-temple-red" />
+                        親友通訊錄
+                      </h4>
+                      <button
+                        onClick={openAdd}
+                        className="flex items-center gap-1.5 text-sm font-medium text-white bg-temple-red px-3 py-1.5 rounded-full hover:bg-[#5C1A04] transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        新增
+                      </button>
+                    </div>
+
+                    {/* 聯絡人列表 */}
+                    {loadingContacts ? (
+                      <p className="text-center text-gray-400 py-8 text-sm">載入中…</p>
+                    ) : contacts.length === 0 ? (
+                      <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl">
+                        <BookUser className="w-10 h-10 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-400 text-sm mb-1">通訊錄目前為空</p>
+                        <p className="text-gray-300 text-xs">點擊上方「新增」儲存親友資料</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {contacts.map(c => (
+                          <div
+                            key={c.id}
+                            className="flex items-start gap-3 bg-temple-bg/60 border border-temple-gold/20 rounded-xl p-4"
+                          >
+                            {/* Label badge */}
+                            <span className="flex-shrink-0 text-xs font-bold bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full border border-temple-red/20 mt-0.5">
+                              {c.label}
+                            </span>
+
+                            {/* 資料 */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-temple-dark text-sm">{c.name}</p>
+                                {c.gender && (
+                                  <span className="text-xs bg-temple-red/10 text-temple-red px-1.5 py-0.5 rounded-full">
+                                    {c.gender}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                                {c.birthDate && <span className="text-xs text-gray-500">{c.birthDate}</span>}
+                                {c.zodiac && (
+                                  <span className="text-xs bg-temple-gold/15 text-temple-dark px-1.5 rounded">
+                                    {c.zodiac}年
+                                  </span>
+                                )}
+                                {c.address && <span className="text-xs text-gray-400 w-full truncate">{c.address}</span>}
+                              </div>
+                            </div>
+
+                            {/* 操作 */}
+                            <div className="flex gap-1 flex-shrink-0">
+                              <button
+                                onClick={() => openEdit(c)}
+                                className="p-1.5 text-gray-400 hover:text-temple-red rounded-lg hover:bg-temple-red/10 transition-colors"
+                                title="編輯"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(c.id)}
+                                disabled={deletingId === c.id}
+                                className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                                title="刪除"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 說明文字 */}
+                    {contacts.length > 0 && (
+                      <p className="text-xs text-gray-400 text-center mt-4">
+                        在點燈、問事、捐款表單中點擊「通訊錄」可快速帶入資料
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             )}
