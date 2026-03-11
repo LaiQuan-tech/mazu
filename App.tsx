@@ -308,7 +308,7 @@ const App: React.FC = () => {
 
   const handleLampSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!lampForm.serviceId || !lampForm.name.trim() || !lampForm.phone.trim() || !lampForm.birthDate.trim()) return;
+    if (!lampForm.serviceId || !lampForm.name.trim() || !lampForm.birthDate.trim()) return;
     setLampStatus('loading');
     try {
       await submitLampRegistration(lampForm);
@@ -898,34 +898,19 @@ const App: React.FC = () => {
                       </select>
                     </div>
 
-                    {/* Name + Phone */}
-                    <div className="grid md:grid-cols-2 gap-5">
-                      <div>
-                        <label htmlFor="lamp-name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
-                        <input
-                          type="text"
-                          id="lamp-name"
-                          name="name"
-                          required
-                          value={lampForm.name}
-                          onChange={handleLampInputChange}
-                          placeholder="請輸入姓名"
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="lamp-phone" className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                        <input
-                          type="tel"
-                          id="lamp-phone"
-                          name="phone"
-                          required
-                          value={lampForm.phone}
-                          onChange={handleLampInputChange}
-                          placeholder="例：0912-345-678"
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                        />
-                      </div>
+                    {/* Name */}
+                    <div>
+                      <label htmlFor="lamp-name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
+                      <input
+                        type="text"
+                        id="lamp-name"
+                        name="name"
+                        required
+                        value={lampForm.name}
+                        onChange={handleLampInputChange}
+                        placeholder="請輸入姓名"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                      />
                     </div>
 
                     {/* BirthDate + Zodiac */}
