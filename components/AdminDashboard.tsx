@@ -162,17 +162,22 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
   const [page, setPage] = useState(0);
 
-  const filtered = useMemo(() => bookings.filter(b => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || b.name.toLowerCase().includes(q) || b.phone.includes(q);
-    const matchStatus = !filterStatus || b.status === filterStatus;
-    const matchType = !filterType || b.type === filterType;
-    return matchSearch && matchStatus && matchType;
-  }), [bookings, search, filterStatus, filterType]);
+  const filtered = useMemo(() => {
+    const result = bookings.filter(b => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || b.name.toLowerCase().includes(q) || b.phone.includes(q);
+      const matchStatus = !filterStatus || b.status === filterStatus;
+      const matchType = !filterType || b.type === filterType;
+      return matchSearch && matchStatus && matchType;
+    });
+    if (sortBy === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
+    return result;
+  }, [bookings, search, filterStatus, filterType, sortBy]);
 
-  useEffect(() => { setPage(0); }, [search, filterStatus, filterType]);
+  useEffect(() => { setPage(0); }, [search, filterStatus, filterType, sortBy]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const handleExport = () => {
@@ -214,6 +219,11 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
           <option value="">全部項目</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+          <option value="time">依時間排序</option>
+          <option value="name">依姓名排序</option>
         </select>
       </div>
 
@@ -286,16 +296,21 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
 const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
   const [page, setPage] = useState(0);
 
-  const filtered = useMemo(() => donations.filter(d => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || d.name.toLowerCase().includes(q) || d.phone.includes(q);
-    const matchType = !filterType || d.type === filterType;
-    return matchSearch && matchType;
-  }), [donations, search, filterType]);
+  const filtered = useMemo(() => {
+    const result = donations.filter(d => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || d.name.toLowerCase().includes(q) || d.phone.includes(q);
+      const matchType = !filterType || d.type === filterType;
+      return matchSearch && matchType;
+    });
+    if (sortBy === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
+    return result;
+  }, [donations, search, filterType, sortBy]);
 
-  useEffect(() => { setPage(0); }, [search, filterType]);
+  useEffect(() => { setPage(0); }, [search, filterType, sortBy]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const total = filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0);
@@ -335,6 +350,11 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
           <option value="">全部類型</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+          <option value="time">依時間排序</option>
+          <option value="name">依姓名排序</option>
         </select>
       </div>
 
