@@ -1,8 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser } from 'lucide-react';
+import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser, RefreshCw } from 'lucide-react';
+import { Solar } from 'lunar-javascript';
 import { supabase } from '../services/supabase';
 import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact } from '../services/supabase';
 import { MemberContact, MemberContactData, ZodiacSign } from '../types';
+
+// 簡繁對映（lunar-javascript 部分生肖用簡體）
+const SHENGXIAO_MAP: Record<string, ZodiacSign> = {
+  '鼠': ZodiacSign.RAT,   '牛': ZodiacSign.OX,     '虎': ZodiacSign.TIGER,
+  '兔': ZodiacSign.RABBIT,'龙': ZodiacSign.DRAGON,  '龍': ZodiacSign.DRAGON,
+  '蛇': ZodiacSign.SNAKE, '马': ZodiacSign.HORSE,   '馬': ZodiacSign.HORSE,
+  '羊': ZodiacSign.GOAT,  '猴': ZodiacSign.MONKEY,  '鸡': ZodiacSign.ROOSTER,
+  '雞': ZodiacSign.ROOSTER,'狗': ZodiacSign.DOG,    '猪': ZodiacSign.PIG,
+  '豬': ZodiacSign.PIG,
+};
+
+function solarToLunar(dateStr: string): { birthDate: string; zodiac: ZodiacSign } | null {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  try {
+    const lunar = Solar.fromYmd(y, m, d).getLunar();
+    const rocYear = y - 1911;
+    const month = lunar.getMonthInChinese();
+    const day = lunar.getDayInChinese();
+    const shengxiao = lunar.getYearShengXiao();
+    return {
+      birthDate: `民國${rocYear}年農曆${month}月${day}`,
+      zodiac: SHENGXIAO_MAP[shengxiao] ?? ZodiacSign.RAT,
+    };
+  } catch {
+    return null;
+  }
+}
 
 interface MemberPortalProps {
   onClose: () => void;
@@ -31,9 +61,26 @@ const ContactFormModal = ({
   saving: boolean;
 }) => {
   const [form, setForm] = useState<MemberContactData>(initial);
+  const [solarDate, setSolarDate] = useState('');
+  const [lunarPreview, setLunarPreview] = useState(initial.birthDate || '');
 
   const set = (key: keyof MemberContactData, val: string) =>
     setForm(f => ({ ...f, [key]: val || undefined }));
+
+  const handleSolarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSolarDate(val);
+    if (!val) {
+      setLunarPreview('');
+      setForm(f => ({ ...f, birthDate: '', zodiac: undefined }));
+      return;
+    }
+    const result = solarToLunar(val);
+    if (result) {
+      setLunarPreview(result.birthDate);
+      setForm(f => ({ ...f, birthDate: result.birthDate, zodiac: result.zodiac }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,29 +137,43 @@ const ContactFormModal = ({
             </div>
           </div>
 
-          {/* 農曆生日 + 生肖 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">農曆生日</label>
-              <input
-                type="text"
-                placeholder="如：正月初一"
-                value={form.birthDate}
-                onChange={e => set('birthDate', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
-              <select
-                value={form.zodiac || ''}
-                onChange={e => set('zodiac', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-              >
-                <option value="">不指定</option>
-                {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
-              </select>
-            </div>
+          {/* 西元生日（國曆）→ 自動換算農曆 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              西元生日（國曆）
+            </label>
+            <input
+              type="date"
+              value={solarDate}
+              onChange={handleSolarChange}
+              max={new Date().toISOString().slice(0, 10)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+            />
+            {lunarPreview && (
+              <div className="mt-2 flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
+                <RefreshCw className="w-3.5 h-3.5 text-temple-gold flex-shrink-0" />
+                <span className="text-sm text-temple-dark font-medium">{lunarPreview}</span>
+                <span className="text-xs text-gray-400 ml-1">（農曆自動換算）</span>
+              </div>
+            )}
+            {!lunarPreview && form.birthDate && (
+              <div className="mt-2 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
+                <span className="text-sm text-temple-dark">{form.birthDate}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 生肖（自動帶入，可手動修改） */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
+            <select
+              value={form.zodiac || ''}
+              onChange={e => set('zodiac', e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+            >
+              <option value="">不指定</option>
+              {ZODIAC_OPTIONS.map(z => <option key={z} value={z}>{z}</option>)}
+            </select>
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -477,7 +538,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
                           <p className="font-semibold text-temple-dark text-sm">{c.name}</p>
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                             {c.phone && <span className="text-xs text-gray-500">{c.phone}</span>}
-                            {c.birthDate && <span className="text-xs text-gray-500">農曆 {c.birthDate}</span>}
+                            {c.birthDate && <span className="text-xs text-gray-500">{c.birthDate}</span>}
                             {c.zodiac && (
                               <span className="text-xs bg-temple-gold/15 text-temple-dark px-1.5 rounded">
                                 {c.zodiac}年
