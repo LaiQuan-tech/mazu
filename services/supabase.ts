@@ -713,7 +713,11 @@ export const getMemberContacts = async (): Promise<MemberContact[]> => {
 };
 
 export const createMemberContact = async (data: MemberContactData): Promise<boolean> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
   const { error } = await supabase.from('member_contacts').insert([{
+    user_id: user.id,
     label: data.label,
     name: data.name,
     phone: data.phone,
