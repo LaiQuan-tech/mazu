@@ -872,6 +872,16 @@ const App: React.FC = () => {
                       再登記一筆
                     </button>
                   </div>
+                ) : !member ? (
+                  <div className="text-center py-10">
+                    <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
+                    <p className="text-gray-400 text-sm mb-5">登入後即可登記點燈服務</p>
+                    <button type="button" onClick={() => setShowMemberPortal(true)}
+                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
+                      登入 / 註冊
+                    </button>
+                  </div>
                 ) : (
                   <form onSubmit={handleLampSubmit} className="space-y-5">
                     <button type="button" onClick={() => handleOpenContactPicker('lamp')}
@@ -1024,6 +1034,16 @@ const App: React.FC = () => {
                     再預約一筆
                   </button>
                 </div>
+              ) : !member ? (
+                <div className="text-center py-10">
+                  <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
+                  <p className="text-gray-400 text-sm mb-5">登入後即可預約問事服務</p>
+                  <button type="button" onClick={() => setShowMemberPortal(true)}
+                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
+                    登入 / 註冊
+                  </button>
+                </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="flex justify-start">
@@ -1032,33 +1052,18 @@ const App: React.FC = () => {
                       <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
                     </button>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
-                      <input
-                        type="text"
-                        name="name"
-                        id="name"
-                        required
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="請輸入姓名"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        id="phone"
-                        required
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="0912-345-678"
-                      />
-                    </div>
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      id="name"
+                      required
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      placeholder="請輸入姓名"
+                    />
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
@@ -1225,6 +1230,16 @@ const App: React.FC = () => {
                     返回
                   </button>
                 </div>
+              ) : !member ? (
+                <div className="text-center py-10">
+                  <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
+                  <p className="text-gray-400 text-sm mb-5">登入後即可進行捐獻護持</p>
+                  <button type="button" onClick={() => setShowMemberPortal(true)}
+                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
+                    登入 / 註冊
+                  </button>
+                </div>
               ) : (
                 <form onSubmit={handleDonationSubmit} className="space-y-6">
                   <div className="flex justify-start">
@@ -1233,33 +1248,18 @@ const App: React.FC = () => {
                       <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
                     </button>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="don_name" className="block text-sm font-medium text-gray-700 mb-1">大德姓名 *</label>
-                      <input
-                        type="text"
-                        name="name"
-                        id="don_name"
-                        required
-                        value={donationData.name}
-                        onChange={handleDonationChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="請輸入姓名"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="don_phone" className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        id="don_phone"
-                        required
-                        value={donationData.phone}
-                        onChange={handleDonationChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="0912-345-678"
-                      />
-                    </div>
+                  <div>
+                    <label htmlFor="don_name" className="block text-sm font-medium text-gray-700 mb-1">大德姓名 *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      id="don_name"
+                      required
+                      value={donationData.name}
+                      onChange={handleDonationChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      placeholder="請輸入姓名"
+                    />
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
