@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser, RefreshCw } from 'lucide-react';
-import { Solar, Lunar } from 'lunar-javascript';
+import { Solar, Lunar, LunarYear } from 'lunar-javascript';
 import { supabase } from '../services/supabase';
 import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact } from '../services/supabase';
 import { MemberContact, MemberContactData, ZodiacSign } from '../types';
@@ -15,66 +15,86 @@ const SHENGXIAO_MAP: Record<string, ZodiacSign> = {
   '豬': ZodiacSign.PIG,
 };
 
-function solarToLunar(dateStr: string): { birthDate: string; zodiac: ZodiacSign } | null {
-  if (!dateStr) return null;
-  const [y, m, d] = dateStr.split('-').map(Number);
+const THIS_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: '── 不填寫 ──' },
+  ...Array.from({ length: THIS_YEAR - 1911 }, (_, i) => {
+    const g = THIS_YEAR - i;
+    const roc = g - 1911;
+    return { value: g, label: `${g}年（民國${roc === 1 ? '元' : roc}年）` };
+  }),
+];
+const SOLAR_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` }));
+const LUNAR_MONTH_VALUES = ['正','二','三','四','五','六','七','八','九','十','冬','臘'];
+const LUNAR_MONTH_LABELS_BASE = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','臘月'];
+const LUNAR_DAYS = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+
+function solarDaysInMonth(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
+}
+
+function getLunarMonthOptions(gregorianYear: number): { value: string; label: string }[] {
+  let leapMonth = 0;
+  if (gregorianYear > 0) {
+    try { leapMonth = LunarYear.fromYear(gregorianYear).getLeapMonth(); } catch { leapMonth = 0; }
+  }
+  const opts: { value: string; label: string }[] = [];
+  for (let m = 1; m <= 12; m++) {
+    opts.push({ value: String(m), label: LUNAR_MONTH_LABELS_BASE[m - 1] });
+    if (m === leapMonth) opts.push({ value: `L${m}`, label: `閏${LUNAR_MONTH_LABELS_BASE[m - 1]}` });
+  }
+  return opts;
+}
+
+function buildSolarResult(y: number, m: number, d: number): { birthDate: string; zodiac: ZodiacSign } | null {
   if (!y || !m || !d) return null;
   try {
     const lunar = Solar.fromYmd(y, m, d).getLunar();
-    const rocYear = y - 1911;
-    const month = lunar.getMonthInChinese();
-    const day = lunar.getDayInChinese();
-    const shengxiao = lunar.getYearShengXiao();
+    const isLeap = lunar.getMonth() < 0;
     return {
-      birthDate: `民國${rocYear}年農曆${month}月${day}`,
-      zodiac: SHENGXIAO_MAP[shengxiao] ?? ZodiacSign.RAT,
+      birthDate: `民國${y - 1911}年農曆${isLeap ? '閏' : ''}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`,
+      zodiac: SHENGXIAO_MAP[lunar.getYearShengXiao()] ?? ZodiacSign.RAT,
     };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// 農曆月份（getMonthInChinese 回傳的字元，不含「月」）
-const LUNAR_MONTH_VALUES = ['正','二','三','四','五','六','七','八','九','十','冬','臘'];
-const LUNAR_MONTH_LABELS = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','臘月'];
-const LUNAR_DAYS = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
-
-// 解析已存的農曆字串，還原為下拉選項索引
-function parseLunarBirthDate(s: string): { rocYear: string; monthIdx: number; dayIdx: number } | null {
-  const full = s.match(/^民國(\d+)年農曆(.+)月(.+)$/);
-  if (full) {
-    const mi = LUNAR_MONTH_VALUES.indexOf(full[2]);
-    const di = LUNAR_DAYS.indexOf(full[3]);
-    if (mi !== -1 && di !== -1) return { rocYear: full[1], monthIdx: mi, dayIdx: di };
-  }
-  const short = s.match(/^農曆(.+)月(.+)$/);
-  if (short) {
-    const mi = LUNAR_MONTH_VALUES.indexOf(short[1]);
-    const di = LUNAR_DAYS.indexOf(short[2]);
-    if (mi !== -1 && di !== -1) return { rocYear: '', monthIdx: mi, dayIdx: di };
-  }
-  return null;
-}
-
-// 由農曆下拉值組出 birthDate + zodiac
-function buildLunarResult(rocYearStr: string, monthIdx: number, dayIdx: number): { birthDate: string; zodiac?: ZodiacSign } {
-  const month = LUNAR_MONTH_VALUES[monthIdx];
-  const day = LUNAR_DAYS[dayIdx];
-  const rocNum = parseInt(rocYearStr);
-  if (!isNaN(rocNum) && rocNum > 0) {
-    const gregorianYear = rocNum + 1911;
+function buildLunarResult(gregorianYear: number, monthValue: string, dayNum: number): { birthDate: string; zodiac?: ZodiacSign } | null {
+  if (!monthValue || dayNum < 1) return null;
+  const isLeap = monthValue.startsWith('L');
+  const monthNum = parseInt(isLeap ? monthValue.slice(1) : monthValue);
+  if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) return null;
+  const monthChinese = LUNAR_MONTH_VALUES[monthNum - 1];
+  const dayChinese = LUNAR_DAYS[dayNum - 1];
+  const prefix = `農曆${isLeap ? '閏' : ''}${monthChinese}月${dayChinese}`;
+  if (gregorianYear > 0) {
+    const rocYear = gregorianYear - 1911;
     try {
-      const lunar = Lunar.fromYmd(gregorianYear, monthIdx + 1, dayIdx + 1);
-      const shengxiao = lunar.getYearShengXiao();
-      return {
-        birthDate: `民國${rocNum}年農曆${month}月${day}`,
-        zodiac: SHENGXIAO_MAP[shengxiao],
-      };
+      const lunar = Lunar.fromYmd(gregorianYear, isLeap ? -monthNum : monthNum, dayNum);
+      return { birthDate: `民國${rocYear}年${prefix}`, zodiac: SHENGXIAO_MAP[lunar.getYearShengXiao()] };
     } catch {
-      return { birthDate: `民國${rocNum}年農曆${month}月${day}` };
+      return { birthDate: `民國${rocYear}年${prefix}` };
     }
   }
-  return { birthDate: `農曆${month}月${day}` };
+  return { birthDate: prefix };
+}
+
+function parseBirthDate(s: string): { gregorianYear: number; monthValue: string; dayNum: number } | null {
+  if (!s) return null;
+  const full = s.match(/^民國(\d+)年農曆(閏?)(.+)月(.+)$/);
+  if (full) {
+    const mi = LUNAR_MONTH_VALUES.indexOf(full[3]) + 1;
+    const di = LUNAR_DAYS.indexOf(full[4]) + 1;
+    if (mi <= 0 || di <= 0) return null;
+    return { gregorianYear: parseInt(full[1]) + 1911, monthValue: full[2] === '閏' ? `L${mi}` : String(mi), dayNum: di };
+  }
+  const short = s.match(/^農曆(閏?)(.+)月(.+)$/);
+  if (short) {
+    const mi = LUNAR_MONTH_VALUES.indexOf(short[2]) + 1;
+    const di = LUNAR_DAYS.indexOf(short[3]) + 1;
+    if (mi <= 0 || di <= 0) return null;
+    return { gregorianYear: 0, monthValue: short[1] === '閏' ? `L${mi}` : String(mi), dayNum: di };
+  }
+  return null;
 }
 
 interface MemberPortalProps {
@@ -103,55 +123,66 @@ const ContactFormModal = ({
   onCancel: () => void;
   saving: boolean;
 }) => {
-  // 初始化時解析已存的農曆字串，決定預設模式與下拉初始值
-  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(() =>
-    parseLunarBirthDate(initial.birthDate || '') ? 'lunar' : 'solar'
-  );
+  const parsedInitial = parseBirthDate(initial.birthDate || '');
+  const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(() => parsedInitial ? 'lunar' : 'solar');
   const [form, setForm] = useState<MemberContactData>(initial);
-  const [solarDate, setSolarDate] = useState('');
-  // 農曆模式的獨立 state
-  const [lunarRocYear, setLunarRocYear] = useState(
-    () => parseLunarBirthDate(initial.birthDate || '')?.rocYear ?? ''
-  );
-  const [lunarMonthIdx, setLunarMonthIdx] = useState(
-    () => parseLunarBirthDate(initial.birthDate || '')?.monthIdx ?? 0
-  );
-  const [lunarDayIdx, setLunarDayIdx] = useState(
-    () => parseLunarBirthDate(initial.birthDate || '')?.dayIdx ?? 0
-  );
+
+  // 國曆下拉 state
+  const [solarYear, setSolarYear] = useState(0);
+  const [solarMonth, setSolarMonth] = useState(1);
+  const [solarDay, setSolarDay] = useState(1);
+
+  // 農曆下拉 state
+  const [lunarYear, setLunarYear] = useState(() => parsedInitial?.gregorianYear ?? 0);
+  const [lunarMonthValue, setLunarMonthValue] = useState(() => parsedInitial?.monthValue ?? '1');
+  const [lunarDay, setLunarDay] = useState(() => parsedInitial?.dayNum ?? 1);
 
   const set = (key: keyof MemberContactData, val: string) =>
     setForm(f => ({ ...f, [key]: val || undefined }));
 
-  // 農曆欄位變動 → 更新 form
-  const applyLunar = (rocYear: string, monthIdx: number, dayIdx: number) => {
-    const result = buildLunarResult(rocYear, monthIdx, dayIdx);
-    setForm(f => ({
-      ...f,
-      birthDate: result.birthDate,
-      zodiac: result.zodiac !== undefined ? result.zodiac : f.zodiac,
-    }));
-  };
-
-  // 切換到農曆模式：若 form.birthDate 可解析則回填下拉
-  const switchToLunar = () => {
-    const parsed = parseLunarBirthDate(form.birthDate || '');
-    let ry = lunarRocYear, mi = lunarMonthIdx, di = lunarDayIdx;
-    if (parsed) {
-      ry = parsed.rocYear; mi = parsed.monthIdx; di = parsed.dayIdx;
-      setLunarRocYear(ry); setLunarMonthIdx(mi); setLunarDayIdx(di);
-    }
-    applyLunar(ry, mi, di);
-    setInputMode('lunar');
-  };
-
-  const handleSolarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setSolarDate(val);
-    if (!val) { setForm(f => ({ ...f, birthDate: '', zodiac: undefined })); return; }
-    const result = solarToLunar(val);
+  const applySolar = (y: number, m: number, d: number) => {
+    if (!y) { setForm(f => ({ ...f, birthDate: '' })); return; }
+    const result = buildSolarResult(y, m, d);
     if (result) setForm(f => ({ ...f, birthDate: result.birthDate, zodiac: result.zodiac }));
   };
+
+  const applyLunar = (y: number, mv: string, d: number) => {
+    const result = buildLunarResult(y, mv, d);
+    if (result) setForm(f => ({ ...f, birthDate: result.birthDate, zodiac: result.zodiac ?? f.zodiac }));
+  };
+
+  const solarMaxDays = solarYear > 0 ? solarDaysInMonth(solarYear, solarMonth) : 31;
+  const lunarMonthOptions = getLunarMonthOptions(lunarYear);
+  const lunarMonthValid = lunarMonthOptions.some(o => o.value === lunarMonthValue);
+
+  const handleSolarYearChange = (y: number) => {
+    setSolarYear(y);
+    const maxD = y > 0 ? solarDaysInMonth(y, solarMonth) : 31;
+    const d = Math.min(solarDay, maxD);
+    setSolarDay(d);
+    applySolar(y, solarMonth, d);
+  };
+  const handleSolarMonthChange = (m: number) => {
+    setSolarMonth(m);
+    const maxD = solarYear > 0 ? solarDaysInMonth(solarYear, m) : 31;
+    const d = Math.min(solarDay, maxD);
+    setSolarDay(d);
+    applySolar(solarYear, m, d);
+  };
+  const handleSolarDayChange = (d: number) => { setSolarDay(d); applySolar(solarYear, solarMonth, d); };
+
+  const handleLunarYearChange = (y: number) => {
+    setLunarYear(y);
+    const newOptions = getLunarMonthOptions(y);
+    let mv = lunarMonthValue;
+    if (!newOptions.some(o => o.value === mv)) {
+      mv = mv.startsWith('L') ? mv.slice(1) : mv;
+      setLunarMonthValue(mv);
+    }
+    applyLunar(y, mv, lunarDay);
+  };
+  const handleLunarMonthChange = (mv: string) => { setLunarMonthValue(mv); applyLunar(lunarYear, mv, lunarDay); };
+  const handleLunarDayChange = (d: number) => { setLunarDay(d); applyLunar(lunarYear, lunarMonthValue, d); };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +191,7 @@ const ContactFormModal = ({
     onSave(form);
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const selCls = "w-full px-2 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white";
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -202,100 +233,73 @@ const ContactFormModal = ({
             </div>
           </div>
 
-          {/* 生日（國曆 / 農曆 切換）*/}
+          {/* 生日 */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">生日</label>
               <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs">
-                <button
-                  type="button"
-                  onClick={() => setInputMode('solar')}
-                  className={`px-3 py-1 transition-colors ${inputMode === 'solar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
+                <button type="button" onClick={() => setInputMode('solar')}
+                  className={`px-3 py-1 transition-colors ${inputMode === 'solar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
                   國曆
                 </button>
-                <button
-                  type="button"
-                  onClick={switchToLunar}
-                  className={`px-3 py-1 transition-colors ${inputMode === 'lunar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
+                <button type="button" onClick={() => setInputMode('lunar')}
+                  className={`px-3 py-1 transition-colors ${inputMode === 'lunar' ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
                   農曆
                 </button>
               </div>
             </div>
 
             {inputMode === 'solar' ? (
-              <>
-                <input
-                  type="date" value={solarDate} onChange={handleSolarChange} max={today}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                />
-                {form.birthDate && (
-                  <div className="mt-2 flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
+              <div className="space-y-2">
+                {/* 年 */}
+                <select value={solarYear} onChange={e => handleSolarYearChange(Number(e.target.value))} className={selCls}>
+                  {YEAR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                {/* 月 + 日 */}
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={solarMonth} onChange={e => handleSolarMonthChange(Number(e.target.value))} className={selCls}>
+                    {SOLAR_MONTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <select value={solarDay} onChange={e => handleSolarDayChange(Number(e.target.value))} className={selCls}>
+                    {Array.from({ length: solarMaxDays }, (_, i) => i + 1).map(d => (
+                      <option key={d} value={d}>{d}日</option>
+                    ))}
+                  </select>
+                </div>
+                {solarYear > 0 && form.birthDate && (
+                  <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
                     <RefreshCw className="w-3.5 h-3.5 text-temple-gold flex-shrink-0" />
                     <span className="text-sm text-temple-dark font-medium">{form.birthDate}</span>
-                    <span className="text-xs text-gray-400 ml-1">（農曆自動換算）</span>
+                    <span className="text-xs text-gray-400 ml-1">（農曆換算）</span>
                   </div>
                 )}
-              </>
+              </div>
             ) : (
-              <>
-                {/* 民國年（可不填）*/}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm text-gray-500 flex-shrink-0">民國</span>
-                  <input
-                    type="number" min={1} max={200} placeholder="年份（如 60）"
-                    value={lunarRocYear}
-                    onChange={e => {
-                      setLunarRocYear(e.target.value);
-                      applyLunar(e.target.value, lunarMonthIdx, lunarDayIdx);
-                    }}
-                    className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                  />
-                  <span className="text-sm text-gray-400 flex-shrink-0">年（可不填）</span>
-                </div>
-
-                {/* 農曆月 + 日 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 flex-shrink-0">農曆</span>
+              <div className="space-y-2">
+                {/* 年 */}
+                <select value={lunarYear} onChange={e => handleLunarYearChange(Number(e.target.value))} className={selCls}>
+                  {YEAR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                {/* 月 + 日 */}
+                <div className="grid grid-cols-2 gap-2">
                   <select
-                    value={lunarMonthIdx}
-                    onChange={e => {
-                      const idx = Number(e.target.value);
-                      setLunarMonthIdx(idx);
-                      applyLunar(lunarRocYear, idx, lunarDayIdx);
-                    }}
-                    className="flex-1 px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                  >
-                    {LUNAR_MONTH_LABELS.map((label, i) => (
-                      <option key={i} value={i}>{label}</option>
-                    ))}
+                    value={lunarMonthValid ? lunarMonthValue : (lunarMonthOptions[0]?.value ?? '1')}
+                    onChange={e => handleLunarMonthChange(e.target.value)} className={selCls}>
+                    {lunarMonthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
-                  <select
-                    value={lunarDayIdx}
-                    onChange={e => {
-                      const idx = Number(e.target.value);
-                      setLunarDayIdx(idx);
-                      applyLunar(lunarRocYear, lunarMonthIdx, idx);
-                    }}
-                    className="flex-1 px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                  >
-                    {LUNAR_DAYS.map((day, i) => (
-                      <option key={i} value={i}>{day}</option>
-                    ))}
+                  <select value={lunarDay} onChange={e => handleLunarDayChange(Number(e.target.value))} className={selCls}>
+                    {LUNAR_DAYS.map((d, i) => <option key={i} value={i + 1}>{d}</option>)}
                   </select>
                 </div>
-
-                {/* 農曆預覽 */}
                 {form.birthDate && (
-                  <div className="mt-2 flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2 flex-wrap">
                     <span className="text-sm text-temple-dark font-medium">{form.birthDate}</span>
-                    {!lunarRocYear && (
-                      <span className="text-xs text-gray-400">（未填年份，生肖請手動選擇）</span>
+                    {!lunarYear && (
+                      <span className="text-xs text-gray-400 ml-1">（未填年份，生肖請手動選）</span>
                     )}
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
 
@@ -313,16 +317,12 @@ const ContactFormModal = ({
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="button" onClick={onCancel}
-              className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-            >
+            <button type="button" onClick={onCancel}
+              className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors">
               取消
             </button>
-            <button
-              type="submit" disabled={saving}
-              className="flex-1 px-4 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-60"
-            >
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-60">
               {saving ? '儲存中…' : '儲存'}
             </button>
           </div>
