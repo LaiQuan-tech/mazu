@@ -46,17 +46,20 @@ interface LampPersonEntry {
   name: string;
   birthDate: string;
   zodiac?: ZodiacSign;
+  address: string;
 }
 interface BookingPersonEntry {
   id: string;
   name: string;
   birthDate: string;
   zodiac?: ZodiacSign;
+  address: string;
   type: ConsultationType;
 }
 interface DonationPersonEntry {
   id: string;
   name: string;
+  address: string;
   amount: number;
   type: DonationType;
 }
@@ -91,7 +94,7 @@ const App: React.FC = () => {
   const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   // ── 點燈多人 ──
-  const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined }]);
+  const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }]);
   const [lampNotes, setLampNotes] = useState('');
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [member, setMember] = useState<User | null>(null);
@@ -132,13 +135,13 @@ const App: React.FC = () => {
   };
 
   // ── 問事多人 ──
-  const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, type: ConsultationType.CAREER }]);
+  const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }]);
   const [bookingDate, setBookingDate] = useState('');
   const [bookingTime, setBookingTime] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
 
   // ── 捐獻多人 ──
-  const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', amount: 0, type: DonationType.GENERAL }]);
+  const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
   const [donationNotes, setDonationNotes] = useState('');
 
   const startHeroInterval = (totalSlides: number) => {
@@ -229,10 +232,10 @@ const App: React.FC = () => {
     setLampStatus('loading');
     try {
       await Promise.all(lampPersons.map(p => submitLampRegistration({
-        serviceId: p.serviceId, name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, notes: lampNotes,
+        serviceId: p.serviceId, name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, notes: lampNotes,
       })));
       setLampStatus('success');
-      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined }]);
+      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }]);
       setLampNotes('');
     } catch {
       setLampStatus('error');
@@ -249,11 +252,11 @@ const App: React.FC = () => {
     setBookingStatus('loading');
     try {
       await Promise.all(bookingPersons.map(p => submitBooking({
-        name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac,
+        name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined,
         bookingDate, bookingTime, type: p.type, notes: bookingNotes,
       })));
       setBookingStatus('success');
-      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, type: ConsultationType.CAREER }]);
+      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }]);
       setBookingDate(''); setBookingTime(''); setBookingNotes('');
     } catch (error) {
       console.error(error);
@@ -269,10 +272,10 @@ const App: React.FC = () => {
     setDonationStatus('loading');
     try {
       await Promise.all(donationPersons.map(p => submitDonation({
-        name: p.name, phone: '', amount: p.amount, type: p.type, notes: donationNotes,
+        name: p.name, phone: '', address: p.address || undefined, amount: p.amount, type: p.type, notes: donationNotes,
       })));
       setDonationStatus('success');
-      setDonationPersons([{ id: newId(), name: '', amount: 0, type: DonationType.GENERAL }]);
+      setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
       setDonationNotes('');
     } catch {
       setDonationStatus('error');
@@ -888,12 +891,16 @@ const App: React.FC = () => {
                             {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
                           </select>
                         </div>
+                        <input type="text" placeholder="現居地址（可選）"
+                          value={p.address}
+                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
                       </div>
                     ))}
 
                     {/* 新增人員 */}
                     <button type="button"
-                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined }])}
+                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }])}
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 text-temple-red/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-red hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                       <X className="w-4 h-4 rotate-45" /> 新增人員
                     </button>
@@ -1019,13 +1026,17 @@ const App: React.FC = () => {
                           className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
                           {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
+                        <input type="text" placeholder="現居地址（可選）"
+                          value={p.address}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="sm:col-span-2 px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
                       </div>
                     </div>
                   ))}
 
                   {/* 新增人員 */}
                   <button type="button"
-                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, type: ConsultationType.CAREER }])}
+                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }])}
                     className="w-full py-2.5 border-2 border-dashed border-white/30 text-white/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-gold hover:bg-white/5 transition-all flex items-center justify-center gap-1.5">
                     <X className="w-4 h-4 rotate-45" /> 新增人員
                   </button>
@@ -1178,12 +1189,19 @@ const App: React.FC = () => {
                         >
                           {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
+                        <input
+                          type="text"
+                          placeholder="聯絡地址（可選）"
+                          value={p.address}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="sm:col-span-3 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                        />
                       </div>
                     </div>
                   ))}
 
                   <button type="button"
-                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', amount: 0, type: DonationType.GENERAL }])}
+                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
                     className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
                     <X className="w-4 h-4 rotate-45" /> 新增人員
                   </button>
@@ -1444,12 +1462,13 @@ const App: React.FC = () => {
                   type="button"
                   onClick={() => {
                     const { form, personId } = showContactPicker!;
+                    const addr = contact.address || '';
                     if (form === 'lamp') {
-                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac } : x));
+                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr } : x));
                     } else if (form === 'booking') {
-                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac } : x));
+                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr } : x));
                     } else if (form === 'donation') {
-                      setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name } : x));
+                      setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, address: addr } : x));
                     }
                     setShowContactPicker(null);
                   }}

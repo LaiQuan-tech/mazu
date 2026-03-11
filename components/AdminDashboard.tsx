@@ -177,10 +177,10 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
 
   const handleExport = () => {
     exportExcel('預約資料.xlsx', filtered.map(b => [
-      b.name, b.phone, b.birthDate, b.zodiac || '', b.bookingDate,
+      b.name, b.phone, b.birthDate, b.zodiac || '', b.address || '', b.bookingDate,
       b.bookingTime === 'evening' ? '晚上' : b.bookingTime,
       b.type, b.status || '', b.notes || '', fmtDate(b.createdAt)
-    ]), ['姓名', '電話', '農曆生日', '生肖', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間']);
+    ]), ['姓名', '電話', '農曆生日', '生肖', '現居地址', '預約日期', '時段', '問事項目', '狀態', '備註', '建立時間']);
   };
 
   const types = [...new Set(bookings.map(b => b.type))];
@@ -245,6 +245,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
                           <p className="text-sm font-semibold text-gray-900">{b.name}</p>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{b.phone}</p>
                           <p className="text-xs text-gray-400">生日：{b.birthDate}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
+                          {b.address && <p className="text-xs text-gray-400 mt-0.5">地址：{b.address}</p>}
                         </div>
                       </div>
                     </td>
@@ -302,8 +303,8 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
 
   const handleExport = () => {
     exportExcel('捐款資料.xlsx', filtered.map(d => [
-      d.name, d.phone, Number(d.amount), d.type, d.notes || '', fmtDate(d.createdAt)
-    ]), ['姓名', '電話', '金額', '捐款類型', '備註', '建立時間']);
+      d.name, d.phone, d.address || '', Number(d.amount), d.type, d.notes || '', fmtDate(d.createdAt)
+    ]), ['姓名', '電話', '聯絡地址', '金額', '捐款類型', '備註', '建立時間']);
   };
 
   return (
@@ -364,6 +365,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{d.name}</p>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{d.phone}</p>
+                          {d.address && <p className="text-xs text-gray-400 mt-0.5">地址：{d.address}</p>}
                         </div>
                       </div>
                     </td>
@@ -1737,9 +1739,9 @@ const LampsTab = ({
 
   const exportRegsExcel = () => {
     exportExcel('點燈登記.xlsx', filteredRegs.map(r => [
-      getServiceName(r.serviceId), r.name, r.phone, r.birthDate, r.zodiac || '',
+      getServiceName(r.serviceId), r.name, r.phone, r.birthDate, r.zodiac || '', r.address || '',
       r.status, r.notes || '', fmtDate(r.createdAt)
-    ]), ['服務項目', '姓名', '電話', '農曆生日', '生肖', '狀態', '備註', '建立時間']);
+    ]), ['服務項目', '姓名', '電話', '農曆生日', '生肖', '現居地址', '狀態', '備註', '建立時間']);
   };
 
   const lampStatusBadge = (status: LampRegistrationStatus) => {
@@ -1908,6 +1910,7 @@ const LampsTab = ({
                   <p className="text-xs text-gray-400 mt-0.5">
                     生日：{r.birthDate}{r.zodiac ? `　生肖：${r.zodiac}` : ''}
                   </p>
+                  {r.address && <p className="text-xs text-gray-400 mt-0.5">地址：{r.address}</p>}
                   {r.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{r.notes}</p>}
                   <p className="text-xs text-gray-300 mt-1">{fmtDate(r.createdAt)}</p>
                 </div>
