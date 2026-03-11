@@ -77,10 +77,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       const scrollY = window.scrollY;
 
       // ── 1. Reveal：批次顯示進入視口的節 ──
-      // 閾值用 1.15 × vh：元素在進入畫面「前」就先觸發動畫，
-      // 確保使用者滑到時內容已完全可見，不會感覺一頁空白。
+      // 桌機閾值 1.5 × vh（提前 1.5 個螢幕高度就觸發動畫），
+      // 確保使用者開啟頁面後第一節就已動畫完成，不需要先往下滾。
+      // 手機 1.15（行為已確認正常，不動）。
+      const revealThreshold = isMobile ? 1.15 : 1.5;
       pending = pending.filter(el => {
-        if (el.getBoundingClientRect().top < window.innerHeight * 1.15) {
+        if (el.getBoundingClientRect().top < window.innerHeight * revealThreshold) {
           el.querySelectorAll('.sp-up, .sp-left, .sp-right')
             .forEach(child => child.classList.add('sp-in'));
           return false;
@@ -208,7 +210,11 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   };
 
   return (
-    <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'hidden' }}>
+    // overflow-x:'clip' 而非 'hidden'：
+    // CSS 規範：overflow-x:hidden 會讓瀏覽器把 overflow-y 自動設為 auto，
+    // 使根 div 變成獨立捲動容器，攔截桌機滑鼠滾輪事件，window.scroll 不觸發。
+    // 'clip' 同樣截斷水平溢出，但不建立 BFC，不產生捲動容器。
+    <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'clip' }}>
       <style>{`
         /* ── Entrance animations ── */
         .sp-up   { opacity:0; transform:translateY(40px);
