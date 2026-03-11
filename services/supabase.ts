@@ -708,6 +708,7 @@ export const getMemberContacts = async (): Promise<MemberContact[]> => {
     phone: row.phone,
     birthDate: row.birth_date,
     zodiac: row.zodiac || undefined,
+    gender: row.gender || undefined,
     createdAt: row.created_at,
   }));
 };
@@ -723,6 +724,7 @@ export const createMemberContact = async (data: MemberContactData): Promise<bool
     phone: data.phone,
     birth_date: data.birthDate,
     zodiac: data.zodiac || null,
+    gender: data.gender || null,
   }]);
 
   if (error) {
@@ -741,6 +743,7 @@ export const updateMemberContact = async (id: string, data: MemberContactData): 
       phone: data.phone,
       birth_date: data.birthDate,
       zodiac: data.zodiac || null,
+      gender: data.gender || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);

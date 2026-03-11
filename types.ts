@@ -185,11 +185,12 @@ export interface LampRegistrationRecord extends LampRegistrationData {
 
 // ─── Member Contacts (會員通訊錄) ────────────────────────
 export interface MemberContactData {
-  label: string;      // 本人 / 媽媽 / 老公 / 小孩 …
+  label: string;      // 父母親 / 兒女 / 手足 / 親戚 / 朋友 / 師長
   name: string;
   phone: string;
   birthDate: string;  // 農曆生日（文字）
   zodiac?: ZodiacSign;
+  gender?: string;    // 信士 / 信女 / 小兒（16歲以下）/ 小女兒（16歲以下）
 }
 
 export interface MemberContact extends MemberContactData {

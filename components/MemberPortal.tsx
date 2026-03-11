@@ -152,12 +152,16 @@ interface MemberPortalProps {
 
 const ZODIAC_OPTIONS = Object.values(ZodiacSign);
 
+const LABEL_OPTIONS = ['父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
+const GENDER_OPTIONS = ['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'] as const;
+
 const emptyContactForm = (): MemberContactData => ({
   label: '',
   name: '',
   phone: '',
   birthDate: '',
   zodiac: undefined,
+  gender: undefined,
 });
 
 // ── ContactForm（新增 / 編輯用的行內 modal）────────────────────────────────
@@ -247,7 +251,7 @@ const ContactFormModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.label.trim()) { alert('請填寫稱謂'); return; }
+    if (!form.label) { alert('請選擇稱謂'); return; }
     if (!form.name.trim()) { alert('請填寫姓名'); return; }
     onSave(form);
   };
@@ -266,12 +270,37 @@ const ContactFormModal = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* 稱謂 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">稱謂 / 關係 *</label>
-            <input
-              type="text" required placeholder="本人、媽媽、老公、小孩…"
-              value={form.label} onChange={e => set('label', e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-2">稱謂 / 關係 *</label>
+            <div className="flex flex-wrap gap-2">
+              {LABEL_OPTIONS.map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, label: opt }))}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    form.label === opt
+                      ? 'bg-temple-red text-white border-temple-red'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-temple-red/50 hover:text-temple-red'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            {!form.label && <p className="text-xs text-gray-400 mt-1.5">請選擇稱謂</p>}
+          </div>
+
+          {/* 性別 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">性別</label>
+            <select
+              value={form.gender || ''}
+              onChange={e => setForm(f => ({ ...f, gender: e.target.value || undefined }))}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white"
+            >
+              <option value="">不指定</option>
+              {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
           </div>
 
           {/* 姓名 + 電話 */}
@@ -750,7 +779,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
 
                         {/* 資料 */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-temple-dark text-sm">{c.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-temple-dark text-sm">{c.name}</p>
+                            {c.gender && (
+                              <span className="text-xs bg-temple-red/10 text-temple-red px-1.5 py-0.5 rounded-full">
+                                {c.gender}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                             {c.phone && <span className="text-xs text-gray-500">{c.phone}</span>}
                             {c.birthDate && <span className="text-xs text-gray-500">{c.birthDate}</span>}
@@ -801,7 +837,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
       {showFormModal && (
         <ContactFormModal
           initial={editingContact
-            ? { label: editingContact.label, name: editingContact.name, phone: editingContact.phone, birthDate: editingContact.birthDate, zodiac: editingContact.zodiac }
+            ? { label: editingContact.label, name: editingContact.name, phone: editingContact.phone, birthDate: editingContact.birthDate, zodiac: editingContact.zodiac, gender: editingContact.gender }
             : emptyContactForm()
           }
           onSave={handleSaveContact}
