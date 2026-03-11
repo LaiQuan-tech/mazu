@@ -37,6 +37,30 @@ import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 import MemberPortal from './components/MemberPortal';
 
+// ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
+const newId = () => Math.random().toString(36).slice(2, 10);
+
+interface LampPersonEntry {
+  id: string;
+  serviceId: string;
+  name: string;
+  birthDate: string;
+  zodiac?: ZodiacSign;
+}
+interface BookingPersonEntry {
+  id: string;
+  name: string;
+  birthDate: string;
+  zodiac?: ZodiacSign;
+  type: ConsultationType;
+}
+interface DonationPersonEntry {
+  id: string;
+  name: string;
+  amount: number;
+  type: DonationType;
+}
+
 // 水墨筆刷分隔線元件
 
 const App: React.FC = () => {
@@ -66,12 +90,14 @@ const App: React.FC = () => {
   const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
   const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
-  const [lampForm, setLampForm] = useState<LampRegistrationData>({ serviceId: '', name: '', phone: '', birthDate: '', zodiac: undefined, notes: '' });
+  // ── 點燈多人 ──
+  const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined }]);
+  const [lampNotes, setLampNotes] = useState('');
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [member, setMember] = useState<User | null>(null);
   const [showMemberPortal, setShowMemberPortal] = useState(false);
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
-  const [showContactPicker, setShowContactPicker] = useState<'lamp' | 'booking' | 'donation' | null>(null);
+  const [showContactPicker, setShowContactPicker] = useState<{ form: 'lamp' | 'booking' | 'donation'; personId: string } | null>(null);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,24 +131,15 @@ const App: React.FC = () => {
     setShowPassword(false);
   };
 
-  const [formData, setFormData] = useState<BookingData>({
-    name: '',
-    phone: '',
-    birthDate: '',
-    zodiac: undefined,
-    bookingDate: '',
-    bookingTime: '',
-    type: ConsultationType.CAREER,
-    notes: ''
-  });
+  // ── 問事多人 ──
+  const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, type: ConsultationType.CAREER }]);
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
 
-  const [donationData, setDonationData] = useState<DonationData>({
-    name: '',
-    phone: '',
-    amount: 0,
-    type: DonationType.GENERAL,
-    notes: ''
-  });
+  // ── 捐獻多人 ──
+  const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', amount: 0, type: DonationType.GENERAL }]);
+  const [donationNotes, setDonationNotes] = useState('');
 
   const startHeroInterval = (totalSlides: number) => {
     if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
@@ -141,16 +158,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleOpenContactPicker = (form: 'lamp' | 'booking' | 'donation') => {
-    if (!member) {
-      setShowMemberPortal(true);
-      return;
-    }
-    if (memberContacts.length === 0) {
-      alert('請先至會員中心新增聯絡人');
-      return;
-    }
-    setShowContactPicker(form);
+  const handleOpenContactPicker = (form: 'lamp' | 'booking' | 'donation', personId: string) => {
+    if (!member) { setShowMemberPortal(true); return; }
+    if (memberContacts.length === 0) { alert('請先至會員中心新增聯絡人'); return; }
+    setShowContactPicker({ form, personId });
   };
 
   useEffect(() => {
@@ -210,112 +221,61 @@ const App: React.FC = () => {
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-
-    if (name === 'bookingDate' && value) {
-      const date = new Date(value);
-      const day = date.getDay(); // 0 is Sunday, 6 is Saturday
-      if (day !== 6) {
-        alert('抱歉，目前僅開放每週六預約問事。');
-        return;
-      }
-    }
-
-    if (name === 'zodiac') {
-      setFormData(prev => ({ ...prev, zodiac: (value as ZodiacSign) || undefined }));
-      return;
-    }
-
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleDonationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setDonationData(prev => ({
-      ...prev,
-      [name]: name === 'amount' ? Number(value) : value
-    }));
-  };
-
-  const handleDonationSubmit = async (e: React.FormEvent) => {
+  // ── 點燈送出（批次） ──
+  const handleLampSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (donationData.amount <= 0) {
-      alert('請輸入有效的捐款金額。');
-      return;
-    }
-    setDonationStatus('loading');
+    const invalid = lampPersons.find(p => !p.serviceId || !p.name.trim());
+    if (invalid) { alert('請填寫所有人員的服務項目與姓名。'); return; }
+    setLampStatus('loading');
     try {
-      await submitDonation(donationData);
-      setDonationStatus('success');
-      setDonationData({
-        name: '',
-        phone: '',
-        amount: 0,
-        type: DonationType.GENERAL,
-        notes: ''
-      });
-    } catch (error) {
-      setDonationStatus('error');
+      await Promise.all(lampPersons.map(p => submitLampRegistration({
+        serviceId: p.serviceId, name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, notes: lampNotes,
+      })));
+      setLampStatus('success');
+      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined }]);
+      setLampNotes('');
+    } catch {
+      setLampStatus('error');
     }
   };
 
+  // ── 問事送出（批次） ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Final validation
-    const date = new Date(formData.bookingDate);
-    if (date.getDay() !== 6) {
-      alert('請選擇週六的日期。');
-      return;
-    }
-
-    if (formData.bookingTime !== 'evening') {
-      alert('目前僅開放晚上時段預約。');
-      return;
-    }
-
+    if (!bookingDate) { alert('請選擇希望預約日期。'); return; }
+    const date = new Date(bookingDate);
+    if (date.getDay() !== 6) { alert('請選擇週六的日期。'); return; }
+    if (bookingTime !== 'evening') { alert('目前僅開放晚上時段預約。'); return; }
     setBookingStatus('loading');
-
     try {
-      await submitBooking(formData);
+      await Promise.all(bookingPersons.map(p => submitBooking({
+        name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac,
+        bookingDate, bookingTime, type: p.type, notes: bookingNotes,
+      })));
       setBookingStatus('success');
-      // Reset form after success
-      setFormData({
-        name: '',
-        phone: '',
-        birthDate: '',
-        zodiac: undefined,
-        bookingDate: '',
-        bookingTime: '',
-        type: ConsultationType.CAREER,
-        notes: ''
-      });
+      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, type: ConsultationType.CAREER }]);
+      setBookingDate(''); setBookingTime(''); setBookingNotes('');
     } catch (error) {
       console.error(error);
       setBookingStatus('error');
     }
   };
 
-  const handleLampInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    if (name === 'zodiac') {
-      setLampForm(prev => ({ ...prev, zodiac: (value as ZodiacSign) || undefined }));
-      return;
-    }
-    setLampForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleLampSubmit = async (e: React.FormEvent) => {
+  // ── 捐獻送出（批次） ──
+  const handleDonationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!lampForm.serviceId || !lampForm.name.trim() || !lampForm.birthDate.trim()) return;
-    setLampStatus('loading');
+    const invalid = donationPersons.find(p => !p.name.trim() || p.amount <= 0);
+    if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
+    setDonationStatus('loading');
     try {
-      await submitLampRegistration(lampForm);
-      setLampStatus('success');
-      setLampForm({ serviceId: '', name: '', phone: '', birthDate: '', zodiac: undefined, notes: '' });
+      await Promise.all(donationPersons.map(p => submitDonation({
+        name: p.name, phone: '', amount: p.amount, type: p.type, notes: donationNotes,
+      })));
+      setDonationStatus('success');
+      setDonationPersons([{ id: newId(), name: '', amount: 0, type: DonationType.GENERAL }]);
+      setDonationNotes('');
     } catch {
-      setLampStatus('error');
+      setDonationStatus('error');
     }
   };
 
@@ -883,90 +843,67 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleLampSubmit} className="space-y-5">
-                    <button type="button" onClick={() => handleOpenContactPicker('lamp')}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                      <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
-                    </button>
-                    {/* Service type */}
-                    <div>
-                      <label htmlFor="lamp-service" className="block text-sm font-medium text-gray-700 mb-1">服務項目 *</label>
-                      <select
-                        id="lamp-service"
-                        name="serviceId"
-                        required
-                        value={lampForm.serviceId}
-                        onChange={handleLampInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                      >
-                        <option value="">請選擇服務項目</option>
-                        {lampConfigs.map(cfg => (
-                          <option key={cfg.id} value={cfg.id}>
-                            {cfg.name}　NT$ {cfg.fee.toLocaleString()} / 年
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Name */}
-                    <div>
-                      <label htmlFor="lamp-name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
-                      <input
-                        type="text"
-                        id="lamp-name"
-                        name="name"
-                        required
-                        value={lampForm.name}
-                        onChange={handleLampInputChange}
-                        placeholder="請輸入姓名"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                      />
-                    </div>
-
-                    {/* BirthDate + Zodiac */}
-                    <div className="grid md:grid-cols-2 gap-5">
-                      <div>
-                        <label htmlFor="lamp-birthdate" className="block text-sm font-medium text-gray-700 mb-1">農曆出生年月日 *</label>
-                        <input
-                          type="text"
-                          id="lamp-birthdate"
-                          name="birthDate"
-                          required
-                          value={lampForm.birthDate}
-                          onChange={handleLampInputChange}
-                          placeholder="例：民國 60 年 3 月 15 日"
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="lamp-zodiac" className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
-                        <select
-                          id="lamp-zodiac"
-                          name="zodiac"
-                          value={lampForm.zodiac || ''}
-                          onChange={handleLampInputChange}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-                        >
-                          <option value="">請選擇生肖</option>
-                          {Object.values(ZodiacSign).map(z => (
-                            <option key={z} value={z}>{z}</option>
+                  <form onSubmit={handleLampSubmit} className="space-y-4">
+                    {/* 人員卡片列表 */}
+                    {lampPersons.map((p, idx) => (
+                      <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-600">人員 {idx + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => handleOpenContactPicker('lamp', p.id)}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                              <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                            </button>
+                            {lampPersons.length > 1 && (
+                              <button type="button" onClick={() => setLampPersons(prev => prev.filter(x => x.id !== p.id))}
+                                className="text-gray-400 hover:text-red-500 transition-colors p-0.5">
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {/* 燈別 */}
+                        <select required value={p.serviceId}
+                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, serviceId: e.target.value } : x))}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                          <option value="">請選擇服務項目 *</option>
+                          {lampConfigs.map(cfg => (
+                            <option key={cfg.id} value={cfg.id}>{cfg.name}　NT$ {cfg.fee.toLocaleString()} / 年</option>
                           ))}
                         </select>
+                        {/* 姓名 / 生日 / 生肖 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input required type="text" placeholder="信眾大名 *"
+                            value={p.name}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                          <input type="text" placeholder="農曆生日（可選）"
+                            value={p.birthDate}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate: e.target.value } : x))}
+                            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                          <select value={p.zodiac || ''}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
+                            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">生肖（可選）</option>
+                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                          </select>
+                        </div>
                       </div>
-                    </div>
+                    ))}
 
-                    {/* Notes */}
+                    {/* 新增人員 */}
+                    <button type="button"
+                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined }])}
+                      className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 text-temple-red/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-red hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
+                      <X className="w-4 h-4 rotate-45" /> 新增人員
+                    </button>
+
+                    {/* 備註（共用） */}
                     <div>
-                      <label htmlFor="lamp-notes" className="block text-sm font-medium text-gray-700 mb-1">備註（可選）</label>
-                      <textarea
-                        id="lamp-notes"
-                        name="notes"
-                        rows={3}
-                        value={lampForm.notes || ''}
-                        onChange={handleLampInputChange}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">備註（可選）</label>
+                      <textarea rows={2} value={lampNotes} onChange={e => setLampNotes(e.target.value)}
                         placeholder="如有特殊需求或說明，請填寫於此..."
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none"
-                      />
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none" />
                     </div>
 
                     {lampStatus === 'error' && (
@@ -976,13 +913,10 @@ const App: React.FC = () => {
                       </div>
                     )}
 
-                    <button
-                      type="submit"
-                      disabled={lampStatus === 'loading'}
-                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-[#5C1A04] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={lampStatus === 'loading'}
+                      className="w-full py-3.5 bg-temple-red text-white font-bold rounded-lg hover:bg-[#5C1A04] active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60">
                       <Flame className="w-4 h-4" />
-                      {lampStatus === 'loading' ? '送出中...' : '送出登記'}
+                      {lampStatus === 'loading' ? '送出中...' : `送出登記（共 ${lampPersons.length} 人）`}
                     </button>
                   </form>
                 )}
@@ -1045,98 +979,74 @@ const App: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="flex justify-start">
-                    <button type="button" onClick={() => handleOpenContactPicker('booking')}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                      <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
-                    </button>
-                  </div>
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
-                    <input
-                      type="text"
-                      name="name"
-                      id="name"
-                      required
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                      placeholder="請輸入姓名"
-                    />
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-1">農曆出生年月日 *</label>
-                      <input
-                        type="text"
-                        name="birthDate"
-                        id="birthDate"
-                        required
-                        value={formData.birthDate}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="例如：農曆75年8月15日"
-                      />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* 人員卡片列表 */}
+                  {bookingPersons.map((p, idx) => (
+                    <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-600">人員 {idx + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => handleOpenContactPicker('booking', p.id)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                            <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                          </button>
+                          {bookingPersons.length > 1 && (
+                            <button type="button" onClick={() => setBookingPersons(prev => prev.filter(x => x.id !== p.id))}
+                              className="text-gray-400 hover:text-red-500 transition-colors p-0.5">
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {/* 姓名 / 生日 / 生肖 / 問事項目 */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input required type="text" placeholder="信眾大名 *"
+                          value={p.name}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
+                        <input type="text" placeholder="農曆生日（可選）"
+                          value={p.birthDate}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate: e.target.value } : x))}
+                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
+                        <select value={p.zodiac || ''}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
+                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
+                          <option value="">生肖（可選）</option>
+                          {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                        </select>
+                        <select required value={p.type}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
+                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
+                          {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label htmlFor="zodiac" className="block text-sm font-medium text-gray-700 mb-1">生肖</label>
-                      <select
-                        name="zodiac"
-                        id="zodiac"
-                        value={formData.zodiac || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
-                      >
-                        <option value="">請選擇生肖</option>
-                        {Object.values(ZodiacSign).map((z) => (
-                          <option key={z} value={z}>{z}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                  ))}
 
-                  <div>
-                    <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">問事項目 *</label>
-                    <select
-                      name="type"
-                      id="type"
-                      required
-                      value={formData.type}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
-                    >
-                      {Object.values(ConsultationType).map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* 新增人員 */}
+                  <button type="button"
+                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, type: ConsultationType.CAREER }])}
+                    className="w-full py-2.5 border-2 border-dashed border-white/30 text-white/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-gold hover:bg-white/5 transition-all flex items-center justify-center gap-1.5">
+                    <X className="w-4 h-4 rotate-45" /> 新增人員
+                  </button>
 
-                  <div className="grid md:grid-cols-2 gap-6">
+                  {/* 共用：日期、時段 */}
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="bookingDate" className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 (限週六) *</label>
-                      <input
-                        type="date"
-                        name="bookingDate"
-                        id="bookingDate"
-                        required
-                        value={formData.bookingDate}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 (限週六) *</label>
+                      <input type="date" required value={bookingDate}
+                        onChange={e => {
+                          const d = new Date(e.target.value);
+                          if (e.target.value && d.getDay() !== 6) { alert('抱歉，目前僅開放每週六預約問事。'); return; }
+                          setBookingDate(e.target.value);
+                        }}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none" />
                       <p className="text-xs text-gray-400 mt-1">請選擇週六日期</p>
                     </div>
                     <div>
-                      <label htmlFor="bookingTime" className="block text-sm font-medium text-gray-700 mb-1">希望時段 (限晚上) *</label>
-                      <select
-                        name="bookingTime"
-                        id="bookingTime"
-                        required
-                        value={formData.bookingTime}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
-                      >
+                      <label className="block text-sm font-medium text-gray-700 mb-1">希望時段 (限晚上) *</label>
+                      <select required value={bookingTime} onChange={e => setBookingTime(e.target.value)}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white">
                         <option value="">請選擇時段</option>
                         <option value="evening">晚上 (19:00 - 21:00)</option>
                       </select>
@@ -1144,16 +1054,10 @@ const App: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
-                    <textarea
-                      name="notes"
-                      id="notes"
-                      rows={3}
-                      value={formData.notes}
-                      onChange={handleInputChange}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
+                    <textarea rows={3} value={bookingNotes} onChange={e => setBookingNotes(e.target.value)}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                      placeholder="請簡述您想請示的問題..."
-                    ></textarea>
+                      placeholder="請簡述您想請示的問題..." />
                   </div>
 
                   {bookingStatus === 'error' && (
@@ -1164,26 +1068,14 @@ const App: React.FC = () => {
                   )}
 
                   <div className="pt-4">
-                    <button
-                      type="submit"
-                      disabled={bookingStatus === 'loading'}
+                    <button type="submit" disabled={bookingStatus === 'loading'}
                       className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
-                        ${bookingStatus === 'loading'
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-temple-gold text-temple-red hover:bg-amber-400 hover:shadow-xl transform hover:-translate-y-1'}`}
-                    >
-                      {bookingStatus === 'loading' ? (
-                        <span>處理中...</span>
-                      ) : (
-                        <>
-                          <Flame className="w-5 h-5 fill-current" />
-                          確認送出預約
-                        </>
+                        ${bookingStatus === 'loading' ? 'bg-gray-400 cursor-not-allowed' : 'bg-temple-gold text-temple-red hover:bg-amber-400 hover:shadow-xl transform hover:-translate-y-1'}`}>
+                      {bookingStatus === 'loading' ? <span>處理中...</span> : (
+                        <><Flame className="w-5 h-5 fill-current" />確認送出預約（共 {bookingPersons.length} 人）</>
                       )}
                     </button>
-                    <p className="text-center text-gray-500 text-sm mt-4">
-                      * 提交後即代表同意本宮隱私權政策
-                    </p>
+                    <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
                   </div>
                 </form>
               )}
@@ -1241,67 +1133,68 @@ const App: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleDonationSubmit} className="space-y-6">
-                  <div className="flex justify-start">
-                    <button type="button" onClick={() => handleOpenContactPicker('donation')}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                      <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
-                    </button>
-                  </div>
-                  <div>
-                    <label htmlFor="don_name" className="block text-sm font-medium text-gray-700 mb-1">大德姓名 *</label>
-                    <input
-                      type="text"
-                      name="name"
-                      id="don_name"
-                      required
-                      value={donationData.name}
-                      onChange={handleDonationChange}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                      placeholder="請輸入姓名"
-                    />
-                  </div>
+                <form onSubmit={handleDonationSubmit} className="space-y-4">
+                  {donationPersons.map((p, idx) => (
+                    <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-600">人員 {idx + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => handleOpenContactPicker('donation', p.id)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                            <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                          </button>
+                          {donationPersons.length > 1 && (
+                            <button type="button"
+                              onClick={() => setDonationPersons(prev => prev.filter(x => x.id !== p.id))}
+                              className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          required
+                          type="text"
+                          placeholder="大德姓名 *"
+                          value={p.name}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                        />
+                        <input
+                          required
+                          type="number"
+                          placeholder="捐款金額 (NTD) *"
+                          min="1"
+                          value={p.amount || ''}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                        />
+                        <select
+                          required
+                          value={p.type}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white text-sm"
+                        >
+                          {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ))}
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="don_amount" className="block text-sm font-medium text-gray-700 mb-1">捐款金額 (NTD) *</label>
-                      <input
-                        type="number"
-                        name="amount"
-                        id="don_amount"
-                        required
-                        min="1"
-                        value={donationData.amount || ''}
-                        onChange={handleDonationChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                        placeholder="請輸入金額"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="don_type" className="block text-sm font-medium text-gray-700 mb-1">指定項目 *</label>
-                      <select
-                        name="type"
-                        id="don_type"
-                        required
-                        value={donationData.type}
-                        onChange={handleDonationChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white"
-                      >
-                        {Object.values(DonationType).map((type) => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                  <button type="button"
+                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', amount: 0, type: DonationType.GENERAL }])}
+                    className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
+                    <X className="w-4 h-4 rotate-45" /> 新增人員
+                  </button>
 
                   <div>
                     <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註說明 (選填)</label>
                     <textarea
-                      name="notes"
                       id="don_notes"
                       rows={3}
-                      value={donationData.notes}
-                      onChange={handleDonationChange}
+                      value={donationNotes}
+                      onChange={e => setDonationNotes(e.target.value)}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
                       placeholder="如有特定祈福對象或說明請填寫..."
                     ></textarea>
@@ -1328,7 +1221,7 @@ const App: React.FC = () => {
                       ) : (
                         <>
                           <HeartHandshake className="w-5 h-5" />
-                          確認捐獻護持
+                          確認捐獻護持（共 {donationPersons.length} 人）
                         </>
                       )}
                     </button>
@@ -1550,12 +1443,13 @@ const App: React.FC = () => {
                   key={contact.id}
                   type="button"
                   onClick={() => {
-                    if (showContactPicker === 'lamp') {
-                      setLampForm(prev => ({ ...prev, name: contact.name, phone: contact.phone, birthDate: contact.birthDate, zodiac: contact.zodiac }));
-                    } else if (showContactPicker === 'booking') {
-                      setFormData(prev => ({ ...prev, name: contact.name, phone: contact.phone, birthDate: contact.birthDate, zodiac: contact.zodiac }));
-                    } else if (showContactPicker === 'donation') {
-                      setDonationData(prev => ({ ...prev, name: contact.name, phone: contact.phone }));
+                    const { form, personId } = showContactPicker!;
+                    if (form === 'lamp') {
+                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac } : x));
+                    } else if (form === 'booking') {
+                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac } : x));
+                    } else if (form === 'donation') {
+                      setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name } : x));
                     }
                     setShowContactPicker(null);
                   }}
