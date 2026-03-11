@@ -171,11 +171,13 @@ const ContactFormModal = ({
   onSave,
   onCancel,
   saving,
+  savedAddresses,
 }: {
   initial: MemberContactData;
   onSave: (d: MemberContactData) => void;
   onCancel: () => void;
   saving: boolean;
+  savedAddresses: string[];
 }) => {
   const parsedInitial = parseBirthDate(initial.birthDate || '');
   const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(() => parsedInitial ? 'lunar' : 'solar');
@@ -330,10 +332,16 @@ const ContactFormModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">居住地址</label>
             <input
+              list="address-suggestions"
               type="text" placeholder="台北市中正區和平西路一段…"
               value={form.address || ''} onChange={e => setForm(f => ({ ...f, address: e.target.value || undefined }))}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
             />
+            {savedAddresses.length > 0 && (
+              <datalist id="address-suggestions">
+                {savedAddresses.map((a, i) => <option key={i} value={a} />)}
+              </datalist>
+            )}
           </div>
 
           {/* 生日 */}
@@ -852,6 +860,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
           onSave={handleSaveContact}
           onCancel={() => { setShowFormModal(false); setEditingContact(null); }}
           saving={saving}
+          savedAddresses={Array.from(new Set(contacts.map(c => c.address).filter((a): a is string => !!a)))}
         />
       )}
     </>
