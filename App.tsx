@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { User } from '@supabase/supabase-js';
 import {
   Calendar,
   Clock,
@@ -21,17 +22,20 @@ import {
   Pin,
   ChevronDown,
   ChevronUp,
-  UserPlus
+  UserPlus,
+  User as UserIcon,
+  BookUser
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, RegistrationData, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, RegistrationData, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
+import MemberPortal from './components/MemberPortal';
 
 // 水墨筆刷分隔線元件
 
@@ -64,6 +68,10 @@ const App: React.FC = () => {
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   const [lampForm, setLampForm] = useState<LampRegistrationData>({ serviceId: '', name: '', phone: '', birthDate: '', zodiac: undefined, notes: '' });
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [member, setMember] = useState<User | null>(null);
+  const [showMemberPortal, setShowMemberPortal] = useState(false);
+  const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
+  const [showContactPicker, setShowContactPicker] = useState<'lamp' | 'booking' | 'donation' | null>(null);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +132,27 @@ const App: React.FC = () => {
     }, 5000);
   };
 
+  const loadMemberContacts = async () => {
+    try {
+      const contacts = await getMemberContacts();
+      setMemberContacts(contacts);
+    } catch {
+      setMemberContacts([]);
+    }
+  };
+
+  const handleOpenContactPicker = (form: 'lamp' | 'booking' | 'donation') => {
+    if (!member) {
+      setShowMemberPortal(true);
+      return;
+    }
+    if (memberContacts.length === 0) {
+      alert('請先至會員中心新增聯絡人');
+      return;
+    }
+    setShowContactPicker(form);
+  };
+
   useEffect(() => {
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(setDeities).catch(console.error);
@@ -138,11 +167,22 @@ const App: React.FC = () => {
       startHeroInterval(slides.length);
     }).catch(console.error);
 
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user ?? null;
+      setMember(u);
+      if (u) loadMemberContacts();
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setMember(session?.user ?? null);
+      if (session?.user) loadMemberContacts(); else setMemberContacts([]);
+    });
+
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
       if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -347,6 +387,13 @@ const App: React.FC = () => {
                 聖母經
               </button>
               <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
+              <button
+                onClick={() => setShowMemberPortal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border border-temple-gold/50 text-temple-red hover:bg-temple-gold/10 transition-all"
+              >
+                <UserIcon className="w-4 h-4" />
+                {member ? '會員' : '登入'}
+              </button>
               <a
                 href="https://lin.ee/lj0gLqR"
                 target="_blank"
@@ -399,6 +446,13 @@ const App: React.FC = () => {
               className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
             >
               ✦ 聖母經
+            </button>
+            <button
+              onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
+              className="w-full px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-gold/50 hover:bg-temple-gold/10 flex items-center gap-2"
+            >
+              <UserIcon className="w-5 h-5" />
+              {member ? '會員中心' : '會員登入'}
             </button>
             <div className="pt-2">
               <a
@@ -797,10 +851,16 @@ const App: React.FC = () => {
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
               <div className="bg-temple-red px-8 py-5">
-                <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-temple-gold" />
-                  線上登記點燈
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-temple-gold" />
+                    線上登記點燈
+                  </h4>
+                  <button type="button" onClick={() => handleOpenContactPicker('lamp')}
+                    className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/40 text-white hover:bg-white/10 transition-all">
+                    <BookUser className="w-3.5 h-3.5" /> 通訊錄
+                  </button>
+                </div>
                 <p className="text-red-100 text-sm mt-1">填妥資料後送出，廟方人員將主動聯繫確認。</p>
               </div>
               <div className="p-8">
@@ -983,6 +1043,12 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="flex justify-end">
+                    <button type="button" onClick={() => handleOpenContactPicker('booking')}
+                      className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-full border border-temple-gold/50 text-temple-red hover:bg-temple-gold/10 transition-all">
+                      <BookUser className="w-3.5 h-3.5" /> 通訊錄快填
+                    </button>
+                  </div>
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">信眾大名 *</label>
@@ -1178,6 +1244,12 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleDonationSubmit} className="space-y-6">
+                  <div className="flex justify-end">
+                    <button type="button" onClick={() => handleOpenContactPicker('donation')}
+                      className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-full border border-temple-gold/50 text-temple-red hover:bg-temple-gold/10 transition-all">
+                      <BookUser className="w-3.5 h-3.5" /> 通訊錄快填
+                    </button>
+                  </div>
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="don_name" className="block text-sm font-medium text-gray-700 mb-1">大德姓名 *</label>
@@ -1464,6 +1536,55 @@ const App: React.FC = () => {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member Portal */}
+      {showMemberPortal && (
+        <MemberPortal onClose={() => {
+          setShowMemberPortal(false);
+          if (member) loadMemberContacts();
+        }} />
+      )}
+
+      {/* Contact Picker Modal */}
+      {showContactPicker && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4" onClick={() => setShowContactPicker(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-temple-red px-6 py-4 flex items-center justify-between">
+              <h3 className="text-white font-bold font-serif flex items-center gap-2">
+                <BookUser className="w-4 h-4" /> 選擇聯絡人
+              </h3>
+              <button onClick={() => setShowContactPicker(null)} className="text-white/70 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
+              {memberContacts.map(contact => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  onClick={() => {
+                    if (showContactPicker === 'lamp') {
+                      setLampForm(prev => ({ ...prev, name: contact.name, phone: contact.phone, birthDate: contact.birthDate, zodiac: contact.zodiac }));
+                    } else if (showContactPicker === 'booking') {
+                      setFormData(prev => ({ ...prev, name: contact.name, phone: contact.phone, birthDate: contact.birthDate, zodiac: contact.zodiac }));
+                    } else if (showContactPicker === 'donation') {
+                      setDonationData(prev => ({ ...prev, name: contact.name, phone: contact.phone }));
+                    }
+                    setShowContactPicker(null);
+                  }}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-100 hover:bg-temple-bg hover:border-temple-gold/30 transition-all flex items-center gap-3"
+                >
+                  <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-medium shrink-0">{contact.label}</span>
+                  <div>
+                    <p className="font-medium text-gray-800">{contact.name}</p>
+                    <p className="text-xs text-gray-500">{contact.phone}{contact.birthDate ? ` · ${contact.birthDate}` : ''}</p>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>

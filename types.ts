@@ -183,6 +183,21 @@ export interface LampRegistrationRecord extends LampRegistrationData {
   createdAt: string;
 }
 
+// ─── Member Contacts (會員通訊錄) ────────────────────────
+export interface MemberContactData {
+  label: string;      // 本人 / 媽媽 / 老公 / 小孩 …
+  name: string;
+  phone: string;
+  birthDate: string;  // 農曆生日（文字）
+  zodiac?: ZodiacSign;
+}
+
+export interface MemberContact extends MemberContactData {
+  id: string;
+  userId: string;
+  createdAt: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;

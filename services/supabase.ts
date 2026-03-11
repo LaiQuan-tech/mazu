@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -682,6 +682,80 @@ export const deleteLampRegistration = async (id: string): Promise<boolean> => {
 
   if (error) {
     console.error('Error deleting lamp registration:', error);
+    throw error;
+  }
+  return true;
+};
+
+// ─── Member Contacts (會員通訊錄) ─────────────────────────────────────────────
+
+export const getMemberContacts = async (): Promise<MemberContact[]> => {
+  const { data, error } = await supabase
+    .from('member_contacts')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching member contacts:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    label: row.label,
+    name: row.name,
+    phone: row.phone,
+    birthDate: row.birth_date,
+    zodiac: row.zodiac || undefined,
+    createdAt: row.created_at,
+  }));
+};
+
+export const createMemberContact = async (data: MemberContactData): Promise<boolean> => {
+  const { error } = await supabase.from('member_contacts').insert([{
+    label: data.label,
+    name: data.name,
+    phone: data.phone,
+    birth_date: data.birthDate,
+    zodiac: data.zodiac || null,
+  }]);
+
+  if (error) {
+    console.error('Error creating member contact:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const updateMemberContact = async (id: string, data: MemberContactData): Promise<boolean> => {
+  const { error } = await supabase
+    .from('member_contacts')
+    .update({
+      label: data.label,
+      name: data.name,
+      phone: data.phone,
+      birth_date: data.birthDate,
+      zodiac: data.zodiac || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating member contact:', error);
+    throw error;
+  }
+  return true;
+};
+
+export const deleteMemberContact = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('member_contacts')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting member contact:', error);
     throw error;
   }
   return true;
