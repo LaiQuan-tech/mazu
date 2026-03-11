@@ -357,15 +357,6 @@ const App: React.FC = () => {
                 <UserIcon className="w-4 h-4" />
                 {member ? '會員' : '登入'}
               </button>
-              <a
-                href="https://lin.ee/lj0gLqR"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#06C755] text-white px-3.5 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 hover:bg-[#05b34c] hover:scale-105 transition-all duration-200 shadow-md"
-              >
-                <LineIcon className="w-4 h-4" />
-                LINE
-              </a>
             </div>
 
             <div className="-mr-2 flex lg:hidden">
@@ -417,17 +408,6 @@ const App: React.FC = () => {
               <UserIcon className="w-5 h-5" />
               {member ? '會員中心' : '會員登入'}
             </button>
-            <div className="pt-2">
-              <a
-                href="https://lin.ee/lj0gLqR"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-[#06C755] text-white px-4 py-3 rounded-lg text-center font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-[#05b34c] transition-colors"
-              >
-                <LineIcon className="w-5 h-5" />
-                加入 LINE 官方帳號
-              </a>
-            </div>
           </div>
         </div>
       </nav>
