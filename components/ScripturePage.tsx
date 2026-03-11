@@ -102,9 +102,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           const trueTop = rect.top - prevY;                 // 還原真實（無 transform）的 viewport top
           const h = el.offsetHeight;                        // 未縮放的實際高度
           const raw = (trueTop + h / 2) - vhCenter;
-          const offset = Math.max(-52, Math.min(52, raw * 0.12));
-          const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.75));
-          const scale = 1.03 - 0.05 * normalized;
+          const offset = Math.max(-72, Math.min(72, raw * 0.30));
+          const normalized = Math.min(1, Math.abs(raw) / (window.innerHeight * 0.65));
+          const scale = 1.04 - 0.08 * normalized;
           el.style.transform = `translateY(${offset}px) scale(${scale})`;
         });
       } else {
