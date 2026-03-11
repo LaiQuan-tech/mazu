@@ -162,6 +162,7 @@ const emptyContactForm = (): MemberContactData => ({
   birthDate: '',
   zodiac: undefined,
   gender: undefined,
+  address: undefined,
 });
 
 // ── ContactForm（新增 / 編輯用的行內 modal）────────────────────────────────
@@ -303,24 +304,36 @@ const ContactFormModal = ({
             </select>
           </div>
 
-          {/* 姓名 + 電話 */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 姓名 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+            <input
+              type="text" required placeholder="王小明"
+              value={form.name} onChange={e => set('name', e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+            />
+          </div>
+
+          {/* 電話（僅本人顯示） */}
+          {form.label === '本人' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
-              <input
-                type="text" required placeholder="王小明"
-                value={form.name} onChange={e => set('name', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">電話</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">電話 *</label>
               <input
                 type="tel" placeholder="0912-345-678"
                 value={form.phone} onChange={e => set('phone', e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
               />
             </div>
+          )}
+
+          {/* 居住地址 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">居住地址</label>
+            <input
+              type="text" placeholder="台北市中正區和平西路一段…"
+              value={form.address || ''} onChange={e => setForm(f => ({ ...f, address: e.target.value || undefined }))}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+            />
           </div>
 
           {/* 生日 */}
@@ -527,15 +540,10 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
 
   // ── contact handlers ──
   const handleSaveContact = async (data: MemberContactData) => {
-    // 帳號至少需有一筆電話號碼
-    if (!data.phone?.trim()) {
-      const otherWithPhone = contacts.filter(
-        c => c.id !== editingContact?.id && c.phone?.trim()
-      );
-      if (otherWithPhone.length === 0) {
-        alert('帳號至少需填寫一組手機號碼，請補上電話後再儲存。');
-        return;
-      }
+    // 「本人」必須有電話
+    if (data.label === '本人' && !data.phone?.trim()) {
+      alert('本人資料需填寫電話號碼。');
+      return;
     }
     setSaving(true);
     try {
@@ -795,6 +803,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
                                 {c.zodiac}年
                               </span>
                             )}
+                            {c.address && <span className="text-xs text-gray-400 w-full truncate">{c.address}</span>}
                           </div>
                         </div>
 
@@ -837,7 +846,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
       {showFormModal && (
         <ContactFormModal
           initial={editingContact
-            ? { label: editingContact.label, name: editingContact.name, phone: editingContact.phone, birthDate: editingContact.birthDate, zodiac: editingContact.zodiac, gender: editingContact.gender }
+            ? { label: editingContact.label, name: editingContact.name, phone: editingContact.phone, birthDate: editingContact.birthDate, zodiac: editingContact.zodiac, gender: editingContact.gender, address: editingContact.address }
             : emptyContactForm()
           }
           onSave={handleSaveContact}
