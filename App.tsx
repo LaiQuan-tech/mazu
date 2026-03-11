@@ -891,7 +891,7 @@ const App: React.FC = () => {
                             {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
                           </select>
                         </div>
-                        <input type="text" placeholder="現居地址（可選）"
+                        <input required type="text" placeholder="現居地址 *"
                           value={p.address}
                           onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
@@ -1026,7 +1026,7 @@ const App: React.FC = () => {
                           className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
                           {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <input type="text" placeholder="現居地址（可選）"
+                        <input required type="text" placeholder="現居地址 *"
                           value={p.address}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="sm:col-span-2 px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
