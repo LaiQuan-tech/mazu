@@ -17,17 +17,35 @@ const SHENGXIAO_MAP: Record<string, ZodiacSign> = {
 
 const THIS_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS: { value: number; label: string }[] = [
-  { value: 0, label: '── 不填寫 ──' },
+  { value: 0, label: '吉' },
   ...Array.from({ length: THIS_YEAR - 1911 }, (_, i) => {
     const g = THIS_YEAR - i;
     const roc = g - 1911;
     return { value: g, label: `${g}年（民國${roc === 1 ? '元' : roc}年）` };
   }),
 ];
-const SOLAR_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` }));
+const SOLAR_MONTH_OPTIONS = [
+  { value: 0, label: '吉' },
+  ...Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` })),
+];
 const LUNAR_MONTH_VALUES = ['正','二','三','四','五','六','七','八','九','十','冬','臘'];
 const LUNAR_MONTH_LABELS_BASE = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','臘月'];
 const LUNAR_DAYS = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+const SHICHEN_OPTIONS = [
+  { value: '', label: '吉' },
+  { value: '子時', label: '子時（23–01時）' },
+  { value: '丑時', label: '丑時（01–03時）' },
+  { value: '寅時', label: '寅時（03–05時）' },
+  { value: '卯時', label: '卯時（05–07時）' },
+  { value: '辰時', label: '辰時（07–09時）' },
+  { value: '巳時', label: '巳時（09–11時）' },
+  { value: '午時', label: '午時（11–13時）' },
+  { value: '未時', label: '未時（13–15時）' },
+  { value: '申時', label: '申時（15–17時）' },
+  { value: '酉時', label: '酉時（17–19時）' },
+  { value: '戌時', label: '戌時（19–21時）' },
+  { value: '亥時', label: '亥時（21–23時）' },
+];
 
 function solarDaysInMonth(year: number, month: number) {
   return new Date(year, month, 0).getDate();
@@ -38,7 +56,7 @@ function getLunarMonthOptions(gregorianYear: number): { value: string; label: st
   if (gregorianYear > 0) {
     try { leapMonth = LunarYear.fromYear(gregorianYear).getLeapMonth(); } catch { leapMonth = 0; }
   }
-  const opts: { value: string; label: string }[] = [];
+  const opts: { value: string; label: string }[] = [{ value: '0', label: '吉' }];
   for (let m = 1; m <= 12; m++) {
     opts.push({ value: String(m), label: LUNAR_MONTH_LABELS_BASE[m - 1] });
     if (m === leapMonth) opts.push({ value: `L${m}`, label: `閏${LUNAR_MONTH_LABELS_BASE[m - 1]}` });
@@ -59,13 +77,24 @@ function buildSolarResult(y: number, m: number, d: number): { birthDate: string;
 }
 
 function buildLunarResult(gregorianYear: number, monthValue: string, dayNum: number): { birthDate: string; zodiac?: ZodiacSign } | null {
-  if (!monthValue || dayNum < 1) return null;
+  // Month = '0' → only year (if any)
+  if (monthValue === '0' || !monthValue) {
+    if (gregorianYear > 0) return { birthDate: `民國${gregorianYear - 1911}年` };
+    return null;
+  }
   const isLeap = monthValue.startsWith('L');
   const monthNum = parseInt(isLeap ? monthValue.slice(1) : monthValue);
   if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) return null;
   const monthChinese = LUNAR_MONTH_VALUES[monthNum - 1];
+  const leapPrefix = isLeap ? '閏' : '';
+  const monthStr = `農曆${leapPrefix}${monthChinese}月`;
+  // Day = 0 → year + month only (no day, can't compute zodiac)
+  if (dayNum <= 0) {
+    if (gregorianYear > 0) return { birthDate: `民國${gregorianYear - 1911}年${monthStr}` };
+    return { birthDate: monthStr };
+  }
   const dayChinese = LUNAR_DAYS[dayNum - 1];
-  const prefix = `農曆${isLeap ? '閏' : ''}${monthChinese}月${dayChinese}`;
+  const prefix = `${monthStr}${dayChinese}`;
   if (gregorianYear > 0) {
     const rocYear = gregorianYear - 1911;
     try {
@@ -78,21 +107,41 @@ function buildLunarResult(gregorianYear: number, monthValue: string, dayNum: num
   return { birthDate: prefix };
 }
 
-function parseBirthDate(s: string): { gregorianYear: number; monthValue: string; dayNum: number } | null {
+function parseBirthDate(s: string): { gregorianYear: number; monthValue: string; dayNum: number; birthHour: string } | null {
   if (!s) return null;
-  const full = s.match(/^民國(\d+)年農曆(閏?)(.+)月(.+)$/);
+  // 提取時辰（結尾兩字）
+  const hourMatch = s.match(/([子丑寅卯辰巳午未申酉戌亥]時)$/);
+  const birthHour = hourMatch ? hourMatch[1] : '';
+  const d = birthHour ? s.slice(0, -2) : s;
+  if (!d) return { gregorianYear: 0, monthValue: '0', dayNum: 0, birthHour };
+  // 民國XX年農曆[閏]XX月XX
+  const full = d.match(/^民國(\d+)年農曆(閏?)(.+)月(.+)$/);
   if (full) {
     const mi = LUNAR_MONTH_VALUES.indexOf(full[3]) + 1;
     const di = LUNAR_DAYS.indexOf(full[4]) + 1;
-    if (mi <= 0 || di <= 0) return null;
-    return { gregorianYear: parseInt(full[1]) + 1911, monthValue: full[2] === '閏' ? `L${mi}` : String(mi), dayNum: di };
+    if (mi > 0 && di > 0) return { gregorianYear: parseInt(full[1]) + 1911, monthValue: full[2] === '閏' ? `L${mi}` : String(mi), dayNum: di, birthHour };
   }
-  const short = s.match(/^農曆(閏?)(.+)月(.+)$/);
+  // 民國XX年農曆[閏]XX月（無日）
+  const monthOnly = d.match(/^民國(\d+)年農曆(閏?)(.+)月$/);
+  if (monthOnly) {
+    const mi = LUNAR_MONTH_VALUES.indexOf(monthOnly[3]) + 1;
+    if (mi > 0) return { gregorianYear: parseInt(monthOnly[1]) + 1911, monthValue: monthOnly[2] === '閏' ? `L${mi}` : String(mi), dayNum: 0, birthHour };
+  }
+  // 民國XX年（無月日）
+  const yearOnly = d.match(/^民國(\d+)年$/);
+  if (yearOnly) return { gregorianYear: parseInt(yearOnly[1]) + 1911, monthValue: '0', dayNum: 0, birthHour };
+  // 農曆[閏]XX月XX（無年）
+  const short = d.match(/^農曆(閏?)(.+)月(.+)$/);
   if (short) {
     const mi = LUNAR_MONTH_VALUES.indexOf(short[2]) + 1;
     const di = LUNAR_DAYS.indexOf(short[3]) + 1;
-    if (mi <= 0 || di <= 0) return null;
-    return { gregorianYear: 0, monthValue: short[1] === '閏' ? `L${mi}` : String(mi), dayNum: di };
+    if (mi > 0 && di > 0) return { gregorianYear: 0, monthValue: short[1] === '閏' ? `L${mi}` : String(mi), dayNum: di, birthHour };
+  }
+  // 農曆[閏]XX月（無年無日）
+  const shortMonth = d.match(/^農曆(閏?)(.+)月$/);
+  if (shortMonth) {
+    const mi = LUNAR_MONTH_VALUES.indexOf(shortMonth[2]) + 1;
+    if (mi > 0) return { gregorianYear: 0, monthValue: shortMonth[1] === '閏' ? `L${mi}` : String(mi), dayNum: 0, birthHour };
   }
   return null;
 }
@@ -127,45 +176,49 @@ const ContactFormModal = ({
   const [inputMode, setInputMode] = useState<'solar' | 'lunar'>(() => parsedInitial ? 'lunar' : 'solar');
   const [form, setForm] = useState<MemberContactData>(initial);
 
-  // 國曆下拉 state
+  // 國曆下拉 state（0 = 吉）
   const [solarYear, setSolarYear] = useState(0);
-  const [solarMonth, setSolarMonth] = useState(1);
-  const [solarDay, setSolarDay] = useState(1);
+  const [solarMonth, setSolarMonth] = useState(0);
+  const [solarDay, setSolarDay] = useState(0);
 
-  // 農曆下拉 state
+  // 農曆下拉 state（'0'/0 = 吉）
   const [lunarYear, setLunarYear] = useState(() => parsedInitial?.gregorianYear ?? 0);
-  const [lunarMonthValue, setLunarMonthValue] = useState(() => parsedInitial?.monthValue ?? '1');
-  const [lunarDay, setLunarDay] = useState(() => parsedInitial?.dayNum ?? 1);
+  const [lunarMonthValue, setLunarMonthValue] = useState(() => parsedInitial?.monthValue ?? '0');
+  const [lunarDay, setLunarDay] = useState(() => parsedInitial?.dayNum ?? 0);
+
+  // 時辰（'' = 吉）
+  const [birthHour, setBirthHour] = useState(() => parsedInitial?.birthHour ?? '');
 
   const set = (key: keyof MemberContactData, val: string) =>
     setForm(f => ({ ...f, [key]: val || undefined }));
 
   const applySolar = (y: number, m: number, d: number) => {
-    if (!y) { setForm(f => ({ ...f, birthDate: '' })); return; }
     const result = buildSolarResult(y, m, d);
-    if (result) setForm(f => ({ ...f, birthDate: result.birthDate, zodiac: result.zodiac }));
+    if (result) setForm(f => ({ ...f, birthDate: result.birthDate + birthHour, zodiac: result.zodiac }));
+    else setForm(f => ({ ...f, birthDate: birthHour }));
   };
 
   const applyLunar = (y: number, mv: string, d: number) => {
     const result = buildLunarResult(y, mv, d);
-    if (result) setForm(f => ({ ...f, birthDate: result.birthDate, zodiac: result.zodiac ?? f.zodiac }));
+    if (result) setForm(f => ({ ...f, birthDate: result.birthDate + birthHour, zodiac: result.zodiac ?? f.zodiac }));
+    else setForm(f => ({ ...f, birthDate: birthHour }));
   };
 
-  const solarMaxDays = solarYear > 0 ? solarDaysInMonth(solarYear, solarMonth) : 31;
+  const solarMaxDays = (solarYear > 0 && solarMonth > 0) ? solarDaysInMonth(solarYear, solarMonth) : 31;
   const lunarMonthOptions = getLunarMonthOptions(lunarYear);
   const lunarMonthValid = lunarMonthOptions.some(o => o.value === lunarMonthValue);
 
   const handleSolarYearChange = (y: number) => {
     setSolarYear(y);
-    const maxD = y > 0 ? solarDaysInMonth(y, solarMonth) : 31;
-    const d = Math.min(solarDay, maxD);
+    const maxD = (y > 0 && solarMonth > 0) ? solarDaysInMonth(y, solarMonth) : 31;
+    const d = solarDay > 0 ? Math.min(solarDay, maxD) : 0;
     setSolarDay(d);
     applySolar(y, solarMonth, d);
   };
   const handleSolarMonthChange = (m: number) => {
     setSolarMonth(m);
-    const maxD = solarYear > 0 ? solarDaysInMonth(solarYear, m) : 31;
-    const d = Math.min(solarDay, maxD);
+    const maxD = (solarYear > 0 && m > 0) ? solarDaysInMonth(solarYear, m) : 31;
+    const d = solarDay > 0 ? Math.min(solarDay, maxD) : 0;
     setSolarDay(d);
     applySolar(solarYear, m, d);
   };
@@ -175,7 +228,7 @@ const ContactFormModal = ({
     setLunarYear(y);
     const newOptions = getLunarMonthOptions(y);
     let mv = lunarMonthValue;
-    if (!newOptions.some(o => o.value === mv)) {
+    if (mv !== '0' && !newOptions.some(o => o.value === mv)) {
       mv = mv.startsWith('L') ? mv.slice(1) : mv;
       setLunarMonthValue(mv);
     }
@@ -183,6 +236,14 @@ const ContactFormModal = ({
   };
   const handleLunarMonthChange = (mv: string) => { setLunarMonthValue(mv); applyLunar(lunarYear, mv, lunarDay); };
   const handleLunarDayChange = (d: number) => { setLunarDay(d); applyLunar(lunarYear, lunarMonthValue, d); };
+
+  const handleBirthHourChange = (hour: string) => {
+    setBirthHour(hour);
+    setForm(f => {
+      const base = f.birthDate.replace(/[子丑寅卯辰巳午未申酉戌亥]時$/, '');
+      return { ...f, birthDate: base + hour };
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,12 +322,13 @@ const ContactFormModal = ({
                     {SOLAR_MONTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                   <select value={solarDay} onChange={e => handleSolarDayChange(Number(e.target.value))} className={selCls}>
+                    <option value={0}>吉</option>
                     {Array.from({ length: solarMaxDays }, (_, i) => i + 1).map(d => (
                       <option key={d} value={d}>{d}日</option>
                     ))}
                   </select>
                 </div>
-                {solarYear > 0 && form.birthDate && (
+                {form.birthDate && (
                   <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
                     <RefreshCw className="w-3.5 h-3.5 text-temple-gold flex-shrink-0" />
                     <span className="text-sm text-temple-dark font-medium">{form.birthDate}</span>
@@ -288,6 +350,7 @@ const ContactFormModal = ({
                     {lunarMonthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                   <select value={lunarDay} onChange={e => handleLunarDayChange(Number(e.target.value))} className={selCls}>
+                    <option value={0}>吉</option>
                     {LUNAR_DAYS.map((d, i) => <option key={i} value={i + 1}>{d}</option>)}
                   </select>
                 </div>
@@ -301,6 +364,14 @@ const ContactFormModal = ({
                 )}
               </div>
             )}
+
+            {/* 時辰 */}
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-gray-500 mb-1">時辰</label>
+              <select value={birthHour} onChange={e => handleBirthHourChange(e.target.value)} className={selCls}>
+                {SHICHEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
           </div>
 
           {/* 生肖（自動帶入，可手動修改） */}
