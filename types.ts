@@ -37,6 +37,7 @@ export interface BookingData {
   birthDate: string; // Lunar birthday is often preferred, but standard date for simplicity
   zodiac?: ZodiacSign;
   address?: string;
+  contactLabel?: string;
   bookingDate: string;
   bookingTime: string;
   type: ConsultationType;
@@ -61,6 +62,7 @@ export interface DonationData {
   name: string;
   phone: string;
   address?: string;
+  contactLabel?: string;
   amount: number;
   type: DonationType;
   notes?: string;
@@ -177,6 +179,7 @@ export interface LampRegistrationData {
   birthDate: string;
   zodiac?: ZodiacSign;
   address?: string;
+  contactLabel?: string;
   notes?: string;
 }
 

@@ -47,6 +47,7 @@ interface LampPersonEntry {
   birthDate: string;
   zodiac?: ZodiacSign;
   address: string;
+  contactLabel?: string;
 }
 interface BookingPersonEntry {
   id: string;
@@ -54,12 +55,14 @@ interface BookingPersonEntry {
   birthDate: string;
   zodiac?: ZodiacSign;
   address: string;
+  contactLabel?: string;
   type: ConsultationType;
 }
 interface DonationPersonEntry {
   id: string;
   name: string;
   address: string;
+  contactLabel?: string;
   amount: number;
   type: DonationType;
 }
@@ -232,7 +235,7 @@ const App: React.FC = () => {
     setLampStatus('loading');
     try {
       await Promise.all(lampPersons.map(p => submitLampRegistration({
-        serviceId: p.serviceId, name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, notes: lampNotes,
+        serviceId: p.serviceId, name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
       })));
       setLampStatus('success');
       setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }]);
@@ -252,7 +255,7 @@ const App: React.FC = () => {
     setBookingStatus('loading');
     try {
       await Promise.all(bookingPersons.map(p => submitBooking({
-        name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined,
+        name: p.name, phone: '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
         bookingDate, bookingTime, type: p.type, notes: bookingNotes,
       })));
       setBookingStatus('success');
@@ -272,7 +275,7 @@ const App: React.FC = () => {
     setDonationStatus('loading');
     try {
       await Promise.all(donationPersons.map(p => submitDonation({
-        name: p.name, phone: '', address: p.address || undefined, amount: p.amount, type: p.type, notes: donationNotes,
+        name: p.name, phone: '', address: p.address || undefined, contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
       })));
       setDonationStatus('success');
       setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
@@ -1443,12 +1446,13 @@ const App: React.FC = () => {
                   onClick={() => {
                     const { form, personId } = showContactPicker!;
                     const addr = contact.address || '';
+                    const lbl = contact.label;
                     if (form === 'lamp') {
-                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr } : x));
+                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr, contactLabel: lbl } : x));
                     } else if (form === 'booking') {
-                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr } : x));
+                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr, contactLabel: lbl } : x));
                     } else if (form === 'donation') {
-                      setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, address: addr } : x));
+                      setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, address: addr, contactLabel: lbl } : x));
                     }
                     setShowContactPicker(null);
                   }}

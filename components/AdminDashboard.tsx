@@ -252,7 +252,10 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
                           <User className="w-4 h-4 text-temple-red" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">{b.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900">{b.name}</p>
+                            {b.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{b.contactLabel}</span>}
+                          </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{b.phone}</p>
                           <p className="text-xs text-gray-400">生日：{b.birthDate}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
                           {b.address && <p className="text-xs text-gray-400 mt-0.5">地址：{b.address}</p>}
@@ -383,7 +386,10 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
                           <HeartHandshake className="w-4 h-4 text-green-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">{d.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900">{d.name}</p>
+                            {d.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{d.contactLabel}</span>}
+                          </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{d.phone}</p>
                           {d.address && <p className="text-xs text-gray-400 mt-0.5">地址：{d.address}</p>}
                         </div>
@@ -1919,6 +1925,7 @@ const LampsTab = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-800">{r.name}</p>
+                    {r.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{r.contactLabel}</span>}
                     <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
                       {getServiceName(r.serviceId)}
                     </span>
