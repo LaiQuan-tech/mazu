@@ -851,16 +851,10 @@ const App: React.FC = () => {
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
               <div className="bg-temple-red px-8 py-5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-temple-gold" />
-                    線上登記點燈
-                  </h4>
-                  <button type="button" onClick={() => handleOpenContactPicker('lamp')}
-                    className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/40 text-white hover:bg-white/10 transition-all">
-                    <BookUser className="w-3.5 h-3.5" /> 通訊錄
-                  </button>
-                </div>
+                <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-temple-gold" />
+                  線上登記點燈
+                </h4>
                 <p className="text-red-100 text-sm mt-1">填妥資料後送出，廟方人員將主動聯繫確認。</p>
               </div>
               <div className="p-8">
@@ -880,6 +874,10 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleLampSubmit} className="space-y-5">
+                    <button type="button" onClick={() => handleOpenContactPicker('lamp')}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                      <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
+                    </button>
                     {/* Service type */}
                     <div>
                       <label htmlFor="lamp-service" className="block text-sm font-medium text-gray-700 mb-1">服務項目 *</label>
@@ -1043,10 +1041,10 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="flex justify-end">
+                  <div className="flex justify-start">
                     <button type="button" onClick={() => handleOpenContactPicker('booking')}
-                      className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-full border border-temple-gold/50 text-temple-red hover:bg-temple-gold/10 transition-all">
-                      <BookUser className="w-3.5 h-3.5" /> 通訊錄快填
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                      <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
                     </button>
                   </div>
                   <div className="grid md:grid-cols-2 gap-6">
@@ -1244,10 +1242,10 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleDonationSubmit} className="space-y-6">
-                  <div className="flex justify-end">
+                  <div className="flex justify-start">
                     <button type="button" onClick={() => handleOpenContactPicker('donation')}
-                      className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-full border border-temple-gold/50 text-temple-red hover:bg-temple-gold/10 transition-all">
-                      <BookUser className="w-3.5 h-3.5" /> 通訊錄快填
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                      <BookUser className="w-3.5 h-3.5 text-temple-red" /> 通訊錄快填
                     </button>
                   </div>
                   <div className="grid md:grid-cols-2 gap-6">
