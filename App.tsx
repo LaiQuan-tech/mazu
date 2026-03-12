@@ -214,7 +214,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     getBulletins().then(setBulletins).catch(console.error);
-    getDeities().then(setDeities).catch(console.error);
+    getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
     getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
     getBlessingEvents(true).then(setBlessingEvents).catch(console.error);
     getSiteImages().then(images => {

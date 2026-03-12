@@ -9,7 +9,8 @@ import {
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser,
-  ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby
+  ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby,
+  Eye, EyeOff
 } from 'lucide-react';
 
 type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
@@ -1134,22 +1135,32 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
 const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh: () => void }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<DeityData>({ name: '', title: '', description: '', imagePath: null, displayOrder: 0 });
+  const [form, setForm] = useState<DeityData>({ name: '', title: '', description: '', imagePath: null, displayOrder: 0, isVisible: true });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: '', title: '', description: '', imagePath: null, displayOrder: deities.length + 1 });
+    setForm({ name: '', title: '', description: '', imagePath: null, displayOrder: deities.length + 1, isVisible: true });
     setImageFile(null);
     setImagePreview(null);
     setShowModal(true);
   };
 
+  const handleToggleVisible = async (d: DeityRecord) => {
+    setTogglingId(d.id);
+    try {
+      await updateDeity(d.id, { isVisible: !d.isVisible });
+      onRefresh();
+    } catch { alert('操作失敗'); }
+    finally { setTogglingId(null); }
+  };
+
   const openEdit = (d: DeityRecord) => {
     setEditingId(d.id);
-    setForm({ name: d.name, title: d.title, description: d.description, imagePath: d.imagePath, displayOrder: d.displayOrder });
+    setForm({ name: d.name, title: d.title, description: d.description, imagePath: d.imagePath, displayOrder: d.displayOrder, isVisible: d.isVisible });
     setImageFile(null);
     setImagePreview(d.imagePath ? getSiteImagePublicUrl(d.imagePath) : null);
     setShowModal(true);
@@ -1223,7 +1234,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
           </thead>
           <tbody className="divide-y divide-gray-100">
             {deities.map((d) => (
-              <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={d.id} className={`hover:bg-gray-50 transition-colors ${!d.isVisible ? 'opacity-50' : ''}`}>
                 <td className="px-6 py-4 text-gray-500"><GripVertical className="w-4 h-4 inline mr-1" />{d.displayOrder}</td>
                 <td className="px-6 py-4">
                   {d.imagePath ? (
@@ -1232,11 +1243,19 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
                     <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center"><Flame className="w-5 h-5 text-gray-300" /></div>
                   )}
                 </td>
-                <td className="px-6 py-4 font-medium text-gray-800">{d.name}</td>
+                <td className="px-6 py-4 font-medium text-gray-800">
+                  {d.name}
+                  {!d.isVisible && <span className="ml-2 text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">已隱藏</span>}
+                </td>
                 <td className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
                 <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={() => openEdit(d)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 className="w-4 h-4" /></button>
+                <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                  <button onClick={() => handleToggleVisible(d)} disabled={togglingId === d.id}
+                    title={d.isVisible ? '點擊隱藏' : '點擊顯示'}
+                    className={`transition-colors disabled:opacity-40 ${d.isVisible ? 'text-gray-400 hover:text-orange-500' : 'text-orange-500 hover:text-gray-400'}`}>
+                    {d.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => openEdit(d)} className="text-blue-500 hover:text-blue-700"><Edit2 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(d.id, d.name)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>

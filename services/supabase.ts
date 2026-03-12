@@ -346,6 +346,7 @@ export const getDeities = async (): Promise<DeityRecord[]> => {
     description: row.description,
     imagePath: row.image_path,
     displayOrder: row.display_order,
+    isVisible: row.is_visible !== false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -358,6 +359,7 @@ export const createDeity = async (data: DeityData): Promise<boolean> => {
     description: data.description,
     image_path: data.imagePath || null,
     display_order: data.displayOrder,
+    is_visible: data.isVisible !== false,
   }]);
 
   if (error) {
@@ -374,6 +376,7 @@ export const updateDeity = async (id: string, data: Partial<DeityData>): Promise
   if (data.description !== undefined) updateData.description = data.description;
   if (data.imagePath !== undefined) updateData.image_path = data.imagePath;
   if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
+  if (data.isVisible !== undefined) updateData.is_visible = data.isVisible;
 
   const { error } = await supabase
     .from('deities')

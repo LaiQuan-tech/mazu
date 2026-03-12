@@ -286,6 +286,7 @@ export interface DeityData {
   description: string;
   imagePath: string | null;
   displayOrder: number;
+  isVisible: boolean;   // false = 隱藏（不顯示於前台）
 }
 
 export interface DeityRecord extends DeityData {
