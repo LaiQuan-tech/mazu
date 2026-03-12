@@ -260,6 +260,46 @@ const MemberInfoModal = ({
   );
 };
 
+// ─── useDragSort (共用拖拉排序 hook) ──────────────────────────────────────────
+
+function useDragSort<T extends { id: string }>(
+  items: T[],
+  onSaveOrder: (sorted: T[]) => Promise<void>,
+) {
+  const [localItems, setLocalItems]   = useState<T[]>([]);
+  const [draggingId, setDraggingId]   = useState<string | null>(null);
+  const [overIndex,  setOverIndex]    = useState<number | null>(null);
+  const [isSaving,   setIsSaving]     = useState(false);
+  const dragIndexRef                  = React.useRef(-1);
+
+  useEffect(() => { setLocalItems(items); }, [items]);
+
+  const onDragStart = (id: string, idx: number) => {
+    setDraggingId(id);
+    dragIndexRef.current = idx;
+  };
+  const onDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setOverIndex(idx);
+  };
+  const onDrop = async (dropIdx: number) => {
+    const fromIdx = dragIndexRef.current;
+    setDraggingId(null);
+    setOverIndex(null);
+    if (fromIdx === dropIdx || fromIdx < 0) return;
+    const next = [...localItems];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(dropIdx, 0, moved);
+    setLocalItems(next);
+    setIsSaving(true);
+    try { await onSaveOrder(next); } catch { alert('排序儲存失敗'); }
+    finally { setIsSaving(false); }
+  };
+  const onDragEnd = () => { setDraggingId(null); setOverIndex(null); };
+
+  return { localItems, draggingId, overIndex, isSaving, onDragStart, onDragOver, onDrop, onDragEnd };
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 const OverviewTab = ({
@@ -1249,6 +1289,15 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  // ── Drag sort ──
+  const sortedDeities = useMemo(() => [...deities].sort((a, b) => a.displayOrder - b.displayOrder), [deities]);
+  const { localItems: localDeities, draggingId: dDragId, overIndex: dOverIdx, isSaving: dSaving,
+          onDragStart: dDragStart, onDragOver: dDragOver, onDrop: dDrop, onDragEnd: dDragEnd,
+  } = useDragSort(sortedDeities, async (sorted) => {
+    await Promise.all(sorted.map((d, i) => updateDeity(d.id, { displayOrder: i + 1 })));
+    onRefresh();
+  });
+
   const openCreate = () => {
     setEditingId(null);
     setForm({ name: '', title: '', description: '', imagePath: null, displayOrder: deities.length + 1, isVisible: true });
@@ -1329,10 +1378,11 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {dSaving && <div className="px-6 py-2 bg-blue-50 text-blue-600 text-xs flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
             <tr>
-              <th className="px-6 py-3 text-left">排序</th>
+              <th className="px-3 py-3 w-8"></th>
               <th className="px-6 py-3 text-left">圖片</th>
               <th className="px-6 py-3 text-left">名稱</th>
               <th className="px-6 py-3 text-left">尊稱</th>
@@ -1341,9 +1391,15 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {deities.map((d) => (
-              <tr key={d.id} className={`hover:bg-gray-50 transition-colors ${!d.isVisible ? 'opacity-50' : ''}`}>
-                <td className="px-6 py-4 text-gray-500"><GripVertical className="w-4 h-4 inline mr-1" />{d.displayOrder}</td>
+            {localDeities.map((d, idx) => (
+              <tr key={d.id}
+                draggable
+                onDragStart={() => dDragStart(d.id, idx)}
+                onDragOver={(e) => dDragOver(e, idx)}
+                onDrop={() => dDrop(idx)}
+                onDragEnd={dDragEnd}
+                className={`transition-colors select-none ${!d.isVisible ? 'opacity-50' : ''} ${dDragId === d.id ? 'opacity-30 bg-gray-50' : ''} ${dOverIdx === idx && dDragId !== d.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50'}`}>
+                <td className="px-3 py-4 text-gray-300 cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></td>
                 <td className="px-6 py-4">
                   {d.imagePath ? (
                     <img src={getSiteImagePublicUrl(d.imagePath)} alt={d.name} className="w-12 h-12 rounded-lg object-cover" />
@@ -1992,6 +2048,15 @@ const LampsTab = ({
   const [updatingRegId, setUpdatingRegId] = useState<string | null>(null);
   const [regPage, setRegPage] = useState(0);
 
+  // ── Drag sort for configs ──
+  const sortedConfigs = useMemo(() => [...configs].sort((a, b) => a.displayOrder - b.displayOrder), [configs]);
+  const { localItems: localConfigs, draggingId: cDragId, overIndex: cOverIdx, isSaving: cSaving,
+          onDragStart: cDragStart, onDragOver: cDragOver, onDrop: cDrop, onDragEnd: cDragEnd,
+  } = useDragSort(sortedConfigs, async (sorted) => {
+    await Promise.all(sorted.map((c, i) => updateLampServiceConfig(c.id, { displayOrder: i + 1 })));
+    onRefresh();
+  });
+
   // ── Config helpers ──
   const openAddConfig = () => {
     setEditingConfig(null);
@@ -2153,9 +2218,11 @@ const LampsTab = ({
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {cSaving && <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-3 py-3 w-8"></th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium w-16">圖片</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">啟用</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium">服務名稱</th>
@@ -2165,8 +2232,15 @@ const LampsTab = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {configs.map(c => (
-                  <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                {localConfigs.map((c, idx) => (
+                  <tr key={c.id}
+                    draggable
+                    onDragStart={() => cDragStart(c.id, idx)}
+                    onDragOver={(e) => cDragOver(e, idx)}
+                    onDrop={() => cDrop(idx)}
+                    onDragEnd={cDragEnd}
+                    className={`select-none transition-colors ${cDragId === c.id ? 'opacity-30 bg-gray-50' : ''} ${cOverIdx === idx && cDragId !== c.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50/50'}`}>
+                    <td className="px-3 py-3 text-gray-300 cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></td>
                     <td className="px-4 py-3">
                       {c.imageUrl
                         ? <img src={c.imageUrl} alt={c.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
@@ -2445,6 +2519,15 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
   const [regSearch, setRegSearch] = useState('');
   const [uploadingBlessingImg, setUploadingBlessingImg] = useState(false);
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
+
+  // ── Drag sort for events ──
+  const sortedEvents = useMemo(() => [...events].sort((a, b) => a.sortOrder - b.sortOrder), [events]);
+  const { localItems: localEvents, draggingId: eDragId, overIndex: eOverIdx, isSaving: eSaving,
+          onDragStart: eDragStart, onDragOver: eDragOver, onDrop: eDrop, onDragEnd: eDragEnd,
+  } = useDragSort(sortedEvents, async (sorted) => {
+    await Promise.all(sorted.map((e, i) => updateBlessingEvent(e.id, { sortOrder: i + 1 })));
+    onRefresh();
+  });
 
   const handleBlessingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2801,12 +2884,20 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
           尚無祈福活動，請點擊「新增」建立第一個活動
         </div>
       ) : (
-        <div className="space-y-3">
-          {events.map(e => {
+        <div className="space-y-2">
+          {eSaving && <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs rounded-lg flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
+          {localEvents.map((e, idx) => {
             const count = registrations.filter(r => r.eventId === e.id).length;
             const closed = isDeadlinePassed(e.registrationDeadline);
             return (
-              <div key={e.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-4">
+              <div key={e.id}
+                draggable
+                onDragStart={() => eDragStart(e.id, idx)}
+                onDragOver={(ev) => eDragOver(ev, idx)}
+                onDrop={() => eDrop(idx)}
+                onDragEnd={eDragEnd}
+                className={`bg-white rounded-xl border shadow-sm p-5 flex flex-wrap items-center gap-4 select-none transition-all ${eDragId === e.id ? 'opacity-30' : ''} ${eOverIdx === idx && eDragId !== e.id ? 'border-temple-red border-2' : 'border-gray-100'}`}>
+                <GripVertical className="w-5 h-5 text-gray-300 cursor-grab active:cursor-grabbing shrink-0" />
                 {e.imageUrl
                   ? <img src={e.imageUrl} alt={e.title} className="w-14 h-14 object-cover rounded-xl border border-gray-100 shrink-0" />
                   : <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5 text-temple-red" /></div>}
