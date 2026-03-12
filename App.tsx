@@ -1294,7 +1294,7 @@ const App: React.FC = () => {
                     {!sharedSession && (
                       <button type="button" onClick={() => handleCreateSharedSession('booking')}
                         disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
-                        className="w-full py-2.5 mt-3 border-2 border-dashed border-white/30 text-white/70 rounded-lg text-sm hover:border-white hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
+                        className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
                         <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                       </button>
                     )}
