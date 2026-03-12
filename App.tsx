@@ -1292,11 +1292,18 @@ const App: React.FC = () => {
                     </button>
                     <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
                     {!sharedSession && (
-                      <button type="button" onClick={() => handleCreateSharedSession('booking')}
-                        disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
-                        className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
-                        <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
-                      </button>
+                      <>
+                        <button type="button" onClick={() => handleCreateSharedSession('booking')}
+                          disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
+                          className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
+                          <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
+                        </button>
+                        {(!bookingDate || bookingTime !== 'evening') && (
+                          <p className="text-center text-xs text-gray-400 mt-1.5">
+                            ※ 請先選擇日期與時段，才能建立揪團報名表
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </form>
