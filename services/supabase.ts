@@ -701,6 +701,33 @@ export const deleteLampRegistration = async (id: string): Promise<boolean> => {
 
 // ─── Member Contacts (會員通訊錄) ─────────────────────────────────────────────
 
+/** 後台：取得指定會員的親友通訊錄（需已登入） */
+export const getMemberContactsByUserId = async (userId: string): Promise<MemberContact[]> => {
+  const { data, error } = await supabase
+    .from('member_contacts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching contacts for user:', error);
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    label: row.label,
+    name: row.name,
+    phone: row.phone,
+    birthDate: row.birth_date,
+    zodiac: row.zodiac || undefined,
+    gender: row.gender || undefined,
+    address: row.address || undefined,
+    createdAt: row.created_at,
+  }));
+};
+
 export const getMemberContacts = async (): Promise<MemberContact[]> => {
   const { data, error } = await supabase
     .from('member_contacts')

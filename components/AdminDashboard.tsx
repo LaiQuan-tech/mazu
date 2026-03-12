@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
   BookOpen, HeartHandshake, Search, Download, ChevronDown,
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
-  Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List
+  Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser
 } from 'lucide-react';
 
 type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps';
@@ -426,6 +426,11 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
+  // 已註冊會員詳情
+  const [selectedProfile, setSelectedProfile] = useState<MemberProfileRecord | null>(null);
+  const [profileContacts, setProfileContacts] = useState<MemberContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+
   // 依電話聚合成「虛擬會員」
   const members = useMemo(() => {
     const map = new Map<string, { phone: string; name: string; bookings: BookingRecord[]; donations: DonationRecord[] }>();
@@ -463,7 +468,76 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
     [selectedPhone, members]
   );
 
-  // ── 詳細頁 ──
+  // ── 已註冊會員帳號詳情（含親友通訊錄） ──
+  if (selectedProfile) {
+    return (
+      <div>
+        <button onClick={() => { setSelectedProfile(null); setProfileContacts([]); }}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> 返回會員列表
+        </button>
+
+        {/* 個人資料卡 */}
+        <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5 flex flex-wrap items-center gap-4">
+          <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+            <User className="w-6 h-6 text-temple-red" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              {selectedProfile.name || '（未填姓名）'}
+              {selectedProfile.gender && (
+                <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-normal">{selectedProfile.gender}</span>
+              )}
+            </h2>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-sm text-gray-500">
+              {selectedProfile.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{selectedProfile.phone}</span>}
+              {selectedProfile.birthDate && <span>{selectedProfile.birthDate}</span>}
+              {selectedProfile.zodiac && <span>{selectedProfile.zodiac}年</span>}
+              {selectedProfile.address && <span className="truncate max-w-xs">{selectedProfile.address}</span>}
+            </div>
+            <p className="text-xs text-gray-300 mt-1">{new Date(selectedProfile.createdAt).toLocaleDateString('zh-TW')} 加入</p>
+          </div>
+        </div>
+
+        {/* 親友通訊錄 */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
+            <BookUser className="w-4 h-4 text-temple-red" />
+            <h3 className="font-semibold text-gray-700">親友通訊錄
+              {!contactsLoading && <span className="ml-1.5 text-xs font-normal text-gray-400">{profileContacts.length} 筆</span>}
+            </h3>
+          </div>
+          {contactsLoading ? (
+            <p className="px-5 py-6 text-sm text-gray-400">載入中…</p>
+          ) : profileContacts.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-gray-400">尚未建立通訊錄</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {profileContacts.map(c => (
+                <div key={c.id} className="px-5 py-3 flex items-start gap-3">
+                  <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium shrink-0 mt-0.5">{c.label}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                      {c.name}
+                      {c.gender && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-normal">{c.gender}</span>}
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500">
+                      {c.phone && <span>{c.phone}</span>}
+                      {c.birthDate && <span>{c.birthDate}</span>}
+                      {c.zodiac && <span>{c.zodiac}年</span>}
+                      {c.address && <span className="truncate max-w-[200px]">{c.address}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── 詳細頁（信眾，依電話聚合） ──
   if (selected) {
     const totalDonation = selected.donations.reduce((s, d) => s + Number(d.amount), 0);
     return (
@@ -595,7 +669,23 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
           </div>
           <div className="divide-y divide-gray-50">
             {memberProfiles.map(p => (
-              <div key={p.userId} className="px-5 py-3 flex flex-wrap items-center gap-3">
+              <button
+                key={p.userId}
+                type="button"
+                onClick={async () => {
+                  setSelectedProfile(p);
+                  setContactsLoading(true);
+                  try {
+                    const contacts = await getMemberContactsByUserId(p.userId);
+                    setProfileContacts(contacts);
+                  } catch {
+                    setProfileContacts([]);
+                  } finally {
+                    setContactsLoading(false);
+                  }
+                }}
+                className="w-full px-5 py-3 flex flex-wrap items-center gap-3 hover:bg-temple-bg/60 hover:border-l-2 hover:border-temple-red transition-all text-left"
+              >
                 <div className="w-8 h-8 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
                   <User className="w-4 h-4 text-temple-red" />
                 </div>
@@ -610,10 +700,11 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
                     {p.address && <span className="truncate max-w-[200px]">{p.address}</span>}
                   </p>
                 </div>
-                <span className="text-xs text-gray-300 shrink-0">
+                <span className="text-xs text-gray-300 shrink-0 flex items-center gap-1">
                   {new Date(p.createdAt).toLocaleDateString('zh-TW')} 加入
+                  <ArrowRight className="w-3.5 h-3.5 text-gray-300" />
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
