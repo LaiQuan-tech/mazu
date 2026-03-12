@@ -31,9 +31,10 @@ const fmtDate = (s: any) => {
   } catch { return String(s); }
 };
 
-const statusBadge = (status?: BookingStatus) => {
+const statusBadge = (status?: BookingStatus | LampRegistrationStatus | BlessingStatus | string) => {
   const map: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
     '待處理': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock3 className="w-3 h-3" /> },
+    '待確認': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock3 className="w-3 h-3" /> },
     '已確認': { bg: 'bg-blue-100',   text: 'text-blue-800',   icon: <CheckCircle className="w-3 h-3" /> },
     '已完成': { bg: 'bg-green-100',  text: 'text-green-800',  icon: <CheckCircle className="w-3 h-3" /> },
     '已取消': { bg: 'bg-red-100',    text: 'text-red-800',    icon: <XCircle className="w-3 h-3" /> },
@@ -261,45 +262,152 @@ const MemberInfoModal = ({
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
-const OverviewTab = ({ bookings, donations }: { bookings: BookingRecord[]; donations: DonationRecord[] }) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayBookings = bookings.filter(b => b.bookingDate === today).length;
-  const pendingCount = bookings.filter(b => b.status === BookingStatus.PENDING).length;
-  const totalDonation = donations.reduce((s, d) => s + (Number(d.amount) || 0), 0);
-  const uniqueNames = new Set(bookings.map(b => b.phone)).size;
+const OverviewTab = ({
+  bookings, donations, lampRegistrations, blessingRegistrations, lampConfigs, blessingEvents,
+}: {
+  bookings:             BookingRecord[];
+  donations:            DonationRecord[];
+  lampRegistrations:    LampRegistrationRecord[];
+  blessingRegistrations: BlessingRegistrationRecord[];
+  lampConfigs:          LampServiceConfig[];
+  blessingEvents:       BlessingEventRecord[];
+}) => {
+  const [activeService, setActiveService] = useState<'lamps' | 'blessing' | 'donation' | 'booking'>('lamps');
+
+  const now = Date.now();
+  const h24 = 24 * 60 * 60 * 1000;
+
+  // name maps
+  const lampConfigMap    = Object.fromEntries(lampConfigs.map(c => [c.id, c.name]));
+  const blessingEventMap = Object.fromEntries(blessingEvents.map(e => [e.id, e.title]));
+
+  // pending / new counts per service
+  const lampPending     = lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length;
+  const blessingPending = blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length;
+  const bookingPending  = bookings.filter(b => b.status === BookingStatus.PENDING).length;
+  const donationRecent  = donations.filter(d => d.createdAt && (now - new Date(d.createdAt).getTime()) < h24).length;
+
+  // stat totals
+  const totalRegistrations = lampRegistrations.length + blessingRegistrations.length + bookings.length;
+  const allPending         = lampPending + blessingPending + bookingPending;
+  const totalDonation      = donations.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const uniquePhones       = new Set([
+    ...lampRegistrations.map(r => r.phone),
+    ...blessingRegistrations.map(r => r.phone),
+    ...bookings.map(b => b.phone),
+    ...donations.map(d => d.phone),
+  ]).size;
+
+  // latest 5 per service (newest first)
+  const latestLamps     = [...lampRegistrations].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
+  const latestBlessings = [...blessingRegistrations].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
+  const latestDonations = [...donations].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
+  const latestBookings  = [...bookings].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
+
+  const serviceTabs = [
+    { key: 'lamps'    as const, label: '點燈', badge: lampPending     },
+    { key: 'blessing' as const, label: '祈福', badge: blessingPending },
+    { key: 'donation' as const, label: '捐獻', badge: donationRecent  },
+    { key: 'booking'  as const, label: '問事', badge: bookingPending  },
+  ];
+
+  const rowCls = 'flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0';
+  const nameCls = 'font-medium text-sm text-gray-800';
+  const subCls  = 'text-xs text-gray-400 ml-2';
+  const dateCls = 'text-xs text-gray-400';
 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-800 mb-6">總覽</h2>
+
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Calendar className="w-5 h-5 text-blue-600" />} label="今日預約" value={todayBookings} sub="筆" color="bg-blue-50" />
-        <StatCard icon={<AlertCircle className="w-5 h-5 text-yellow-600" />} label="待處理預約" value={pendingCount} sub="需要處理" color="bg-yellow-50" />
-        <StatCard icon={<Banknote className="w-5 h-5 text-green-600" />} label="累計捐款" value={`NT$ ${totalDonation.toLocaleString()}`} sub="全部紀錄" color="bg-green-50" />
-        <StatCard icon={<Users className="w-5 h-5 text-purple-600" />} label="不重複信眾" value={uniqueNames} sub="依電話計算" color="bg-purple-50" />
+        <StatCard icon={<ClipboardList className="w-5 h-5 text-blue-600" />}   label="總報名數"    value={totalRegistrations}                         sub="全部服務"    color="bg-blue-50" />
+        <StatCard icon={<AlertCircle className="w-5 h-5 text-yellow-600" />}   label="待處理報名"  value={allPending}                                 sub="需要處理"    color="bg-yellow-50" />
+        <StatCard icon={<Banknote className="w-5 h-5 text-green-600" />}       label="累計捐款"    value={`NT$ ${totalDonation.toLocaleString()}`}    sub="全部紀錄"    color="bg-green-50" />
+        <StatCard icon={<Users className="w-5 h-5 text-purple-600" />}         label="不重複信眾"  value={uniquePhones}                               sub="依電話計算"  color="bg-purple-50" />
       </div>
 
-      {/* 最新 5 筆預約 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
+      {/* 最新報名 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-temple-red" /> 最新預約
+          <ClipboardList className="w-4 h-4 text-temple-red" /> 最新報名
         </h3>
-        {bookings.slice(0, 5).length === 0 ? (
-          <p className="text-gray-400 text-sm">尚無預約</p>
-        ) : (
-          <div className="space-y-3">
-            {bookings.slice(0, 5).map(b => (
-              <div key={b.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div>
-                  <span className="font-medium text-sm text-gray-800">{b.name}</span>
-                  <span className="text-xs text-gray-400 ml-2">{b.bookingDate}</span>
+
+        {/* Service tabs */}
+        <div className="flex gap-1 mb-5 bg-gray-50 p-1 rounded-lg">
+          {serviceTabs.map(({ key, label, badge }) => (
+            <button key={key} onClick={() => setActiveService(key)}
+              className={`relative flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeService === key ? 'bg-white text-temple-red shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {label}
+              {badge > 0 && (
+                <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[17px] h-[17px] flex items-center justify-center px-1 leading-none">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* 點燈 */}
+        {activeService === 'lamps' && (
+          latestLamps.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無點燈報名</p> : (
+            <div className="space-y-0.5">
+              {latestLamps.map(r => (
+                <div key={r.id} className={rowCls}>
+                  <div><span className={nameCls}>{r.name}</span><span className={subCls}>{lampConfigMap[r.serviceId] ?? r.serviceId}</span></div>
+                  <div className="flex items-center gap-2"><span className={dateCls}>{(r.createdAt ?? '').slice(0, 10)}</span>{statusBadge(r.status)}</div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">{b.type}</span>
-                  {statusBadge(b.status)}
+              ))}
+            </div>
+          )
+        )}
+
+        {/* 祈福 */}
+        {activeService === 'blessing' && (
+          latestBlessings.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無祈福報名</p> : (
+            <div className="space-y-0.5">
+              {latestBlessings.map(r => (
+                <div key={r.id} className={rowCls}>
+                  <div><span className={nameCls}>{r.name}</span><span className={subCls}>{blessingEventMap[r.eventId] ?? r.eventId}</span></div>
+                  <div className="flex items-center gap-2"><span className={dateCls}>{(r.createdAt ?? '').slice(0, 10)}</span>{statusBadge(r.status)}</div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* 捐獻 */}
+        {activeService === 'donation' && (
+          latestDonations.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無捐獻紀錄</p> : (
+            <div className="space-y-0.5">
+              {latestDonations.map(d => (
+                <div key={d.id} className={rowCls}>
+                  <div><span className={nameCls}>{d.name}</span><span className={subCls}>{d.type}</span></div>
+                  <div className="flex items-center gap-2">
+                    <span className={dateCls}>{(d.createdAt ?? '').slice(0, 10)}</span>
+                    <span className="text-xs font-semibold text-green-600">NT$ {Number(d.amount).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* 問事 */}
+        {activeService === 'booking' && (
+          latestBookings.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無問事報名</p> : (
+            <div className="space-y-0.5">
+              {latestBookings.map(b => (
+                <div key={b.id} className={rowCls}>
+                  <div><span className={nameCls}>{b.name}</span><span className={subCls}>{b.type} · {b.bookingDate}</span></div>
+                  <div className="flex items-center gap-2"><span className={dateCls}>{(b.createdAt ?? '').slice(0, 10)}</span>{statusBadge(b.status)}</div>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -2831,14 +2939,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           <h1 className="text-lg font-bold font-serif">後台管理</h1>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ key, label, icon }) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                tab === key ? 'bg-temple-red text-white' : 'text-gray-300 hover:bg-white/10'
-              }`}>
-              {icon} {label}
-            </button>
-          ))}
+          {navItems.map(({ key, label, icon }) => {
+            const badgeCount =
+              key === 'lamps'     ? lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length
+              : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length
+              : key === 'bookings'  ? bookings.filter(b => b.status === BookingStatus.PENDING).length
+              : key === 'donations' ? donations.filter(d => d.createdAt && (Date.now() - new Date(d.createdAt).getTime()) < 86400000).length
+              : 0;
+            return (
+              <button key={key} onClick={() => setTab(key)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  tab === key ? 'bg-temple-red text-white' : 'text-gray-300 hover:bg-white/10'
+                }`}>
+                {icon}
+                <span className="flex-1 text-left">{label}</span>
+                {badgeCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none shrink-0">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
         <div className="px-3 py-4 border-t border-white/10 space-y-1">
           <button onClick={onBack}
@@ -2877,7 +2999,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
           ) : (
             <>
-              {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} />}
+              {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} lampConfigs={lampConfigs} blessingEvents={blessingEvents} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
