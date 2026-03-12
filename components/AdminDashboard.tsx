@@ -1264,10 +1264,11 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 <span className="text-sm text-gray-700">置頂公告</span>
               </label>
             </div>
-            <div className="px-6 py-4 border-t flex justify-end gap-3">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving}
-                className="px-6 py-2 text-sm bg-temple-red text-white rounded-xl font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : '儲存'}
               </button>
             </div>
@@ -1419,8 +1420,8 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
                     className={`transition-colors disabled:opacity-40 ${d.isVisible ? 'text-gray-400 hover:text-orange-500' : 'text-orange-500 hover:text-gray-400'}`}>
                     {d.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
-                  <button onClick={() => openEdit(d)} className="text-blue-500 hover:text-blue-700"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(d.id, d.name)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => openEdit(d)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(d.id, d.name)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
             ))}
@@ -1473,16 +1474,18 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
                   </label>
                 )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">排序（數字越小越前面）</label>
-                <input type="number" value={form.displayOrder} onChange={e => setForm({ ...form, displayOrder: parseInt(e.target.value) || 0 })}
-                  className="w-24 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })}
+                  className="w-4 h-4 accent-temple-red rounded border-gray-300 focus:ring-temple-red" />
+                <span className="text-sm text-gray-700">顯示於前台</span>
+              </label>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setShowModal(false)} disabled={saving} className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setShowModal(false)} disabled={saving}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving || !form.name.trim() || !form.description.trim()}
-                className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : (editingId ? '更新' : '新增')}
               </button>
             </div>
@@ -1896,7 +1899,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                 <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => openEdit(v)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-temple-red hover:bg-green-50 transition-colors"
+                    className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                     title="編輯"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -2001,7 +2004,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
             </div>
 
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={closeEdit} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+              <button onClick={closeEdit} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 取消
               </button>
               <button
@@ -2263,7 +2266,7 @@ const LampsTab = ({
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => openEditConfig(c)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-temple-red hover:bg-green-50 transition-colors"
+                          className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                           title="編輯"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -2271,7 +2274,7 @@ const LampsTab = ({
                         <button
                           onClick={() => handleDeleteConfig(c.id)}
                           disabled={deletingId === c.id}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
                           title="刪除"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -2474,11 +2477,11 @@ const LampsTab = ({
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setShowConfigModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
+              <button onClick={() => setShowConfigModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button
                 onClick={handleSaveConfig}
                 disabled={savingConfig}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {savingConfig ? '儲存中...' : '儲存'}
@@ -2859,10 +2862,11 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 mt-4">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 py-2.5 rounded-xl bg-temple-red text-white text-sm font-semibold hover:bg-temple-red/90 transition-colors disabled:opacity-60">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                <Save className="w-4 h-4" />
                 {saving ? '儲存中…' : '儲存'}
               </button>
             </div>
@@ -2922,11 +2926,11 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                   <button onClick={() => viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
                     <List className="w-3.5 h-3.5" /> 報名名單
                   </button>
-                  <button onClick={() => openEdit(e)} className="p-2 text-gray-400 hover:text-temple-red hover:bg-temple-red/5 rounded-lg transition-colors">
+                  <button onClick={() => openEdit(e)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
+                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
