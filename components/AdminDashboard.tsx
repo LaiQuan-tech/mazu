@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, supabase } from '../services/supabase';
+import { BlessingEventData, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -9,10 +9,10 @@ import {
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser,
-  ChevronUp, ChevronsUpDown, CalendarClock, Activity
+  ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps';
+type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -2127,6 +2127,337 @@ const LampsTab = ({
   );
 };
 
+// ─── Blessings Tab (祈福管理) ─────────────────────────────────────────────────
+
+const BLESSING_EVENT_TYPES = ['法會', '進香', '祭典', '祈福', '其他'];
+
+const emptyBlessingForm = (): BlessingEventData => ({
+  title: '', description: '', eventType: '法會',
+  startDate: '', endDate: '', registrationDeadline: '',
+  fee: 0, imageUrl: '', isActive: true, sortOrder: 0,
+});
+
+const BlessingsTab = ({ events, registrations, onRefresh }: {
+  events: BlessingEventRecord[];
+  registrations: BlessingRegistrationRecord[];
+  onRefresh: () => void;
+}) => {
+  const [view, setView] = useState<'list' | 'regs'>('list');
+  const [selectedEvent, setSelectedEvent] = useState<BlessingEventRecord | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<BlessingEventData>(emptyBlessingForm());
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [updatingRegId, setUpdatingRegId] = useState<string | null>(null);
+  const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
+  const [regSearch, setRegSearch] = useState('');
+
+  const openNew = () => { setEditingId(null); setForm(emptyBlessingForm()); setShowModal(true); };
+  const openEdit = (e: BlessingEventRecord) => {
+    setEditingId(e.id);
+    setForm({
+      title: e.title, description: e.description || '',
+      eventType: e.eventType, startDate: e.startDate, endDate: e.endDate,
+      registrationDeadline: e.registrationDeadline ? e.registrationDeadline.slice(0, 16) : '',
+      fee: e.fee, imageUrl: e.imageUrl || '', isActive: e.isActive, sortOrder: e.sortOrder,
+    });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title || !form.startDate || !form.endDate) { alert('請填寫活動名稱及日期'); return; }
+    setSaving(true);
+    try {
+      const payload: BlessingEventData = {
+        ...form,
+        endDate: form.endDate || form.startDate,
+        registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : undefined,
+        fee: Number(form.fee) || 0,
+        sortOrder: Number(form.sortOrder) || 0,
+      };
+      if (editingId) { await updateBlessingEvent(editingId, payload); }
+      else            { await createBlessingEvent(payload); }
+      setShowModal(false); onRefresh();
+    } catch { alert('儲存失敗，請稍後再試'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('確定刪除此祈福活動？所有報名資料也會一併刪除。')) return;
+    setDeletingId(id);
+    try { await deleteBlessingEvent(id); onRefresh(); }
+    catch { alert('刪除失敗'); }
+    finally { setDeletingId(null); }
+  };
+
+  const handleRegStatus = async (id: string, status: BlessingStatus) => {
+    setUpdatingRegId(id);
+    try { await updateBlessingRegistrationStatus(id, status); onRefresh(); }
+    catch { alert('更新失敗'); }
+    finally { setUpdatingRegId(null); }
+  };
+
+  const handleDeleteReg = async (id: string) => {
+    if (!confirm('確定刪除此報名？')) return;
+    setDeletingRegId(id);
+    try { await deleteBlessingRegistration(id); onRefresh(); }
+    catch { alert('刪除失敗'); }
+    finally { setDeletingRegId(null); }
+  };
+
+  const viewRegs = (e: BlessingEventRecord) => { setSelectedEvent(e); setRegSearch(''); setView('regs'); };
+
+  const eventRegs = selectedEvent
+    ? registrations.filter(r => r.eventId === selectedEvent.id)
+    : [];
+  const filteredRegs = regSearch
+    ? eventRegs.filter(r => r.name.includes(regSearch) || r.phone.includes(regSearch))
+    : eventRegs;
+
+  const exportRegs = () => {
+    if (!selectedEvent) return;
+    exportExcel(
+      `祈福報名_${selectedEvent.title}.xlsx`,
+      filteredRegs.map(r => [r.name, r.phone, r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt)]),
+      ['姓名', '電話', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間']
+    );
+  };
+
+  const fmtDateRange = (start: string, end: string) => {
+    if (start === end) return start;
+    return `${start} ~ ${end}`;
+  };
+
+  const isDeadlinePassed = (deadline?: string) => deadline ? new Date(deadline) < new Date() : false;
+
+  // ── 報名管理頁 ──
+  if (view === 'regs' && selectedEvent) {
+    return (
+      <div>
+        <button onClick={() => setView('list')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> 返回活動列表
+        </button>
+        <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-temple-red" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-800">{selectedEvent.title}</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {fmtDateRange(selectedEvent.startDate, selectedEvent.endDate)}
+                {selectedEvent.fee > 0 && <span className="ml-3">費用：NT${selectedEvent.fee.toLocaleString()}</span>}
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-temple-red">{eventRegs.length} 筆報名</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input value={regSearch} onChange={e => setRegSearch(e.target.value)}
+                placeholder="搜尋姓名、電話…" className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+            </div>
+            <button onClick={exportRegs} className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+              <Download className="w-4 h-4" /> 匯出 Excel
+            </button>
+          </div>
+          {filteredRegs.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-gray-400">尚無報名資料</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-4 py-3 text-left">姓名</th>
+                    <th className="px-4 py-3 text-left">電話</th>
+                    <th className="px-4 py-3 text-left">生日 / 生肖</th>
+                    <th className="px-4 py-3 text-left">地址</th>
+                    <th className="px-4 py-3 text-left">備註</th>
+                    <th className="px-4 py-3 text-left">狀態</th>
+                    <th className="px-4 py-3 text-left">報名時間</th>
+                    <th className="px-4 py-3 text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredRegs.map(r => (
+                    <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-semibold text-gray-800">{r.name}</p>
+                        {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {r.birthDate && <p>{r.birthDate}</p>}
+                        {r.zodiac && <p className="text-xs">{r.zodiac}年</p>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
+                      <td className="px-4 py-3">
+                        <select value={r.status} disabled={updatingRegId === r.id}
+                          onChange={e => handleRegStatus(r.id, e.target.value as BlessingStatus)}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-temple-red">
+                          {Object.values(BlessingStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => handleDeleteReg(r.id)} disabled={deletingRegId === r.id}
+                          className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── 活動列表頁 ──
+  return (
+    <div>
+      {/* Modal 新增/編輯 */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-gray-800 text-lg">{editingId ? '編輯祈福活動' : '新增祈福活動'}</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">活動名稱 *</label>
+                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="例：天上聖母聖誕祈福法會" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">類型</label>
+                  <select value={form.eventType} onChange={e => setForm(f => ({ ...f, eventType: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                    {BLESSING_EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">費用（NT$）</label>
+                  <input type="number" min={0} value={form.fee} onChange={e => setForm(f => ({ ...f, fee: Number(e.target.value) }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="0" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">開始日期 *</label>
+                  <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value, endDate: f.endDate || e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">結束日期 *</label>
+                  <input type="date" value={form.endDate} min={form.startDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">報名截止時間</label>
+                <input type="datetime-local" value={form.registrationDeadline || ''} onChange={e => setForm(f => ({ ...f, registrationDeadline: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">活動說明</label>
+                <textarea rows={3} value={form.description || ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red resize-none" placeholder="活動說明（選填）" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">排序</label>
+                  <input type="number" min={0} value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))}
+                      className="w-4 h-4 accent-temple-red" />
+                    <span className="text-sm text-gray-700">顯示於前台</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl bg-temple-red text-white text-sm font-semibold hover:bg-temple-red/90 transition-colors disabled:opacity-60">
+                {saving ? '儲存中…' : '儲存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-xl font-bold text-gray-800">祈福管理
+          <span className="ml-2 text-sm font-normal text-gray-400">{events.length} 個活動</span>
+        </h2>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors">
+          <Plus className="w-4 h-4" /> 新增祈福活動
+        </button>
+      </div>
+
+      {events.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400 text-sm">
+          尚無祈福活動，請點擊「新增」建立第一個活動
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {events.map(e => {
+            const count = registrations.filter(r => r.eventId === e.id).length;
+            const closed = isDeadlinePassed(e.registrationDeadline);
+            return (
+              <div key={e.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-4">
+                <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-temple-red" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-gray-800">{e.title}</h3>
+                    <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full">{e.eventType}</span>
+                    {!e.isActive && <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">已下架</span>}
+                    {closed && <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">報名截止</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-400">
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDateRange(e.startDate, e.endDate)}</span>
+                    {e.fee > 0 && <span>費用 NT${e.fee.toLocaleString()}</span>}
+                    {e.registrationDeadline && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />截止 {fmtDate(e.registrationDeadline)}</span>}
+                    <span className="text-temple-red font-medium">{count} 筆報名</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                    <List className="w-3.5 h-3.5" /> 報名名單
+                  </button>
+                  <button onClick={() => openEdit(e)} className="p-2 text-gray-400 hover:text-temple-red hover:bg-temple-red/5 rounded-lg transition-colors">
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
@@ -2143,6 +2474,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [allRegistrations, setAllRegistrations] = useState<RegistrationRecord[]>([]);
   const [memberProfiles, setMemberProfiles] = useState<MemberProfileRecord[]>([]);
   const [usersLastLogin, setUsersLastLogin] = useState<Record<string, string>>({});
+  const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
+  const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2152,7 +2485,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ll, ar] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[])]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -2165,6 +2498,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setMemberProfiles(mp);
       setUsersLastLogin(ll);
       setAllRegistrations(ar);
+      setBlessingEvents(be);
+      setBlessingRegistrations(br);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -2196,6 +2531,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'overview',  label: '總覽',      icon: <LayoutDashboard className="w-4 h-4" /> },
     { key: 'bookings',  label: '問事管理',   icon: <BookOpen className="w-4 h-4" /> },
     { key: 'lamps',     label: '點燈',       icon: <Flame className="w-4 h-4" /> },
+    { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
     { key: 'donations', label: '捐款管理',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'members',   label: '會員管理',   icon: <Users className="w-4 h-4" /> },
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
@@ -2268,6 +2604,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
               {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} />}
+              {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} />}
             </>
           )}
         </div>

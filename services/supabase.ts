@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingEventData, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -859,6 +859,131 @@ export const getProfile = async (): Promise<ProfileData | null> => {
     address: data.address || undefined,
   };
 };
+
+// ─── Blessing Events (祈福活動) ─────────────────────────────────────────────
+
+const mapBlessingEvent = (row: any): BlessingEventRecord => ({
+  id: row.id,
+  title: row.title,
+  description: row.description || undefined,
+  eventType: row.event_type,
+  startDate: row.start_date,
+  endDate: row.end_date,
+  registrationDeadline: row.registration_deadline || undefined,
+  fee: row.fee,
+  imageUrl: row.image_url || undefined,
+  isActive: row.is_active,
+  sortOrder: row.sort_order,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
+  id: row.id,
+  eventId: row.event_id,
+  name: row.name,
+  phone: row.phone,
+  birthDate: row.birth_date || undefined,
+  zodiac: row.zodiac || undefined,
+  gender: row.gender || undefined,
+  address: row.address || undefined,
+  notes: row.notes || undefined,
+  status: (row.status as BlessingStatus) || BlessingStatus.PENDING,
+  createdAt: row.created_at,
+});
+
+export const getBlessingEvents = async (activeOnly = false): Promise<BlessingEventRecord[]> => {
+  let q = supabase.from('blessing_events').select('*').order('sort_order').order('start_date');
+  if (activeOnly) q = q.eq('is_active', true);
+  const { data, error } = await q;
+  if (error || !data) return [];
+  return data.map(mapBlessingEvent);
+};
+
+export const getBlessingEventById = async (id: string): Promise<BlessingEventRecord | null> => {
+  const { data, error } = await supabase.from('blessing_events').select('*').eq('id', id).single();
+  if (error || !data) return null;
+  return mapBlessingEvent(data);
+};
+
+export const createBlessingEvent = async (d: BlessingEventData): Promise<boolean> => {
+  const { error } = await supabase.from('blessing_events').insert({
+    title: d.title,
+    description: d.description || null,
+    event_type: d.eventType,
+    start_date: d.startDate,
+    end_date: d.endDate,
+    registration_deadline: d.registrationDeadline || null,
+    fee: d.fee,
+    image_url: d.imageUrl || null,
+    is_active: d.isActive,
+    sort_order: d.sortOrder,
+  });
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const updateBlessingEvent = async (id: string, d: Partial<BlessingEventData>): Promise<boolean> => {
+  const payload: any = { updated_at: new Date().toISOString() };
+  if (d.title               !== undefined) payload.title                = d.title;
+  if (d.description         !== undefined) payload.description          = d.description || null;
+  if (d.eventType           !== undefined) payload.event_type           = d.eventType;
+  if (d.startDate           !== undefined) payload.start_date           = d.startDate;
+  if (d.endDate             !== undefined) payload.end_date             = d.endDate;
+  if (d.registrationDeadline !== undefined) payload.registration_deadline = d.registrationDeadline || null;
+  if (d.fee                 !== undefined) payload.fee                  = d.fee;
+  if (d.imageUrl            !== undefined) payload.image_url            = d.imageUrl || null;
+  if (d.isActive            !== undefined) payload.is_active            = d.isActive;
+  if (d.sortOrder           !== undefined) payload.sort_order           = d.sortOrder;
+  const { error } = await supabase.from('blessing_events').update(payload).eq('id', id);
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const deleteBlessingEvent = async (id: string): Promise<boolean> => {
+  const { error } = await supabase.from('blessing_events').delete().eq('id', id);
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+// ─── Blessing Registrations (祈福報名) ──────────────────────────────────────
+
+export const getBlessingRegistrations = async (eventId?: string): Promise<BlessingRegistrationRecord[]> => {
+  let q = supabase.from('blessing_registrations').select('*').order('created_at', { ascending: false });
+  if (eventId) q = q.eq('event_id', eventId);
+  const { data, error } = await q;
+  if (error || !data) return [];
+  return data.map(mapBlessingReg);
+};
+
+export const createBlessingRegistration = async (d: BlessingRegistrationData): Promise<boolean> => {
+  const { error } = await supabase.from('blessing_registrations').insert({
+    event_id: d.eventId,
+    name: d.name,
+    phone: d.phone,
+    birth_date: d.birthDate || null,
+    zodiac: d.zodiac || null,
+    gender: d.gender || null,
+    address: d.address || null,
+    notes: d.notes || null,
+  });
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const updateBlessingRegistrationStatus = async (id: string, status: BlessingStatus): Promise<boolean> => {
+  const { error } = await supabase.from('blessing_registrations').update({ status }).eq('id', id);
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const deleteBlessingRegistration = async (id: string): Promise<boolean> => {
+  const { error } = await supabase.from('blessing_registrations').delete().eq('id', id);
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+// ─── Member Profile ───────────────────────────────────────────────────────────
 
 export const saveProfile = async (data: ProfileData): Promise<boolean> => {
   const { data: { user } } = await supabase.auth.getUser();

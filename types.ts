@@ -222,6 +222,49 @@ export interface MemberProfileRecord extends ProfileData {
   updatedAt?: string;
 }
 
+// ─── Blessing Events (祈福活動) ──────────────────────────
+export enum BlessingStatus {
+  PENDING   = '待確認',
+  CONFIRMED = '已確認',
+  CANCELLED = '已取消'
+}
+
+export interface BlessingEventData {
+  title: string;
+  description?: string;
+  eventType: string;          // '法會' | '進香' | '祭典' | '祈福' | '其他'
+  startDate: string;          // YYYY-MM-DD
+  endDate: string;            // YYYY-MM-DD（單日則同 startDate）
+  registrationDeadline?: string; // ISO datetime
+  fee: number;
+  imageUrl?: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface BlessingEventRecord extends BlessingEventData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlessingRegistrationData {
+  eventId: string;
+  name: string;
+  phone: string;
+  birthDate?: string;
+  zodiac?: ZodiacSign;
+  gender?: string;
+  address?: string;
+  notes?: string;
+}
+
+export interface BlessingRegistrationRecord extends BlessingRegistrationData {
+  id: string;
+  status: BlessingStatus;
+  createdAt: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;
