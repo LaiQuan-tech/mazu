@@ -37,7 +37,7 @@ const LineIcon = ({ className }: { className?: string }) => (
 );
 
 import { BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -277,6 +277,8 @@ const App: React.FC = () => {
       await Promise.all(lampPersons.map(p => submitLampRegistration({
         serviceId: p.serviceId, name: p.name, phone: memberProfile?.phone ?? '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
       })));
+      autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+        .then(() => loadMemberContacts()).catch(() => {});
       setLampStatus('success');
       setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }]);
       setLampNotes('');
@@ -298,6 +300,8 @@ const App: React.FC = () => {
         name: p.name, phone: memberProfile?.phone ?? '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
         bookingDate, bookingTime, type: p.type, notes: bookingNotes,
       })));
+      autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+        .then(() => loadMemberContacts()).catch(() => {});
       setBookingStatus('success');
       setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }]);
       setBookingDate(''); setBookingTime(''); setBookingNotes('');
@@ -353,6 +357,8 @@ const App: React.FC = () => {
           packageFee:  pkg?.fee,
         } as BlessingRegistrationData);
       }));
+      autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+        .then(() => loadMemberContacts()).catch(() => {});
       setBlessingStatus('success');
       setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
       setBlessingNotes('');

@@ -791,6 +791,40 @@ export const createMemberContact = async (data: MemberContactData): Promise<bool
   return true;
 };
 
+/** 報名送出後自動將表單人員存入通訊錄（依姓名去重，靜默失敗） */
+export const autoSaveContactsForMember = async (
+  persons: Array<{
+    name: string;
+    birthDate?: string;
+    zodiac?: ZodiacSign;
+    address?: string;
+    gender?: string;
+    contactLabel?: string;
+  }>,
+  fallbackPhone: string,
+  existingNames: Set<string>,
+): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const toInsert = persons
+    .filter(p => p.name.trim() && !existingNames.has(p.name.trim()))
+    .map(p => ({
+      user_id:    user.id,
+      label:      p.contactLabel || '朋友',
+      name:       p.name.trim(),
+      phone:      fallbackPhone,
+      birth_date: p.birthDate || '',
+      zodiac:     p.zodiac    || null,
+      gender:     p.gender    || null,
+      address:    p.address   || null,
+    }));
+
+  if (!toInsert.length) return;
+  const { error } = await supabase.from('member_contacts').insert(toInsert);
+  if (error) console.error('autoSaveContacts error:', error);
+};
+
 export const updateMemberContact = async (id: string, data: MemberContactData): Promise<boolean> => {
   const { error } = await supabase
     .from('member_contacts')
