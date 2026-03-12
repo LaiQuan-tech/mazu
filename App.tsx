@@ -822,9 +822,12 @@ const App: React.FC = () => {
             <div className={`grid gap-6 mb-16 ${lampConfigs.length <= 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : lampConfigs.length === 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
               {lampConfigs.map(cfg => (
                 <div key={cfg.id} className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 flex flex-col items-center text-center hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
-                  <div className="w-14 h-14 bg-temple-red/10 rounded-full flex items-center justify-center mb-4">
-                    <Flame className="w-7 h-7 text-temple-red" />
-                  </div>
+                  {cfg.imageUrl
+                    ? <img src={cfg.imageUrl} alt={cfg.name} className="w-20 h-20 object-cover rounded-2xl border border-gray-100 mb-4 shadow-sm" />
+                    : <div className="w-14 h-14 bg-temple-red/10 rounded-full flex items-center justify-center mb-4">
+                        <Flame className="w-7 h-7 text-temple-red" />
+                      </div>
+                  }
                   <h4 className="text-xl font-bold text-temple-dark font-serif mb-2">{cfg.name}</h4>
                   <p className="text-gray-500 text-sm leading-relaxed mb-4 flex-1">{cfg.description}</p>
                   <div className="mt-auto">
@@ -1311,9 +1314,12 @@ const App: React.FC = () => {
                   <div key={ev.id} className="bg-white rounded-2xl border border-temple-gold/30 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                     <div className="p-6">
                       <div className="flex flex-wrap items-start gap-4">
-                        <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                          <span className="text-2xl">🙏</span>
-                        </div>
+                        {ev.imageUrl
+                          ? <img src={ev.imageUrl} alt={ev.title} className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0 shadow-sm" />
+                          : <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+                              <span className="text-2xl">🙏</span>
+                            </div>
+                        }
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h4 className="text-xl font-bold text-temple-dark font-serif">{ev.title}</h4>
