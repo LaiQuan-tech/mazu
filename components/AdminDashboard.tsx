@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, supabase } from '../services/supabase';
 import { BlessingEventData, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -721,15 +721,16 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, mem
 // ─── Bulletins Tab (公佈欄管理) ────────────────────────────────────────────────
 
 const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; onRefresh: () => void }) => {
+  const emptyForm: BulletinData = {
+    title: '', content: '', category: BulletinCategory.GENERAL,
+    isPinned: false, publishAt: null, linkedService: null,
+  };
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<BulletinData>({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false, allowRegistration: false });
+  const [form, setForm] = useState<BulletinData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [viewRegBulletin, setViewRegBulletin] = useState<BulletinRecord | null>(null);
-  const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
-  const [regLoading, setRegLoading] = useState(false);
   const [page, setPage] = useState(0);
 
   const filtered = bulletins.filter(b =>
@@ -741,37 +742,21 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ title: '', content: '', category: BulletinCategory.GENERAL, isPinned: false, allowRegistration: false });
+    setForm(emptyForm);
     setShowModal(true);
   };
 
   const openEdit = (b: BulletinRecord) => {
     setEditingId(b.id);
-    setForm({ title: b.title, content: b.content, category: b.category as BulletinCategory, isPinned: b.isPinned, allowRegistration: b.allowRegistration });
+    setForm({
+      title: b.title,
+      content: b.content,
+      category: b.category as BulletinCategory,
+      isPinned: b.isPinned,
+      publishAt: b.publishAt ?? null,
+      linkedService: b.linkedService ?? null,
+    });
     setShowModal(true);
-  };
-
-  const openRegistrations = async (b: BulletinRecord) => {
-    setViewRegBulletin(b);
-    setRegLoading(true);
-    try {
-      const regs = await getRegistrations(b.id);
-      setRegistrations(regs);
-    } catch {
-      setRegistrations([]);
-    } finally {
-      setRegLoading(false);
-    }
-  };
-
-  const handleDeleteReg = async (id: string) => {
-    if (!confirm('確定要刪除這筆報名嗎？')) return;
-    try {
-      await deleteRegistration(id);
-      setRegistrations(prev => prev.filter(r => r.id !== id));
-    } catch {
-      alert('刪除失敗');
-    }
   };
 
   const handleSave = async () => {
@@ -815,9 +800,29 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
   };
 
   const categoryColor = (cat: string) => {
-    if (cat === '活動公告') return 'bg-blue-100 text-blue-700';
-    if (cat === '法會通知') return 'bg-purple-100 text-purple-700';
+    if (cat === '點燈公告') return 'bg-orange-100 text-orange-700';
+    if (cat === '祈福公告') return 'bg-purple-100 text-purple-700';
+    if (cat === '問事公告') return 'bg-blue-100 text-blue-700';
+    if (cat === '捐獻公告') return 'bg-yellow-100 text-yellow-700';
     return 'bg-gray-100 text-gray-600';
+  };
+
+  const serviceLabel: Record<string, string> = {
+    lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻',
+  };
+
+  const publishStatus = (b: BulletinRecord) => {
+    if (!b.publishAt) return null;
+    const pub = new Date(b.publishAt);
+    if (pub > new Date()) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+          <Clock className="w-3 h-3" />
+          {pub.toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} 排程
+        </span>
+      );
+    }
+    return null;
   };
 
   return (
@@ -840,9 +845,9 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             <tr>
               <th className="px-5 py-3 text-left">標題</th>
               <th className="px-5 py-3 text-left">分類</th>
-              <th className="px-5 py-3 text-left">日期</th>
+              <th className="px-5 py-3 text-left">發布狀態</th>
               <th className="px-5 py-3 text-center">置頂</th>
-              <th className="px-5 py-3 text-center">報名</th>
+              <th className="px-5 py-3 text-center">連結服務</th>
               <th className="px-5 py-3 text-center">操作</th>
             </tr>
           </thead>
@@ -855,7 +860,10 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 <td className="px-5 py-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>{b.category}</span>
                 </td>
-                <td className="px-5 py-4 text-gray-500">{fmtDate(b.createdAt)}</td>
+                <td className="px-5 py-4 text-gray-500">
+                  {publishStatus(b) ?? <span className="text-xs text-green-600">已發布</span>}
+                  <div className="text-xs text-gray-400 mt-0.5">{fmtDate(b.createdAt)}</div>
+                </td>
                 <td className="px-5 py-4 text-center">
                   <button onClick={() => handleTogglePin(b)}
                     className={`p-1.5 rounded-lg transition-colors ${b.isPinned ? 'text-temple-gold hover:bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}>
@@ -863,13 +871,12 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                   </button>
                 </td>
                 <td className="px-5 py-4 text-center">
-                  {b.allowRegistration ? (
-                    <button onClick={() => openRegistrations(b)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
-                      <UserPlus className="w-3 h-3" /> 查看報名
-                    </button>
+                  {b.linkedService ? (
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>
+                      {serviceLabel[b.linkedService] ?? b.linkedService}
+                    </span>
                   ) : (
-                    <span className="text-gray-300 text-xs">未開放</span>
+                    <span className="text-gray-300 text-xs">—</span>
                   )}
                 </td>
                 <td className="px-5 py-4 text-center">
@@ -890,76 +897,10 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
         <Paginator total={filtered.length} page={page} onChange={setPage} />
       </div>
 
-      {/* Registration Detail Modal */}
-      {viewRegBulletin && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setViewRegBulletin(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-temple-red" /> 報名名單
-                </h3>
-                <p className="text-sm text-gray-500 mt-0.5">{viewRegBulletin.title}</p>
-              </div>
-              <button onClick={() => setViewRegBulletin(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 overflow-auto px-6 py-4">
-              {regLoading ? (
-                <div className="text-center py-12 text-gray-400">載入中...</div>
-              ) : registrations.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <UserPlus className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                  <p>尚無報名</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4 flex items-center gap-3">
-                    <span className="text-sm text-gray-500">共 {registrations.length} 筆報名</span>
-                    <span className="text-sm text-gray-500">・</span>
-                    <span className="text-sm font-medium text-temple-red">
-                      合計 {registrations.reduce((s, r) => s + r.numPeople, 0)} 人
-                    </span>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                      <tr>
-                        <th className="px-4 py-2 text-left">姓名</th>
-                        <th className="px-4 py-2 text-left">電話</th>
-                        <th className="px-4 py-2 text-center">人數</th>
-                        <th className="px-4 py-2 text-left">備註</th>
-                        <th className="px-4 py-2 text-left">報名時間</th>
-                        <th className="px-4 py-2 text-center">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {registrations.map(r => (
-                        <tr key={r.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
-                          <td className="px-4 py-3 text-gray-600">{r.phone}</td>
-                          <td className="px-4 py-3 text-center">{r.numPeople}</td>
-                          <td className="px-4 py-3 text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
-                          <td className="px-4 py-3 text-gray-500">{fmtDate(r.createdAt)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button onClick={() => handleDeleteReg(r.id)}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h3 className="text-lg font-bold text-gray-800">{editingId ? '編輯公告' : '新增公告'}</h3>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
@@ -982,18 +923,34 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 <textarea value={form.content} onChange={e => setForm({...form, content: e.target.value})} rows={6}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red resize-none" placeholder="公告內容..." />
               </div>
-              <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  連結服務 <span className="text-gray-400 font-normal">（選填）</span>
+                </label>
+                <select value={form.linkedService ?? ''} onChange={e => setForm({...form, linkedService: (e.target.value || null) as BulletinData['linkedService']})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red">
+                  <option value="">無連結</option>
+                  <option value="lamp">點燈</option>
+                  <option value="blessing">祈福</option>
+                  <option value="booking">問事</option>
+                  <option value="donation">捐獻</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">設定後，信眾展開公告時可直接點擊按鈕前往該服務登記表單</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  定時發布 <span className="text-gray-400 font-normal">（選填，留空 = 立即發布）</span>
+                </label>
+                <input type="datetime-local"
+                  value={form.publishAt ? form.publishAt.slice(0, 16) : ''}
+                  onChange={e => setForm({...form, publishAt: e.target.value || null})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red" />
+              </div>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={form.isPinned} onChange={e => setForm({...form, isPinned: e.target.checked})}
                   className="w-4 h-4 text-temple-red rounded border-gray-300 focus:ring-temple-red" />
                 <span className="text-sm text-gray-700">置頂公告</span>
               </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.allowRegistration} onChange={e => setForm({...form, allowRegistration: e.target.checked})}
-                  className="w-4 h-4 text-temple-red rounded border-gray-300 focus:ring-temple-red" />
-                <span className="text-sm text-gray-700">開放報名</span>
-              </label>
-            </div>
             </div>
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">取消</button>
@@ -1731,9 +1688,10 @@ const LampsTab = ({
   // ── Service config state ──
   const [editingConfig, setEditingConfig] = useState<LampServiceConfig | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [configForm, setConfigForm] = useState<LampServiceConfigData>({ name: '', fee: 0, description: '', isActive: true, displayOrder: 0 });
+  const [configForm, setConfigForm] = useState<LampServiceConfigData>({ name: '', fee: 0, description: '', imageUrl: '', isActive: true, displayOrder: 0 });
   const [savingConfig, setSavingConfig] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingLampImg, setUploadingLampImg] = useState(false);
 
   // ── Registration state ──
   const [regSearch, setRegSearch] = useState('');
@@ -1745,14 +1703,25 @@ const LampsTab = ({
   // ── Config helpers ──
   const openAddConfig = () => {
     setEditingConfig(null);
-    setConfigForm({ name: '', fee: 0, description: '', isActive: true, displayOrder: configs.length });
+    setConfigForm({ name: '', fee: 0, description: '', imageUrl: '', isActive: true, displayOrder: configs.length });
     setShowConfigModal(true);
   };
 
   const openEditConfig = (c: LampServiceConfig) => {
     setEditingConfig(c);
-    setConfigForm({ name: c.name, fee: c.fee, description: c.description, isActive: c.isActive, displayOrder: c.displayOrder });
+    setConfigForm({ name: c.name, fee: c.fee, description: c.description, imageUrl: c.imageUrl || '', isActive: c.isActive, displayOrder: c.displayOrder });
     setShowConfigModal(true);
+  };
+
+  const handleLampImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLampImg(true);
+    try {
+      const url = await uploadLampImage(file);
+      setConfigForm(f => ({ ...f, imageUrl: url }));
+    } catch { alert('圖片上傳失敗，請稍後再試'); }
+    finally { setUploadingLampImg(false); e.target.value = ''; }
   };
 
   const handleSaveConfig = async () => {
@@ -1895,6 +1864,7 @@ const LampsTab = ({
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="text-left px-4 py-3 text-gray-500 font-medium w-16">圖片</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">啟用</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium">服務名稱</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium w-32">費用</th>
@@ -1905,6 +1875,11 @@ const LampsTab = ({
               <tbody className="divide-y divide-gray-50">
                 {configs.map(c => (
                   <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3">
+                      {c.imageUrl
+                        ? <img src={c.imageUrl} alt={c.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
+                        : <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center"><Flame className="w-4 h-4 text-gray-300" /></div>}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleToggleActive(c)}
@@ -2056,6 +2031,24 @@ const LampsTab = ({
               <button onClick={() => setShowConfigModal(false)} className="p-1 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
+              {/* 圖片上傳 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">服務圖片</label>
+                {configForm.imageUrl && (
+                  <div className="relative mb-2 inline-block">
+                    <img src={configForm.imageUrl} alt="預覽" className="h-28 w-full object-cover rounded-lg border border-gray-200" />
+                    <button type="button" onClick={() => setConfigForm(f => ({ ...f, imageUrl: '' }))}
+                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm cursor-pointer transition-colors ${uploadingLampImg ? 'opacity-50 cursor-not-allowed' : 'border-gray-300 hover:border-temple-red hover:text-temple-red text-gray-500'}`}>
+                  <Upload className="w-4 h-4" />
+                  {uploadingLampImg ? '上傳中…' : configForm.imageUrl ? '更換圖片' : '上傳圖片'}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploadingLampImg} onChange={handleLampImageUpload} />
+                </label>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">服務名稱 *</label>
                 <input
@@ -2152,6 +2145,18 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
   const [updatingRegId, setUpdatingRegId] = useState<string | null>(null);
   const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
   const [regSearch, setRegSearch] = useState('');
+  const [uploadingBlessingImg, setUploadingBlessingImg] = useState(false);
+
+  const handleBlessingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBlessingImg(true);
+    try {
+      const url = await uploadBlessingImage(file);
+      setForm(f => ({ ...f, imageUrl: url }));
+    } catch { alert('圖片上傳失敗，請稍後再試'); }
+    finally { setUploadingBlessingImg(false); e.target.value = ''; }
+  };
 
   const openNew = () => { setEditingId(null); setForm(emptyBlessingForm()); setShowModal(true); };
   const openEdit = (e: BlessingEventRecord) => {
@@ -2333,6 +2338,24 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
+              {/* 圖片上傳 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">活動圖片</label>
+                {form.imageUrl && (
+                  <div className="relative mb-2">
+                    <img src={form.imageUrl} alt="預覽" className="w-full h-36 object-cover rounded-lg border border-gray-200" />
+                    <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))}
+                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm cursor-pointer transition-colors ${uploadingBlessingImg ? 'opacity-50 cursor-not-allowed' : 'border-gray-300 hover:border-temple-red hover:text-temple-red text-gray-500'}`}>
+                  <Upload className="w-4 h-4" />
+                  {uploadingBlessingImg ? '上傳中…' : form.imageUrl ? '更換圖片' : '上傳圖片'}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploadingBlessingImg} onChange={handleBlessingImageUpload} />
+                </label>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">活動名稱 *</label>
                 <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -2420,9 +2443,10 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
             const closed = isDeadlinePassed(e.registrationDeadline);
             return (
               <div key={e.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-4">
-                <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                  <Sparkles className="w-5 h-5 text-temple-red" />
-                </div>
+                {e.imageUrl
+                  ? <img src={e.imageUrl} alt={e.title} className="w-14 h-14 object-cover rounded-xl border border-gray-100 shrink-0" />
+                  : <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5 text-temple-red" /></div>}
+
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h3 className="font-semibold text-gray-800">{e.title}</h3>
@@ -2485,7 +2509,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);

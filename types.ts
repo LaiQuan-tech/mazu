@@ -81,9 +81,11 @@ export interface ServiceItem {
 
 // ─── Bulletin (公佈欄) ────────────────────────────────────
 export enum BulletinCategory {
-  GENERAL = '一般公告',
-  EVENT = '活動公告',
-  CEREMONY = '法會通知'
+  GENERAL  = '一般公告',
+  LAMP     = '點燈公告',
+  BLESSING = '祈福公告',
+  BOOKING  = '問事公告',
+  DONATION = '捐獻公告'
 }
 
 export interface BulletinData {
@@ -91,7 +93,8 @@ export interface BulletinData {
   content: string;
   category: BulletinCategory;
   isPinned: boolean;
-  allowRegistration: boolean;
+  publishAt?: string | null;
+  linkedService?: 'lamp' | 'blessing' | 'booking' | 'donation' | null;
 }
 
 export interface BulletinRecord extends BulletinData {
@@ -162,6 +165,7 @@ export interface LampServiceConfigData {
   name: string;
   fee: number;
   description: string;
+  imageUrl?: string;
   isActive: boolean;
   displayOrder: number;
 }

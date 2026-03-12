@@ -117,12 +117,19 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
 
 // ─── Bulletins (公佈欄) ─────────────────────────────────────────────────────
 
-export const getBulletins = async (): Promise<BulletinRecord[]> => {
-  const { data, error } = await supabase
+export const getBulletins = async (adminMode = false): Promise<BulletinRecord[]> => {
+  let query = supabase
     .from('bulletins')
     .select('*')
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
+
+  if (!adminMode) {
+    // 公開模式：只顯示 publish_at 為 null 或已到時間的公告
+    query = query.or(`publish_at.is.null,publish_at.lte.${new Date().toISOString()}`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching bulletins:', error);
@@ -135,7 +142,8 @@ export const getBulletins = async (): Promise<BulletinRecord[]> => {
     content: row.content,
     category: row.category,
     isPinned: row.is_pinned,
-    allowRegistration: row.allow_registration ?? false,
+    publishAt: row.publish_at ?? null,
+    linkedService: row.linked_service ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -147,7 +155,8 @@ export const createBulletin = async (data: BulletinData): Promise<boolean> => {
     content: data.content,
     category: data.category,
     is_pinned: data.isPinned,
-    allow_registration: data.allowRegistration,
+    publish_at: data.publishAt ?? null,
+    linked_service: data.linkedService ?? null,
   }]);
 
   if (error) {
@@ -163,7 +172,8 @@ export const updateBulletin = async (id: string, data: Partial<BulletinData>): P
   if (data.content !== undefined) updateData.content = data.content;
   if (data.category !== undefined) updateData.category = data.category;
   if (data.isPinned !== undefined) updateData.is_pinned = data.isPinned;
-  if (data.allowRegistration !== undefined) updateData.allow_registration = data.allowRegistration;
+  if (data.publishAt !== undefined) updateData.publish_at = data.publishAt ?? null;
+  if (data.linkedService !== undefined) updateData.linked_service = data.linkedService ?? null;
 
   const { error } = await supabase
     .from('bulletins')
@@ -569,6 +579,7 @@ export const getLampServiceConfigs = async (activeOnly = false): Promise<LampSer
     name: row.name,
     fee: row.fee,
     description: row.description,
+    imageUrl: row.image_url || undefined,
     isActive: row.is_active,
     displayOrder: row.display_order,
     createdAt: row.created_at,
@@ -581,6 +592,7 @@ export const createLampServiceConfig = async (data: LampServiceConfigData): Prom
     name: data.name,
     fee: data.fee,
     description: data.description,
+    image_url: data.imageUrl || null,
     is_active: data.isActive,
     display_order: data.displayOrder,
   }]);
@@ -597,6 +609,7 @@ export const updateLampServiceConfig = async (id: string, data: Partial<LampServ
   if (data.name !== undefined) updateData.name = data.name;
   if (data.fee !== undefined) updateData.fee = data.fee;
   if (data.description !== undefined) updateData.description = data.description;
+  if (data.imageUrl !== undefined) updateData.image_url = data.imageUrl || null;
   if (data.isActive !== undefined) updateData.is_active = data.isActive;
   if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
 
@@ -858,6 +871,26 @@ export const getProfile = async (): Promise<ProfileData | null> => {
     gender: data.gender || undefined,
     address: data.address || undefined,
   };
+};
+
+// ─── Image Upload Helpers ────────────────────────────────────────────────────
+
+export const uploadBlessingImage = async (file: File): Promise<string> => {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `blessings/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  if (error) { console.error(error); throw error; }
+  const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+};
+
+export const uploadLampImage = async (file: File): Promise<string> => {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `lamps/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  if (error) { console.error(error); throw error; }
+  const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 };
 
 // ─── Blessing Events (祈福活動) ─────────────────────────────────────────────

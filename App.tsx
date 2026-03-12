@@ -31,8 +31,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RegistrationData, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, supabase } from './services/supabase';
+import { BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 import MemberPortal from './components/MemberPortal';
@@ -86,9 +86,6 @@ const App: React.FC = () => {
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [bulletinFilter, setBulletinFilter] = useState<string>('all');
   const [expandedBulletin, setExpandedBulletin] = useState<string | null>(null);
-  const [registerBulletin, setRegisterBulletin] = useState<BulletinRecord | null>(null);
-  const [regForm, setRegForm] = useState<RegistrationData>({ bulletinId: '', name: '', phone: '', numPeople: 1, notes: '' });
-  const [regStatus, setRegStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const HERO_FALLBACK = 'https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop';
   const [heroSlides, setHeroSlides] = useState<HeroSlideRecord[]>([]);
   const [heroSlideIndex, setHeroSlideIndex] = useState(0);
@@ -224,24 +221,6 @@ const App: React.FC = () => {
   const filteredBulletins = bulletinFilter === 'all'
     ? bulletins
     : bulletins.filter(b => b.category === bulletinFilter);
-
-  const openRegisterModal = (bulletin: BulletinRecord) => {
-    setRegisterBulletin(bulletin);
-    setRegForm({ bulletinId: bulletin.id, name: '', phone: '', numPeople: 1, notes: '' });
-    setRegStatus('idle');
-  };
-
-  const handleRegSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regForm.name.trim() || !regForm.phone.trim()) return;
-    setRegStatus('loading');
-    try {
-      await submitRegistration(regForm);
-      setRegStatus('success');
-    } catch {
-      setRegStatus('error');
-    }
-  };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -599,8 +578,10 @@ const App: React.FC = () => {
                           </span>
                         )}
                         <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${
-                          bulletin.category === '活動公告' ? 'bg-blue-100 text-blue-700' :
-                          bulletin.category === '法會通知' ? 'bg-purple-100 text-purple-700' :
+                          bulletin.category === '點燈公告' ? 'bg-orange-100 text-orange-700' :
+                          bulletin.category === '祈福公告' ? 'bg-purple-100 text-purple-700' :
+                          bulletin.category === '問事公告' ? 'bg-blue-100 text-blue-700' :
+                          bulletin.category === '捐獻公告' ? 'bg-yellow-100 text-yellow-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>
                           {bulletin.category}
@@ -622,14 +603,18 @@ const App: React.FC = () => {
                   {expandedBulletin === bulletin.id && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>
-                      {bulletin.allowRegistration && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openRegisterModal(bulletin); }}
-                          className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
-                        >
-                          <UserPlus className="w-4 h-4" /> 我要報名
-                        </button>
-                      )}
+                      {bulletin.linkedService && (() => {
+                        const svcLabel: Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
+                        return (
+                          <a
+                            href={`#${bulletin.linkedService}`}
+                            onClick={e => e.stopPropagation()}
+                            className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
+                          >
+                            前往{svcLabel[bulletin.linkedService!] ?? ''}登記 →
+                          </a>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -1555,91 +1540,6 @@ const App: React.FC = () => {
       >
         <LineIcon className="w-10 h-10" />
       </a>
-
-      {/* Registration Modal (活動報名) */}
-      {registerBulletin && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setRegisterBulletin(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-temple-red px-6 py-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-full">
-                  <UserPlus className="w-5 h-5 text-white" />
-                </div>
-                <h2 className="text-white text-lg font-bold font-serif tracking-wide">活動報名</h2>
-              </div>
-              <button onClick={() => setRegisterBulletin(null)} className="text-white/70 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="px-6 py-5">
-              <div className="bg-temple-bg rounded-lg p-3 mb-5">
-                <p className="text-sm text-gray-500">報名活動</p>
-                <p className="font-bold text-temple-dark font-serif">{registerBulletin.title}</p>
-              </div>
-
-              {regStatus === 'success' ? (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h3>
-                  <p className="text-gray-500 mb-6">我們已收到您的報名資訊，感謝您的參與。</p>
-                  <button onClick={() => setRegisterBulletin(null)}
-                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors">
-                    關閉
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleRegSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
-                    <input type="text" required value={regForm.name}
-                      onChange={e => setRegForm({...regForm, name: e.target.value})}
-                      placeholder="請輸入姓名"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                    <input type="tel" required value={regForm.phone}
-                      onChange={e => setRegForm({...regForm, phone: e.target.value})}
-                      placeholder="請輸入聯絡電話"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">報名人數</label>
-                    <input type="number" min={1} max={99} value={regForm.numPeople}
-                      onChange={e => setRegForm({...regForm, numPeople: Number(e.target.value) || 1})}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">備註</label>
-                    <textarea value={regForm.notes || ''} rows={2}
-                      onChange={e => setRegForm({...regForm, notes: e.target.value})}
-                      placeholder="其他需要告知的事項..."
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent resize-none" />
-                  </div>
-
-                  {regStatus === 'error' && (
-                    <p className="text-red-500 text-sm flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" /> 報名失敗，請稍後再試。
-                    </p>
-                  )}
-
-                  <div className="flex gap-3 pt-2">
-                    <button type="button" onClick={() => setRegisterBulletin(null)}
-                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                      取消
-                    </button>
-                    <button type="submit" disabled={regStatus === 'loading'}
-                      className="flex-1 px-4 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                      {regStatus === 'loading' ? '報名中...' : <><UserPlus className="w-4 h-4" /> 確認報名</>}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Member Portal */}
       {showMemberPortal && (
