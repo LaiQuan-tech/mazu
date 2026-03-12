@@ -37,6 +37,7 @@ import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImag
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 import MemberPortal from './components/MemberPortal';
+import BirthDatePicker from './components/BirthDatePicker';
 
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -49,6 +50,7 @@ interface LampPersonEntry {
   zodiac?: ZodiacSign;
   address: string;
   contactLabel?: string;
+  _bKey?: number; // 通訊錄選取後遞增，強制 BirthDatePicker 重新初始化
 }
 interface BookingPersonEntry {
   id: string;
@@ -58,6 +60,7 @@ interface BookingPersonEntry {
   address: string;
   contactLabel?: string;
   type: ConsultationType;
+  _bKey?: number;
 }
 interface DonationPersonEntry {
   id: string;
@@ -75,6 +78,7 @@ interface BlessingPersonEntry {
   gender: string;
   address: string;
   contactLabel?: string;
+  _bKey?: number;
 }
 
 // 水墨筆刷分隔線元件
@@ -909,23 +913,25 @@ const App: React.FC = () => {
                             <option key={cfg.id} value={cfg.id}>{cfg.name}　NT$ {cfg.fee.toLocaleString()} / 年</option>
                           ))}
                         </select>
-                        {/* 姓名 / 生日 / 生肖 */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <input required type="text" placeholder="信眾大名 *"
-                            value={p.name}
-                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                          <input type="text" placeholder="農曆生日（可選）"
-                            value={p.birthDate}
-                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate: e.target.value } : x))}
-                            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                          <select value={p.zodiac || ''}
-                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
-                            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">生肖（可選）</option>
-                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
-                          </select>
-                        </div>
+                        {/* 姓名 */}
+                        <input required type="text" placeholder="信眾大名 *"
+                          value={p.name}
+                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        {/* 生日選擇器 */}
+                        <BirthDatePicker
+                          key={`lamp-${p.id}-${p._bKey ?? 0}`}
+                          birthDate={p.birthDate}
+                          zodiac={p.zodiac}
+                          onChange={(birthDate, zodiac) => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
+                        />
+                        {/* 生肖（自動帶入，可手動修改） */}
+                        <select value={p.zodiac || ''}
+                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                          <option value="">生肖（自動帶入，可手動修改）</option>
+                          {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                        </select>
                         <input required type="text" placeholder="現居地址 *"
                           value={p.address}
                           onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
@@ -1041,30 +1047,36 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       {/* 姓名 / 生日 / 生肖 / 問事項目 */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-2">
                         <input required type="text" placeholder="信眾大名 *"
                           value={p.name}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
-                        <input type="text" placeholder="農曆生日（可選）"
-                          value={p.birthDate}
-                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate: e.target.value } : x))}
-                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
-                        <select value={p.zodiac || ''}
-                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
-                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
-                          <option value="">生肖（可選）</option>
-                          {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
-                        </select>
-                        <select required value={p.type}
-                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
-                          className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
-                          {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
+                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
+                        {/* 生日選擇器 */}
+                        <BirthDatePicker
+                          key={`booking-${p.id}-${p._bKey ?? 0}`}
+                          birthDate={p.birthDate}
+                          zodiac={p.zodiac}
+                          onChange={(birthDate, zodiac) => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* 生肖（自動帶入，可手動修改） */}
+                          <select value={p.zodiac || ''}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
+                            <option value="">生肖（自動帶入）</option>
+                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                          </select>
+                          <select required value={p.type}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
+                            {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
                         <input required type="text" placeholder="現居地址 *"
                           value={p.address}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="sm:col-span-2 px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
+                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
                       </div>
                     </div>
                   ))}
@@ -1427,20 +1439,21 @@ const App: React.FC = () => {
                             </select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">生日</label>
-                            <input value={p.birthDate} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="農曆或國曆" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">生肖</label>
-                            <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-                              <option value="">請選擇</option>
-                              {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
-                            </select>
-                          </div>
+                        {/* 生日選擇器 */}
+                        <BirthDatePicker
+                          key={`blessing-${p.id}-${p._bKey ?? 0}`}
+                          birthDate={p.birthDate}
+                          zodiac={p.zodiac}
+                          onChange={(birthDate, zodiac) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
+                        />
+                        {/* 生肖（自動帶入，可手動修改） */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">生肖（自動帶入，可手動修改）</label>
+                          <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red bg-white">
+                            <option value="">請選擇</option>
+                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3" />居住地址</label>
@@ -1606,13 +1619,13 @@ const App: React.FC = () => {
                   const addr = memberProfile.address || '';
                   const lbl = '本人';
                   if (form === 'lamp') {
-                    setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, address: addr, contactLabel: lbl } : x));
+                    setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
                   } else if (form === 'booking') {
-                    setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, address: addr, contactLabel: lbl } : x));
+                    setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
                   } else if (form === 'donation') {
                     setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, address: addr, contactLabel: lbl } : x));
                   } else if (form === 'blessing') {
-                    setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, gender: memberProfile.gender || '', address: addr, contactLabel: lbl } : x));
+                    setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, gender: memberProfile.gender || '', address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
                   }
                   setShowContactPicker(null);
                 };
@@ -1651,13 +1664,13 @@ const App: React.FC = () => {
                     const addr = contact.address || '';
                     const lbl = contact.label;
                     if (form === 'lamp') {
-                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr, contactLabel: lbl } : x));
+                      setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
                     } else if (form === 'booking') {
-                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr, contactLabel: lbl } : x));
+                      setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
                     } else if (form === 'donation') {
                       setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, address: addr, contactLabel: lbl } : x));
                     } else if (form === 'blessing') {
-                      setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, gender: contact.gender || '', address: addr, contactLabel: lbl } : x));
+                      setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, gender: contact.gender || '', address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
                     }
                     setShowContactPicker(null);
                   }}
