@@ -25,7 +25,8 @@ import {
   UserPlus,
   User as UserIcon,
   BookUser,
-  Plus
+  Plus,
+  Sparkles
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
@@ -770,15 +771,15 @@ const App: React.FC = () => {
             {/* Service 2 */}
             <div className="group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
-                <ScrollText className="w-8 h-8 text-white" />
+                <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">收驚 / 祭改</h4>
+              <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">祈福法會</h4>
               <p className="text-gray-600 mb-6">
-                孩童受驚、成人運勢不順、車關血光等，皆可透過傳統科儀進行收驚祭改，化解厄運。
+                舉辦各式祈福法會，為信眾消災解厄、增福添壽，並提供個人與闔家平安祈福登記。
               </p>
-              <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
-                預約時段 <ChevronRight className="w-4 h-4 ml-1" />
-              </a>
+              <button onClick={() => scrollToSection('blessing')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+                立即報名 <ChevronRight className="w-4 h-4 ml-1" />
+              </button>
             </div>
 
             {/* Service 3 */}
