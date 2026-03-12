@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -784,6 +784,27 @@ export const deleteMemberContact = async (id: string): Promise<boolean> => {
 };
 
 // ─── Member Profile (個人資料) ────────────────────────────
+/** 後台：取得所有已建立個人資料的會員（需登入） */
+export const getAllMemberProfiles = async (): Promise<MemberProfileRecord[]> => {
+  const { data, error } = await supabase
+    .from('member_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data.map(row => ({
+    userId: row.user_id,
+    name: row.name || '',
+    phone: row.phone || '',
+    birthDate: row.birth_date || '',
+    zodiac: row.zodiac || undefined,
+    gender: row.gender || undefined,
+    address: row.address || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+  }));
+};
+
 export const getProfile = async (): Promise<ProfileData | null> => {
   const { data, error } = await supabase
     .from('member_profiles')

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, supabase } from '../services/supabase';
-import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, supabase } from '../services/supabase';
+import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -421,7 +421,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
 
 // ─── Members Tab ─────────────────────────────────────────────────────────────
 
-const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donations: DonationRecord[] }) => {
+const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: BookingRecord[]; donations: DonationRecord[]; memberProfiles: MemberProfileRecord[] }) => {
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -580,14 +580,49 @@ const MembersTab = ({ bookings, donations }: { bookings: BookingRecord[]; donati
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <h2 className="text-xl font-bold text-gray-800">會員管理
-          <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 位</span>
+          <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 位信眾</span>
         </h2>
       </div>
+
+      {/* ── 已註冊會員帳號 ── */}
+      {memberProfiles.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-temple-gold/30 overflow-hidden mb-6">
+          <div className="px-5 py-3 bg-temple-gold/10 border-b border-temple-gold/20 flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-temple-red" />
+            <h3 className="font-semibold text-temple-dark text-sm">已註冊會員帳號
+              <span className="ml-1.5 text-xs font-normal text-gray-400">{memberProfiles.length} 位</span>
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {memberProfiles.map(p => (
+              <div key={p.userId} className="px-5 py-3 flex flex-wrap items-center gap-3">
+                <div className="w-8 h-8 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 text-temple-red" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    {p.name || <span className="text-gray-400 font-normal italic">（未填姓名）</span>}
+                    {p.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-1.5 py-0.5 rounded-full">{p.gender}</span>}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3">
+                    {p.phone && <span>{p.phone}</span>}
+                    {p.birthDate && <span>{p.birthDate}</span>}
+                    {p.address && <span className="truncate max-w-[200px]">{p.address}</span>}
+                  </p>
+                </div>
+                <span className="text-xs text-gray-300 shrink-0">
+                  {new Date(p.createdAt).toLocaleDateString('zh-TW')} 加入
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="relative mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋姓名或電話..."
+          placeholder="搜尋信眾姓名或電話..."
           className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
       </div>
 
@@ -2068,6 +2103,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [scriptureVerses, setScriptureVerses] = useState<ScriptureVerseRecord[]>([]);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   const [lampRegistrations, setLampRegistrations] = useState<LampRegistrationRecord[]>([]);
+  const [memberProfiles, setMemberProfiles] = useState<MemberProfileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2077,7 +2113,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[])]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr, mp] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -2087,6 +2123,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setScriptureVerses(sv);
       setLampConfigs(lc);
       setLampRegistrations(lr);
+      setMemberProfiles(mp);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -2184,7 +2221,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} />}
               {tab === 'donations' && <DonationsTab donations={donations} />}
-              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} />}
+              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} memberProfiles={memberProfiles} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}

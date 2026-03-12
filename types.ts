@@ -215,6 +215,13 @@ export interface ProfileData {
   address?: string;
 }
 
+/** 後台用：所有已註冊會員的完整資料列 */
+export interface MemberProfileRecord extends ProfileData {
+  userId: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;
