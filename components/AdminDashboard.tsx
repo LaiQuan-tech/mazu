@@ -2811,13 +2811,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
   const navItems: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview',  label: '總覽',      icon: <LayoutDashboard className="w-4 h-4" /> },
-    { key: 'bookings',  label: '問事管理',   icon: <BookOpen className="w-4 h-4" /> },
-    { key: 'lamps',     label: '點燈',       icon: <Flame className="w-4 h-4" /> },
-    { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
-    { key: 'donations', label: '捐款管理',   icon: <HeartHandshake className="w-4 h-4" /> },
-    { key: 'members',   label: '會員管理',   icon: <Users className="w-4 h-4" /> },
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
-    { key: 'deities',   label: '神明管理',   icon: <Flame className="w-4 h-4" /> },
+    { key: 'deities',   label: '神明資訊',   icon: <Flame className="w-4 h-4" /> },
+    { key: 'members',   label: '會員管理',   icon: <Users className="w-4 h-4" /> },
+    { key: 'lamps',     label: '點燈管理',   icon: <Flame className="w-4 h-4" /> },
+    { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
+    { key: 'donations', label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
+    { key: 'bookings',  label: '問事管理',   icon: <BookOpen className="w-4 h-4" /> },
     { key: 'photos',    label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
   ];
