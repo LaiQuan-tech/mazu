@@ -116,7 +116,6 @@ const App: React.FC = () => {
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingModal, setBlessingModal] = useState<BlessingEventRecord | null>(null);
   const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
-  const [blessingPhone, setBlessingPhone] = useState('');
   const [blessingNotes, setBlessingNotes] = useState('');
   const [blessingStatus, setBlessingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -300,13 +299,12 @@ const App: React.FC = () => {
     if (!blessingModal) return;
     const invalid = blessingPersons.find(p => !p.name.trim());
     if (invalid) { alert('請填寫所有人員的姓名'); return; }
-    if (!blessingPhone.trim()) { alert('請填寫聯絡電話'); return; }
     setBlessingStatus('loading');
     try {
       await Promise.all(blessingPersons.map(p => createBlessingRegistration({
         eventId: blessingModal.id,
         name: p.name.trim(),
-        phone: blessingPhone.trim(),
+        phone: '',
         birthDate: p.birthDate || undefined,
         zodiac: p.zodiac,
         gender: p.gender || undefined,
@@ -315,7 +313,6 @@ const App: React.FC = () => {
       } as BlessingRegistrationData)));
       setBlessingStatus('success');
       setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
-      setBlessingPhone('');
       setBlessingNotes('');
     } catch {
       setBlessingStatus('error');
@@ -325,7 +322,6 @@ const App: React.FC = () => {
   const openBlessingModal = (event: BlessingEventRecord) => {
     setBlessingModal(event);
     setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
-    setBlessingPhone('');
     setBlessingNotes('');
     setBlessingStatus('idle');
   };
@@ -1394,13 +1390,6 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleBlessingSubmit} className="space-y-4">
-                    {/* 聯絡電話（共用） */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                      <input required value={blessingPhone} onChange={e => setBlessingPhone(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="代表人聯絡電話" />
-                    </div>
-
                     {/* 人員卡片列表 */}
                     {blessingPersons.map((p, idx) => (
                       <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
@@ -1624,7 +1613,6 @@ const App: React.FC = () => {
                     setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, address: addr, contactLabel: lbl } : x));
                   } else if (form === 'blessing') {
                     setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, gender: memberProfile.gender || '', address: addr, contactLabel: lbl } : x));
-                    setBlessingPhone(ph => ph || memberProfile.phone || '');
                   }
                   setShowContactPicker(null);
                 };
@@ -1670,7 +1658,6 @@ const App: React.FC = () => {
                       setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, address: addr, contactLabel: lbl } : x));
                     } else if (form === 'blessing') {
                       setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, gender: contact.gender || '', address: addr, contactLabel: lbl } : x));
-                      setBlessingPhone(ph => ph || contact.phone || '');
                     }
                     setShowContactPicker(null);
                   }}
