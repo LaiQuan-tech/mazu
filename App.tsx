@@ -500,7 +500,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden lg:flex items-center gap-1">
-              {['home', 'about', 'deities', 'lamps', 'blessing', 'booking', 'donation'].map((item) => (
+              {['home', 'about', 'deities', 'lamps', 'blessing', 'donation', 'booking'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -511,15 +511,12 @@ const App: React.FC = () => {
                 >
                   {{
                     'home': '首頁',
-                    'bulletin': '公佈欄',
                     'about': '緣起',
                     'deities': '神明',
-                    'services': '服務',
                     'lamps': '點燈',
                     'blessing': '祈福',
-                    'booking': '問事',
                     'donation': '捐獻',
-                    'contact': '聯絡'
+                    'booking': '問事',
                   }[item]}
                   {activeSection === item && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-temple-gold rounded-full" />
@@ -556,7 +553,7 @@ const App: React.FC = () => {
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1">
-            {['home', 'about', 'deities', 'lamps', 'blessing', 'booking', 'donation'].map((item) => (
+            {['home', 'about', 'deities', 'lamps', 'blessing', 'donation', 'booking'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
@@ -567,15 +564,12 @@ const App: React.FC = () => {
               >
                 {{
                   'home': '首頁',
-                  'bulletin': '公佈欄',
-                  'about': '和聖壇緣起',
+                  'about': '緣起',
                   'deities': '神明',
-                  'services': '宮廟服務',
                   'lamps': '點燈',
                   'blessing': '祈福',
+                  'donation': '捐獻',
                   'booking': '問事',
-                  'donation': '捐獻護持',
-                  'contact': '聯絡我們'
                 }[item]}
               </button>
             ))}
@@ -1126,6 +1120,161 @@ const App: React.FC = () => {
         </div>
       </section>
 
+{/* Donation Section */}
+      <section id="donation" className="py-20 bg-temple-bg relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">
+              功德無量
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+              隨喜捐獻 / 護持項目
+            </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              您的每一分心意，都是支持和聖壇持續弘揚神恩、服務大眾的力量。
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl border border-temple-gold/20 overflow-hidden">
+            <div className="p-8 md:p-12">
+              {donationStatus === 'success' ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  </div>
+                  <h4 className="text-2xl font-bold text-gray-900 mb-2">感謝您的護持！</h4>
+                  <p className="text-gray-600 mb-8">
+                    功德無量。我們已收到您的捐款意向，<br />廟方人員將會與您聯繫後續事宜。
+                  </p>
+                  <button
+                    onClick={() => setDonationStatus('idle')}
+                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#5C1A04] transition-colors"
+                  >
+                    返回
+                  </button>
+                </div>
+              ) : !member ? (
+                <div className="text-center py-10">
+                  <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
+                  <p className="text-gray-400 text-sm mb-5">登入後即可進行捐獻護持</p>
+                  <button type="button" onClick={() => setShowMemberPortal(true)}
+                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
+                    登入 / 註冊
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleDonationSubmit} className="space-y-4">
+                  {donationPersons.map((p, idx) => (
+                    <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位大德</span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => handleOpenContactPicker('donation', p.id)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                            <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                          </button>
+                          {donationPersons.length > 1 && (
+                            <button type="button"
+                              onClick={() => setDonationPersons(prev => prev.filter(x => x.id !== p.id))}
+                              className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          required
+                          type="text"
+                          placeholder="大德姓名 *"
+                          value={p.name}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                        />
+                        <input
+                          required
+                          type="number"
+                          placeholder="捐款金額 (NTD) *"
+                          min="1"
+                          value={p.amount || ''}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                        />
+                        <select
+                          required
+                          value={p.type}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white text-sm"
+                        >
+                          {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="聯絡地址（可選）"
+                          value={p.address}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="sm:col-span-3 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <button type="button"
+                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
+                    className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
+                    <X className="w-4 h-4 rotate-45" /> 新增人員
+                  </button>
+
+                  <div>
+                    <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>
+                    <input
+                      id="don_notes"
+                      value={donationNotes}
+                      onChange={e => setDonationNotes(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      placeholder="完成匯款後請填寫帳號後五碼，以利核對"
+                    />
+                  </div>
+
+                  {donationStatus === 'error' && (
+                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" />
+                      <span>提交失敗，請檢查網路或稍後再試。</span>
+                    </div>
+                  )}
+
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={donationStatus === 'loading'}
+                      className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
+                        ${donationStatus === 'loading'
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1'}`}
+                    >
+                      {donationStatus === 'loading' ? (
+                        <span>處理中...</span>
+                      ) : (
+                        <>
+                          <HeartHandshake className="w-5 h-5" />
+                          確認捐獻護持（共 {donationPersons.length} 人）
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
 {/* Booking Section */}
       <section id="booking" className="py-20 bg-temple-red relative text-white">
         {/* Pattern Overlay */}
@@ -1311,161 +1460,6 @@ const App: React.FC = () => {
                         )}
                       </>
                     )}
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-{/* Donation Section */}
-      <section id="donation" className="py-20 bg-temple-bg relative">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">
-              功德無量
-            </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
-              隨喜捐獻 / 護持項目
-            </h3>
-            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
-              <span className="w-12 h-px bg-temple-gold/70" />
-              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-              <span className="w-12 h-px bg-temple-gold/70" />
-            </div>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              您的每一分心意，都是支持和聖壇持續弘揚神恩、服務大眾的力量。
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-xl border border-temple-gold/20 overflow-hidden">
-            <div className="p-8 md:p-12">
-              {donationStatus === 'success' ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle2 className="w-10 h-10 text-green-600" />
-                  </div>
-                  <h4 className="text-2xl font-bold text-gray-900 mb-2">感謝您的護持！</h4>
-                  <p className="text-gray-600 mb-8">
-                    功德無量。我們已收到您的捐款意向，<br />廟方人員將會與您聯繫後續事宜。
-                  </p>
-                  <button
-                    onClick={() => setDonationStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#5C1A04] transition-colors"
-                  >
-                    返回
-                  </button>
-                </div>
-              ) : !member ? (
-                <div className="text-center py-10">
-                  <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
-                  <p className="text-gray-400 text-sm mb-5">登入後即可進行捐獻護持</p>
-                  <button type="button" onClick={() => setShowMemberPortal(true)}
-                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
-                    登入 / 註冊
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleDonationSubmit} className="space-y-4">
-                  {donationPersons.map((p, idx) => (
-                    <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位大德</span>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => handleOpenContactPicker('donation', p.id)}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                            <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
-                          </button>
-                          {donationPersons.length > 1 && (
-                            <button type="button"
-                              onClick={() => setDonationPersons(prev => prev.filter(x => x.id !== p.id))}
-                              className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input
-                          required
-                          type="text"
-                          placeholder="大德姓名 *"
-                          value={p.name}
-                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
-                        />
-                        <input
-                          required
-                          type="number"
-                          placeholder="捐款金額 (NTD) *"
-                          min="1"
-                          value={p.amount || ''}
-                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
-                        />
-                        <select
-                          required
-                          value={p.type}
-                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white text-sm"
-                        >
-                          {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <input
-                          type="text"
-                          placeholder="聯絡地址（可選）"
-                          value={p.address}
-                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="sm:col-span-3 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  <button type="button"
-                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
-                    className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
-                    <X className="w-4 h-4 rotate-45" /> 新增人員
-                  </button>
-
-                  <div>
-                    <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>
-                    <input
-                      id="don_notes"
-                      value={donationNotes}
-                      onChange={e => setDonationNotes(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
-                      placeholder="完成匯款後請填寫帳號後五碼，以利核對"
-                    />
-                  </div>
-
-                  {donationStatus === 'error' && (
-                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
-                      <span>提交失敗，請檢查網路或稍後再試。</span>
-                    </div>
-                  )}
-
-                  <div className="pt-4">
-                    <button
-                      type="submit"
-                      disabled={donationStatus === 'loading'}
-                      className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
-                        ${donationStatus === 'loading'
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1'}`}
-                    >
-                      {donationStatus === 'loading' ? (
-                        <span>處理中...</span>
-                      ) : (
-                        <>
-                          <HeartHandshake className="w-5 h-5" />
-                          確認捐獻護持（共 {donationPersons.length} 人）
-                        </>
-                      )}
-                    </button>
                   </div>
                 </form>
               )}
