@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, supabase } from '../services/supabase';
 import { BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -421,7 +421,28 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
 
 // ─── Members Tab ─────────────────────────────────────────────────────────────
 
-const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: BookingRecord[]; donations: DonationRecord[]; memberProfiles: MemberProfileRecord[] }) => {
+// ── 統計小標籤 ──────────────────────────────────────────────────────────────────
+const StatBadges = ({ lamps, bookingCount, donation }: { lamps: number; bookingCount: number; donation: number }) => (
+  <div className="flex flex-wrap gap-1.5">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 font-medium">
+      <Flame className="w-3 h-3" />{lamps} 燈
+    </span>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 font-medium">
+      <BookOpen className="w-3 h-3" />{bookingCount} 問事
+    </span>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-medium">
+      <HeartHandshake className="w-3 h-3" />{donation > 0 ? `NT$${donation.toLocaleString()}` : '—'}
+    </span>
+  </div>
+);
+
+const MembersTab = ({ bookings, donations, lampRegistrations, memberProfiles, usersLastLogin }: {
+  bookings: BookingRecord[];
+  donations: DonationRecord[];
+  lampRegistrations: LampRegistrationRecord[];
+  memberProfiles: MemberProfileRecord[];
+  usersLastLogin: Record<string, string>;
+}) => {
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -430,28 +451,36 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
   const [selectedProfile, setSelectedProfile] = useState<MemberProfileRecord | null>(null);
   const [profileContacts, setProfileContacts] = useState<MemberContact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
+  // 親友詳情 modal
+  const [selectedContact, setSelectedContact] = useState<MemberContact | null>(null);
 
-  // 依電話聚合成「虛擬會員」
+  // ── 統計 helpers ──
+  const getStatsByPhone = (phone: string) => {
+    const lamps = lampRegistrations.filter(l => l.phone === phone).length;
+    const bkCount = bookings.filter(b => b.phone === phone).length;
+    const dn = donations.filter(d => d.phone === phone);
+    return { lamps, bookingCount: bkCount, donation: dn.reduce((s, d) => s + Number(d.amount), 0) };
+  };
+
+  const getContactStats = (memberPhone: string, contactName: string) => {
+    const lamps = lampRegistrations.filter(l => l.phone === memberPhone && l.name === contactName).length;
+    const bkCount = bookings.filter(b => b.phone === memberPhone && b.name === contactName).length;
+    const dn = donations.filter(d => d.phone === memberPhone && d.name === contactName);
+    return { lamps, bookingCount: bkCount, donation: dn.reduce((s, d) => s + Number(d.amount), 0) };
+  };
+
+  // 依電話聚合成「信眾」（未註冊者）
   const members = useMemo(() => {
     const map = new Map<string, { phone: string; name: string; bookings: BookingRecord[]; donations: DonationRecord[] }>();
-
     [...bookings].sort((a, b) => (a.createdAt > b.createdAt ? 1 : -1)).forEach(b => {
       if (!map.has(b.phone)) map.set(b.phone, { phone: b.phone, name: b.name, bookings: [], donations: [] });
-      const m = map.get(b.phone)!;
-      m.bookings.push(b);
-      m.name = b.name; // 取最新姓名
+      const m = map.get(b.phone)!; m.bookings.push(b); m.name = b.name;
     });
-
     [...donations].sort((a, b) => (a.createdAt > b.createdAt ? 1 : -1)).forEach(d => {
       if (!map.has(d.phone)) map.set(d.phone, { phone: d.phone, name: d.name, bookings: [], donations: [] });
-      const m = map.get(d.phone)!;
-      m.donations.push(d);
-      if (!m.name) m.name = d.name;
+      const m = map.get(d.phone)!; m.donations.push(d); if (!m.name) m.name = d.name;
     });
-
-    return Array.from(map.values()).sort((a, b) =>
-      (b.bookings.length + b.donations.length) - (a.bookings.length + a.donations.length)
-    );
+    return Array.from(map.values()).sort((a, b) => (b.bookings.length + b.donations.length) - (a.bookings.length + a.donations.length));
   }, [bookings, donations]);
 
   const filtered = useMemo(() => {
@@ -462,44 +491,68 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
 
   useEffect(() => { setPage(0); }, [search]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const selected = useMemo(() => selectedPhone ? members.find(m => m.phone === selectedPhone) ?? null : null, [selectedPhone, members]);
 
-  const selected = useMemo(() =>
-    selectedPhone ? members.find(m => m.phone === selectedPhone) ?? null : null,
-    [selectedPhone, members]
-  );
-
-  // ── 已註冊會員帳號詳情（含親友通訊錄） ──
+  // ── 已註冊會員詳情頁 ──
   if (selectedProfile) {
+    const stats = selectedProfile.phone ? getStatsByPhone(selectedProfile.phone) : { lamps: 0, bookingCount: 0, donation: 0 };
+    const lastLogin = usersLastLogin[selectedProfile.userId];
     return (
       <div>
-        <button onClick={() => { setSelectedProfile(null); setProfileContacts([]); }}
+        {/* 親友詳情 Modal */}
+        {selectedContact && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedContact(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                  <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium">{selectedContact.label}</span>
+                  {selectedContact.name}
+                </h3>
+                <button onClick={() => setSelectedContact(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="space-y-2 text-sm">
+                {selectedContact.gender && <p className="text-gray-600">身份：{selectedContact.gender}</p>}
+                {selectedContact.phone && <p className="text-gray-600 flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{selectedContact.phone}</p>}
+                {selectedContact.birthDate && <p className="text-gray-600">生日：{selectedContact.birthDate}</p>}
+                {selectedContact.zodiac && <p className="text-gray-600">生肖：{selectedContact.zodiac}年</p>}
+                {selectedContact.address && <p className="text-gray-600">地址：{selectedContact.address}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button onClick={() => { setSelectedProfile(null); setProfileContacts([]); setSelectedContact(null); }}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> 返回會員列表
         </button>
 
-        {/* 個人資料卡 */}
-        <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5 flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-            <User className="w-6 h-6 text-temple-red" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              {selectedProfile.name || '（未填姓名）'}
-              {selectedProfile.gender && (
-                <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-normal">{selectedProfile.gender}</span>
-              )}
-            </h2>
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-sm text-gray-500">
-              {selectedProfile.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{selectedProfile.phone}</span>}
-              {selectedProfile.birthDate && <span>{selectedProfile.birthDate}</span>}
-              {selectedProfile.zodiac && <span>{selectedProfile.zodiac}年</span>}
-              {selectedProfile.address && <span className="truncate max-w-xs">{selectedProfile.address}</span>}
+        {/* 個人資料卡（詳細） */}
+        <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5">
+          <div className="flex flex-wrap items-start gap-4 mb-4">
+            <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+              <User className="w-6 h-6 text-temple-red" />
             </div>
-            <p className="text-xs text-gray-300 mt-1">{new Date(selectedProfile.createdAt).toLocaleDateString('zh-TW')} 加入</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                {selectedProfile.name || '（未填姓名）'}
+                {selectedProfile.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-normal">{selectedProfile.gender}</span>}
+              </h2>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-sm text-gray-500">
+                {selectedProfile.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{selectedProfile.phone}</span>}
+                {selectedProfile.birthDate && <span>{selectedProfile.birthDate}</span>}
+                {selectedProfile.zodiac && <span>{selectedProfile.zodiac}年</span>}
+                {selectedProfile.address && <span>{selectedProfile.address}</span>}
+              </div>
+              <div className="flex flex-wrap gap-x-4 mt-1 text-xs text-gray-400">
+                <span>{new Date(selectedProfile.createdAt).toLocaleDateString('zh-TW')} 加入</span>
+                {lastLogin && <span>最後登入：{new Date(lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+              </div>
+            </div>
           </div>
+          <StatBadges lamps={stats.lamps} bookingCount={stats.bookingCount} donation={stats.donation} />
         </div>
 
-        {/* 親友通訊錄 */}
+        {/* 親友通訊錄（列表只顯示統計，點進去看個資） */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
             <BookUser className="w-4 h-4 text-temple-red" />
@@ -513,23 +566,22 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
             <p className="px-5 py-6 text-sm text-gray-400">尚未建立通訊錄</p>
           ) : (
             <div className="divide-y divide-gray-50">
-              {profileContacts.map(c => (
-                <div key={c.id} className="px-5 py-3 flex items-start gap-3">
-                  <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium shrink-0 mt-0.5">{c.label}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                      {c.name}
-                      {c.gender && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-normal">{c.gender}</span>}
-                    </p>
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500">
-                      {c.phone && <span>{c.phone}</span>}
-                      {c.birthDate && <span>{c.birthDate}</span>}
-                      {c.zodiac && <span>{c.zodiac}年</span>}
-                      {c.address && <span className="truncate max-w-[200px]">{c.address}</span>}
+              {profileContacts.map(c => {
+                const cStats = selectedProfile.phone ? getContactStats(selectedProfile.phone, c.name) : { lamps: 0, bookingCount: 0, donation: 0 };
+                return (
+                  <button key={c.id} type="button" onClick={() => setSelectedContact(c)}
+                    className="w-full px-5 py-3 flex items-center gap-3 hover:bg-temple-bg/60 transition-all text-left">
+                    <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium shrink-0">{c.label}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{c.name}</p>
+                      <div className="mt-1">
+                        <StatBadges lamps={cStats.lamps} bookingCount={cStats.bookingCount} donation={cStats.donation} />
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                    <ArrowRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -537,67 +589,43 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
     );
   }
 
-  // ── 詳細頁（信眾，依電話聚合） ──
+  // ── 信眾詳細頁（依電話聚合，未註冊者） ──
   if (selected) {
     const totalDonation = selected.donations.reduce((s, d) => s + Number(d.amount), 0);
+    const lampCount = lampRegistrations.filter(l => l.phone === selected.phone).length;
     return (
       <div>
         <button onClick={() => setSelectedPhone(null)}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> 返回會員列表
+          <ArrowLeft className="w-4 h-4" /> 返回信眾列表
         </button>
-
-        {/* 會員資訊卡 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5 flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-            <User className="w-6 h-6 text-temple-red" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-800">{selected.name}</h2>
-            <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-              <Phone className="w-3 h-3" />{selected.phone}
-            </p>
-          </div>
-          <div className="flex gap-6 text-center">
-            <div>
-              <p className="text-2xl font-bold text-purple-700">{selected.bookings.length}</p>
-              <p className="text-xs text-gray-400">問事次數</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+              <User className="w-6 h-6 text-temple-red" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">NT$ {totalDonation.toLocaleString()}</p>
-              <p className="text-xs text-gray-400">累計捐款</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-bold text-gray-800">{selected.name}</h2>
+              <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{selected.phone}</p>
             </div>
           </div>
+          <StatBadges lamps={lampCount} bookingCount={selected.bookings.length} donation={totalDonation} />
         </div>
-
-        {/* 問事紀錄 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-temple-red" />
-            <h3 className="font-semibold text-gray-700">
-              問事紀錄 <span className="text-gray-400 font-normal text-sm">（{selected.bookings.length} 筆）</span>
-            </h3>
+            <h3 className="font-semibold text-gray-700">問事紀錄 <span className="text-gray-400 font-normal text-sm">（{selected.bookings.length} 筆）</span></h3>
           </div>
-          {selected.bookings.length === 0 ? (
-            <p className="p-5 text-gray-400 text-sm">尚無問事紀錄</p>
-          ) : (
+          {selected.bookings.length === 0 ? <p className="p-5 text-gray-400 text-sm">尚無問事紀錄</p> : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-50">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {['姓名', '預約日期', '問事項目', '狀態', '備註'].map(h => (
-                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+                <thead className="bg-gray-50"><tr>{['姓名', '預約日期', '問事項目', '狀態', '備註'].map(h => <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-gray-50">
                   {selected.bookings.map(b => (
                     <tr key={b.id} className="hover:bg-gray-50">
                       <td className="px-5 py-3 text-sm font-medium text-gray-800">{b.name}</td>
                       <td className="px-5 py-3 text-sm text-gray-600">{b.bookingDate}</td>
-                      <td className="px-5 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{b.type}</span>
-                      </td>
+                      <td className="px-5 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{b.type}</span></td>
                       <td className="px-5 py-3">{statusBadge(b.status)}</td>
                       <td className="px-5 py-3 text-sm text-gray-500 max-w-[160px] truncate">{b.notes || '—'}</td>
                     </tr>
@@ -607,36 +635,22 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
             </div>
           )}
         </div>
-
-        {/* 捐款紀錄 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
             <HeartHandshake className="w-4 h-4 text-green-600" />
-            <h3 className="font-semibold text-gray-700">
-              捐款紀錄 <span className="text-gray-400 font-normal text-sm">（{selected.donations.length} 筆）</span>
-            </h3>
+            <h3 className="font-semibold text-gray-700">捐款紀錄 <span className="text-gray-400 font-normal text-sm">（{selected.donations.length} 筆）</span></h3>
           </div>
-          {selected.donations.length === 0 ? (
-            <p className="p-5 text-gray-400 text-sm">尚無捐款紀錄</p>
-          ) : (
+          {selected.donations.length === 0 ? <p className="p-5 text-gray-400 text-sm">尚無捐款紀錄</p> : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-50">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {['姓名', '日期', '金額', '類型', '備註'].map(h => (
-                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+                <thead className="bg-gray-50"><tr>{['姓名', '日期', '金額', '類型', '備註'].map(h => <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-gray-50">
                   {selected.donations.map(d => (
                     <tr key={d.id} className="hover:bg-gray-50">
                       <td className="px-5 py-3 text-sm font-medium text-gray-800">{d.name}</td>
                       <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(d.createdAt)}</td>
                       <td className="px-5 py-3 text-sm font-bold text-green-700">NT$ {Number(d.amount).toLocaleString()}</td>
-                      <td className="px-5 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
-                      </td>
+                      <td className="px-5 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span></td>
                       <td className="px-5 py-3 text-sm text-gray-500 max-w-[160px] truncate">{d.notes || '—'}</td>
                     </tr>
                   ))}
@@ -653,12 +667,10 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-xl font-bold text-gray-800">會員管理
-          <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 位信眾</span>
-        </h2>
+        <h2 className="text-xl font-bold text-gray-800">會員管理</h2>
       </div>
 
-      {/* ── 已註冊會員帳號 ── */}
+      {/* ── 已註冊會員帳號（清單不顯示個資） ── */}
       {memberProfiles.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-temple-gold/30 overflow-hidden mb-6">
           <div className="px-5 py-3 bg-temple-gold/10 border-b border-temple-gold/20 flex items-center gap-2">
@@ -668,105 +680,82 @@ const MembersTab = ({ bookings, donations, memberProfiles }: { bookings: Booking
             </h3>
           </div>
           <div className="divide-y divide-gray-50">
-            {memberProfiles.map(p => (
-              <button
-                key={p.userId}
-                type="button"
-                onClick={async () => {
-                  setSelectedProfile(p);
-                  setContactsLoading(true);
-                  try {
-                    const contacts = await getMemberContactsByUserId(p.userId);
-                    setProfileContacts(contacts);
-                  } catch {
-                    setProfileContacts([]);
-                  } finally {
-                    setContactsLoading(false);
-                  }
-                }}
-                className="w-full px-5 py-3 flex flex-wrap items-center gap-3 hover:bg-temple-bg/60 hover:border-l-2 hover:border-temple-red transition-all text-left"
-              >
-                <div className="w-8 h-8 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 text-temple-red" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                    {p.name || <span className="text-gray-400 font-normal italic">（未填姓名）</span>}
-                    {p.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-1.5 py-0.5 rounded-full">{p.gender}</span>}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3">
-                    {p.phone && <span>{p.phone}</span>}
-                    {p.birthDate && <span>{p.birthDate}</span>}
-                    {p.address && <span className="truncate max-w-[200px]">{p.address}</span>}
-                  </p>
-                </div>
-                <span className="text-xs text-gray-300 shrink-0 flex items-center gap-1">
-                  {new Date(p.createdAt).toLocaleDateString('zh-TW')} 加入
-                  <ArrowRight className="w-3.5 h-3.5 text-gray-300" />
-                </span>
-              </button>
-            ))}
+            {memberProfiles.map(p => {
+              const stats = p.phone ? getStatsByPhone(p.phone) : { lamps: 0, bookingCount: 0, donation: 0 };
+              const lastLogin = usersLastLogin[p.userId];
+              return (
+                <button key={p.userId} type="button"
+                  onClick={async () => {
+                    setSelectedProfile(p); setContactsLoading(true);
+                    try { setProfileContacts(await getMemberContactsByUserId(p.userId)); }
+                    catch { setProfileContacts([]); }
+                    finally { setContactsLoading(false); }
+                  }}
+                  className="w-full px-5 py-4 flex flex-wrap items-center gap-3 hover:bg-temple-bg/60 transition-all text-left group"
+                >
+                  <div className="w-9 h-9 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-temple-red" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 mb-1.5">
+                      {p.name || <span className="text-gray-400 font-normal italic">（未填姓名）</span>}
+                      {p.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-1.5 py-0.5 rounded-full">{p.gender}</span>}
+                    </p>
+                    <StatBadges lamps={stats.lamps} bookingCount={stats.bookingCount} donation={stats.donation} />
+                  </div>
+                  <div className="text-right shrink-0">
+                    {lastLogin && (
+                      <p className="text-xs text-gray-400 mb-0.5">
+                        最後登入 {new Date(lastLogin).toLocaleDateString('zh-TW')}
+                      </p>
+                    )}
+                    <ArrowRight className="w-4 h-4 text-gray-300 ml-auto group-hover:text-temple-red transition-colors" />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      <div className="relative mb-5">
+      {/* ── 信眾列表（依問事/捐款記錄聚合，不顯示電話） ── */}
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-gray-500">問事 / 捐款信眾
+          <span className="ml-1.5 font-normal text-gray-400">{filtered.length} 位</span>
+        </h3>
+      </div>
+      <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋信眾姓名或電話..."
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名…"
           className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
       </div>
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
-            <Users className="w-10 h-10 mx-auto mb-3 text-gray-200" />
-            <p>沒有符合的會員</p>
+            <Users className="w-10 h-10 mx-auto mb-3 text-gray-200" /><p>沒有符合的信眾</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
-                <tr>
-                  {['信眾', '電話', '問事次數', '累計捐款', ''].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {paged.map(m => {
-                  const totalDonation = m.donations.reduce((s, d) => s + Number(d.amount), 0);
-                  return (
-                    <tr key={m.phone} onClick={() => setSelectedPhone(m.phone)}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4 text-temple-red" />
-                          </div>
-                          <p className="text-sm font-semibold text-gray-900">{m.name}</p>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-gray-600">{m.phone}</td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">
-                          <BookOpen className="w-3 h-3" /> {m.bookings.length} 次
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-green-700">
-                        {totalDonation > 0 ? `NT$ ${totalDonation.toLocaleString()}` : '—'}
-                      </td>
-                      <td className="px-5 py-4 text-right text-xs text-temple-red">
-                        查看紀錄 →
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <Paginator total={filtered.length} page={page} onChange={setPage} />
+          <div className="divide-y divide-gray-50">
+            {paged.map(m => {
+              const totalDonation = m.donations.reduce((s, d) => s + Number(d.amount), 0);
+              const lampCount = lampRegistrations.filter(l => l.phone === m.phone).length;
+              return (
+                <button key={m.phone} type="button" onClick={() => setSelectedPhone(m.phone)}
+                  className="w-full px-5 py-4 flex flex-wrap items-center gap-3 hover:bg-gray-50 transition-colors text-left group">
+                  <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 mb-1.5">{m.name}</p>
+                    <StatBadges lamps={lampCount} bookingCount={m.bookings.length} donation={totalDonation} />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 shrink-0 group-hover:text-temple-red transition-colors" />
+                </button>
+              );
+            })}
           </div>
         )}
+        <Paginator total={filtered.length} page={page} onChange={setPage} />
       </div>
     </div>
   );
@@ -2195,6 +2184,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   const [lampRegistrations, setLampRegistrations] = useState<LampRegistrationRecord[]>([]);
   const [memberProfiles, setMemberProfiles] = useState<MemberProfileRecord[]>([]);
+  const [usersLastLogin, setUsersLastLogin] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2204,7 +2194,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr, mp] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[])]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ll] = await Promise.all([getBookings(), getDonations(), getBulletins(), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getUsersLastLogin().catch(() => ({} as Record<string, string>))]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -2215,6 +2205,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setLampConfigs(lc);
       setLampRegistrations(lr);
       setMemberProfiles(mp);
+      setUsersLastLogin(ll);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -2312,7 +2303,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} />}
               {tab === 'donations' && <DonationsTab donations={donations} />}
-              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} memberProfiles={memberProfiles} />}
+              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}

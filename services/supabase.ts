@@ -812,6 +812,17 @@ export const deleteMemberContact = async (id: string): Promise<boolean> => {
 
 // ─── Member Profile (個人資料) ────────────────────────────
 /** 後台：取得所有已建立個人資料的會員（需登入） */
+/** 後台：取得所有會員的最後登入時間（需已登入，呼叫 RPC） */
+export const getUsersLastLogin = async (): Promise<Record<string, string>> => {
+  const { data, error } = await supabase.rpc('get_users_last_login');
+  if (error || !data) return {};
+  const result: Record<string, string> = {};
+  for (const row of data as { user_id: string; last_sign_in_at: string }[]) {
+    if (row.last_sign_in_at) result[row.user_id] = row.last_sign_in_at;
+  }
+  return result;
+};
+
 export const getAllMemberProfiles = async (): Promise<MemberProfileRecord[]> => {
   const { data, error } = await supabase
     .from('member_profiles')
