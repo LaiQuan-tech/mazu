@@ -83,7 +83,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       const revealThreshold = isMobile ? 1.15 : 1.5;
       pending = pending.filter(el => {
         if (el.getBoundingClientRect().top < window.innerHeight * revealThreshold) {
-          el.querySelectorAll('.sp-up, .sp-left, .sp-right')
+          el.querySelectorAll('.sp-up, .sp-left, .sp-right, .sp-verse')
             .forEach(child => child.classList.add('sp-in'));
           return false;
         }
@@ -241,6 +241,44 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         @keyframes sp-ring   { 0%{box-shadow:0 0 0 0 rgba(184,145,90,.45)} 70%{box-shadow:0 0 0 16px rgba(184,145,90,.0)} 100%{box-shadow:0 0 0 0 rgba(184,145,90,.0)} }
         .sp-scroll-btn { transition: opacity .25s, transform .25s; }
         .sp-scroll-btn:hover { opacity:.95; transform: translateX(-50%) scale(1.04) !important; }
+        /* ── Hero 字元進場 ── */
+        @keyframes sp-hero-char {
+          from { opacity:0; transform:translateY(55px) scale(0.85); }
+          to   { opacity:0.9; transform:translateY(0) scale(1); }
+        }
+        .hero-char-in { display:inline-block; animation: sp-hero-char 1.4s cubic-bezier(0.16,1,0.3,1) both; }
+        /* ── Hero 副標題淡入上移 ── */
+        @keyframes sp-fade-up {
+          from { opacity:0; transform:translateY(18px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        /* ── 香煙粒子 ── */
+        .sp-particle {
+          position:absolute; border-radius:50%;
+          background:rgba(184,145,90,.55); pointer-events:none;
+          animation: sp-rise linear infinite;
+        }
+        @keyframes sp-rise {
+          0%   { opacity:0; transform:translateY(0); }
+          15%  { opacity:.5; }
+          85%  { opacity:.15; }
+          100% { opacity:0; transform:translateY(-90px); }
+        }
+        /* ── 豎排經文逐字飄入 ── */
+        .verse-char {
+          display:inline-block; opacity:0; transform:translateY(10px);
+          transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .sp-verse.sp-in .verse-char { opacity:1; transform:translateY(0); }
+        /* ── 插圖浮動感（idle float） ── */
+        .sp-img-float { animation: sp-img-float 5s ease-in-out infinite; }
+        @keyframes sp-img-float {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-9px); }
+        }
+        /* ── 水印當前章節高亮 ── */
+        .sp-watermark { will-change:transform; transition:color 0.8s ease; }
+        .sp-watermark-active { color:rgba(184,145,90,.2) !important; }
         /* ── Mobile ── */
         @media (max-width: 767px) {
           /* 圖片包裝器全寬，讓繪圖永遠在最上方 */
@@ -257,6 +295,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           .sp-left.sp-in  { opacity:1; transform:translateX(0) scale(1) !important; }
           .sp-right.sp-in { opacity:1; transform:translateX(0) scale(1) !important; }
           .sp-progress { display:none !important; }
+          /* 手機不做 idle 動畫 + 逐字動畫（效能） */
+          .sp-img-float { animation:none !important; }
+          .verse-char { opacity:1 !important; transform:none !important; transition:none !important; }
         }
       `}</style>
 
@@ -307,17 +348,36 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       {/* ── Hero（無獨立背景 div，與內文頁同色，自然銜接） ── */}
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+        {/* 香煙粒子 — 模擬香爐輕煙上升 */}
+        {[0,1,2,3,4,5,6].map(i => (
+          <div key={i} className="sp-particle" style={{
+            bottom: '32%',
+            left: `${41 + i * 2.8}%`,
+            width: i % 2 === 0 ? '2px' : '3px',
+            height: i % 2 === 0 ? '2px' : '3px',
+            animationDelay: `${i * 0.55}s`,
+            animationDuration: `${3.2 + i * 0.38}s`,
+          }} />
+        ))}
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
-          <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32 }}>台 北 古 亭 和 聖 壇</p>
+          <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>台 北 古 亭 和 聖 壇</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 16 }}>
             {['天', '上', '聖', '母', '經'].map((ch, i) => (
-              <span key={i} className="hero-char" style={{ fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 900, lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)', opacity: 0.9, display: 'inline-block' }}>{ch}</span>
+              // 外層 .hero-char：JS 視差 translateY target
+              // 內層 .hero-char-in：CSS 進場動畫（opacity + translateY），兩者不衝突
+              <span key={i} className="hero-char" style={{ display: 'inline-block' }}>
+                <span className="hero-char-in" style={{
+                  fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 900,
+                  lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)',
+                  animationDelay: `${0.3 + i * 0.14}s`,
+                }}>{ch}</span>
+              </span>
             ))}
           </div>
-          <p style={{ color: 'rgba(107,64,16,.55)', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500 }}>的　註　解　與　故　事</p>
-          <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280 }} />
-          <p className="hero-sub" style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2 }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
-          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16 }}>
+          <p style={{ color: 'rgba(107,64,16,.55)', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　註　解　與　故　事</p>
+          <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280, animation: 'sp-fade-up 0.9s ease 1.5s both' }} />
+          <p className="hero-sub" style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
+          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16, animation: 'sp-fade-up 0.8s ease 1.9s both' }}>
             {loading ? '載入中…' : `全經共 ${verses.length} 節`}
           </p>
         </div>
@@ -367,34 +427,41 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 pointerEvents: 'none',
               }} />
 
-              {/* Watermark section number */}
-              <span className="sp-watermark" style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
+              {/* Watermark section number：當前章節亮度提升 */}
+              <span className={`sp-watermark${currentSection === idx + 1 ? ' sp-watermark-active' : ''}`} style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
                 {String(section.sectionNumber).padStart(3, '0')}
               </span>
 
               {/* sp-section-inner：手機版 CSS 強制 column（繪圖在上） */}
               <div className="sp-section-inner" style={{ maxWidth: 1060, margin: '0 auto', width: '100%', display: 'flex', flexDirection: isEven ? 'row' : 'row-reverse', alignItems: 'center', gap: 'clamp(24px,5vw,72px)', flexWrap: 'wrap' }}>
 
-                {/* 插圖：視差 + 縮放 + 入場動畫 */}
+                {/* 插圖：外層 sp-img-float 做 idle 浮動，內層 sp-parallax-wrap 做 JS 滾動視差，互不干擾 */}
                 {imgUrl && (
-                  <div className="sp-parallax-wrap" style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
-                    <div className={isEven ? 'sp-left' : 'sp-right'}>
-                      <img
-                        src={imgUrl}
-                        alt=""
-                        loading="lazy"
-                        style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 8px 32px rgba(90,48,16,.13))' }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
+                  <div className="sp-img-float" style={{ flex: '0 0 auto', width: 'clamp(180px,38%,400px)' }}>
+                    <div className="sp-parallax-wrap" style={{ width: '100%' }}>
+                      <div className={isEven ? 'sp-left' : 'sp-right'}>
+                        <img
+                          src={imgUrl}
+                          alt=""
+                          loading="lazy"
+                          style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 8px 32px rgba(90,48,16,.13))' }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* 文字 */}
                 <div style={{ flex: 1, minWidth: 200 }}>
-                  <div className="sp-up sp-d1" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
+                  {/* sp-verse：scroll-reveal 時加 sp-in → .verse-char 逐字飄入 */}
+                  <div className="sp-verse" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
                     <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
-                      {section.verse}
+                      {section.verse.split('').map((ch, ci) =>
+                        ch === '\n'
+                          ? <br key={`br${ci}`} />
+                          : <span key={ci} className="verse-char" style={{ transitionDelay: `${0.05 + ci * 0.055}s` }}>{ch}</span>
+                      )}
                     </div>
                   </div>
                   <div className="sp-up sp-d2" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />

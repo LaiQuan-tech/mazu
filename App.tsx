@@ -1082,7 +1082,7 @@ const App: React.FC = () => {
                     <button type="button"
                       onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }])}
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 text-temple-red/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-red hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
-                      <X className="w-4 h-4 rotate-45" /> 新增人員
+                      <Plus className="w-4 h-4" /> 新增人員
                     </button>
 
                     {/* 備註（共用） */}
@@ -1242,7 +1242,7 @@ const App: React.FC = () => {
                     <h4 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h4>
                     <p className="text-gray-500 text-sm mb-2">感謝您的報名，廟方將與您確認相關細節。</p>
                     <p className="text-gray-400 text-xs mb-6">共 {blessingPersons.length} 人</p>
-                    <button onClick={() => setBlessingModal(null)} className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-semibold hover:bg-temple-red/90 transition-colors">關閉</button>
+                    <button onClick={() => setBlessingModal(null)} className="px-6 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors">關閉</button>
                   </div>
                 ) : (
                   <form onSubmit={handleBlessingSubmit} className="space-y-4">
@@ -1272,12 +1272,12 @@ const App: React.FC = () => {
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">姓名 *</label>
                             <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="姓名" />
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="姓名" />
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">性別</label>
                             <select value={p.gender} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                               <option value="">不指定</option>
                               {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
@@ -1288,7 +1288,7 @@ const App: React.FC = () => {
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">護持方案 *</label>
                             <select required value={p.packageId || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, packageId: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                               <option value="">請選擇方案</option>
                               {blessingModal.packages.map(pkg => (
                                 <option key={pkg.id} value={pkg.id}>
@@ -1306,19 +1306,13 @@ const App: React.FC = () => {
                           onChange={(birthDate, zodiac) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
                         {/* 生肖（自動帶入，可手動修改） */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">生肖（自動帶入，可手動修改）</label>
-                          <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red bg-white">
-                            <option value="">請選擇</option>
-                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3" />居住地址</label>
-                          <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="居住地址" />
-                        </div>
+                        <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                          <option value="">生肖（自動帶入，可手動修改）</option>
+                          {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                        </select>
+                        <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="現居地址（可選）" />
                       </div>
                     ))}
 
@@ -1333,15 +1327,18 @@ const App: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
                       <input value={blessingNotes} onChange={e => setBlessingNotes(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="如有匯款請填寫帳號後五碼" />
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="完成匯款後請填寫帳號後五碼，以利核對" />
                     </div>
 
                     {blessingStatus === 'error' && (
-                      <p className="text-red-500 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />送出失敗，請稍後再試。</p>
+                      <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-lg">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        送出失敗，請稍後再試。
+                      </div>
                     )}
                     <button type="submit" disabled={blessingStatus === 'loading'}
-                      className="w-full py-3 bg-temple-red text-white font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:opacity-60">
-                      {blessingStatus === 'loading' ? '送出中…' : `確認報名（共 ${blessingPersons.length} 人）`}
+                      className="w-full py-3 bg-temple-red text-white font-bold rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                      {blessingStatus === 'loading' ? '送出中...' : `確認報名（共 ${blessingPersons.length} 人）`}
                     </button>
                     {!sharedSession && (
                       <button type="button" onClick={() => handleCreateSharedSession('blessing')}
@@ -1391,7 +1388,7 @@ const App: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setDonationStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#5C1A04] transition-colors"
+                    className="px-6 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors"
                   >
                     返回
                   </button>
@@ -1433,7 +1430,7 @@ const App: React.FC = () => {
                           placeholder="大德姓名 *"
                           value={p.name}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                         <input
                           required
@@ -1442,22 +1439,22 @@ const App: React.FC = () => {
                           min="1"
                           value={p.amount || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                         <select
                           required
                           value={p.type}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white text-sm"
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
                         >
                           {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                         <input
                           type="text"
-                          placeholder="聯絡地址（可選）"
+                          placeholder="現居地址（可選）"
                           value={p.address}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="sm:col-span-3 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none text-sm"
+                          className="sm:col-span-3 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                       </div>
                     </div>
@@ -1466,7 +1463,7 @@ const App: React.FC = () => {
                   <button type="button"
                     onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
                     className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
-                    <X className="w-4 h-4 rotate-45" /> 新增人員
+                    <Plus className="w-4 h-4" /> 新增人員
                   </button>
 
                   <div>
@@ -1475,7 +1472,7 @@ const App: React.FC = () => {
                       id="don_notes"
                       value={donationNotes}
                       onChange={e => setDonationNotes(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none"
                       placeholder="完成匯款後請填寫帳號後五碼，以利核對"
                     />
                   </div>
@@ -1491,19 +1488,10 @@ const App: React.FC = () => {
                     <button
                       type="submit"
                       disabled={donationStatus === 'loading'}
-                      className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
-                        ${donationStatus === 'loading'
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1'}`}
+                      className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                     >
-                      {donationStatus === 'loading' ? (
-                        <span>處理中...</span>
-                      ) : (
-                        <>
-                          <HeartHandshake className="w-5 h-5" />
-                          確認捐獻護持（共 {donationPersons.length} 人）
-                        </>
-                      )}
+                      <HeartHandshake className="w-5 h-5" />
+                      {donationStatus === 'loading' ? '送出中...' : `確認捐獻護持（共 ${donationPersons.length} 人）`}
                     </button>
                   </div>
                 </form>
@@ -1561,7 +1549,7 @@ const App: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setBookingStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-md hover:bg-[#5C1A04] transition-colors"
+                    className="px-6 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors"
                   >
                     再預約一筆
                   </button>
@@ -1601,7 +1589,7 @@ const App: React.FC = () => {
                         <input required type="text" placeholder="信眾大名 *"
                           value={p.name}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
+                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
                         {/* 生日選擇器 */}
                         <BirthDatePicker
                           key={`booking-${p.id}-${p._bKey ?? 0}`}
@@ -1613,20 +1601,20 @@ const App: React.FC = () => {
                           {/* 生肖（自動帶入，可手動修改） */}
                           <select value={p.zodiac || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
-                            <option value="">生肖（自動帶入）</option>
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">生肖（自動帶入，可手動修改）</option>
                             {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
                           </select>
                           <select required value={p.type}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none bg-white">
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                             {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                         </div>
                         <input required type="text" placeholder="現居地址 *"
                           value={p.address}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-gold outline-none" />
+                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
                       </div>
                     </div>
                   ))}
@@ -1635,7 +1623,7 @@ const App: React.FC = () => {
                   <button type="button"
                     onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }])}
                     className="w-full py-2.5 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
-                    <X className="w-4 h-4 rotate-45" /> 新增人員
+                    <Plus className="w-4 h-4" /> 新增人員
                   </button>
 
                   {/* 共用：日期、時段 */}
@@ -1648,13 +1636,13 @@ const App: React.FC = () => {
                           if (e.target.value && d.getDay() !== 6) { alert('抱歉，目前僅開放每週六預約問事。'); return; }
                           setBookingDate(e.target.value);
                         }}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none" />
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
                       <p className="text-xs text-gray-400 mt-1">請選擇週六日期</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">希望時段 (限晚上) *</label>
                       <select required value={bookingTime} onChange={e => setBookingTime(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none bg-white">
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white">
                         <option value="">請選擇時段</option>
                         <option value="evening">晚上 (19:00 - 21:00)</option>
                       </select>
@@ -1664,7 +1652,7 @@ const App: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
                     <textarea rows={3} value={bookingNotes} onChange={e => setBookingNotes(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-gold focus:border-transparent transition-all outline-none"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none"
                       placeholder="請簡述您想請示的問題..." />
                   </div>
 
@@ -1677,11 +1665,9 @@ const App: React.FC = () => {
 
                   <div className="pt-4">
                     <button type="submit" disabled={bookingStatus === 'loading'}
-                      className={`w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all
-                        ${bookingStatus === 'loading' ? 'bg-gray-400 cursor-not-allowed' : 'bg-temple-gold text-temple-red hover:bg-amber-400 hover:shadow-xl transform hover:-translate-y-1'}`}>
-                      {bookingStatus === 'loading' ? <span>處理中...</span> : (
-                        <><Flame className="w-5 h-5 fill-current" />確認送出預約（共 {bookingPersons.length} 人）</>
-                      )}
+                      className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
+                      <Flame className="w-5 h-5" />
+                      {bookingStatus === 'loading' ? '送出中...' : `確認送出預約（共 ${bookingPersons.length} 人）`}
                     </button>
                     <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
                     {!sharedSession && (
@@ -1733,10 +1719,10 @@ const App: React.FC = () => {
                   <span className="sr-only">Facebook</span>
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
                 </a>
-                <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
+                <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
                   <span className="sr-only">Instagram</span>
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465C9.673 2.013 10.03 2 12.484 2h.05m0 5.238a5.238 5.238 0 110 10.476 5.238 5.238 0 010-10.476zm0 2.162a3.077 3.077 0 100 6.154 3.077 3.077 0 000-6.154zM20.24 6.388a1.44 1.44 0 10-2.88 0 1.44 1.44 0 002.88 0z" clipRule="evenodd" /></svg>
-                </button>
+                </a>
               </div>
             </div>
 
