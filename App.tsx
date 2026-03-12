@@ -625,15 +625,15 @@ const App: React.FC = () => {
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>
                       {bulletin.linkedService && (() => {
-                        const svcLabel: Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
+                        const svcLabel:  Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
+                        const svcAnchor: Record<string, string> = { lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation' };
                         return (
-                          <a
-                            href={`#${bulletin.linkedService}`}
-                            onClick={e => e.stopPropagation()}
+                          <button
+                            onClick={e => { e.stopPropagation(); scrollToSection(svcAnchor[bulletin.linkedService!] ?? bulletin.linkedService!); }}
                             className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
                           >
                             前往{svcLabel[bulletin.linkedService!] ?? ''}登記 →
-                          </a>
+                          </button>
                         );
                       })()}
                     </div>
