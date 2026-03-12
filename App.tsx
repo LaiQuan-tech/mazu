@@ -834,7 +834,7 @@ const App: React.FC = () => {
                     {lampPersons.map((p, idx) => (
                       <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-600">人員 {idx + 1}</span>
+                          <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位燈主</span>
                           <div className="flex items-center gap-2">
                             <button type="button" onClick={() => handleOpenContactPicker('lamp', p.id)}
                               className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
@@ -974,7 +974,7 @@ const App: React.FC = () => {
                   {bookingPersons.map((p, idx) => (
                     <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-600">人員 {idx + 1}</span>
+                        <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位問事者</span>
                         <div className="flex items-center gap-2">
                           <button type="button" onClick={() => handleOpenContactPicker('booking', p.id)}
                             className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
@@ -1131,7 +1131,7 @@ const App: React.FC = () => {
                   {donationPersons.map((p, idx) => (
                     <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-600">人員 {idx + 1}</span>
+                        <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位大德</span>
                         <div className="flex items-center gap-2">
                           <button type="button" onClick={() => handleOpenContactPicker('donation', p.id)}
                             className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
