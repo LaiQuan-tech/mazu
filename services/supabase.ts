@@ -1086,6 +1086,50 @@ export const saveProfile = async (data: ProfileData): Promise<boolean> => {
   return true;
 };
 
+// ─── Member Registration History (會員報名紀錄) ──────────────────────────────
+
+export const getMyLampRegistrations = async (phone: string): Promise<LampRegistrationRecord[]> => {
+  const { data, error } = await supabase
+    .from('lamp_registrations')
+    .select('*')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(row => ({
+    id: row.id, serviceId: row.service_id, name: row.name, phone: row.phone,
+    birthDate: row.birth_date, zodiac: row.zodiac as ZodiacSign | undefined,
+    address: row.address || undefined, contactLabel: row.contact_label || undefined,
+    notes: row.notes || undefined, status: row.status as LampRegistrationStatus,
+    createdAt: row.created_at,
+  }));
+};
+
+export const getMyBookings = async (phone: string): Promise<BookingRecord[]> => {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(row => ({
+    id: row.id, name: row.name, phone: row.phone, birthDate: row.birth_date,
+    zodiac: row.zodiac as ZodiacSign | undefined, address: row.address || undefined,
+    contactLabel: row.contact_label || undefined, bookingDate: row.booking_date,
+    bookingTime: row.booking_time, type: row.type, notes: row.notes || undefined,
+    status: row.status as BookingStatus, createdAt: row.created_at,
+  }));
+};
+
+export const getMyBlessingRegistrations = async (phone: string): Promise<BlessingRegistrationRecord[]> => {
+  const { data, error } = await supabase
+    .from('blessing_registrations')
+    .select('*')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(mapBlessingReg);
+};
+
 // ─── Shared Sessions (共享報名表) ────────────────────────────────────────────
 
 const mapSharedEntry = (row: any): SharedEntryRecord => ({
