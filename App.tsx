@@ -1020,7 +1020,7 @@ const App: React.FC = () => {
                   {/* 新增人員 */}
                   <button type="button"
                     onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }])}
-                    className="w-full py-2.5 border-2 border-dashed border-white/30 text-white/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-gold hover:bg-white/5 transition-all flex items-center justify-center gap-1.5">
+                    className="w-full py-2.5 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                     <X className="w-4 h-4 rotate-45" /> 新增人員
                   </button>
 
