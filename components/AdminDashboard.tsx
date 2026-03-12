@@ -443,10 +443,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, memberProfiles, us
   memberProfiles: MemberProfileRecord[];
   usersLastLogin: Record<string, string>;
 }) => {
-  const [search, setSearch] = useState('');
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-
   // 已註冊會員詳情
   const [selectedProfile, setSelectedProfile] = useState<MemberProfileRecord | null>(null);
   const [profileContacts, setProfileContacts] = useState<MemberContact[]>([]);
@@ -468,30 +464,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, memberProfiles, us
     const dn = donations.filter(d => d.phone === memberPhone && d.name === contactName);
     return { lamps, bookingCount: bkCount, donation: dn.reduce((s, d) => s + Number(d.amount), 0) };
   };
-
-  // 依電話聚合成「信眾」（未註冊者）
-  const members = useMemo(() => {
-    const map = new Map<string, { phone: string; name: string; bookings: BookingRecord[]; donations: DonationRecord[] }>();
-    [...bookings].sort((a, b) => (a.createdAt > b.createdAt ? 1 : -1)).forEach(b => {
-      if (!map.has(b.phone)) map.set(b.phone, { phone: b.phone, name: b.name, bookings: [], donations: [] });
-      const m = map.get(b.phone)!; m.bookings.push(b); m.name = b.name;
-    });
-    [...donations].sort((a, b) => (a.createdAt > b.createdAt ? 1 : -1)).forEach(d => {
-      if (!map.has(d.phone)) map.set(d.phone, { phone: d.phone, name: d.name, bookings: [], donations: [] });
-      const m = map.get(d.phone)!; m.donations.push(d); if (!m.name) m.name = d.name;
-    });
-    return Array.from(map.values()).sort((a, b) => (b.bookings.length + b.donations.length) - (a.bookings.length + a.donations.length));
-  }, [bookings, donations]);
-
-  const filtered = useMemo(() => {
-    if (!search) return members;
-    const q = search.toLowerCase();
-    return members.filter(m => m.name.toLowerCase().includes(q) || m.phone.includes(q));
-  }, [members, search]);
-
-  useEffect(() => { setPage(0); }, [search]);
-  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const selected = useMemo(() => selectedPhone ? members.find(m => m.phone === selectedPhone) ?? null : null, [selectedPhone, members]);
 
   // ── 已註冊會員詳情頁 ──
   if (selectedProfile) {
@@ -589,80 +561,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, memberProfiles, us
     );
   }
 
-  // ── 信眾詳細頁（依電話聚合，未註冊者） ──
-  if (selected) {
-    const totalDonation = selected.donations.reduce((s, d) => s + Number(d.amount), 0);
-    const lampCount = lampRegistrations.filter(l => l.phone === selected.phone).length;
-    return (
-      <div>
-        <button onClick={() => setSelectedPhone(null)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> 返回信眾列表
-        </button>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-              <User className="w-6 h-6 text-temple-red" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-bold text-gray-800">{selected.name}</h2>
-              <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{selected.phone}</p>
-            </div>
-          </div>
-          <StatBadges lamps={lampCount} bookingCount={selected.bookings.length} donation={totalDonation} />
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-temple-red" />
-            <h3 className="font-semibold text-gray-700">問事紀錄 <span className="text-gray-400 font-normal text-sm">（{selected.bookings.length} 筆）</span></h3>
-          </div>
-          {selected.bookings.length === 0 ? <p className="p-5 text-gray-400 text-sm">尚無問事紀錄</p> : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-50">
-                <thead className="bg-gray-50"><tr>{['姓名', '預約日期', '問事項目', '狀態', '備註'].map(h => <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-gray-50">
-                  {selected.bookings.map(b => (
-                    <tr key={b.id} className="hover:bg-gray-50">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-800">{b.name}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{b.bookingDate}</td>
-                      <td className="px-5 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{b.type}</span></td>
-                      <td className="px-5 py-3">{statusBadge(b.status)}</td>
-                      <td className="px-5 py-3 text-sm text-gray-500 max-w-[160px] truncate">{b.notes || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-            <HeartHandshake className="w-4 h-4 text-green-600" />
-            <h3 className="font-semibold text-gray-700">捐款紀錄 <span className="text-gray-400 font-normal text-sm">（{selected.donations.length} 筆）</span></h3>
-          </div>
-          {selected.donations.length === 0 ? <p className="p-5 text-gray-400 text-sm">尚無捐款紀錄</p> : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-50">
-                <thead className="bg-gray-50"><tr>{['姓名', '日期', '金額', '類型', '備註'].map(h => <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-gray-50">
-                  {selected.donations.map(d => (
-                    <tr key={d.id} className="hover:bg-gray-50">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-800">{d.name}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(d.createdAt)}</td>
-                      <td className="px-5 py-3 text-sm font-bold text-green-700">NT$ {Number(d.amount).toLocaleString()}</td>
-                      <td className="px-5 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span></td>
-                      <td className="px-5 py-3 text-sm text-gray-500 max-w-[160px] truncate">{d.notes || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   // ── 列表頁 ──
   return (
     <div>
@@ -718,45 +616,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, memberProfiles, us
         </div>
       )}
 
-      {/* ── 信眾列表（依問事/捐款記錄聚合，不顯示電話） ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-sm font-semibold text-gray-500">問事 / 捐款信眾
-          <span className="ml-1.5 font-normal text-gray-400">{filtered.length} 位</span>
-        </h3>
-      </div>
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名…"
-          className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            <Users className="w-10 h-10 mx-auto mb-3 text-gray-200" /><p>沒有符合的信眾</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {paged.map(m => {
-              const totalDonation = m.donations.reduce((s, d) => s + Number(d.amount), 0);
-              const lampCount = lampRegistrations.filter(l => l.phone === m.phone).length;
-              return (
-                <button key={m.phone} type="button" onClick={() => setSelectedPhone(m.phone)}
-                  className="w-full px-5 py-4 flex flex-wrap items-center gap-3 hover:bg-gray-50 transition-colors text-left group">
-                  <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 mb-1.5">{m.name}</p>
-                    <StatBadges lamps={lampCount} bookingCount={m.bookings.length} donation={totalDonation} />
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-300 shrink-0 group-hover:text-temple-red transition-colors" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <Paginator total={filtered.length} page={page} onChange={setPage} />
-      </div>
     </div>
   );
 };
