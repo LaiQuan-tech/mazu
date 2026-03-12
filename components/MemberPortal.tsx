@@ -1181,7 +1181,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
         <ContactFormModal
           initial={editingContact
             ? { label: editingContact.label, name: editingContact.name, phone: editingContact.phone, birthDate: editingContact.birthDate, zodiac: editingContact.zodiac, gender: editingContact.gender, address: editingContact.address }
-            : emptyContactForm()
+            : { ...emptyContactForm(), address: profile?.address || undefined }
           }
           onSave={handleSaveContact}
           onCancel={() => { setShowFormModal(false); setEditingContact(null); }}
