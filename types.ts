@@ -233,6 +233,13 @@ export enum BlessingStatus {
   CANCELLED = '已取消'
 }
 
+export interface BlessingEventPackage {
+  id:           string;   // 前端用 nanoid / random string
+  name:         string;   // 方案名稱，e.g. '基礎護持'
+  fee:          number;   // 方案費用
+  description?: string;   // 簡短說明（選填）
+}
+
 export interface BlessingEventData {
   title: string;
   description?: string;
@@ -240,7 +247,8 @@ export interface BlessingEventData {
   startDate: string;          // YYYY-MM-DD
   endDate: string;            // YYYY-MM-DD（單日則同 startDate）
   registrationDeadline?: string; // ISO datetime
-  fee: number;
+  fee: number;                // 無方案時的統一費用（有方案時可設 0）
+  packages: BlessingEventPackage[]; // 多方案（空陣列表示只有單一費用）
   imageUrl?: string;
   isActive: boolean;
   sortOrder: number;
@@ -261,6 +269,8 @@ export interface BlessingRegistrationData {
   gender?: string;
   address?: string;
   notes?: string;
+  packageName?: string;   // 所選方案名稱（無方案時為 undefined）
+  packageFee?:  number;   // 所選方案費用（無方案時為 undefined）
 }
 
 export interface BlessingRegistrationRecord extends BlessingRegistrationData {
@@ -282,4 +292,48 @@ export interface DeityRecord extends DeityData {
   id: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// ─── Shared Registration Session (共享報名表) ────────────────
+export type SharedServiceType = 'lamp' | 'blessing' | 'booking';
+
+export interface SharedSessionConfig {
+  eventId?:     string;   // blessing
+  eventTitle?:  string;   // blessing
+  fee?:         number;   // blessing
+  bookingDate?: string;   // booking
+  bookingTime?: string;   // booking
+}
+
+export interface SharedEntryData {
+  sessionId:     string;
+  name:          string;
+  phone?:        string;
+  birthDate?:    string;
+  zodiac?:       string;
+  gender?:       string;
+  address?:      string;
+  contactLabel?: string;
+  serviceId?:    string;  // lamp：燈種 ID
+  bookingType?:  string;  // booking：ConsultationType value
+  notes?:        string;
+}
+
+export interface SharedEntryRecord extends SharedEntryData {
+  id:        string;
+  createdAt: string;
+}
+
+export interface SharedSessionData {
+  serviceType: SharedServiceType;
+  config:      SharedSessionConfig;
+  notes?:      string;
+}
+
+export interface SharedSessionRecord extends SharedSessionData {
+  id:        string;
+  status:    'open' | 'submitted';
+  entries:   SharedEntryRecord[];
+  createdAt: string;
+  expiresAt: string;
 }

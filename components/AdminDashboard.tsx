@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, supabase } from '../services/supabase';
-import { BlessingEventData, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -2297,7 +2297,7 @@ const BLESSING_EVENT_TYPES = ['法會', '進香', '祭典', '祈福', '其他'];
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
   startDate: '', endDate: '', registrationDeadline: '',
-  fee: 0, imageUrl: '', isActive: true, sortOrder: 0,
+  fee: 0, packages: [], imageUrl: '', isActive: true, sortOrder: 0,
 });
 
 const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
@@ -2337,7 +2337,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
       title: e.title, description: e.description || '',
       eventType: e.eventType, startDate: e.startDate, endDate: e.endDate,
       registrationDeadline: e.registrationDeadline ? e.registrationDeadline.slice(0, 16) : '',
-      fee: e.fee, imageUrl: e.imageUrl || '', isActive: e.isActive, sortOrder: e.sortOrder,
+      fee: e.fee, packages: e.packages || [], imageUrl: e.imageUrl || '', isActive: e.isActive, sortOrder: e.sortOrder,
     });
     setShowModal(true);
   };
@@ -2396,8 +2396,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
     if (!selectedEvent) return;
     exportExcel(
       `祈福報名_${selectedEvent.title}.xlsx`,
-      filteredRegs.map(r => [r.name, r.phone, r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt)]),
-      ['姓名', '電話', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間']
+      filteredRegs.map(r => [r.name, r.phone, r.packageName || '', r.packageFee ?? '', r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt)]),
+      ['姓名', '電話', '方案', '費用', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間']
     );
   };
 
@@ -2424,7 +2424,9 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
               <h2 className="text-lg font-bold text-gray-800">{selectedEvent.title}</h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 {fmtDateRange(selectedEvent.startDate, selectedEvent.endDate)}
-                {selectedEvent.fee > 0 && <span className="ml-3">費用：NT${selectedEvent.fee.toLocaleString()}</span>}
+                {selectedEvent.packages && selectedEvent.packages.length > 0
+                  ? <span className="ml-3">{selectedEvent.packages.length} 個方案・起 NT${Math.min(...selectedEvent.packages.map(p => p.fee)).toLocaleString()}</span>
+                  : selectedEvent.fee > 0 && <span className="ml-3">費用：NT${selectedEvent.fee.toLocaleString()}</span>}
               </p>
             </div>
             <span className="text-sm font-semibold text-temple-red">{eventRegs.length} 筆報名</span>
@@ -2451,6 +2453,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
                     <th className="px-4 py-3 text-left">電話</th>
+                    <th className="px-4 py-3 text-left">方案</th>
                     <th className="px-4 py-3 text-left">生日 / 生肖</th>
                     <th className="px-4 py-3 text-left">地址</th>
                     <th className="px-4 py-3 text-left">備註</th>
@@ -2470,6 +2473,14 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                         {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {r.packageName
+                          ? <span className="inline-flex flex-col gap-0.5">
+                              <span className="text-xs font-medium text-temple-red">{r.packageName}</span>
+                              {r.packageFee !== undefined && <span className="text-xs text-gray-400">NT${r.packageFee.toLocaleString()}</span>}
+                            </span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-500">
                         {r.birthDate && <p>{r.birthDate}</p>}
                         {r.zodiac && <p className="text-xs">{r.zodiac}年</p>}
@@ -2546,10 +2557,60 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">費用（NT$）</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">預設費用（NT$）</label>
                   <input type="number" min={0} value={form.fee} onChange={e => setForm(f => ({ ...f, fee: Number(e.target.value) }))}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="0" />
                 </div>
+              </div>
+              {/* 多方案設定 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700">多方案設定</label>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, packages: [...(f.packages || []), { id: Math.random().toString(36).slice(2), name: '', fee: 0, description: '' }] }))}
+                    className="flex items-center gap-1 text-xs text-temple-red hover:text-temple-red/80 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> 新增方案
+                  </button>
+                </div>
+                {(!form.packages || form.packages.length === 0) ? (
+                  <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+                    無方案（僅使用上方預設費用）。點擊「新增方案」可設定多種護持方案。
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {form.packages.map((pkg, idx) => (
+                      <div key={pkg.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                value={pkg.name}
+                                onChange={e => setForm(f => ({ ...f, packages: f.packages.map((p, i) => i === idx ? { ...p, name: e.target.value } : p) }))}
+                                placeholder="方案名稱 *"
+                                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                              <input
+                                type="number" min={0}
+                                value={pkg.fee}
+                                onChange={e => setForm(f => ({ ...f, packages: f.packages.map((p, i) => i === idx ? { ...p, fee: Number(e.target.value) } : p) }))}
+                                placeholder="費用 NT$"
+                                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                            </div>
+                            <input
+                              value={pkg.description || ''}
+                              onChange={e => setForm(f => ({ ...f, packages: f.packages.map((p, i) => i === idx ? { ...p, description: e.target.value } : p) }))}
+                              placeholder="方案說明（選填）"
+                              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                          </div>
+                          <button type="button"
+                            onClick={() => setForm(f => ({ ...f, packages: f.packages.filter((_, i) => i !== idx) }))}
+                            className="text-red-400 hover:text-red-600 transition-colors shrink-0 mt-0.5">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -2632,7 +2693,9 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-400">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDateRange(e.startDate, e.endDate)}</span>
-                    {e.fee > 0 && <span>費用 NT${e.fee.toLocaleString()}</span>}
+                    {e.packages && e.packages.length > 0
+                      ? <span>{e.packages.length} 個方案・起 NT${Math.min(...e.packages.map(p => p.fee)).toLocaleString()}</span>
+                      : e.fee > 0 && <span>費用 NT${e.fee.toLocaleString()}</span>}
                     {e.registrationDeadline && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />截止 {fmtDate(e.registrationDeadline)}</span>}
                     <span className="text-temple-red font-medium">{count} 筆報名</span>
                   </div>

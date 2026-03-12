@@ -80,6 +80,7 @@ interface BlessingPersonEntry {
   address: string;
   contactLabel?: string;
   _bKey?: number;
+  packageId?: string; // 所選方案 ID（有多方案時）
 }
 
 // 水墨筆刷分隔線元件
@@ -304,18 +305,28 @@ const App: React.FC = () => {
     if (!blessingModal) return;
     const invalid = blessingPersons.find(p => !p.name.trim());
     if (invalid) { alert('請填寫所有人員的姓名'); return; }
+    const hasPackages = blessingModal.packages && blessingModal.packages.length > 0;
+    if (hasPackages && blessingPersons.some(p => !p.packageId)) {
+      alert('請為每位報名者選擇護持方案');
+      return;
+    }
     setBlessingStatus('loading');
     try {
-      await Promise.all(blessingPersons.map(p => createBlessingRegistration({
-        eventId: blessingModal.id,
-        name: p.name.trim(),
-        phone: memberProfile?.phone ?? '',
-        birthDate: p.birthDate || undefined,
-        zodiac: p.zodiac,
-        gender: p.gender || undefined,
-        address: p.address || undefined,
-        notes: blessingNotes || undefined,
-      } as BlessingRegistrationData)));
+      await Promise.all(blessingPersons.map(p => {
+        const pkg = hasPackages ? blessingModal.packages.find(pk => pk.id === p.packageId) : undefined;
+        return createBlessingRegistration({
+          eventId: blessingModal.id,
+          name: p.name.trim(),
+          phone: memberProfile?.phone ?? '',
+          birthDate: p.birthDate || undefined,
+          zodiac: p.zodiac,
+          gender: p.gender || undefined,
+          address: p.address || undefined,
+          notes: blessingNotes || undefined,
+          packageName: pkg?.name,
+          packageFee:  pkg?.fee,
+        } as BlessingRegistrationData);
+      }));
       setBlessingStatus('success');
       setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
       setBlessingNotes('');
@@ -1348,7 +1359,12 @@ const App: React.FC = () => {
                               <Calendar className="w-4 h-4 text-temple-gold" />
                               {ev.startDate === ev.endDate ? ev.startDate : `${ev.startDate} ～ ${ev.endDate}`}
                             </span>
-                            {ev.fee > 0 && (
+                            {ev.packages && ev.packages.length > 0 ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="text-temple-gold">$</span>
+                                {ev.packages.length} 個方案・起 NT${Math.min(...ev.packages.map(p => p.fee)).toLocaleString()}
+                              </span>
+                            ) : ev.fee > 0 && (
                               <span className="flex items-center gap-1.5">
                                 <span className="text-temple-gold">$</span>費用 NT${ev.fee.toLocaleString()}
                               </span>
@@ -1440,6 +1456,21 @@ const App: React.FC = () => {
                             </select>
                           </div>
                         </div>
+                        {/* 護持方案（有多方案時才顯示） */}
+                        {blessingModal.packages && blessingModal.packages.length > 0 && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">護持方案 *</label>
+                            <select required value={p.packageId || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, packageId: e.target.value } : x))}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                              <option value="">請選擇方案</option>
+                              {blessingModal.packages.map(pkg => (
+                                <option key={pkg.id} value={pkg.id}>
+                                  {pkg.name}　NT${pkg.fee.toLocaleString()}{pkg.description ? `　${pkg.description}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                         {/* 生日選擇器 */}
                         <BirthDatePicker
                           key={`blessing-${p.id}-${p._bKey ?? 0}`}
