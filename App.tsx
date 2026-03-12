@@ -1120,6 +1120,244 @@ const App: React.FC = () => {
         </div>
       </section>
 
+      {/* ── 祈福 Section ── */}
+      <section id="blessing" className="py-20 bg-white relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">神明庇佑</h2>
+            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">祈福活動</h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="text-temple-gold text-lg">✦</span>
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
+            <p className="text-gray-500 max-w-xl mx-auto">
+              法會、進香、祭典等各式祈福活動，誠摯邀請善男信女共同參與，祈求神明護佑平安吉祥。
+            </p>
+          </div>
+
+          {blessingEvents.length === 0 ? (
+            <div className="text-center text-gray-400 py-12 text-sm">目前暫無祈福活動，請關注最新公告。</div>
+          ) : (
+            <div className="space-y-5">
+              {blessingEvents.map(ev => {
+                const now = new Date();
+                const deadlinePassed = ev.registrationDeadline ? new Date(ev.registrationDeadline) < now : false;
+                const daysLeft = ev.registrationDeadline
+                  ? Math.ceil((new Date(ev.registrationDeadline).getTime() - now.getTime()) / 86400000)
+                  : null;
+                return (
+                  <div key={ev.id} className="bg-white rounded-2xl border border-temple-gold/30 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="p-6">
+                      <div className="flex flex-wrap items-start gap-4">
+                        {ev.imageUrl
+                          ? <img src={ev.imageUrl} alt={ev.title} className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0 shadow-sm" />
+                          : <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+                              <span className="text-2xl">🙏</span>
+                            </div>
+                        }
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h4 className="text-xl font-bold text-temple-dark font-serif">{ev.title}</h4>
+                            <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium">{ev.eventType}</span>
+                            {deadlinePassed && <span className="text-xs bg-gray-100 text-gray-400 px-2.5 py-1 rounded-full">報名已截止</span>}
+                            {!deadlinePassed && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
+                              <span className="text-xs bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full">剩 {daysLeft} 天截止</span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-500 mb-3">
+                            <span className="flex items-center gap-1.5">
+                              <Calendar className="w-4 h-4 text-temple-gold" />
+                              {ev.startDate === ev.endDate ? ev.startDate : `${ev.startDate} ～ ${ev.endDate}`}
+                            </span>
+                            {ev.packages && ev.packages.length > 0 ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="text-temple-gold">$</span>
+                                {ev.packages.length} 個方案・起 NT${Math.min(...ev.packages.map(p => p.fee)).toLocaleString()}
+                              </span>
+                            ) : ev.fee > 0 && (
+                              <span className="flex items-center gap-1.5">
+                                <span className="text-temple-gold">$</span>費用 NT${ev.fee.toLocaleString()}
+                              </span>
+                            )}
+                            {ev.registrationDeadline && !deadlinePassed && (
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-temple-gold" />
+                                報名截至 {new Date(ev.registrationDeadline).toLocaleDateString('zh-TW')}
+                              </span>
+                            )}
+                          </div>
+                          {ev.description && <p className="text-sm text-gray-500 leading-relaxed">{ev.description}</p>}
+                        </div>
+                        <button
+                          onClick={() => openBlessingModal(ev)}
+                          disabled={deadlinePassed}
+                          className="shrink-0 px-5 py-2.5 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                          {deadlinePassed ? '已截止' : '我要報名'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── 共享報名 Panel（祈福）── */}
+        {sharedSession?.serviceType === 'blessing' && (
+          <div className="max-w-2xl mx-auto px-4 mt-6">
+            <SharedFormPanel
+              session={sharedSession} isCreator={isCreator}
+              lampConfigs={lampConfigs}
+              blessingEvent={blessingEvents.find(ev => ev.id === sharedSession.config.eventId) ?? null}
+              memberProfile={memberProfile}
+              onAddEntries={handleAddSharedEntries}
+              onSubmitAll={handleSubmitSharedSession}
+              onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
+              submitStatus={sharedSubmitStatus}
+            />
+          </div>
+        )}
+
+        {/* ── 祈福報名 Modal ── */}
+        {blessingModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setBlessingModal(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+                <div>
+                  <h3 className="font-bold text-gray-800 text-lg font-serif">{blessingModal.title}</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">{blessingModal.startDate === blessingModal.endDate ? blessingModal.startDate : `${blessingModal.startDate} ～ ${blessingModal.endDate}`}</p>
+                </div>
+                <button onClick={() => setBlessingModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
+              </div>
+
+              <div className="px-6 py-5">
+                {blessingStatus === 'success' ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-green-500" />
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h4>
+                    <p className="text-gray-500 text-sm mb-2">感謝您的報名，廟方將與您確認相關細節。</p>
+                    <p className="text-gray-400 text-xs mb-6">共 {blessingPersons.length} 人</p>
+                    <button onClick={() => setBlessingModal(null)} className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-semibold hover:bg-temple-red/90 transition-colors">關閉</button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleBlessingSubmit} className="space-y-4">
+                    {/* 人員卡片列表 */}
+                    {blessingPersons.map((p, idx) => (
+                      <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-600">
+                            第 {idx + 1} 位報名者{p.contactLabel ? <span className="ml-1.5 text-xs text-temple-red font-normal bg-temple-red/10 px-1.5 py-0.5 rounded-full">{p.contactLabel}</span> : null}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {member && (
+                              <button type="button" onClick={() => handleOpenContactPicker('blessing', p.id)}
+                                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                                <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                              </button>
+                            )}
+                            {blessingPersons.length > 1 && (
+                              <button type="button" onClick={() => setBlessingPersons(prev => prev.filter(x => x.id !== p.id))}
+                                className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">姓名 *</label>
+                            <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="姓名" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">性別</label>
+                            <select value={p.gender} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                              <option value="">不指定</option>
+                              {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        {/* 護持方案（有多方案時才顯示） */}
+                        {blessingModal.packages && blessingModal.packages.length > 0 && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">護持方案 *</label>
+                            <select required value={p.packageId || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, packageId: e.target.value } : x))}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                              <option value="">請選擇方案</option>
+                              {blessingModal.packages.map(pkg => (
+                                <option key={pkg.id} value={pkg.id}>
+                                  {pkg.name}　NT${pkg.fee.toLocaleString()}{pkg.description ? `　${pkg.description}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        {/* 生日選擇器 */}
+                        <BirthDatePicker
+                          key={`blessing-${p.id}-${p._bKey ?? 0}`}
+                          birthDate={p.birthDate}
+                          zodiac={p.zodiac}
+                          onChange={(birthDate, zodiac) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
+                        />
+                        {/* 生肖（自動帶入，可手動修改） */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">生肖（自動帶入，可手動修改）</label>
+                          <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red bg-white">
+                            <option value="">請選擇</option>
+                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3" />居住地址</label>
+                          <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="居住地址" />
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* 新增報名者 */}
+                    <button type="button"
+                      onClick={() => setBlessingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }])}
+                      className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 rounded-xl text-sm text-temple-red hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" /> 新增報名者
+                    </button>
+
+                    {/* 備註（共用） */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
+                      <input value={blessingNotes} onChange={e => setBlessingNotes(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="如有匯款請填寫帳號後五碼" />
+                    </div>
+
+                    {blessingStatus === 'error' && (
+                      <p className="text-red-500 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />送出失敗，請稍後再試。</p>
+                    )}
+                    <button type="submit" disabled={blessingStatus === 'loading'}
+                      className="w-full py-3 bg-temple-red text-white font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:opacity-60">
+                      {blessingStatus === 'loading' ? '送出中…' : `確認報名（共 ${blessingPersons.length} 人）`}
+                    </button>
+                    {!sharedSession && (
+                      <button type="button" onClick={() => handleCreateSharedSession('blessing')}
+                        disabled={creatingShare}
+                        className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
+                      </button>
+                    )}
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
 {/* Donation Section */}
       <section id="donation" className="py-20 bg-temple-bg relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1466,244 +1704,6 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ── 祈福 Section ── */}
-      <section id="blessing" className="py-20 bg-white relative">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2">神明庇佑</h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">祈福活動</h3>
-            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
-              <span className="w-12 h-px bg-temple-gold/70" />
-              <span className="text-temple-gold text-lg">✦</span>
-              <span className="w-12 h-px bg-temple-gold/70" />
-            </div>
-            <p className="text-gray-500 max-w-xl mx-auto">
-              法會、進香、祭典等各式祈福活動，誠摯邀請善男信女共同參與，祈求神明護佑平安吉祥。
-            </p>
-          </div>
-
-          {blessingEvents.length === 0 ? (
-            <div className="text-center text-gray-400 py-12 text-sm">目前暫無祈福活動，請關注最新公告。</div>
-          ) : (
-            <div className="space-y-5">
-              {blessingEvents.map(ev => {
-                const now = new Date();
-                const deadlinePassed = ev.registrationDeadline ? new Date(ev.registrationDeadline) < now : false;
-                const daysLeft = ev.registrationDeadline
-                  ? Math.ceil((new Date(ev.registrationDeadline).getTime() - now.getTime()) / 86400000)
-                  : null;
-                return (
-                  <div key={ev.id} className="bg-white rounded-2xl border border-temple-gold/30 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="p-6">
-                      <div className="flex flex-wrap items-start gap-4">
-                        {ev.imageUrl
-                          ? <img src={ev.imageUrl} alt={ev.title} className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0 shadow-sm" />
-                          : <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                              <span className="text-2xl">🙏</span>
-                            </div>
-                        }
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h4 className="text-xl font-bold text-temple-dark font-serif">{ev.title}</h4>
-                            <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium">{ev.eventType}</span>
-                            {deadlinePassed && <span className="text-xs bg-gray-100 text-gray-400 px-2.5 py-1 rounded-full">報名已截止</span>}
-                            {!deadlinePassed && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
-                              <span className="text-xs bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full">剩 {daysLeft} 天截止</span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-500 mb-3">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar className="w-4 h-4 text-temple-gold" />
-                              {ev.startDate === ev.endDate ? ev.startDate : `${ev.startDate} ～ ${ev.endDate}`}
-                            </span>
-                            {ev.packages && ev.packages.length > 0 ? (
-                              <span className="flex items-center gap-1.5">
-                                <span className="text-temple-gold">$</span>
-                                {ev.packages.length} 個方案・起 NT${Math.min(...ev.packages.map(p => p.fee)).toLocaleString()}
-                              </span>
-                            ) : ev.fee > 0 && (
-                              <span className="flex items-center gap-1.5">
-                                <span className="text-temple-gold">$</span>費用 NT${ev.fee.toLocaleString()}
-                              </span>
-                            )}
-                            {ev.registrationDeadline && !deadlinePassed && (
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="w-4 h-4 text-temple-gold" />
-                                報名截至 {new Date(ev.registrationDeadline).toLocaleDateString('zh-TW')}
-                              </span>
-                            )}
-                          </div>
-                          {ev.description && <p className="text-sm text-gray-500 leading-relaxed">{ev.description}</p>}
-                        </div>
-                        <button
-                          onClick={() => openBlessingModal(ev)}
-                          disabled={deadlinePassed}
-                          className="shrink-0 px-5 py-2.5 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                        >
-                          {deadlinePassed ? '已截止' : '我要報名'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── 共享報名 Panel（祈福）── */}
-        {sharedSession?.serviceType === 'blessing' && (
-          <div className="max-w-2xl mx-auto px-4 mt-6">
-            <SharedFormPanel
-              session={sharedSession} isCreator={isCreator}
-              lampConfigs={lampConfigs}
-              blessingEvent={blessingEvents.find(ev => ev.id === sharedSession.config.eventId) ?? null}
-              memberProfile={memberProfile}
-              onAddEntries={handleAddSharedEntries}
-              onSubmitAll={handleSubmitSharedSession}
-              onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
-              submitStatus={sharedSubmitStatus}
-            />
-          </div>
-        )}
-
-        {/* ── 祈福報名 Modal ── */}
-        {blessingModal && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setBlessingModal(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg font-serif">{blessingModal.title}</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">{blessingModal.startDate === blessingModal.endDate ? blessingModal.startDate : `${blessingModal.startDate} ～ ${blessingModal.endDate}`}</p>
-                </div>
-                <button onClick={() => setBlessingModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
-              </div>
-
-              <div className="px-6 py-5">
-                {blessingStatus === 'success' ? (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle2 className="w-8 h-8 text-green-500" />
-                    </div>
-                    <h4 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h4>
-                    <p className="text-gray-500 text-sm mb-2">感謝您的報名，廟方將與您確認相關細節。</p>
-                    <p className="text-gray-400 text-xs mb-6">共 {blessingPersons.length} 人</p>
-                    <button onClick={() => setBlessingModal(null)} className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-semibold hover:bg-temple-red/90 transition-colors">關閉</button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleBlessingSubmit} className="space-y-4">
-                    {/* 人員卡片列表 */}
-                    {blessingPersons.map((p, idx) => (
-                      <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-600">
-                            第 {idx + 1} 位報名者{p.contactLabel ? <span className="ml-1.5 text-xs text-temple-red font-normal bg-temple-red/10 px-1.5 py-0.5 rounded-full">{p.contactLabel}</span> : null}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {member && (
-                              <button type="button" onClick={() => handleOpenContactPicker('blessing', p.id)}
-                                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                                <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
-                              </button>
-                            )}
-                            {blessingPersons.length > 1 && (
-                              <button type="button" onClick={() => setBlessingPersons(prev => prev.filter(x => x.id !== p.id))}
-                                className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">姓名 *</label>
-                            <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="姓名" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">性別</label>
-                            <select value={p.gender} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-                              <option value="">不指定</option>
-                              {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                        {/* 護持方案（有多方案時才顯示） */}
-                        {blessingModal.packages && blessingModal.packages.length > 0 && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">護持方案 *</label>
-                            <select required value={p.packageId || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, packageId: e.target.value } : x))}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-                              <option value="">請選擇方案</option>
-                              {blessingModal.packages.map(pkg => (
-                                <option key={pkg.id} value={pkg.id}>
-                                  {pkg.name}　NT${pkg.fee.toLocaleString()}{pkg.description ? `　${pkg.description}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                        {/* 生日選擇器 */}
-                        <BirthDatePicker
-                          key={`blessing-${p.id}-${p._bKey ?? 0}`}
-                          birthDate={p.birthDate}
-                          zodiac={p.zodiac}
-                          onChange={(birthDate, zodiac) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
-                        />
-                        {/* 生肖（自動帶入，可手動修改） */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">生肖（自動帶入，可手動修改）</label>
-                          <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red bg-white">
-                            <option value="">請選擇</option>
-                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}年</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3 h-3" />居住地址</label>
-                          <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="居住地址" />
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* 新增報名者 */}
-                    <button type="button"
-                      onClick={() => setBlessingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }])}
-                      className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 rounded-xl text-sm text-temple-red hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-2">
-                      <Plus className="w-4 h-4" /> 新增報名者
-                    </button>
-
-                    {/* 備註（共用） */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
-                      <input value={blessingNotes} onChange={e => setBlessingNotes(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="如有匯款請填寫帳號後五碼" />
-                    </div>
-
-                    {blessingStatus === 'error' && (
-                      <p className="text-red-500 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />送出失敗，請稍後再試。</p>
-                    )}
-                    <button type="submit" disabled={blessingStatus === 'loading'}
-                      className="w-full py-3 bg-temple-red text-white font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:opacity-60">
-                      {blessingStatus === 'loading' ? '送出中…' : `確認報名（共 ${blessingPersons.length} 人）`}
-                    </button>
-                    {!sharedSession && (
-                      <button type="button" onClick={() => handleCreateSharedSession('blessing')}
-                        disabled={creatingShare}
-                        className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                        <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
-                      </button>
-                    )}
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* Footer */}
