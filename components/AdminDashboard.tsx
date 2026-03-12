@@ -106,6 +106,158 @@ const Paginator = ({ total, page, onChange }: { total: number; page: number; onC
   );
 };
 
+// ─── Member Info Modal (點選信眾快速查看) ──────────────────────────────────────
+
+interface RegViewItem {
+  name: string;
+  phone: string;
+  birthDate?: string;
+  zodiac?: string;
+  gender?: string;
+  address?: string;
+  notes?: string;
+  status?: string;
+  serviceLabel?: string;
+  createdAt: string;
+  contactLabel?: string;
+}
+
+const MemberInfoModal = ({
+  reg,
+  memberProfiles,
+  onClose,
+}: {
+  reg: RegViewItem;
+  memberProfiles: MemberProfileRecord[];
+  onClose: () => void;
+}) => {
+  const member = reg.phone
+    ? memberProfiles.find(m => m.phone === reg.phone)
+    : memberProfiles.find(m => m.name === reg.name);
+
+  const initials = (name: string) => name ? name.slice(-2) : '?';
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[85vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+            <User className="w-4 h-4 text-gray-400" />
+            信眾資料
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100">
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Registration Info */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">登記資訊</p>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              {reg.serviceLabel && (
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0 pt-0.5">服務</span>
+                  <span className="text-sm font-medium text-gray-800">{reg.serviceLabel}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-14 shrink-0">姓名</span>
+                <span className="text-sm font-semibold text-gray-800">
+                  {reg.name}
+                  {reg.contactLabel && (
+                    <span className="ml-1.5 text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">
+                      #{reg.contactLabel}
+                    </span>
+                  )}
+                </span>
+              </div>
+              {reg.gender && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0">性別</span>
+                  <span className="text-sm text-gray-700">{reg.gender}</span>
+                </div>
+              )}
+              {reg.birthDate && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0">農曆生日</span>
+                  <span className="text-sm text-gray-700">
+                    {reg.birthDate}{reg.zodiac ? `　生肖：${reg.zodiac}` : ''}
+                  </span>
+                </div>
+              )}
+              {reg.address && (
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0 pt-0.5">地址</span>
+                  <span className="text-sm text-gray-700">{reg.address}</span>
+                </div>
+              )}
+              {reg.notes && (
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0 pt-0.5">備註</span>
+                  <span className="text-sm text-gray-700">{reg.notes}</span>
+                </div>
+              )}
+              {reg.status && (
+                <div className="flex items-center gap-2 pt-0.5 border-t border-gray-200 mt-1">
+                  <span className="text-xs text-gray-400 w-14 shrink-0">狀態</span>
+                  <span className="text-sm font-medium text-gray-700">{reg.status}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-14 shrink-0">登記時間</span>
+                <span className="text-xs text-gray-400">{fmtDate(reg.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Member Profile */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">會員帳號資料</p>
+            {member ? (
+              <div className="bg-temple-red/5 border border-temple-red/15 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-temple-red flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {initials(member.name)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800">{member.name}</p>
+                    {member.phone && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3 h-3" />{member.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {member.birthDate && (
+                    <p className="text-xs text-gray-600">
+                      農曆生日：{member.birthDate}{member.zodiac ? `　生肖：${member.zodiac}` : ''}
+                    </p>
+                  )}
+                  {member.gender && <p className="text-xs text-gray-600">性別：{member.gender}</p>}
+                  {member.address && <p className="text-xs text-gray-600">地址：{member.address}</p>}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 bg-gray-50 rounded-xl p-4 text-center">
+                {reg.phone ? '此電話尚無對應會員帳號' : '無法連結會員帳號'}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 const OverviewTab = ({ bookings, donations }: { bookings: BookingRecord[]; donations: DonationRecord[] }) => {
@@ -155,16 +307,18 @@ const OverviewTab = ({ bookings, donations }: { bookings: BookingRecord[]; donat
 
 // ─── Bookings Tab ─────────────────────────────────────────────────────────────
 
-const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
+const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   bookings: BookingRecord[];
   onStatusChange: (id: string, status: BookingStatus) => void;
   updatingId: string | null;
+  memberProfiles: MemberProfileRecord[];
 }) => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
   const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
   const [page, setPage] = useState(0);
+  const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
   const filtered = useMemo(() => {
     const result = bookings.filter(b => {
@@ -246,7 +400,10 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {paged.map(b => (
-                  <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={b.id}
+                    className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                    onClick={() => setQuickView({ name: b.name, phone: b.phone, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel })}
+                  >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
@@ -275,7 +432,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
                       <p className="text-xs text-gray-400 mt-1">{fmtDate(b.createdAt)}</p>
                     </td>
                     <td className="px-5 py-4">{statusBadge(b.status)}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                       <select value={b.status || BookingStatus.PENDING}
                         onChange={e => onStatusChange(b.id, e.target.value as BookingStatus)}
                         disabled={updatingId === b.id}
@@ -291,17 +448,19 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId }: {
           </div>
         )}
       </div>
+      {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
     </div>
   );
 };
 
 // ─── Donations Tab ────────────────────────────────────────────────────────────
 
-const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
+const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord[]; memberProfiles: MemberProfileRecord[] }) => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
   const [page, setPage] = useState(0);
+  const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
   const filtered = useMemo(() => {
     const result = donations.filter(d => {
@@ -380,7 +539,10 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {paged.map(d => (
-                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={d.id}
+                    className="hover:bg-green-50/40 transition-colors cursor-pointer"
+                    onClick={() => setQuickView({ name: d.name, phone: d.phone, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel })}
+                  >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center shrink-0">
@@ -416,6 +578,7 @@ const DonationsTab = ({ donations }: { donations: DonationRecord[] }) => {
           </div>
         )}
       </div>
+      {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
     </div>
   );
 };
@@ -1677,13 +1840,15 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
 // ─── Lamps Tab (點燈服務管理) ─────────────────────────────────────────────────
 
 const LampsTab = ({
-  configs, registrations, onRefresh,
+  configs, registrations, onRefresh, memberProfiles,
 }: {
   configs: LampServiceConfig[];
   registrations: LampRegistrationRecord[];
   onRefresh: () => void;
+  memberProfiles: MemberProfileRecord[];
 }) => {
   const [view, setView] = useState<'configs' | 'registrations'>('configs');
+  const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
   // ── Service config state ──
   const [editingConfig, setEditingConfig] = useState<LampServiceConfig | null>(null);
@@ -1965,7 +2130,10 @@ const LampsTab = ({
           {/* Cards */}
           <div className="space-y-3">
             {pagedRegs.map(r => (
-              <div key={r.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4">
+              <div key={r.id}
+                className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 cursor-pointer hover:border-orange-200 hover:bg-orange-50/30 transition-colors"
+                onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel })}
+              >
                 <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
                   <Flame className="w-5 h-5 text-orange-500" />
                 </div>
@@ -1988,7 +2156,7 @@ const LampsTab = ({
                   {r.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{r.notes}</p>}
                   <p className="text-xs text-gray-300 mt-1">{fmtDate(r.createdAt)}</p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                   <select
                     value={r.status}
                     disabled={updatingRegId === r.id}
@@ -2021,6 +2189,8 @@ const LampsTab = ({
           </div>
         </div>
       )}
+
+      {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
 
       {/* ── Config Modal ── */}
       {showConfigModal && (
@@ -2130,10 +2300,11 @@ const emptyBlessingForm = (): BlessingEventData => ({
   fee: 0, imageUrl: '', isActive: true, sortOrder: 0,
 });
 
-const BlessingsTab = ({ events, registrations, onRefresh }: {
+const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
   events: BlessingEventRecord[];
   registrations: BlessingRegistrationRecord[];
   onRefresh: () => void;
+  memberProfiles: MemberProfileRecord[];
 }) => {
   const [view, setView] = useState<'list' | 'regs'>('list');
   const [selectedEvent, setSelectedEvent] = useState<BlessingEventRecord | null>(null);
@@ -2146,6 +2317,7 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
   const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
   const [regSearch, setRegSearch] = useState('');
   const [uploadingBlessingImg, setUploadingBlessingImg] = useState(false);
+  const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
   const handleBlessingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2289,7 +2461,10 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filteredRegs.map(r => (
-                    <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                    <tr key={r.id}
+                      className="hover:bg-purple-50/40 transition-colors cursor-pointer"
+                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt })}
+                    >
                       <td className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                         {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
@@ -2301,7 +2476,7 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || '—'}</td>
                       <td className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <select value={r.status} disabled={updatingRegId === r.id}
                           onChange={e => handleRegStatus(r.id, e.target.value as BlessingStatus)}
                           className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-temple-red">
@@ -2309,7 +2484,7 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
                         </select>
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleDeleteReg(r.id)} disabled={deletingRegId === r.id}
                           className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40">
                           <Trash2 className="w-4 h-4" />
@@ -2322,6 +2497,7 @@ const BlessingsTab = ({ events, registrations, onRefresh }: {
             </div>
           )}
         </div>
+        {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
       </div>
     );
   }
@@ -2620,15 +2796,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           ) : (
             <>
               {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} />}
-              {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} />}
-              {tab === 'donations' && <DonationsTab donations={donations} />}
+              {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
+              {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
               {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
-              {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} />}
-              {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} />}
+              {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
+              {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
             </>
           )}
         </div>
