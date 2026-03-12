@@ -315,6 +315,7 @@ export interface SharedEntryData {
   address?:      string;
   contactLabel?: string;
   serviceId?:    string;  // lamp：燈種 ID
+  packageId?:    string;  // blessing：方案 ID
   bookingType?:  string;  // booking：ConsultationType value
   notes?:        string;
 }

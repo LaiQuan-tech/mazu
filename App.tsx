@@ -26,15 +26,19 @@ import {
   User as UserIcon,
   BookUser,
   Plus,
-  Sparkles
+  Sparkles,
+  Share2,
+  Copy,
+  CheckCircle
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, supabase } from './services/supabase';
+import { BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, supabase } from './services/supabase';
+import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 import MemberPortal from './components/MemberPortal';
@@ -124,6 +128,14 @@ const App: React.FC = () => {
   const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
   const [blessingNotes, setBlessingNotes] = useState('');
   const [blessingStatus, setBlessingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  // ── 共享報名表 ──
+  const [sharedSession,      setSharedSession]      = useState<SharedSessionRecord | null>(null);
+  const [isCreator,          setIsCreator]           = useState(false);
+  const [showShareModal,     setShowShareModal]      = useState(false);
+  const [creatingShare,      setCreatingShare]       = useState(false);
+  const [sharedSubmitStatus, setSharedSubmitStatus]  = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [urlCopied,          setUrlCopied]           = useState(false);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,6 +237,20 @@ const App: React.FC = () => {
       if (session?.user) { loadMemberContacts(); loadMemberProfile(); }
       else { setMemberContacts([]); setMemberProfile(null); }
     });
+
+    // ── 共享報名表 URL 偵測 ──
+    const shareId = new URLSearchParams(window.location.search).get('share');
+    if (shareId) {
+      getSharedSession(shareId).then(session => {
+        if (!session) return;
+        setSharedSession(session);
+        if (localStorage.getItem(`shared_creator_${shareId}`) === 'true') setIsCreator(true);
+        setTimeout(() => scrollToSection(
+          session.serviceType === 'lamp'     ? 'lamps'    :
+          session.serviceType === 'blessing' ? 'blessing' : 'booking'
+        ), 600);
+      });
+    }
 
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -350,6 +376,96 @@ const App: React.FC = () => {
     }
     setIsMenuOpen(false);
   };
+
+  // ── 共享報名表 handlers ──
+  const handleCreateSharedSession = async (type: SharedServiceType) => {
+    setCreatingShare(true);
+    try {
+      let config: SharedSessionConfig = {};
+      if (type === 'blessing' && blessingModal)
+        config = { eventId: blessingModal.id, eventTitle: blessingModal.title, fee: blessingModal.fee };
+      else if (type === 'booking')
+        config = { bookingDate, bookingTime };
+
+      const session = await createSharedSession({ serviceType: type, config });
+      setSharedSession(session);
+      setIsCreator(true);
+      localStorage.setItem(`shared_creator_${session.id}`, 'true');
+      const url = new URL(window.location.href);
+      url.searchParams.set('share', session.id);
+      window.history.pushState({}, '', url.toString());
+      setShowShareModal(true);
+    } catch { alert('建立共享報名表失敗'); }
+    finally { setCreatingShare(false); }
+  };
+
+  const handleAddSharedEntries = async (entries: Omit<SharedEntryData, 'sessionId'>[]) => {
+    if (!sharedSession) return;
+    await Promise.all(entries.map(e => addSharedEntry({ sessionId: sharedSession.id, ...e })));
+    const updated = await getSharedSession(sharedSession.id);
+    if (updated) setSharedSession(updated);
+  };
+
+  const handleSubmitSharedSession = async () => {
+    if (!sharedSession || sharedSession.entries.length === 0) return;
+    setSharedSubmitStatus('loading');
+    try {
+      const entries = sharedSession.entries;
+      if (sharedSession.serviceType === 'lamp') {
+        await Promise.all(entries.map(e => submitLampRegistration({
+          serviceId:    e.serviceId ?? '',
+          name:         e.name,
+          phone:        e.phone ?? memberProfile?.phone ?? '',
+          birthDate:    e.birthDate ?? '',
+          zodiac:       e.zodiac as ZodiacSign | undefined,
+          address:      e.address,
+          contactLabel: e.contactLabel,
+          notes:        e.notes,
+        })));
+      } else if (sharedSession.serviceType === 'blessing' && sharedSession.config.eventId) {
+        const evt = blessingEvents.find(ev => ev.id === sharedSession.config.eventId);
+        await Promise.all(entries.map(e => {
+          const pkg = evt?.packages.find(p => p.id === e.packageId);
+          return createBlessingRegistration({
+            eventId:     sharedSession.config.eventId!,
+            name:        e.name,
+            phone:       e.phone ?? memberProfile?.phone ?? '',
+            birthDate:   e.birthDate,
+            zodiac:      e.zodiac as ZodiacSign | undefined,
+            gender:      e.gender,
+            address:     e.address,
+            notes:       e.notes,
+            packageName: pkg?.name,
+            packageFee:  pkg?.fee,
+          });
+        }));
+      } else if (sharedSession.serviceType === 'booking') {
+        await Promise.all(entries.map(e => submitBooking({
+          name:        e.name,
+          phone:       e.phone ?? memberProfile?.phone ?? '',
+          birthDate:   e.birthDate ?? '',
+          zodiac:      e.zodiac as ZodiacSign | undefined,
+          address:     e.address,
+          contactLabel: e.contactLabel,
+          bookingDate: sharedSession.config.bookingDate ?? '',
+          bookingTime: sharedSession.config.bookingTime ?? '',
+          type:        (e.bookingType as any) ?? '',
+          notes:       e.notes,
+        } as BookingData)));
+      }
+      await markSharedSessionSubmitted(sharedSession.id);
+      localStorage.removeItem(`shared_creator_${sharedSession.id}`);
+      setSharedSubmitStatus('success');
+      const updated = await getSharedSession(sharedSession.id);
+      if (updated) setSharedSession(updated);
+    } catch {
+      setSharedSubmitStatus('error');
+    }
+  };
+
+  const sharedSessionUrl = sharedSession
+    ? `${window.location.origin}${window.location.pathname}?share=${sharedSession.id}`
+    : '';
 
   if (showAdmin) {
     return <AdminDashboard onBack={() => setShowAdmin(false)} />;
@@ -863,6 +979,17 @@ const App: React.FC = () => {
 
           {/* Registration Form */}
           <div className="max-w-2xl mx-auto">
+            {sharedSession?.serviceType === 'lamp' && (
+              <SharedFormPanel
+                session={sharedSession} isCreator={isCreator}
+                lampConfigs={lampConfigs} blessingEvent={null}
+                memberProfile={memberProfile}
+                onAddEntries={handleAddSharedEntries}
+                onSubmitAll={handleSubmitSharedSession}
+                onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
+                submitStatus={sharedSubmitStatus}
+              />
+            )}
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
               <div className="bg-temple-red px-8 py-5">
                 <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
@@ -978,6 +1105,13 @@ const App: React.FC = () => {
                       <Flame className="w-4 h-4" />
                       {lampStatus === 'loading' ? '送出中...' : `送出登記（共 ${lampPersons.length} 人）`}
                     </button>
+                    {!sharedSession && (
+                      <button type="button" onClick={() => handleCreateSharedSession('lamp')}
+                        disabled={creatingShare}
+                        className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
+                      </button>
+                    )}
                   </form>
                 )}
               </div>
@@ -1010,6 +1144,17 @@ const App: React.FC = () => {
             </p>
           </div>
 
+          {sharedSession?.serviceType === 'booking' && (
+            <SharedFormPanel
+              session={sharedSession} isCreator={isCreator}
+              lampConfigs={lampConfigs} blessingEvent={null}
+              memberProfile={memberProfile}
+              onAddEntries={handleAddSharedEntries}
+              onSubmitAll={handleSubmitSharedSession}
+              onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
+              submitStatus={sharedSubmitStatus}
+            />
+          )}
           <div className="bg-white text-gray-800 rounded-2xl shadow-2xl overflow-hidden">
             <div className="p-8 md:p-12">
               {bookingStatus === 'success' ? (
@@ -1146,6 +1291,13 @@ const App: React.FC = () => {
                       )}
                     </button>
                     <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
+                    {!sharedSession && (
+                      <button type="button" onClick={() => handleCreateSharedSession('booking')}
+                        disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
+                        className="w-full py-2.5 mt-3 border-2 border-dashed border-white/30 text-white/70 rounded-lg text-sm hover:border-white hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
+                        <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
+                      </button>
+                    )}
                   </div>
                 </form>
               )}
@@ -1394,6 +1546,22 @@ const App: React.FC = () => {
           )}
         </div>
 
+        {/* ── 共享報名 Panel（祈福）── */}
+        {sharedSession?.serviceType === 'blessing' && (
+          <div className="max-w-2xl mx-auto px-4 mt-6">
+            <SharedFormPanel
+              session={sharedSession} isCreator={isCreator}
+              lampConfigs={lampConfigs}
+              blessingEvent={blessingEvents.find(ev => ev.id === sharedSession.config.eventId) ?? null}
+              memberProfile={memberProfile}
+              onAddEntries={handleAddSharedEntries}
+              onSubmitAll={handleSubmitSharedSession}
+              onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
+              submitStatus={sharedSubmitStatus}
+            />
+          </div>
+        )}
+
         {/* ── 祈福報名 Modal ── */}
         {blessingModal && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setBlessingModal(null)}>
@@ -1516,6 +1684,13 @@ const App: React.FC = () => {
                       className="w-full py-3 bg-temple-red text-white font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:opacity-60">
                       {blessingStatus === 'loading' ? '送出中…' : `確認報名（共 ${blessingPersons.length} 人）`}
                     </button>
+                    {!sharedSession && (
+                      <button type="button" onClick={() => handleCreateSharedSession('blessing')}
+                        disabled={creatingShare}
+                        className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
+                      </button>
+                    )}
                   </form>
                 )}
               </div>
@@ -1721,6 +1896,36 @@ const App: React.FC = () => {
       )}
 
       {/* Admin Login Modal */}
+      {/* ── 共享報名表連結 Modal ── */}
+      {showShareModal && sharedSession && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="w-7 h-7 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-temple-dark">共享報名表已建立！</h3>
+              <p className="text-sm text-gray-500 mt-1">將連結傳給親友，他們可加入報名資料</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="flex-1 text-xs text-gray-600 break-all">{sharedSessionUrl}</span>
+              <button onClick={() => {
+                navigator.clipboard.writeText(sharedSessionUrl);
+                setUrlCopied(true);
+                setTimeout(() => setUrlCopied(false), 2000);
+              }} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-temple-red text-white text-xs rounded-lg hover:bg-temple-red/90 transition-colors">
+                {urlCopied ? <><CheckCircle className="w-3.5 h-3.5" />已複製</> : <><Copy className="w-3.5 h-3.5" />複製</>}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-3">連結 7 天後自動失效</p>
+            <button onClick={() => setShowShareModal(false)}
+              className="w-full mt-4 py-2.5 bg-temple-red text-white rounded-xl font-medium text-sm hover:bg-temple-red/90 transition-colors">
+              開始收集資料
+            </button>
+          </div>
+        </div>
+      )}
+
       {showLoginModal && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"

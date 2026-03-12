@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -1046,5 +1046,88 @@ export const saveProfile = async (data: ProfileData): Promise<boolean> => {
     console.error('Error saving profile:', error);
     throw error;
   }
+  return true;
+};
+
+// ─── Shared Sessions (共享報名表) ────────────────────────────────────────────
+
+const mapSharedEntry = (row: any): SharedEntryRecord => ({
+  id:           row.id,
+  sessionId:    row.session_id,
+  name:         row.name,
+  phone:        row.phone        ?? undefined,
+  birthDate:    row.birth_date   ?? undefined,
+  zodiac:       row.zodiac       ?? undefined,
+  gender:       row.gender       ?? undefined,
+  address:      row.address      ?? undefined,
+  contactLabel: row.contact_label ?? undefined,
+  serviceId:    row.service_id   ?? undefined,
+  packageId:    row.package_id   ?? undefined,
+  bookingType:  row.booking_type ?? undefined,
+  notes:        row.notes        ?? undefined,
+  createdAt:    row.created_at,
+});
+
+const mapSharedSession = (row: any): SharedSessionRecord => ({
+  id:          row.id,
+  serviceType: row.service_type as SharedServiceType,
+  config:      row.config as SharedSessionConfig,
+  notes:       row.notes ?? undefined,
+  status:      row.status as 'open' | 'submitted',
+  entries:     (row.shared_session_entries ?? []).map(mapSharedEntry),
+  createdAt:   row.created_at,
+  expiresAt:   row.expires_at,
+});
+
+export const createSharedSession = async (d: SharedSessionData): Promise<SharedSessionRecord> => {
+  const { data, error } = await supabase
+    .from('shared_sessions')
+    .insert({ service_type: d.serviceType, config: d.config, notes: d.notes || null })
+    .select()
+    .single();
+  if (error) { console.error(error); throw error; }
+  return mapSharedSession({ ...data, shared_session_entries: [] });
+};
+
+export const getSharedSession = async (id: string): Promise<SharedSessionRecord | null> => {
+  const { data, error } = await supabase
+    .from('shared_sessions')
+    .select('*, shared_session_entries(*)')
+    .eq('id', id)
+    .order('created_at', { referencedTable: 'shared_session_entries', ascending: true })
+    .single();
+  if (error) return null;
+  return mapSharedSession(data);
+};
+
+export const addSharedEntry = async (d: SharedEntryData): Promise<SharedEntryRecord> => {
+  const { data, error } = await supabase
+    .from('shared_session_entries')
+    .insert({
+      session_id:    d.sessionId,
+      name:          d.name,
+      phone:         d.phone        || null,
+      birth_date:    d.birthDate    || null,
+      zodiac:        d.zodiac       || null,
+      gender:        d.gender       || null,
+      address:       d.address      || null,
+      contact_label: d.contactLabel || null,
+      service_id:    d.serviceId    || null,
+      package_id:    d.packageId    || null,
+      booking_type:  d.bookingType  || null,
+      notes:         d.notes        || null,
+    })
+    .select()
+    .single();
+  if (error) { console.error(error); throw error; }
+  return mapSharedEntry(data);
+};
+
+export const markSharedSessionSubmitted = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('shared_sessions')
+    .update({ status: 'submitted' })
+    .eq('id', id);
+  if (error) { console.error(error); throw error; }
   return true;
 };
