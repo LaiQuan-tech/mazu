@@ -31,8 +31,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, RegistrationData, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, supabase } from './services/supabase';
+import { BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RegistrationData, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, submitRegistration, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, supabase } from './services/supabase';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
 import MemberPortal from './components/MemberPortal';
@@ -101,6 +101,7 @@ const App: React.FC = () => {
   const [lampNotes, setLampNotes] = useState('');
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [member, setMember] = useState<User | null>(null);
+  const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
   const [showMemberPortal, setShowMemberPortal] = useState(false);
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
   const [showContactPicker, setShowContactPicker] = useState<{ form: 'lamp' | 'booking' | 'donation'; personId: string } | null>(null);
@@ -164,9 +165,19 @@ const App: React.FC = () => {
     }
   };
 
+  const loadMemberProfile = async () => {
+    try {
+      const p = await getProfile();
+      setMemberProfile(p);
+    } catch {
+      setMemberProfile(null);
+    }
+  };
+
   const handleOpenContactPicker = (form: 'lamp' | 'booking' | 'donation', personId: string) => {
     if (!member) { setShowMemberPortal(true); return; }
-    if (memberContacts.length === 0) { alert('請先至會員中心新增聯絡人'); return; }
+    const hasProfile = !!(memberProfile && memberProfile.name);
+    if (!hasProfile && memberContacts.length === 0) { alert('請先至會員中心填寫個人資料或新增聯絡人'); return; }
     setShowContactPicker({ form, personId });
   };
 
@@ -187,11 +198,12 @@ const App: React.FC = () => {
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user ?? null;
       setMember(u);
-      if (u) loadMemberContacts();
+      if (u) { loadMemberContacts(); loadMemberProfile(); }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setMember(session?.user ?? null);
-      if (session?.user) loadMemberContacts(); else setMemberContacts([]);
+      if (session?.user) { loadMemberContacts(); loadMemberProfile(); }
+      else { setMemberContacts([]); setMemberProfile(null); }
     });
 
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
@@ -1439,6 +1451,47 @@ const App: React.FC = () => {
               </button>
             </div>
             <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
+              {/* 本人（個人資料） */}
+              {memberProfile && memberProfile.name && (() => {
+                const applyProfile = () => {
+                  const { form, personId } = showContactPicker!;
+                  const addr = memberProfile.address || '';
+                  const lbl = '本人';
+                  if (form === 'lamp') {
+                    setLampPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, address: addr, contactLabel: lbl } : x));
+                  } else if (form === 'booking') {
+                    setBookingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, address: addr, contactLabel: lbl } : x));
+                  } else if (form === 'donation') {
+                    setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, address: addr, contactLabel: lbl } : x));
+                  }
+                  setShowContactPicker(null);
+                };
+                return (
+                  <button
+                    key="__self__"
+                    type="button"
+                    onClick={applyProfile}
+                    className="w-full text-left px-4 py-3 rounded-lg border border-temple-gold/40 bg-temple-gold/5 hover:bg-temple-gold/10 hover:border-temple-gold/60 transition-all flex items-center gap-3"
+                  >
+                    <span className="text-xs bg-temple-red text-white px-2 py-0.5 rounded-full font-medium shrink-0">本人</span>
+                    <div>
+                      <p className="font-medium text-gray-800">{memberProfile.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {memberProfile.phone}{memberProfile.birthDate ? ` · ${memberProfile.birthDate}` : ''}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })()}
+              {/* 分隔線（有本人且有其他聯絡人時顯示） */}
+              {memberProfile && memberProfile.name && memberContacts.length > 0 && (
+                <div className="flex items-center gap-2 py-1">
+                  <div className="flex-1 h-px bg-gray-100" />
+                  <span className="text-xs text-gray-300">親友</span>
+                  <div className="flex-1 h-px bg-gray-100" />
+                </div>
+              )}
+              {/* 通訊錄聯絡人 */}
               {memberContacts.map(contact => (
                 <button
                   key={contact.id}
