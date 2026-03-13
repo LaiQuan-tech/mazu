@@ -5,7 +5,6 @@ export enum ConsultationType {
   HEALTH = '身體健康',
   MARRIAGE = '姻緣感情',
   FAMILY = '家庭家運',
-  FORTUNE = '財運補庫',
   OTHER = '其他疑難'
 }
 
