@@ -390,7 +390,7 @@ const App: React.FC = () => {
     }
     setBlessingStatus('loading');
     try {
-      await Promise.all(blessingPersons.map(p => {
+      await Promise.all(blessingPersons.map(async p => {
         const pkg = hasPackages ? blessingModal.packages.find(pk => pk.id === p.packageId) : undefined;
         const eventAddons = blessingModal.addons || [];
         const selectedAddons: BlessingAddon[] = [
@@ -401,7 +401,7 @@ const App: React.FC = () => {
             .filter(a => a.voluntary && (p.voluntaryFees?.[a.id] ?? 0) >= 1)
             .map(a => ({ ...a, fee: p.voluntaryFees![a.id] })),
         ];
-        return createBlessingRegistration({
+        await createBlessingRegistration({
           eventId: blessingModal.id,
           name: p.name.trim(),
           phone: member ? (memberProfile?.phone ?? '') : guestPhone,
@@ -414,6 +414,19 @@ const App: React.FC = () => {
           packageFee:  pkg?.fee,
           selectedAddons: selectedAddons.length > 0 ? selectedAddons : undefined,
         } as BlessingRegistrationData);
+        // 隨喜供養金額同步寫入捐獻記錄
+        const addonTotal = selectedAddons.reduce((sum, a) => sum + (a.fee || 0), 0);
+        if (addonTotal > 0) {
+          await submitDonation({
+            name: p.name.trim(),
+            phone: member ? (memberProfile?.phone ?? '') : guestPhone,
+            gender: p.gender || undefined,
+            address: p.address || undefined,
+            amount: addonTotal,
+            type: DonationType.EVENT,
+            notes: `祈福活動「${blessingModal.title}」隨喜供養`,
+          });
+        }
       }));
       if (member) {
         autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
