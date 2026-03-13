@@ -755,11 +755,14 @@ const StatBadges = ({ lamps, bookingCount, activities, donation }: { lamps: numb
 type MemberSortKey = 'default' | 'lamps' | 'bookings' | 'activities' | 'donation' | 'lastLogin';
 type MemberSortDir = 'asc' | 'desc';
 
-const MembersTab = ({ bookings, donations, lampRegistrations, registrations, memberProfiles, usersLastLogin }: {
+const MembersTab = ({ bookings, donations, lampRegistrations, registrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin }: {
   bookings: BookingRecord[];
   donations: DonationRecord[];
   lampRegistrations: LampRegistrationRecord[];
   registrations: RegistrationRecord[];
+  blessingRegistrations: BlessingRegistrationRecord[];
+  blessingEvents: BlessingEventRecord[];
+  lampConfigs: LampServiceConfig[];
   memberProfiles: MemberProfileRecord[];
   usersLastLogin: Record<string, string>;
 }) => {
@@ -769,6 +772,8 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, mem
   const [contactsLoading, setContactsLoading] = useState(false);
   // 親友詳情 modal
   const [selectedContact, setSelectedContact] = useState<MemberContact | null>(null);
+  // 歷史紀錄 tab
+  const [historyTab, setHistoryTab] = useState<'lamp' | 'booking' | 'blessing' | 'donation'>('lamp');
   // 排序
   const [sortBy, setSortBy] = useState<MemberSortKey>('default');
   const [sortDir, setSortDir] = useState<MemberSortDir>('desc');
@@ -902,6 +907,142 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, mem
           </div>
           <StatBadges lamps={stats.lamps} bookingCount={stats.bookingCount} activities={stats.activities} donation={stats.donation} />
         </div>
+
+        {/* ── 歷史紀錄 ── */}
+        {(() => {
+          const phone = selectedProfile.phone ?? '';
+          const myLamps      = lampRegistrations.filter(l => l.phone === phone);
+          const myBookings   = bookings.filter(b => b.phone === phone);
+          const myBlessings  = blessingRegistrations.filter(br => br.phone === phone);
+          const myDonations  = donations.filter(d => d.phone === phone);
+
+          const tabs: { key: typeof historyTab; label: string; count: number; icon: React.ReactNode }[] = [
+            { key: 'lamp',     label: '點燈',   count: myLamps.length,     icon: <Flame className="w-3.5 h-3.5" /> },
+            { key: 'booking',  label: '問事',   count: myBookings.length,  icon: <BookOpen className="w-3.5 h-3.5" /> },
+            { key: 'blessing', label: '法會',   count: myBlessings.length, icon: <Sparkles className="w-3.5 h-3.5" /> },
+            { key: 'donation', label: '捐獻',   count: myDonations.length, icon: <HeartHandshake className="w-3.5 h-3.5" /> },
+          ];
+
+          return (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-5">
+              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-temple-red" />
+                <h3 className="font-semibold text-gray-700">服務歷史紀錄</h3>
+              </div>
+
+              {/* Tab Bar */}
+              <div className="flex border-b border-gray-100 bg-gray-50/60">
+                {tabs.map(t => (
+                  <button key={t.key} type="button"
+                    onClick={() => setHistoryTab(t.key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold transition-all border-b-2 ${
+                      historyTab === t.key
+                        ? 'border-temple-red text-temple-red bg-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}>
+                    {t.icon}{t.label}
+                    <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] ${historyTab === t.key ? 'bg-temple-red/10 text-temple-red' : 'bg-gray-200 text-gray-500'}`}>{t.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* 點燈 */}
+              {historyTab === 'lamp' && (
+                myLamps.length === 0
+                  ? <p className="px-5 py-6 text-sm text-gray-400">尚無點燈紀錄</p>
+                  : <div className="divide-y divide-gray-50">
+                      {myLamps.map(l => {
+                        const svcName = lampConfigs.find(c => c.id === l.serviceId)?.name ?? '（服務項目）';
+                        return (
+                          <div key={l.id} className="px-5 py-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{l.name}{l.contactLabel && <span className="ml-1.5 text-xs font-normal text-temple-red bg-temple-red/10 px-1.5 py-0.5 rounded-full">{l.contactLabel}</span>}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{svcName}{l.zodiac && ` ・ ${l.zodiac}年`}{l.address && ` ・ ${l.address}`}</p>
+                              {l.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{l.notes}</p>}
+                              <p className="text-xs text-gray-300 mt-0.5">{fmtDate(l.createdAt)}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 pt-0.5">
+                              {statusBadge(l.status)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+              )}
+
+              {/* 問事 */}
+              {historyTab === 'booking' && (
+                myBookings.length === 0
+                  ? <p className="px-5 py-6 text-sm text-gray-400">尚無問事紀錄</p>
+                  : <div className="divide-y divide-gray-50">
+                      {myBookings.map(b => (
+                        <div key={b.id} className="px-5 py-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{b.name}{b.contactLabel && <span className="ml-1.5 text-xs font-normal text-temple-red bg-temple-red/10 px-1.5 py-0.5 rounded-full">{b.contactLabel}</span>}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{b.type} ・ 預約 {b.bookingDate} {b.bookingTime === 'evening' ? '晚上' : b.bookingTime}</p>
+                            {b.zodiac && <p className="text-xs text-gray-400 mt-0.5">{b.zodiac}年{b.address && ` ・ ${b.address}`}</p>}
+                            {b.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{b.notes}</p>}
+                            <p className="text-xs text-gray-300 mt-0.5">{fmtDate(b.createdAt)}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 pt-0.5">
+                            {statusBadge(b.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+              )}
+
+              {/* 法會 */}
+              {historyTab === 'blessing' && (
+                myBlessings.length === 0
+                  ? <p className="px-5 py-6 text-sm text-gray-400">尚無法會報名紀錄</p>
+                  : <div className="divide-y divide-gray-50">
+                      {myBlessings.map(br => {
+                        const evtTitle = blessingEvents.find(e => e.id === br.eventId)?.title ?? '（活動）';
+                        return (
+                          <div key={br.id} className="px-5 py-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{br.name}</p>
+                              <p className="text-xs text-amber-700 font-medium mt-0.5">{evtTitle}</p>
+                              {br.packageName && <p className="text-xs text-gray-500 mt-0.5">方案：{br.packageName}{br.packageFee != null ? ` NT$${br.packageFee.toLocaleString()}` : ''}</p>}
+                              {br.zodiac && <p className="text-xs text-gray-400 mt-0.5">{br.zodiac}年{br.address && ` ・ ${br.address}`}</p>}
+                              {br.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{br.notes}</p>}
+                              <p className="text-xs text-gray-300 mt-0.5">{fmtDate(br.createdAt)}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 pt-0.5">
+                              {statusBadge(br.status)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+              )}
+
+              {/* 捐獻 */}
+              {historyTab === 'donation' && (
+                myDonations.length === 0
+                  ? <p className="px-5 py-6 text-sm text-gray-400">尚無捐獻紀錄</p>
+                  : <div className="divide-y divide-gray-50">
+                      {myDonations.map(d => (
+                        <div key={d.id} className="px-5 py-3 flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{d.name}{d.contactLabel && <span className="ml-1.5 text-xs font-normal text-temple-red bg-temple-red/10 px-1.5 py-0.5 rounded-full">{d.contactLabel}</span>}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{d.type}</p>
+                            {d.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{d.notes}</p>}
+                            <p className="text-xs text-gray-300 mt-0.5">{fmtDate(d.createdAt)}</p>
+                          </div>
+                          <p className="text-base font-bold text-green-700 shrink-0">NT${Number(d.amount).toLocaleString()}</p>
+                        </div>
+                      ))}
+                      <div className="px-5 py-3 bg-green-50 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-green-700">總捐獻金額</span>
+                        <span className="text-lg font-bold text-green-700">NT${myDonations.reduce((s, d) => s + Number(d.amount), 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 親友通訊錄（列表只顯示統計，點進去看個資） */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -3097,7 +3238,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} lampConfigs={lampConfigs} blessingEvents={blessingEvents} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
-              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
+              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
