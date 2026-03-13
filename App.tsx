@@ -1108,14 +1108,8 @@ const App: React.FC = () => {
                           zodiac={p.zodiac}
                           onChange={(birthDate, zodiac) => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
-                        {/* 生肖 + 性別 */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <select value={p.zodiac || ''}
-                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">生肖（自動帶入）</option>
-                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
-                          </select>
+                        {/* 性別 */}
+                        <div>
                           <select value={p.gender || ''}
                             onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
@@ -1454,12 +1448,6 @@ const App: React.FC = () => {
                           zodiac={p.zodiac}
                           onChange={(birthDate, zodiac) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
-                        {/* 生肖（自動帶入，可手動修改） */}
-                        <select value={p.zodiac || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: e.target.value as ZodiacSign || undefined } : x))}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                          <option value="">生肖（自動帶入，可手動修改）</option>
-                          {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
-                        </select>
                         <input value={p.address} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" placeholder="現居地址（可選）" />
                       </div>
@@ -1802,14 +1790,7 @@ const App: React.FC = () => {
                           zodiac={p.zodiac}
                           onChange={(birthDate, zodiac) => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
-                        <div className="grid grid-cols-3 gap-2">
-                          {/* 生肖（自動帶入，可手動修改） */}
-                          <select value={p.zodiac || ''}
-                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">生肖（自動帶入）</option>
-                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
-                          </select>
+                        <div className="grid grid-cols-2 gap-2">
                           <select value={p.gender || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
                             className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
