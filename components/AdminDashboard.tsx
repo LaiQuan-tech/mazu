@@ -760,14 +760,14 @@ const StatBadges = ({ lamps, bookingCount, activities, donation }: { lamps: numb
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 font-medium">
       <Flame className="w-3 h-3" />{lamps} 燈
     </span>
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 font-medium">
-      <BookOpen className="w-3 h-3" />{bookingCount} 問事
-    </span>
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-medium">
-      <Activity className="w-3 h-3" />{activities} 活動
+      <Sparkles className="w-3 h-3" />{activities} 祈福
     </span>
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-medium">
       <HeartHandshake className="w-3 h-3" />{donation > 0 ? `NT$${donation.toLocaleString()}` : '—'}
+    </span>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 font-medium">
+      <BookOpen className="w-3 h-3" />{bookingCount} 問事
     </span>
   </div>
 );
@@ -943,9 +943,9 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
 
           const tabs: { key: typeof historyTab; label: string; count: number; icon: React.ReactNode }[] = [
             { key: 'lamp',     label: '點燈',   count: myLamps.length,     icon: <Flame className="w-3.5 h-3.5" /> },
-            { key: 'booking',  label: '問事',   count: myBookings.length,  icon: <BookOpen className="w-3.5 h-3.5" /> },
-            { key: 'blessing', label: '法會',   count: myBlessings.length, icon: <Sparkles className="w-3.5 h-3.5" /> },
+            { key: 'blessing', label: '祈福',   count: myBlessings.length, icon: <Sparkles className="w-3.5 h-3.5" /> },
             { key: 'donation', label: '捐獻',   count: myDonations.length, icon: <HeartHandshake className="w-3.5 h-3.5" /> },
+            { key: 'booking',  label: '問事',   count: myBookings.length,  icon: <BookOpen className="w-3.5 h-3.5" /> },
           ];
 
           return (
@@ -1135,11 +1135,11 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">姓名</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">性別</th>
-                  <SortTh col="lamps" label="點燈" align="center" />
-                  <SortTh col="bookings" label="問事" align="center" />
-                  <SortTh col="activities" label="活動" align="center" />
-                  <SortTh col="donation" label="捐獻" align="right" />
-                  <SortTh col="lastLogin" label="最後登入" align="right" />
+                  <SortTh col="lamps"      label="點燈"   align="center" />
+                  <SortTh col="activities" label="祈福"   align="center" />
+                  <SortTh col="donation"   label="捐獻"   align="right" />
+                  <SortTh col="bookings"   label="問事"   align="center" />
+                  <SortTh col="lastLogin"  label="最後登入" align="right" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -1169,19 +1169,19 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 text-purple-700 text-sm font-medium">
-                        <BookOpen className="w-3.5 h-3.5" />{p.stats.bookingCount}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-blue-700 text-sm font-medium">
-                        <Activity className="w-3.5 h-3.5" />{p.stats.activities}
+                        <Sparkles className="w-3.5 h-3.5" />{p.stats.activities}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-sm">
                       {p.stats.donation > 0
                         ? <span className="text-green-700 font-medium">NT${p.stats.donation.toLocaleString()}</span>
                         : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1 text-purple-700 text-sm font-medium">
+                        <BookOpen className="w-3.5 h-3.5" />{p.stats.bookingCount}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
                       {p.lastLogin
@@ -1339,8 +1339,8 @@ const DevoteesTab = ({
   const handleExport = () => {
     exportExcel('信眾名單.xlsx', filtered.map(r => [
       r.name, r.phone || '', r.gender || '', r.sourceType, r.sourceLabel, r.ownerName || '',
-      r.stats.lamps, r.stats.bookingCount, r.stats.activities, r.stats.donation,
-    ]), ['姓名', '電話', '性別', '身份類型', '關係/身份', '所屬會員', '點燈', '問事', '活動', '捐獻(NT$)']);
+      r.stats.lamps, r.stats.activities, r.stats.donation, r.stats.bookingCount,
+    ]), ['姓名', '電話', '性別', '身份類型', '關係/身份', '所屬會員', '點燈', '祈福', '捐獻(NT$)', '問事']);
   };
 
   return (
@@ -1418,9 +1418,9 @@ const DevoteesTab = ({
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">姓名</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">身份</th>
                     <SortTh col="lamps"      label="點燈" />
-                    <SortTh col="bookings"   label="問事" />
-                    <SortTh col="activities" label="活動" />
+                    <SortTh col="activities" label="祈福" />
                     <SortTh col="donation"   label="捐獻" />
+                    <SortTh col="bookings"   label="問事" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1456,22 +1456,22 @@ const DevoteesTab = ({
                           ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><Flame className="w-3 h-3" />{r.stats.lamps}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
-                      {/* 問事 */}
-                      <td className="px-4 py-3 text-center">
-                        {r.stats.bookingCount > 0
-                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"><BookOpen className="w-3 h-3" />{r.stats.bookingCount}</span>
-                          : <span className="text-gray-300 text-xs">—</span>}
-                      </td>
-                      {/* 活動 */}
+                      {/* 祈福 */}
                       <td className="px-4 py-3 text-center">
                         {r.stats.activities > 0
-                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700"><Sparkles className="w-3 h-3" />{r.stats.activities}</span>
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"><Sparkles className="w-3 h-3" />{r.stats.activities}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                       {/* 捐獻 */}
                       <td className="px-4 py-3 text-right">
                         {r.stats.donation > 0
                           ? <span className="text-sm font-bold text-green-700">NT${r.stats.donation.toLocaleString()}</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      {/* 問事 */}
+                      <td className="px-4 py-3 text-center">
+                        {r.stats.bookingCount > 0
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700"><BookOpen className="w-3 h-3" />{r.stats.bookingCount}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                     </tr>
@@ -1533,14 +1533,9 @@ const DevoteesTab = ({
                 <span className="ml-auto text-sm font-bold text-amber-700">{selectedDevotee.stats.lamps}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-blue-500" />
-                <span className="text-xs text-gray-500">問事</span>
-                <span className="ml-auto text-sm font-bold text-blue-700">{selectedDevotee.stats.bookingCount}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                <span className="text-xs text-gray-500">活動</span>
-                <span className="ml-auto text-sm font-bold text-purple-700">{selectedDevotee.stats.activities}</span>
+                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-xs text-gray-500">祈福</span>
+                <span className="ml-auto text-sm font-bold text-blue-700">{selectedDevotee.stats.activities}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <HeartHandshake className="w-3.5 h-3.5 text-green-500" />
@@ -1548,6 +1543,11 @@ const DevoteesTab = ({
                 <span className="ml-auto text-sm font-bold text-green-700">
                   {selectedDevotee.stats.donation > 0 ? `NT$${selectedDevotee.stats.donation.toLocaleString()}` : '—'}
                 </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-purple-500" />
+                <span className="text-xs text-gray-500">問事</span>
+                <span className="ml-auto text-sm font-bold text-purple-700">{selectedDevotee.stats.bookingCount}</span>
               </div>
             </div>
           </div>
