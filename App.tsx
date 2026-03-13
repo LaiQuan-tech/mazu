@@ -192,6 +192,8 @@ const App: React.FC = () => {
   const [donationNotes, setDonationNotes] = useState('');
   const [repairProjects, setRepairProjects] = useState<RepairProject[]>([]);
   const [repairProjectTotals, setRepairProjectTotals] = useState<Record<string, number>>({});
+  const [repairPage, setRepairPage] = useState(0);
+  const REPAIR_PER_PAGE = 6;
   // ── 訪客（未登入）電話 ──
   const [guestPhone, setGuestPhone] = useState('');
 
@@ -1599,6 +1601,7 @@ const App: React.FC = () => {
                       <button type="button"
                         onClick={() => {
                           setDonationMode('repair');
+                          setRepairPage(0);
                           setDonationPersons(prev => prev.map(p => ({ ...p, type: DonationType.REPAIR, repairProjectId: undefined })));
                         }}
                         className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${donationMode === 'repair' ? 'border-amber-500 bg-amber-50/60 shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
@@ -1609,48 +1612,74 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  {/* ── 神尊修復模式：修復進度卡片牆 ── */}
-                  {donationMode === 'repair' && repairProjects.length > 0 && (
-                    <div className="border-2 border-amber-300/60 rounded-xl p-4 bg-amber-50/30 space-y-3">
-                      <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
-                        <Wrench className="w-4 h-4 text-amber-600" />
-                        請在下方每位大德處選擇要修復的神尊
-                      </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {repairProjects.map(proj => {
-                          const raised = repairProjectTotals[proj.id] || 0;
-                          const pct = proj.targetAmount > 0
-                            ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
-                            : null;
-                          return (
-                            <div key={proj.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-amber-200 text-center bg-white">
-                              {proj.imageUrl
-                                ? <img src={proj.imageUrl} alt={proj.name} className="w-16 h-16 object-cover rounded-lg" />
-                                : <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <Flame className="w-6 h-6 text-gray-300" />
-                                  </div>}
-                              <span className="text-sm font-semibold text-gray-800">{proj.name}</span>
-                              {proj.description && (
-                                <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
-                              )}
-                              {pct !== null && (
-                                <div className="w-full space-y-0.5">
-                                  <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  {/* ── 神尊修復模式：分頁卡片牆 ── */}
+                  {donationMode === 'repair' && repairProjects.length > 0 && (() => {
+                    const totalPages = Math.ceil(repairProjects.length / REPAIR_PER_PAGE);
+                    const pageProjects = repairProjects.slice(repairPage * REPAIR_PER_PAGE, (repairPage + 1) * REPAIR_PER_PAGE);
+                    return (
+                      <div className="border-2 border-amber-300/60 rounded-xl p-4 bg-amber-50/30 space-y-3">
+                        <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                          <Wrench className="w-4 h-4 text-amber-600" />
+                          請在下方每位大德處選擇要修復的神尊
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {pageProjects.map(proj => {
+                            const raised = repairProjectTotals[proj.id] || 0;
+                            const pct = proj.targetAmount > 0
+                              ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
+                              : null;
+                            return (
+                              <div key={proj.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-amber-200 text-center bg-white">
+                                {proj.imageUrl
+                                  ? <img src={proj.imageUrl} alt={proj.name} className="w-16 h-16 object-cover rounded-lg" />
+                                  : <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                                      <Flame className="w-6 h-6 text-gray-300" />
+                                    </div>}
+                                <span className="text-sm font-semibold text-gray-800">{proj.name}</span>
+                                {proj.description && (
+                                  <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
+                                )}
+                                {pct !== null && (
+                                  <div className="w-full space-y-0.5">
+                                    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                      <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <div className="flex justify-between text-xs text-gray-400">
+                                      <span>已募 NT${raised.toLocaleString()}</span>
+                                      <span>{pct}%</span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
                                   </div>
-                                  <div className="flex justify-between text-xs text-gray-400">
-                                    <span>已募 NT${raised.toLocaleString()}</span>
-                                    <span>{pct}%</span>
-                                  </div>
-                                  <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* 分頁 */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-center gap-1.5 pt-1">
+                            <button type="button" disabled={repairPage === 0}
+                              onClick={() => setRepairPage(p => p - 1)}
+                              className="px-2 py-1 text-xs rounded-md border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                              ‹ 上頁
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => (
+                              <button type="button" key={i}
+                                onClick={() => setRepairPage(i)}
+                                className={`w-7 h-7 text-xs rounded-md border transition-colors ${i === repairPage ? 'bg-amber-500 text-white border-amber-500 font-bold' : 'border-gray-300 hover:bg-gray-100'}`}>
+                                {i + 1}
+                              </button>
+                            ))}
+                            <button type="button" disabled={repairPage === totalPages - 1}
+                              onClick={() => setRepairPage(p => p + 1)}
+                              className="px-2 py-1 text-xs rounded-md border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                              下頁 ›
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* ── 人員卡片 ── */}
                   {donationPersons.map((p, idx) => (
