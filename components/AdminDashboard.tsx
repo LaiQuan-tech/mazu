@@ -62,6 +62,24 @@ const exportExcel = (filename: string, rows: (string | number)[][], headers: str
   XLSX.writeFile(wb, filename);
 };
 
+// ─── Gender Badge ────────────────────────────────────────────────────────────
+const genderBadge = (gender?: string | null) => {
+  if (!gender) return null;
+  const map: Record<string, { icon: React.ReactNode; bg: string; text: string; label: string }> = {
+    '信士':           { icon: <User className="w-3.5 h-3.5" />, bg: 'bg-blue-50',  text: 'text-blue-600',  label: '信士' },
+    '信女':           { icon: <User className="w-3.5 h-3.5" />, bg: 'bg-pink-50',  text: 'text-pink-600',  label: '信女' },
+    '小兒（16歲以下）':  { icon: <Baby className="w-3.5 h-3.5" />, bg: 'bg-sky-50',  text: 'text-sky-600',   label: '小兒' },
+    '小女兒（16歲以下）': { icon: <Baby className="w-3.5 h-3.5" />, bg: 'bg-rose-50', text: 'text-rose-500',  label: '小女兒' },
+  };
+  const cfg = map[gender];
+  if (!cfg) return <span className="inline-flex items-center text-xs text-gray-500">{gender}</span>;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      {cfg.icon} {cfg.label}
+    </span>
+  );
+};
+
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
 const StatCard = ({ icon, label, value, sub, color }: {
@@ -869,7 +887,12 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                 <button onClick={() => setSelectedContact(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-2 text-sm">
-                {selectedContact.gender && <p className="text-gray-600">身份：{selectedContact.gender}</p>}
+                {selectedContact.gender && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">身份：</span>
+                    {genderBadge(selectedContact.gender)}
+                  </div>
+                )}
                 {selectedContact.phone && <p className="text-gray-600 flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{selectedContact.phone}</p>}
                 {selectedContact.birthDate && <p className="text-gray-600">生日：{selectedContact.birthDate}</p>}
                 {selectedContact.zodiac && <p className="text-gray-600">生肖：{selectedContact.zodiac}年</p>}
@@ -1067,7 +1090,10 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                     className="w-full px-5 py-3 flex items-center gap-3 hover:bg-temple-bg/60 transition-all text-left">
                     <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium shrink-0">{c.label}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">{c.name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-semibold text-gray-800">{c.name}</p>
+                        {genderBadge(c.gender)}
+                      </div>
                       <div className="mt-1">
                         <StatBadges lamps={cStats.lamps} bookingCount={cStats.bookingCount} activities={cStats.activities} donation={cStats.donation} />
                       </div>
