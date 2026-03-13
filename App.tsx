@@ -194,6 +194,11 @@ const App: React.FC = () => {
   const [repairProjectTotals, setRepairProjectTotals] = useState<Record<string, number>>({});
   const [repairPage, setRepairPage] = useState(0);
   const REPAIR_PER_PAGE = 6;
+  const [repairSelectedProj, setRepairSelectedProj] = useState<RepairProject | null>(null);
+  const [repairName, setRepairName] = useState('');
+  const [repairAmount, setRepairAmount] = useState(0);
+  const [repairPhone, setRepairPhone] = useState('');
+  const [repairFormStatus, setRepairFormStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   // ── 訪客（未登入）電話 ──
   const [guestPhone, setGuestPhone] = useState('');
 
@@ -352,9 +357,6 @@ const App: React.FC = () => {
     e.preventDefault();
     const invalid = donationPersons.find(p => !p.name.trim() || p.amount <= 0);
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
-    if (donationMode === 'repair' && donationPersons.some(p => !p.repairProjectId)) {
-      alert('神尊修復模式下，請為每位大德選擇要修復的神尊。'); return;
-    }
     setDonationStatus('loading');
     try {
       await Promise.all(donationPersons.map(p => {
@@ -368,7 +370,6 @@ const App: React.FC = () => {
         });
       }));
       setDonationStatus('success');
-      setDonationMode('general');
       setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
       setDonationNotes('');
     } catch {
@@ -1535,6 +1536,172 @@ const App: React.FC = () => {
         )}
       </section>
 
+{/* Repair Projects Section */}
+      {repairProjects.length > 0 && (
+      <section id="repair" className="py-20 bg-white relative">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-amber-700 font-serif text-lg font-bold tracking-widest mb-2">
+              護持修復
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+              神尊修復專區
+            </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-amber-400/70" />
+              <span className="w-2 h-2 rotate-45 bg-amber-500 inline-block" />
+              <span className="w-12 h-px bg-amber-400/70" />
+            </div>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              點選神尊卡片即可捐獻，您的善心將專款專用於修復指定神尊。
+            </p>
+          </div>
+
+          {/* 卡片牆 + 分頁 */}
+          {(() => {
+            const totalPages = Math.ceil(repairProjects.length / REPAIR_PER_PAGE);
+            const pageProjects = repairProjects.slice(repairPage * REPAIR_PER_PAGE, (repairPage + 1) * REPAIR_PER_PAGE);
+            return (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {pageProjects.map(proj => {
+                    const raised = repairProjectTotals[proj.id] || 0;
+                    const pct = proj.targetAmount > 0
+                      ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
+                      : null;
+                    const isSelected = repairSelectedProj?.id === proj.id;
+                    return (
+                      <button type="button" key={proj.id}
+                        onClick={() => { setRepairSelectedProj(proj); setRepairFormStatus('idle'); }}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 text-center transition-all cursor-pointer ${isSelected ? 'border-amber-500 bg-amber-50 shadow-lg ring-2 ring-amber-300/50 scale-[1.02]' : 'border-gray-200 bg-white hover:border-amber-300 hover:shadow-md'}`}>
+                        {proj.imageUrl
+                          ? <img src={proj.imageUrl} alt={proj.name} className="w-20 h-20 object-cover rounded-xl" />
+                          : <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center">
+                              <Flame className="w-8 h-8 text-gray-300" />
+                            </div>}
+                        <span className={`text-base font-bold ${isSelected ? 'text-amber-700' : 'text-gray-800'}`}>{proj.name}</span>
+                        {proj.description && (
+                          <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
+                        )}
+                        {pct !== null && (
+                          <div className="w-full space-y-0.5">
+                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>已募 NT${raised.toLocaleString()}</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {isSelected && <span className="text-xs font-bold text-amber-600">▼ 填寫捐獻</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* 分頁 */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2">
+                    <button type="button" disabled={repairPage === 0}
+                      onClick={() => setRepairPage(p => p - 1)}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                      ‹ 上一頁
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <button type="button" key={i}
+                        onClick={() => setRepairPage(i)}
+                        className={`w-8 h-8 text-sm rounded-lg border transition-colors ${i === repairPage ? 'bg-amber-500 text-white border-amber-500 font-bold' : 'border-gray-300 hover:bg-gray-100'}`}>
+                        {i + 1}
+                      </button>
+                    ))}
+                    <button type="button" disabled={repairPage === totalPages - 1}
+                      onClick={() => setRepairPage(p => p + 1)}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                      下一頁 ›
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* 選中後的簡易捐獻表單 */}
+          {repairSelectedProj && (
+            <div className="mt-8 max-w-lg mx-auto">
+              {repairFormStatus === 'success' ? (
+                <div className="text-center py-8 bg-green-50 rounded-2xl border border-green-200">
+                  <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                  <p className="text-lg font-bold text-gray-900 mb-1">感謝您護持修復「{repairSelectedProj.name}」！</p>
+                  <p className="text-sm text-gray-500 mb-4">廟方人員將與您聯繫後續事宜。</p>
+                  <button type="button"
+                    onClick={() => { setRepairSelectedProj(null); setRepairName(''); setRepairAmount(0); setRepairPhone(''); setRepairFormStatus('idle'); }}
+                    className="px-5 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+                    返回
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!repairSelectedProj) return;
+                  setRepairFormStatus('loading');
+                  try {
+                    await submitDonation({
+                      name: repairName,
+                      phone: member ? (memberProfile?.phone ?? '') : repairPhone,
+                      amount: repairAmount,
+                      type: DonationType.REPAIR,
+                      repairProjectId: repairSelectedProj.id,
+                      repairProjectName: repairSelectedProj.name,
+                    });
+                    setRepairFormStatus('success');
+                    // 重新載入進度
+                    getRepairProjectTotals().then(setRepairProjectTotals).catch(() => {});
+                  } catch {
+                    setRepairFormStatus('error');
+                  }
+                }} className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center gap-3 pb-3 border-b border-amber-200">
+                    {repairSelectedProj.imageUrl
+                      ? <img src={repairSelectedProj.imageUrl} alt={repairSelectedProj.name} className="w-12 h-12 rounded-lg object-cover" />
+                      : <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center"><Flame className="w-5 h-5 text-gray-300" /></div>}
+                    <div>
+                      <p className="font-bold text-amber-800 text-lg">{repairSelectedProj.name}</p>
+                      <p className="text-xs text-amber-600">專款專用 · 修復捐獻</p>
+                    </div>
+                    <button type="button" onClick={() => setRepairSelectedProj(null)} className="ml-auto text-gray-400 hover:text-gray-600">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <input required type="text" placeholder="大德姓名 *" value={repairName}
+                    onChange={e => setRepairName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                  <input required type="number" placeholder="捐款金額 (NTD) *" min="1" value={repairAmount || ''}
+                    onChange={e => setRepairAmount(Number(e.target.value))}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                  {!member && (
+                    <input required type="tel" placeholder="聯絡電話 *" value={repairPhone}
+                      onChange={e => setRepairPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                  )}
+                  {repairFormStatus === 'error' && (
+                    <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-sm">
+                      <AlertCircle className="w-4 h-4" /> 提交失敗，請稍後再試。
+                    </div>
+                  )}
+                  <button type="submit" disabled={repairFormStatus === 'loading'}
+                    className="w-full py-3 text-lg font-bold rounded-xl shadow-lg bg-amber-500 text-white hover:bg-amber-600 hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    <Wrench className="w-5 h-5" />
+                    {repairFormStatus === 'loading' ? '送出中...' : '確認捐獻修復'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+      )}
+
 {/* Donation Section */}
       <section id="donation" className="py-20 bg-temple-bg relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1585,102 +1752,6 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleDonationSubmit} className="space-y-4">
-                  {/* ── 模式切換：一般捐獻 / 神尊修復 ── */}
-                  {repairProjects.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <button type="button"
-                        onClick={() => {
-                          setDonationMode('general');
-                          setDonationPersons(prev => prev.map(p => ({ ...p, type: DonationType.GENERAL, repairProjectId: undefined })));
-                        }}
-                        className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${donationMode === 'general' ? 'border-temple-red bg-red-50/60 shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                        <HeartHandshake className={`w-7 h-7 ${donationMode === 'general' ? 'text-temple-red' : 'text-gray-400'}`} />
-                        <span className={`text-sm font-bold ${donationMode === 'general' ? 'text-temple-red' : 'text-gray-500'}`}>一般捐獻</span>
-                        <span className="text-xs text-gray-400">隨喜 / 維護 / 慈善 / 法會</span>
-                      </button>
-                      <button type="button"
-                        onClick={() => {
-                          setDonationMode('repair');
-                          setRepairPage(0);
-                          setDonationPersons(prev => prev.map(p => ({ ...p, type: DonationType.REPAIR, repairProjectId: undefined })));
-                        }}
-                        className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${donationMode === 'repair' ? 'border-amber-500 bg-amber-50/60 shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                        <Wrench className={`w-7 h-7 ${donationMode === 'repair' ? 'text-amber-600' : 'text-gray-400'}`} />
-                        <span className={`text-sm font-bold ${donationMode === 'repair' ? 'text-amber-700' : 'text-gray-500'}`}>神尊修復</span>
-                        <span className="text-xs text-gray-400">指定神尊 · 專款專用</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* ── 神尊修復模式：分頁卡片牆 ── */}
-                  {donationMode === 'repair' && repairProjects.length > 0 && (() => {
-                    const totalPages = Math.ceil(repairProjects.length / REPAIR_PER_PAGE);
-                    const pageProjects = repairProjects.slice(repairPage * REPAIR_PER_PAGE, (repairPage + 1) * REPAIR_PER_PAGE);
-                    return (
-                      <div className="border-2 border-amber-300/60 rounded-xl p-4 bg-amber-50/30 space-y-3">
-                        <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
-                          <Wrench className="w-4 h-4 text-amber-600" />
-                          請在下方每位大德處選擇要修復的神尊
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {pageProjects.map(proj => {
-                            const raised = repairProjectTotals[proj.id] || 0;
-                            const pct = proj.targetAmount > 0
-                              ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
-                              : null;
-                            return (
-                              <div key={proj.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-amber-200 text-center bg-white">
-                                {proj.imageUrl
-                                  ? <img src={proj.imageUrl} alt={proj.name} className="w-16 h-16 object-cover rounded-lg" />
-                                  : <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                                      <Flame className="w-6 h-6 text-gray-300" />
-                                    </div>}
-                                <span className="text-sm font-semibold text-gray-800">{proj.name}</span>
-                                {proj.description && (
-                                  <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
-                                )}
-                                {pct !== null && (
-                                  <div className="w-full space-y-0.5">
-                                    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                      <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                    </div>
-                                    <div className="flex justify-between text-xs text-gray-400">
-                                      <span>已募 NT${raised.toLocaleString()}</span>
-                                      <span>{pct}%</span>
-                                    </div>
-                                    <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {/* 分頁 */}
-                        {totalPages > 1 && (
-                          <div className="flex items-center justify-center gap-1.5 pt-1">
-                            <button type="button" disabled={repairPage === 0}
-                              onClick={() => setRepairPage(p => p - 1)}
-                              className="px-2 py-1 text-xs rounded-md border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
-                              ‹ 上頁
-                            </button>
-                            {Array.from({ length: totalPages }, (_, i) => (
-                              <button type="button" key={i}
-                                onClick={() => setRepairPage(i)}
-                                className={`w-7 h-7 text-xs rounded-md border transition-colors ${i === repairPage ? 'bg-amber-500 text-white border-amber-500 font-bold' : 'border-gray-300 hover:bg-gray-100'}`}>
-                                {i + 1}
-                              </button>
-                            ))}
-                            <button type="button" disabled={repairPage === totalPages - 1}
-                              onClick={() => setRepairPage(p => p + 1)}
-                              className="px-2 py-1 text-xs rounded-md border border-gray-300 disabled:opacity-30 hover:bg-gray-100 transition-colors">
-                              下頁 ›
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
                   {/* ── 人員卡片 ── */}
                   {donationPersons.map((p, idx) => (
                     <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
@@ -1718,31 +1789,14 @@ const App: React.FC = () => {
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
-                        {/* 一般捐獻：顯示五項類型 */}
-                        {donationMode === 'general' && (
-                          <select
-                            required
-                            value={p.type}
-                            onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
-                            className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
-                          >
-                            {Object.values(DonationType).filter(t => t !== DonationType.REPAIR).map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        )}
-                        {/* 神尊修復：顯示神尊選擇 */}
-                        {donationMode === 'repair' && (
-                          <select
-                            required
-                            value={p.repairProjectId || ''}
-                            onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, repairProjectId: e.target.value || undefined } : x))}
-                            className="px-3 py-2 rounded-lg border border-amber-400 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-500 transition-all outline-none bg-amber-50 text-sm"
-                          >
-                            <option value="">⚒ 請選擇修復神尊 *</option>
-                            {repairProjects.map(proj => (
-                              <option key={proj.id} value={proj.id}>{proj.name}</option>
-                            ))}
-                          </select>
-                        )}
+                        <select
+                          required
+                          value={p.type}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
+                        >
+                          {Object.values(DonationType).filter(t => t !== DonationType.REPAIR).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
                         <select
                           value={p.gender || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
@@ -1763,7 +1817,7 @@ const App: React.FC = () => {
                   ))}
 
                   <button type="button"
-                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: donationMode === 'repair' ? DonationType.REPAIR : DonationType.GENERAL }])}
+                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
                     className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
