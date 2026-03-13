@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -85,6 +85,8 @@ export const submitDonation = async (data: DonationData): Promise<boolean> => {
     amount: data.amount,
     type: data.type,
     notes: data.notes || null,
+    repair_project_id:   data.repairProjectId   || null,
+    repair_project_name: data.repairProjectName || null,
   }]);
 
   if (error) {
@@ -115,6 +117,8 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     amount: row.amount,
     type: row.type,
     notes: row.notes,
+    repairProjectId:   row.repair_project_id   || undefined,
+    repairProjectName: row.repair_project_name || undefined,
     createdAt: row.created_at,
   }));
 };
@@ -1222,4 +1226,77 @@ export const markSharedSessionSubmitted = async (id: string): Promise<boolean> =
     .eq('id', id);
   if (error) { console.error(error); throw error; }
   return true;
+};
+
+// ─── Repair Projects (神尊修復專案) ─────────────────────────────────────────
+
+const mapRepairProject = (row: any): RepairProject => ({
+  id: row.id,
+  name: row.name,
+  description: row.description || undefined,
+  imageUrl: row.image_url || undefined,
+  targetAmount: row.target_amount ?? 0,
+  isActive: row.is_active,
+  sortOrder: row.sort_order,
+  createdAt: row.created_at,
+});
+
+export const getRepairProjects = async (): Promise<RepairProject[]> => {
+  const { data, error } = await supabase.from('repair_projects').select('*').order('sort_order');
+  if (error) { console.error(error); throw error; }
+  return (data || []).map(mapRepairProject);
+};
+
+export const getRepairProjectTotals = async (): Promise<Record<string, number>> => {
+  const { data, error } = await supabase
+    .from('donations')
+    .select('repair_project_id, amount')
+    .not('repair_project_id', 'is', null);
+  if (error) { console.error(error); throw error; }
+  const totals: Record<string, number> = {};
+  for (const row of data || []) {
+    totals[row.repair_project_id] = (totals[row.repair_project_id] || 0) + Number(row.amount);
+  }
+  return totals;
+};
+
+export const createRepairProject = async (d: RepairProjectData): Promise<boolean> => {
+  const { error } = await supabase.from('repair_projects').insert({
+    name: d.name,
+    description: d.description || null,
+    image_url: d.imageUrl || null,
+    target_amount: d.targetAmount || 0,
+    is_active: d.isActive,
+    sort_order: d.sortOrder,
+  });
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const updateRepairProject = async (id: string, d: Partial<RepairProjectData>): Promise<boolean> => {
+  const payload: any = {};
+  if (d.name        !== undefined) payload.name          = d.name;
+  if (d.description !== undefined) payload.description   = d.description || null;
+  if (d.imageUrl    !== undefined) payload.image_url     = d.imageUrl || null;
+  if (d.targetAmount !== undefined) payload.target_amount = d.targetAmount;
+  if (d.isActive    !== undefined) payload.is_active     = d.isActive;
+  if (d.sortOrder   !== undefined) payload.sort_order    = d.sortOrder;
+  const { error } = await supabase.from('repair_projects').update(payload).eq('id', id);
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const deleteRepairProject = async (id: string): Promise<boolean> => {
+  const { error } = await supabase.from('repair_projects').delete().eq('id', id);
+  if (error) { console.error(error); throw error; }
+  return true;
+};
+
+export const uploadRepairProjectImage = async (file: File): Promise<string> => {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `repair-projects/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  if (error) { console.error(error); throw error; }
+  const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 };

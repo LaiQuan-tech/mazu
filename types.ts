@@ -50,6 +50,18 @@ export interface BookingRecord extends BookingData {
   id: string;
 }
 
+export interface RepairProject {
+  id:           string;
+  name:         string;       // e.g. '鎮殿媽祖'
+  description?: string;
+  imageUrl?:    string;
+  targetAmount: number;       // 目標金額（0 = 不顯示）
+  isActive:     boolean;
+  sortOrder:    number;
+  createdAt:    string;
+}
+export type RepairProjectData = Omit<RepairProject, 'id' | 'createdAt'>;
+
 export enum DonationType {
   GENERAL = '隨喜捐款 (不指定)',
   MAINTENANCE = '廟宇維護/修繕',
@@ -67,6 +79,8 @@ export interface DonationData {
   amount: number;
   type: DonationType;
   notes?: string;
+  repairProjectId?:   string;
+  repairProjectName?: string;
   createdAt?: any;
 }
 

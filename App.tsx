@@ -30,15 +30,16 @@ import {
   Share2,
   Copy,
   CheckCircle,
-  ShoppingBag
+  ShoppingBag,
+  Wrench
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, supabase } from './services/supabase';
+import { BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -80,6 +81,7 @@ interface DonationPersonEntry {
   contactLabel?: string;
   amount: number;
   type: DonationType;
+  repairProjectId?: string;   // 指定修復神尊的 id（選填）
 }
 interface BlessingPersonEntry {
   id: string;
@@ -187,6 +189,8 @@ const App: React.FC = () => {
   // ── 捐獻多人 ──
   const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
   const [donationNotes, setDonationNotes] = useState('');
+  const [repairProjects, setRepairProjects] = useState<RepairProject[]>([]);
+  const [repairProjectTotals, setRepairProjectTotals] = useState<Record<string, number>>({});
   // ── 訪客（未登入）電話 ──
   const [guestPhone, setGuestPhone] = useState('');
 
@@ -228,6 +232,11 @@ const App: React.FC = () => {
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
     getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
     getBlessingEvents(true).then(setBlessingEvents).catch(console.error);
+    Promise.all([getRepairProjects(), getRepairProjectTotals()])
+      .then(([projects, totals]) => {
+        setRepairProjects(projects.filter(p => p.isActive));
+        setRepairProjectTotals(totals);
+      }).catch(console.error);
     getSiteImages().then(images => {
       for (const img of images) {
         if (img.sectionKey === 'about') setAboutImageUrl(getSiteImagePublicUrl(img.storagePath));
@@ -342,9 +351,16 @@ const App: React.FC = () => {
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
     setDonationStatus('loading');
     try {
-      await Promise.all(donationPersons.map(p => submitDonation({
-        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, address: p.address || undefined, contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
-      })));
+      await Promise.all(donationPersons.map(p => {
+        const proj = repairProjects.find(r => r.id === p.repairProjectId);
+        return submitDonation({
+          name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone,
+          gender: p.gender || undefined, address: p.address || undefined,
+          contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
+          repairProjectId:   proj?.id,
+          repairProjectName: proj?.name,
+        });
+      }));
       setDonationStatus('success');
       setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
       setDonationNotes('');
@@ -1606,6 +1622,20 @@ const App: React.FC = () => {
                         >
                           {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
+                        {repairProjects.length > 0 && (
+                          <select
+                            value={p.repairProjectId || ''}
+                            onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, repairProjectId: e.target.value || undefined } : x))}
+                            className="sm:col-span-2 px-3 py-2 rounded-lg border border-temple-gold/50 focus:ring-2 focus:ring-temple-gold/30 focus:border-temple-gold transition-all outline-none bg-amber-50/60 text-sm"
+                          >
+                            <option value="">⚒ 指定修復神尊（選填）</option>
+                            {repairProjects.map(proj => (
+                              <option key={proj.id} value={proj.id}>
+                                {proj.name}{proj.targetAmount > 0 ? `　目標 NT$${proj.targetAmount.toLocaleString()}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         <select
                           value={p.gender || ''}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
@@ -1638,6 +1668,49 @@ const App: React.FC = () => {
                       <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
                         placeholder="請留下方便聯繫的電話"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                    </div>
+                  )}
+
+                  {/* 神尊修復進度牆 */}
+                  {repairProjects.length > 0 && (
+                    <div className="border border-temple-gold/30 rounded-xl p-4 bg-temple-bg/20 space-y-3">
+                      <p className="text-sm font-semibold text-temple-dark flex items-center gap-1.5">
+                        <Wrench className="w-4 h-4 text-temple-red/70" />
+                        神尊修復進度
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {repairProjects.map(proj => {
+                          const raised = repairProjectTotals[proj.id] || 0;
+                          const pct = proj.targetAmount > 0
+                            ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
+                            : null;
+                          return (
+                            <div key={proj.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-gray-200 text-center bg-white">
+                              {proj.imageUrl
+                                ? <img src={proj.imageUrl} alt={proj.name} className="w-16 h-16 object-cover rounded-lg" />
+                                : <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                                    <Flame className="w-6 h-6 text-gray-300" />
+                                  </div>}
+                              <span className="text-sm font-semibold text-gray-800">{proj.name}</span>
+                              {proj.description && (
+                                <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
+                              )}
+                              {pct !== null && (
+                                <div className="w-full space-y-0.5">
+                                  <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className="h-full bg-temple-red rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <div className="flex justify-between text-xs text-gray-400">
+                                    <span>已募 NT${raised.toLocaleString()}</span>
+                                    <span>{pct}%</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 

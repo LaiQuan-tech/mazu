@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, supabase } from '../services/supabase';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, supabase } from '../services/supabase';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -10,10 +10,10 @@ import {
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby,
-  Eye, EyeOff, ShoppingBag
+  Eye, EyeOff, ShoppingBag, Wrench
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'devotees' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
+type Tab = 'overview' | 'bookings' | 'donations' | 'repairs' | 'members' | 'devotees' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -649,8 +649,8 @@ const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord
 
   const handleExport = () => {
     exportExcel('捐款資料.xlsx', filtered.map(d => [
-      d.name, d.phone, d.gender || '', d.address || '', Number(d.amount), d.type, d.notes || '', fmtDate(d.createdAt)
-    ]), ['姓名', '電話', '性別', '聯絡地址', '金額', '捐款類型', '備註', '建立時間']);
+      d.name, d.phone, d.gender || '', d.address || '', Number(d.amount), d.type, d.repairProjectName || '', d.notes || '', fmtDate(d.createdAt)
+    ]), ['姓名', '電話', '性別', '聯絡地址', '金額', '捐款類型', '修復神尊', '備註', '建立時間']);
   };
 
   return (
@@ -700,7 +700,7 @@ const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '捐款金額', '類型', '備註', '時間'].map(h => (
+                  {['信眾資訊', '捐款金額', '類型', '修復神尊', '備註', '時間'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -732,6 +732,13 @@ const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord
                     </td>
                     <td className="px-5 py-4">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {d.repairProjectName
+                        ? <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                            <Wrench className="w-3 h-3" />{d.repairProjectName}
+                          </span>
+                        : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-5 py-4 max-w-[180px]">
                       <p className="text-sm text-gray-700 truncate">{d.notes || <span className="text-gray-300 italic">無備註</span>}</p>
@@ -3535,6 +3542,223 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
   );
 };
 
+// ─── Repair Projects Tab (神尊修復專案) ───────────────────────────────────────
+
+const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
+  const [projects, setProjects] = useState<RepairProject[]>([]);
+  const [totals, setTotals] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<RepairProjectData>({ name: '', description: '', imageUrl: '', targetAmount: 0, isActive: true, sortOrder: 0 });
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [projs, tots] = await Promise.all([getRepairProjects(), getRepairProjectTotals()]);
+      setProjects(projs);
+      setTotals(tots);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const openAdd = () => {
+    setEditingId(null);
+    setForm({ name: '', description: '', imageUrl: '', targetAmount: 0, isActive: true, sortOrder: projects.length });
+    setShowModal(true);
+  };
+  const openEdit = (p: RepairProject) => {
+    setEditingId(p.id);
+    setForm({ name: p.name, description: p.description || '', imageUrl: p.imageUrl || '', targetAmount: p.targetAmount, isActive: p.isActive, sortOrder: p.sortOrder });
+    setShowModal(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImg(true);
+    try {
+      const url = await uploadRepairProjectImage(file);
+      setForm(f => ({ ...f, imageUrl: url }));
+    } catch { alert('圖片上傳失敗，請稍後再試'); }
+    finally { setUploadingImg(false); e.target.value = ''; }
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { alert('請輸入神尊名稱'); return; }
+    setSaving(true);
+    try {
+      if (editingId) { await updateRepairProject(editingId, form); }
+      else { await createRepairProject(form); }
+      setShowModal(false);
+      await load();
+    } catch { alert('儲存失敗，請稍後再試'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('確定刪除此修復專案？相關捐獻紀錄的神尊標記將保留。')) return;
+    setDeletingId(id);
+    try { await deleteRepairProject(id); await load(); }
+    catch { alert('刪除失敗'); }
+    finally { setDeletingId(null); }
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-temple-red/20 border-t-temple-red rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">神尊修復專案</h3>
+          <p className="text-xs text-gray-400 mt-0.5">管理需要樂捐修復的神尊，信眾捐獻時可指定專案</p>
+        </div>
+        <button onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+          <Plus className="w-4 h-4" /> 新增修復專案
+        </button>
+      </div>
+
+      {projects.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Wrench className="w-10 h-10 mx-auto mb-3 text-gray-200" />
+          <p className="text-sm">尚無修復專案，點擊「新增修復專案」開始建立</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...projects].sort((a, b) => a.sortOrder - b.sortOrder).map(proj => {
+            const raised = totals[proj.id] || 0;
+            const pct = proj.targetAmount > 0 ? Math.min(100, Math.round((raised / proj.targetAmount) * 100)) : null;
+            return (
+              <div key={proj.id} className={`border rounded-xl overflow-hidden bg-white shadow-sm transition-all ${proj.isActive ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
+                {proj.imageUrl && (
+                  <img src={proj.imageUrl} alt={proj.name} className="w-full h-40 object-cover" />
+                )}
+                <div className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-800">{proj.name}</p>
+                      {proj.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{proj.description}</p>}
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${proj.isActive ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                      {proj.isActive ? '啟用' : '已下架'}
+                    </span>
+                  </div>
+                  {pct !== null && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>已募 NT${raised.toLocaleString()}</span>
+                        <span>目標 NT${proj.targetAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-temple-red rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-right text-xs font-semibold text-temple-red">{pct}%</p>
+                    </div>
+                  )}
+                  {proj.targetAmount === 0 && (
+                    <p className="text-xs text-gray-400">已募 NT${raised.toLocaleString()}</p>
+                  )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button onClick={() => openEdit(proj)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <Edit2 className="w-3.5 h-3.5" /> 編輯
+                    </button>
+                    <button onClick={() => handleDelete(proj.id)} disabled={deletingId === proj.id}
+                      className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-temple-red" />
+                {editingId ? '編輯修復專案' : '新增修復專案'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              {/* 圖片 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">神像照片</label>
+                {form.imageUrl && (
+                  <img src={form.imageUrl} alt="preview" className="w-full h-40 object-cover rounded-lg mb-2" />
+                )}
+                <label className={`flex items-center justify-center gap-2 w-full py-2.5 border-2 border-dashed rounded-lg cursor-pointer text-sm transition-colors ${uploadingImg ? 'border-gray-200 text-gray-300' : 'border-temple-gold/40 text-temple-red hover:border-temple-gold hover:bg-temple-gold/5'}`}>
+                  <Upload className="w-4 h-4" />
+                  {uploadingImg ? '上傳中...' : (form.imageUrl ? '更換照片' : '上傳照片')}
+                  <input type="file" className="hidden" accept="image/*" disabled={uploadingImg} onChange={handleImageUpload} />
+                </label>
+              </div>
+              {/* 名稱 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">神尊名稱 *</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. 鎮殿媽祖" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+              </div>
+              {/* 說明 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">修復說明（選填）</label>
+                <textarea rows={3} value={form.description || ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="修復原因或現況說明"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red resize-none" />
+              </div>
+              {/* 目標金額 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">目標金額（NT$，0 = 不顯示）</label>
+                <input type="number" min={0} value={form.targetAmount}
+                  onChange={e => setForm(f => ({ ...f, targetAmount: Number(e.target.value) }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+              </div>
+              {/* 排序 & 啟用 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">排序</label>
+                  <input type="number" min={0} value={form.sortOrder}
+                    onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <div className={`relative w-10 h-5 rounded-full transition-colors ${form.isActive ? 'bg-green-400' : 'bg-gray-200'}`}
+                      onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}>
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </div>
+                    <span className="text-sm text-gray-600">{form.isActive ? '啟用中' : '已下架'}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+              <button onClick={handleSave} disabled={saving}
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                <Save className="w-4 h-4" />
+                {saving ? '儲存中...' : '儲存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
@@ -3615,6 +3839,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'lamps',     label: '點燈管理',   icon: <Flame className="w-4 h-4" /> },
     { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
     { key: 'donations', label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
+    { key: 'repairs',   label: '修復專案',   icon: <Wrench className="w-5 h-5" /> },
     { key: 'bookings',  label: '問事管理',   icon: <BookOpen className="w-4 h-4" /> },
     { key: 'photos',    label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
@@ -3700,6 +3925,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
+              {tab === 'repairs' && <RepairProjectsTab onRefresh={fetchAll} />}
             </>
           )}
         </div>
