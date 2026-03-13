@@ -263,6 +263,15 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // 會員資料載入後，自動填入尚未填地址的人員欄位
+  useEffect(() => {
+    const addr = memberProfile?.address;
+    if (!addr) return;
+    setLampPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
+    setBookingPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
+    setBlessingPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
+  }, [memberProfile?.address]);
+
   const filteredBulletins = bulletinFilter === 'all'
     ? bulletins
     : bulletins.filter(b => b.category === bulletinFilter);
@@ -282,7 +291,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
       setLampStatus('success');
-      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
+      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', contactLabel: '本人' }]);
       setLampNotes('');
     } catch {
       setLampStatus('error');
@@ -305,7 +314,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
       setBookingStatus('success');
-      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
+      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
       setBookingDate(''); setBookingTime(''); setBookingNotes('');
     } catch (error) {
       console.error(error);
@@ -362,7 +371,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
       setBlessingStatus('success');
-      setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
+      setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '本人' }]);
       setBlessingNotes('');
     } catch {
       setBlessingStatus('error');
@@ -371,7 +380,7 @@ const App: React.FC = () => {
 
   const openBlessingModal = (event: BlessingEventRecord) => {
     setBlessingModal(event);
-    setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
+    setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '本人' }]);
     setBlessingNotes('');
     setBlessingStatus('idle');
   };
@@ -1090,7 +1099,7 @@ const App: React.FC = () => {
 
                     {/* 新增人員 */}
                     <button type="button"
-                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '' }])}
+                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', contactLabel: '' }])}
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 text-temple-red/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-red hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                       <Plus className="w-4 h-4" /> 新增人員
                     </button>
@@ -1337,7 +1346,7 @@ const App: React.FC = () => {
 
                     {/* 新增報名者 */}
                     <button type="button"
-                      onClick={() => setBlessingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '' }])}
+                      onClick={() => setBlessingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '' }])}
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 rounded-xl text-sm text-temple-red hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-2">
                       <Plus className="w-4 h-4" /> 新增報名者
                     </button>
@@ -1648,7 +1657,7 @@ const App: React.FC = () => {
 
                   {/* 新增人員 */}
                   <button type="button"
-                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '' }])}
+                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '' }])}
                     className="w-full py-2.5 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
