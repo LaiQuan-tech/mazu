@@ -181,6 +181,8 @@ const App: React.FC = () => {
   // ── 捐獻多人 ──
   const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
   const [donationNotes, setDonationNotes] = useState('');
+  // ── 訪客（未登入）電話 ──
+  const [guestPhone, setGuestPhone] = useState('');
 
   const startHeroInterval = (totalSlides: number) => {
     if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
@@ -287,10 +289,12 @@ const App: React.FC = () => {
     setLampStatus('loading');
     try {
       await Promise.all(lampPersons.map(p => submitLampRegistration({
-        serviceId: p.serviceId, name: p.name, phone: memberProfile?.phone ?? '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
+        serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
       })));
-      autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
-        .then(() => loadMemberContacts()).catch(() => {});
+      if (member) {
+        autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+          .then(() => loadMemberContacts()).catch(() => {});
+      }
       setLampStatus('success');
       setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', contactLabel: '本人' }]);
       setLampNotes('');
@@ -309,11 +313,13 @@ const App: React.FC = () => {
     setBookingStatus('loading');
     try {
       await Promise.all(bookingPersons.map(p => submitBooking({
-        name: p.name, phone: memberProfile?.phone ?? '', birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
+        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
         bookingDate, bookingTime, type: p.type, notes: bookingNotes,
       })));
-      autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
-        .then(() => loadMemberContacts()).catch(() => {});
+      if (member) {
+        autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+          .then(() => loadMemberContacts()).catch(() => {});
+      }
       setBookingStatus('success');
       setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
       setBookingDate(''); setBookingTime(''); setBookingNotes('');
@@ -331,7 +337,7 @@ const App: React.FC = () => {
     setDonationStatus('loading');
     try {
       await Promise.all(donationPersons.map(p => submitDonation({
-        name: p.name, phone: memberProfile?.phone ?? '', address: p.address || undefined, contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
+        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, address: p.address || undefined, contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
       })));
       setDonationStatus('success');
       setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
@@ -359,7 +365,7 @@ const App: React.FC = () => {
         return createBlessingRegistration({
           eventId: blessingModal.id,
           name: p.name.trim(),
-          phone: memberProfile?.phone ?? '',
+          phone: member ? (memberProfile?.phone ?? '') : guestPhone,
           birthDate: p.birthDate || undefined,
           zodiac: p.zodiac,
           gender: p.gender || undefined,
@@ -369,8 +375,10 @@ const App: React.FC = () => {
           packageFee:  pkg?.fee,
         } as BlessingRegistrationData);
       }));
-      autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
-        .then(() => loadMemberContacts()).catch(() => {});
+      if (member) {
+        autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
+          .then(() => loadMemberContacts()).catch(() => {});
+      }
       setBlessingStatus('success');
       setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '本人' }]);
       setBlessingNotes('');
@@ -1018,21 +1026,21 @@ const App: React.FC = () => {
                     </div>
                     <h5 className="text-xl font-bold text-gray-800 mb-2">登記成功！</h5>
                     <p className="text-gray-500 mb-6">感謝您的登記，廟方人員將盡快與您聯繫確認。</p>
+                    {!member && (
+                      <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
+                        <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
+                        <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理點燈通訊錄！</p>
+                        <button type="button" onClick={() => setShowMemberPortal(true)}
+                          className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                          立即加入會員
+                        </button>
+                      </div>
+                    )}
                     <button
                       onClick={() => setLampStatus('idle')}
-                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium"
+                      className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                     >
                       再登記一筆
-                    </button>
-                  </div>
-                ) : !member ? (
-                  <div className="text-center py-10">
-                    <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
-                    <p className="text-gray-400 text-sm mb-5">登入後即可登記點燈服務</p>
-                    <button type="button" onClick={() => setShowMemberPortal(true)}
-                      className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
-                      登入 / 註冊
                     </button>
                   </div>
                 ) : (
@@ -1104,6 +1112,16 @@ const App: React.FC = () => {
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 text-temple-red/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-red hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                       <Plus className="w-4 h-4" /> 新增人員
                     </button>
+
+                    {/* 訪客電話（未登入才顯示） */}
+                    {!member && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                        <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                          placeholder="請留下方便聯繫的電話"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                      </div>
+                    )}
 
                     {/* 備註（共用） */}
                     <div>
@@ -1261,8 +1279,18 @@ const App: React.FC = () => {
                     </div>
                     <h4 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h4>
                     <p className="text-gray-500 text-sm mb-2">感謝您的報名，廟方將與您確認相關細節。</p>
-                    <p className="text-gray-400 text-xs mb-6">共 {blessingPersons.length} 人</p>
-                    <button onClick={() => setBlessingModal(null)} className="px-6 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors">關閉</button>
+                    <p className="text-gray-400 text-xs mb-4">共 {blessingPersons.length} 人</p>
+                    {!member && (
+                      <div className="mb-4 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
+                        <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
+                        <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理親友通訊錄！</p>
+                        <button type="button" onClick={() => { setBlessingModal(null); setShowMemberPortal(true); }}
+                          className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                          立即加入會員
+                        </button>
+                      </div>
+                    )}
+                    <button onClick={() => setBlessingModal(null)} className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">關閉</button>
                   </div>
                 ) : (
                   <form onSubmit={handleBlessingSubmit} className="space-y-4">
@@ -1352,6 +1380,16 @@ const App: React.FC = () => {
                       <Plus className="w-4 h-4" /> 新增報名者
                     </button>
 
+                    {/* 訪客電話（未登入才顯示） */}
+                    {!member && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                        <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                          placeholder="請留下方便聯繫的電話"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                      </div>
+                    )}
+
                     {/* 備註（共用） */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
@@ -1412,24 +1450,24 @@ const App: React.FC = () => {
                     <CheckCircle2 className="w-10 h-10 text-green-600" />
                   </div>
                   <h4 className="text-2xl font-bold text-gray-900 mb-2">感謝您的護持！</h4>
-                  <p className="text-gray-600 mb-8">
+                  <p className="text-gray-600 mb-6">
                     功德無量。我們已收到您的捐款意向，<br />廟方人員將會與您聯繫後續事宜。
                   </p>
+                  {!member && (
+                    <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
+                      <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
+                      <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，記錄每一次的護持功德！</p>
+                      <button type="button" onClick={() => setShowMemberPortal(true)}
+                        className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                        立即加入會員
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => setDonationStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors"
+                    className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     返回
-                  </button>
-                </div>
-              ) : !member ? (
-                <div className="text-center py-10">
-                  <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
-                  <p className="text-gray-400 text-sm mb-5">登入後即可進行捐獻護持</p>
-                  <button type="button" onClick={() => setShowMemberPortal(true)}
-                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
-                    登入 / 註冊
                   </button>
                 </div>
               ) : (
@@ -1494,6 +1532,16 @@ const App: React.FC = () => {
                     className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
+
+                  {/* 訪客電話（未登入才顯示） */}
+                  {!member && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                      <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                        placeholder="請留下方便聯繫的電話"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                    </div>
+                  )}
 
                   <div>
                     <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>
@@ -1573,24 +1621,24 @@ const App: React.FC = () => {
                     <CheckCircle2 className="w-10 h-10 text-green-600" />
                   </div>
                   <h4 className="text-2xl font-bold text-gray-900 mb-2">預約成功！</h4>
-                  <p className="text-gray-600 mb-8">
+                  <p className="text-gray-600 mb-6">
                     感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終問事時間。
                   </p>
+                  {!member && (
+                    <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
+                      <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
+                      <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理親友通訊錄！</p>
+                      <button type="button" onClick={() => setShowMemberPortal(true)}
+                        className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                        立即加入會員
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => setBookingStatus('idle')}
-                    className="px-6 py-3 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors"
+                    className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     再預約一筆
-                  </button>
-                </div>
-              ) : !member ? (
-                <div className="text-center py-10">
-                  <UserIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-600 font-medium mb-1">請先登入會員</p>
-                  <p className="text-gray-400 text-sm mb-5">登入後即可預約問事服務</p>
-                  <button type="button" onClick={() => setShowMemberPortal(true)}
-                    className="px-6 py-2.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] transition-colors text-sm font-medium">
-                    登入 / 註冊
                   </button>
                 </div>
               ) : (
@@ -1685,6 +1733,16 @@ const App: React.FC = () => {
                       </select>
                     </div>
                   </div>
+
+                  {/* 訪客電話（未登入才顯示） */}
+                  {!member && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                      <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                        placeholder="請留下方便聯繫的電話"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
