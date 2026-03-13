@@ -53,6 +53,7 @@ interface LampPersonEntry {
   id: string;
   serviceId: string;
   name: string;
+  gender?: string;
   birthDate: string;
   zodiac?: ZodiacSign;
   address: string;
@@ -62,6 +63,7 @@ interface LampPersonEntry {
 interface BookingPersonEntry {
   id: string;
   name: string;
+  gender?: string;
   birthDate: string;
   zodiac?: ZodiacSign;
   address: string;
@@ -72,6 +74,7 @@ interface BookingPersonEntry {
 interface DonationPersonEntry {
   id: string;
   name: string;
+  gender?: string;
   address: string;
   contactLabel?: string;
   amount: number;
@@ -289,7 +292,7 @@ const App: React.FC = () => {
     setLampStatus('loading');
     try {
       await Promise.all(lampPersons.map(p => submitLampRegistration({
-        serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
+        serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
       })));
       if (member) {
         autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
@@ -313,7 +316,7 @@ const App: React.FC = () => {
     setBookingStatus('loading');
     try {
       await Promise.all(bookingPersons.map(p => submitBooking({
-        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
+        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
         bookingDate, bookingTime, type: p.type, notes: bookingNotes,
       })));
       if (member) {
@@ -337,7 +340,7 @@ const App: React.FC = () => {
     setDonationStatus('loading');
     try {
       await Promise.all(donationPersons.map(p => submitDonation({
-        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, address: p.address || undefined, contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
+        name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, address: p.address || undefined, contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
       })));
       setDonationStatus('success');
       setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
@@ -1092,13 +1095,21 @@ const App: React.FC = () => {
                           zodiac={p.zodiac}
                           onChange={(birthDate, zodiac) => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
-                        {/* 生肖（自動帶入，可手動修改） */}
-                        <select value={p.zodiac || ''}
-                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                          <option value="">生肖（自動帶入，可手動修改）</option>
-                          {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
-                        </select>
+                        {/* 生肖 + 性別 */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <select value={p.zodiac || ''}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">生肖（自動帶入）</option>
+                            {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                          </select>
+                          <select value={p.gender || ''}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">性別（選填）</option>
+                            {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                        </div>
                         <input required type="text" placeholder="現居地址 *"
                           value={p.address}
                           onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
@@ -1536,12 +1547,20 @@ const App: React.FC = () => {
                         >
                           {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
+                        <select
+                          value={p.gender || ''}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
+                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
+                        >
+                          <option value="">性別（選填）</option>
+                          {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
                         <input
                           type="text"
                           placeholder="現居地址（可選）"
                           value={p.address}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="sm:col-span-3 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
+                          className="sm:col-span-2 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
                       </div>
                     </div>
@@ -1712,13 +1731,19 @@ const App: React.FC = () => {
                           zodiac={p.zodiac}
                           onChange={(birthDate, zodiac) => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
                         />
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           {/* 生肖（自動帶入，可手動修改） */}
                           <select value={p.zodiac || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, zodiac: (e.target.value as ZodiacSign) || undefined } : x))}
                             className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">生肖（自動帶入，可手動修改）</option>
+                            <option value="">生肖（自動帶入）</option>
                             {Object.values(ZodiacSign).map(z => <option key={z} value={z}>{z}</option>)}
+                          </select>
+                          <select value={p.gender || ''}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">性別（選填）</option>
+                            {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
                           <select required value={p.type}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}

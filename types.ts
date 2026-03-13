@@ -33,6 +33,7 @@ export enum BookingStatus {
 export interface BookingData {
   name: string;
   phone: string;
+  gender?: string;
   birthDate: string; // Lunar birthday is often preferred, but standard date for simplicity
   zodiac?: ZodiacSign;
   address?: string;
@@ -60,6 +61,7 @@ export enum DonationType {
 export interface DonationData {
   name: string;
   phone: string;
+  gender?: string;
   address?: string;
   contactLabel?: string;
   amount: number;
@@ -179,6 +181,7 @@ export interface LampRegistrationData {
   serviceId: string;
   name: string;
   phone: string;
+  gender?: string;
   birthDate: string;
   zodiac?: ZodiacSign;
   address?: string;
