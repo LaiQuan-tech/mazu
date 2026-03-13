@@ -187,6 +187,7 @@ const App: React.FC = () => {
   const [bookingNotes, setBookingNotes] = useState('');
 
   // ── 捐獻多人 ──
+  const [donationMode, setDonationMode] = useState<'general' | 'repair'>('general');
   const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
   const [donationNotes, setDonationNotes] = useState('');
   const [repairProjects, setRepairProjects] = useState<RepairProject[]>([]);
@@ -349,6 +350,9 @@ const App: React.FC = () => {
     e.preventDefault();
     const invalid = donationPersons.find(p => !p.name.trim() || p.amount <= 0);
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
+    if (donationMode === 'repair' && donationPersons.some(p => !p.repairProjectId)) {
+      alert('神尊修復模式下，請為每位大德選擇要修復的神尊。'); return;
+    }
     setDonationStatus('loading');
     try {
       await Promise.all(donationPersons.map(p => {
@@ -362,6 +366,7 @@ const App: React.FC = () => {
         });
       }));
       setDonationStatus('success');
+      setDonationMode('general');
       setDonationPersons([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
       setDonationNotes('');
     } catch {
@@ -1578,6 +1583,76 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleDonationSubmit} className="space-y-4">
+                  {/* ── 模式切換：一般捐獻 / 神尊修復 ── */}
+                  {repairProjects.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button"
+                        onClick={() => {
+                          setDonationMode('general');
+                          setDonationPersons(prev => prev.map(p => ({ ...p, type: DonationType.GENERAL, repairProjectId: undefined })));
+                        }}
+                        className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${donationMode === 'general' ? 'border-temple-red bg-red-50/60 shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                        <HeartHandshake className={`w-7 h-7 ${donationMode === 'general' ? 'text-temple-red' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-bold ${donationMode === 'general' ? 'text-temple-red' : 'text-gray-500'}`}>一般捐獻</span>
+                        <span className="text-xs text-gray-400">隨喜 / 維護 / 慈善 / 法會</span>
+                      </button>
+                      <button type="button"
+                        onClick={() => {
+                          setDonationMode('repair');
+                          setDonationPersons(prev => prev.map(p => ({ ...p, type: DonationType.REPAIR, repairProjectId: undefined })));
+                        }}
+                        className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${donationMode === 'repair' ? 'border-amber-500 bg-amber-50/60 shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                        <Wrench className={`w-7 h-7 ${donationMode === 'repair' ? 'text-amber-600' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-bold ${donationMode === 'repair' ? 'text-amber-700' : 'text-gray-500'}`}>神尊修復</span>
+                        <span className="text-xs text-gray-400">指定神尊 · 專款專用</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ── 神尊修復模式：修復進度卡片牆 ── */}
+                  {donationMode === 'repair' && repairProjects.length > 0 && (
+                    <div className="border-2 border-amber-300/60 rounded-xl p-4 bg-amber-50/30 space-y-3">
+                      <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                        <Wrench className="w-4 h-4 text-amber-600" />
+                        請在下方每位大德處選擇要修復的神尊
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {repairProjects.map(proj => {
+                          const raised = repairProjectTotals[proj.id] || 0;
+                          const pct = proj.targetAmount > 0
+                            ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
+                            : null;
+                          return (
+                            <div key={proj.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-amber-200 text-center bg-white">
+                              {proj.imageUrl
+                                ? <img src={proj.imageUrl} alt={proj.name} className="w-16 h-16 object-cover rounded-lg" />
+                                : <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                                    <Flame className="w-6 h-6 text-gray-300" />
+                                  </div>}
+                              <span className="text-sm font-semibold text-gray-800">{proj.name}</span>
+                              {proj.description && (
+                                <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
+                              )}
+                              {pct !== null && (
+                                <div className="w-full space-y-0.5">
+                                  <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <div className="flex justify-between text-xs text-gray-400">
+                                    <span>已募 NT${raised.toLocaleString()}</span>
+                                    <span>{pct}%</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── 人員卡片 ── */}
                   {donationPersons.map((p, idx) => (
                     <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
@@ -1614,25 +1689,28 @@ const App: React.FC = () => {
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, amount: Number(e.target.value) } : x))}
                           className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
-                        <select
-                          required
-                          value={p.type}
-                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
-                          className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
-                        >
-                          {Object.values(DonationType).map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        {repairProjects.length > 0 && (
+                        {/* 一般捐獻：顯示五項類型 */}
+                        {donationMode === 'general' && (
                           <select
+                            required
+                            value={p.type}
+                            onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as DonationType } : x))}
+                            className="px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm"
+                          >
+                            {Object.values(DonationType).filter(t => t !== DonationType.REPAIR).map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        )}
+                        {/* 神尊修復：顯示神尊選擇 */}
+                        {donationMode === 'repair' && (
+                          <select
+                            required
                             value={p.repairProjectId || ''}
                             onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, repairProjectId: e.target.value || undefined } : x))}
-                            className="sm:col-span-2 px-3 py-2 rounded-lg border border-temple-gold/50 focus:ring-2 focus:ring-temple-gold/30 focus:border-temple-gold transition-all outline-none bg-amber-50/60 text-sm"
+                            className="px-3 py-2 rounded-lg border border-amber-400 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-500 transition-all outline-none bg-amber-50 text-sm"
                           >
-                            <option value="">⚒ 指定修復神尊（選填）</option>
+                            <option value="">⚒ 請選擇修復神尊 *</option>
                             {repairProjects.map(proj => (
-                              <option key={proj.id} value={proj.id}>
-                                {proj.name}{proj.targetAmount > 0 ? `　目標 NT$${proj.targetAmount.toLocaleString()}` : ''}
-                              </option>
+                              <option key={proj.id} value={proj.id}>{proj.name}</option>
                             ))}
                           </select>
                         )}
@@ -1656,7 +1734,7 @@ const App: React.FC = () => {
                   ))}
 
                   <button type="button"
-                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
+                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: donationMode === 'repair' ? DonationType.REPAIR : DonationType.GENERAL }])}
                     className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
@@ -1668,49 +1746,6 @@ const App: React.FC = () => {
                       <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
                         placeholder="請留下方便聯繫的電話"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
-                    </div>
-                  )}
-
-                  {/* 神尊修復進度牆 */}
-                  {repairProjects.length > 0 && (
-                    <div className="border border-temple-gold/30 rounded-xl p-4 bg-temple-bg/20 space-y-3">
-                      <p className="text-sm font-semibold text-temple-dark flex items-center gap-1.5">
-                        <Wrench className="w-4 h-4 text-temple-red/70" />
-                        神尊修復進度
-                      </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {repairProjects.map(proj => {
-                          const raised = repairProjectTotals[proj.id] || 0;
-                          const pct = proj.targetAmount > 0
-                            ? Math.min(100, Math.round((raised / proj.targetAmount) * 100))
-                            : null;
-                          return (
-                            <div key={proj.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-gray-200 text-center bg-white">
-                              {proj.imageUrl
-                                ? <img src={proj.imageUrl} alt={proj.name} className="w-16 h-16 object-cover rounded-lg" />
-                                : <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <Flame className="w-6 h-6 text-gray-300" />
-                                  </div>}
-                              <span className="text-sm font-semibold text-gray-800">{proj.name}</span>
-                              {proj.description && (
-                                <span className="text-xs text-gray-400 line-clamp-2 leading-tight">{proj.description}</span>
-                              )}
-                              {pct !== null && (
-                                <div className="w-full space-y-0.5">
-                                  <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-temple-red rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                  </div>
-                                  <div className="flex justify-between text-xs text-gray-400">
-                                    <span>已募 NT${raised.toLocaleString()}</span>
-                                    <span>{pct}%</span>
-                                  </div>
-                                  <span className="text-xs text-gray-500">目標 NT${proj.targetAmount.toLocaleString()}</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
                     </div>
                   )}
 

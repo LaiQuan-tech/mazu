@@ -67,7 +67,8 @@ export enum DonationType {
   MAINTENANCE = '廟宇維護/修繕',
   CHARITY = '慈善救助',
   EDUCATION = '教育文化',
-  EVENT = '法會活動'
+  EVENT = '法會活動',
+  REPAIR = '神尊修復'
 }
 
 export interface DonationData {
