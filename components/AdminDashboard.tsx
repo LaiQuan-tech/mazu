@@ -1209,6 +1209,9 @@ interface DevoteeRow {
   name: string;
   phone?: string;
   gender?: string;
+  birthDate?: string;
+  zodiac?: string;
+  address?: string;
   sourceType: '會員' | '親友';
   sourceLabel: string;
   ownerName?: string;
@@ -1231,12 +1234,13 @@ const DevoteesTab = ({
   lampRegistrations: LampRegistrationRecord[];
   registrations: RegistrationRecord[];
 }) => {
-  const [search, setSearch]             = useState('');
-  const [filterGender, setFilterGender] = useState('');
-  const [filterSource, setFilterSource] = useState<'all' | 'member' | 'contact'>('all');
-  const [sortBy, setSortBy]             = useState<DevoteeSortKey>('default');
-  const [sortDir, setSortDir]           = useState<DevoteeSortDir>('desc');
-  const [page, setPage]                 = useState(0);
+  const [search, setSearch]               = useState('');
+  const [filterGender, setFilterGender]   = useState('');
+  const [filterSource, setFilterSource]   = useState<'all' | 'member' | 'contact'>('all');
+  const [sortBy, setSortBy]               = useState<DevoteeSortKey>('default');
+  const [sortDir, setSortDir]             = useState<DevoteeSortDir>('desc');
+  const [page, setPage]                   = useState(0);
+  const [selectedDevotee, setSelectedDevotee] = useState<DevoteeRow | null>(null);
 
   const handleSort = (col: DevoteeSortKey) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1267,6 +1271,9 @@ const DevoteesTab = ({
         name: p.name || '（未填姓名）',
         phone: ph,
         gender: p.gender,
+        birthDate: p.birthDate,
+        zodiac: p.zodiac,
+        address: p.address,
         sourceType: '會員',
         sourceLabel: '會員',
         stats: {
@@ -1287,6 +1294,9 @@ const DevoteesTab = ({
         name: nm,
         phone: c.phone || undefined,
         gender: c.gender,
+        birthDate: c.birthDate,
+        zodiac: c.zodiac,
+        address: c.address,
         sourceType: '親友',
         sourceLabel: c.label,
         ownerName: owner?.name || '（未知）',
@@ -1415,7 +1425,7 @@ const DevoteesTab = ({
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {paged.map(r => (
-                    <tr key={r.id} className="hover:bg-temple-bg/40 transition-colors">
+                    <tr key={r.id} className="hover:bg-temple-bg/40 transition-colors cursor-pointer" onClick={() => setSelectedDevotee(r)}>
                       {/* 姓名 + 性別 */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1473,6 +1483,76 @@ const DevoteesTab = ({
           </>
         )}
       </div>
+
+      {/* 信眾詳情 Modal */}
+      {selectedDevotee && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedDevotee(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                {selectedDevotee.name}
+                {genderBadge(selectedDevotee.gender)}
+              </h3>
+              <button onClick={() => setSelectedDevotee(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            {/* 身份 */}
+            <div className="mb-4">
+              {selectedDevotee.sourceType === '會員' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-temple-gold/20 text-temple-dark">
+                  <UserPlus className="w-3 h-3" /> 會員
+                </span>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                    <BookUser className="w-3 h-3" /> {selectedDevotee.sourceLabel}
+                  </span>
+                  <span className="text-xs text-gray-400">所屬：{selectedDevotee.ownerName}{selectedDevotee.ownerPhone ? ` · ${selectedDevotee.ownerPhone}` : ''}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 個人資料 */}
+            <div className="space-y-2 text-sm mb-4">
+              {selectedDevotee.phone && (
+                <p className="text-gray-600 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-gray-400" />{selectedDevotee.phone}</p>
+              )}
+              {selectedDevotee.birthDate && (
+                <p className="text-gray-600">農曆生日：{selectedDevotee.birthDate}{selectedDevotee.zodiac ? `　生肖：${selectedDevotee.zodiac}` : ''}</p>
+              )}
+              {selectedDevotee.address && (
+                <p className="text-gray-600 flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />{selectedDevotee.address}</p>
+              )}
+            </div>
+
+            {/* 統計 */}
+            <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-xs text-gray-500">點燈</span>
+                <span className="ml-auto text-sm font-bold text-amber-700">{selectedDevotee.stats.lamps}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-xs text-gray-500">問事</span>
+                <span className="ml-auto text-sm font-bold text-blue-700">{selectedDevotee.stats.bookingCount}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span className="text-xs text-gray-500">活動</span>
+                <span className="ml-auto text-sm font-bold text-purple-700">{selectedDevotee.stats.activities}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <HeartHandshake className="w-3.5 h-3.5 text-green-500" />
+                <span className="text-xs text-gray-500">捐獻</span>
+                <span className="ml-auto text-sm font-bold text-green-700">
+                  {selectedDevotee.stats.donation > 0 ? `NT$${selectedDevotee.stats.donation.toLocaleString()}` : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
