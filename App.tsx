@@ -46,6 +46,7 @@ import BirthDatePicker from './components/BirthDatePicker';
 
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
 const newId = () => Math.random().toString(36).slice(2, 10);
+const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
 
 interface LampPersonEntry {
   id: string;
@@ -115,7 +116,7 @@ const App: React.FC = () => {
   const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   // ── 點燈多人 ──
-  const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }]);
+  const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
   const [lampNotes, setLampNotes] = useState('');
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [member, setMember] = useState<User | null>(null);
@@ -126,7 +127,7 @@ const App: React.FC = () => {
   // ── 祈福活動 ──
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingModal, setBlessingModal] = useState<BlessingEventRecord | null>(null);
-  const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
+  const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
   const [blessingNotes, setBlessingNotes] = useState('');
   const [blessingStatus, setBlessingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -171,7 +172,7 @@ const App: React.FC = () => {
   };
 
   // ── 問事多人 ──
-  const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }]);
+  const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
   const [bookingDate, setBookingDate] = useState('');
   const [bookingTime, setBookingTime] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
@@ -281,7 +282,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
       setLampStatus('success');
-      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }]);
+      setLampPersons([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
       setLampNotes('');
     } catch {
       setLampStatus('error');
@@ -304,7 +305,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
       setBookingStatus('success');
-      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }]);
+      setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
       setBookingDate(''); setBookingTime(''); setBookingNotes('');
     } catch (error) {
       console.error(error);
@@ -361,7 +362,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
       setBlessingStatus('success');
-      setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
+      setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
       setBlessingNotes('');
     } catch {
       setBlessingStatus('error');
@@ -370,7 +371,7 @@ const App: React.FC = () => {
 
   const openBlessingModal = (event: BlessingEventRecord) => {
     setBlessingModal(event);
-    setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }]);
+    setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
     setBlessingNotes('');
     setBlessingStatus('idle');
   };
@@ -1053,11 +1054,19 @@ const App: React.FC = () => {
                             <option key={cfg.id} value={cfg.id}>{cfg.name}　NT$ {cfg.fee.toLocaleString()} / 年</option>
                           ))}
                         </select>
-                        {/* 姓名 */}
-                        <input required type="text" placeholder="信眾大名 *"
-                          value={p.name}
-                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        {/* 姓名 + 稱謂 */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <input required type="text" placeholder="信眾大名 *"
+                            value={p.name}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                          <select value={p.contactLabel || ''}
+                            onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">稱謂 / 關係</option>
+                            {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
                         {/* 生日選擇器 */}
                         <BirthDatePicker
                           key={`lamp-${p.id}-${p._bKey ?? 0}`}
@@ -1081,7 +1090,7 @@ const App: React.FC = () => {
 
                     {/* 新增人員 */}
                     <button type="button"
-                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '' }])}
+                      onClick={() => setLampPersons(prev => [...prev, { id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '' }])}
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 text-temple-red/70 rounded-xl text-sm hover:border-temple-gold hover:text-temple-red hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                       <Plus className="w-4 h-4" /> 新增人員
                     </button>
@@ -1283,6 +1292,15 @@ const App: React.FC = () => {
                               {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
                           </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</label>
+                            <select value={p.contactLabel || ''}
+                              onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                              <option value="">請選擇稱謂 / 關係</option>
+                              {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </div>
                         </div>
                         {/* 護持方案（有多方案時才顯示） */}
                         {blessingModal.packages && blessingModal.packages.length > 0 && (
@@ -1319,7 +1337,7 @@ const App: React.FC = () => {
 
                     {/* 新增報名者 */}
                     <button type="button"
-                      onClick={() => setBlessingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '' }])}
+                      onClick={() => setBlessingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '' }])}
                       className="w-full py-2.5 border-2 border-dashed border-temple-gold/40 rounded-xl text-sm text-temple-red hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-2">
                       <Plus className="w-4 h-4" /> 新增報名者
                     </button>
@@ -1585,12 +1603,20 @@ const App: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      {/* 姓名 / 生日 / 生肖 / 問事項目 */}
+                      {/* 姓名 / 稱謂 / 生日 / 生肖 / 問事項目 */}
                       <div className="space-y-2">
-                        <input required type="text" placeholder="信眾大名 *"
-                          value={p.name}
-                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input required type="text" placeholder="信眾大名 *"
+                            value={p.name}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                          <select value={p.contactLabel || ''}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">稱謂 / 關係</option>
+                            {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
                         {/* 生日選擇器 */}
                         <BirthDatePicker
                           key={`booking-${p.id}-${p._bKey ?? 0}`}
@@ -1622,7 +1648,7 @@ const App: React.FC = () => {
 
                   {/* 新增人員 */}
                   <button type="button"
-                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER }])}
+                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '' }])}
                     className="w-full py-2.5 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
