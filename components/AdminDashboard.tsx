@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, supabase } from '../services/supabase';
 import { BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -13,7 +13,7 @@ import {
   Eye, EyeOff
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
+type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'devotees' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -1195,6 +1195,224 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── Devotees Tab (信眾管理) ─────────────────────────────────────────────────
+
+interface DevoteeRow {
+  id: string;
+  name: string;
+  phone?: string;
+  gender?: string;
+  birthDate?: string;
+  zodiac?: string;
+  address?: string;
+  sourceType: '會員' | '親友';
+  sourceLabel: string;   // '會員' 或親友關係（父母親/兒女/…）
+  ownerName?: string;    // 親友才有：所屬會員姓名
+  ownerPhone?: string;
+}
+
+const DevoteesTab = ({
+  memberProfiles,
+  allContacts,
+}: {
+  memberProfiles: MemberProfileRecord[];
+  allContacts: MemberContact[];
+}) => {
+  const [search, setSearch]         = useState('');
+  const [filterGender, setFilterGender] = useState('');
+  const [filterSource, setFilterSource] = useState<'all' | 'member' | 'contact'>('all');
+  const [page, setPage]             = useState(0);
+
+  const rows = useMemo<DevoteeRow[]>(() => {
+    const memberRows: DevoteeRow[] = memberProfiles.map(p => ({
+      id: `m-${p.userId}`,
+      name: p.name || '（未填姓名）',
+      phone: p.phone,
+      gender: p.gender,
+      birthDate: p.birthDate,
+      zodiac: p.zodiac,
+      address: p.address,
+      sourceType: '會員',
+      sourceLabel: '會員',
+    }));
+    const contactRows: DevoteeRow[] = allContacts.map(c => {
+      const owner = memberProfiles.find(p => p.userId === c.userId);
+      return {
+        id: `c-${c.id}`,
+        name: c.name,
+        phone: c.phone || undefined,
+        gender: c.gender,
+        birthDate: c.birthDate,
+        zodiac: c.zodiac,
+        address: c.address,
+        sourceType: '親友',
+        sourceLabel: c.label,
+        ownerName: owner?.name || '（未知）',
+        ownerPhone: owner?.phone,
+      };
+    });
+    return [...memberRows, ...contactRows];
+  }, [memberProfiles, allContacts]);
+
+  const genders = ['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'];
+
+  const filtered = useMemo(() => {
+    return rows.filter(r => {
+      if (search && !r.name.includes(search) && !(r.phone || '').includes(search)) return false;
+      if (filterGender && r.gender !== filterGender) return false;
+      if (filterSource === 'member'  && r.sourceType !== '會員') return false;
+      if (filterSource === 'contact' && r.sourceType !== '親友') return false;
+      return true;
+    });
+  }, [rows, search, filterGender, filterSource]);
+
+  useEffect(() => { setPage(0); }, [search, filterGender, filterSource]);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const handleExport = () => {
+    exportExcel('信眾名單.xlsx', filtered.map(r => [
+      r.name, r.phone || '', r.gender || '', r.birthDate || '', r.zodiac || '',
+      r.address || '', r.sourceType, r.sourceLabel, r.ownerName || '',
+    ]), ['姓名', '電話', '性別', '農曆生日', '生肖', '地址', '身份類型', '關係/身份', '所屬會員']);
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <h2 className="text-xl font-bold text-gray-800">
+          信眾管理
+          <span className="ml-2 text-sm font-normal text-gray-400">{rows.length} 人</span>
+          {filtered.length !== rows.length && (
+            <span className="ml-1 text-sm font-normal text-temple-red">（篩選後 {filtered.length} 人）</span>
+          )}
+        </h2>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-1.5 px-4 py-2 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-temple-red/90 transition-all shadow-sm"
+        >
+          <Download className="w-4 h-4" /> 匯出 Excel
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="搜尋姓名或電話…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20"
+          />
+        </div>
+        <select
+          value={filterGender}
+          onChange={e => setFilterGender(e.target.value)}
+          className="px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-temple-red/20"
+        >
+          <option value="">全部性別</option>
+          {genders.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
+          {(['all', 'member', 'contact'] as const).map((v, i) => (
+            <button
+              key={v}
+              onClick={() => setFilterSource(v)}
+              className={`px-3 py-2 transition-all ${filterSource === v ? 'bg-temple-red text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'} ${i > 0 ? 'border-l border-gray-200' : ''}`}
+            >
+              {v === 'all' ? '全部' : v === 'member' ? '僅會員' : '僅親友'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-temple-gold/15 text-temple-dark">
+          <Users className="w-3.5 h-3.5" /> 會員 {memberProfiles.length} 人
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+          <BookUser className="w-3.5 h-3.5" /> 親友 {allContacts.length} 人
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="text-center py-14 text-gray-400 text-sm">找不到符合的信眾</div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[580px]">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">姓名</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">身份</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">農曆生日</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">地址</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">電話</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {paged.map(r => (
+                    <tr key={r.id} className="hover:bg-temple-bg/40 transition-colors">
+                      {/* 姓名 + 性別 */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-800">{r.name}</span>
+                          {genderBadge(r.gender)}
+                        </div>
+                      </td>
+                      {/* 身份 */}
+                      <td className="px-4 py-3">
+                        {r.sourceType === '會員' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-temple-gold/20 text-temple-dark">
+                            <UserPlus className="w-3 h-3" /> 會員
+                          </span>
+                        ) : (
+                          <div>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                              <BookUser className="w-3 h-3" /> {r.sourceLabel}
+                            </span>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              所屬：{r.ownerName}{r.ownerPhone ? ` · ${r.ownerPhone}` : ''}
+                            </p>
+                          </div>
+                        )}
+                      </td>
+                      {/* 生日 */}
+                      <td className="px-4 py-3">
+                        {r.birthDate
+                          ? <p className="text-sm text-gray-600">{r.birthDate}{r.zodiac ? <span className="text-gray-400">　{r.zodiac}</span> : ''}</p>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      {/* 地址 */}
+                      <td className="px-4 py-3 max-w-[200px]">
+                        {r.address
+                          ? <p className="text-xs text-gray-500 truncate">{r.address}</p>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      {/* 電話 */}
+                      <td className="px-4 py-3">
+                        {r.phone
+                          ? <p className="text-sm text-gray-600 flex items-center gap-1"><Phone className="w-3 h-3 text-gray-400" />{r.phone}</p>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Paginator total={filtered.length} page={page} onChange={setPage} />
+          </>
+        )}
+      </div>
     </div>
   );
 };
@@ -3128,6 +3346,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [lampRegistrations, setLampRegistrations] = useState<LampRegistrationRecord[]>([]);
   const [allRegistrations, setAllRegistrations] = useState<RegistrationRecord[]>([]);
   const [memberProfiles, setMemberProfiles] = useState<MemberProfileRecord[]>([]);
+  const [allContacts, setAllContacts]       = useState<MemberContact[]>([]);
   const [usersLastLogin, setUsersLastLogin] = useState<Record<string, string>>({});
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
@@ -3140,7 +3359,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
+      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ac, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getMemberContacts().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -3151,6 +3370,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setLampConfigs(lc);
       setLampRegistrations(lr);
       setMemberProfiles(mp);
+      setAllContacts(ac);
       setUsersLastLogin(ll);
       setAllRegistrations(ar);
       setBlessingEvents(be);
@@ -3187,6 +3407,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
     { key: 'deities',   label: '神明資訊',   icon: <Flame className="w-4 h-4" /> },
     { key: 'members',   label: '會員管理',   icon: <Users className="w-4 h-4" /> },
+    { key: 'devotees',  label: '信眾管理',   icon: <BookUser className="w-4 h-4" /> },
     { key: 'lamps',     label: '點燈管理',   icon: <Flame className="w-4 h-4" /> },
     { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
     { key: 'donations', label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
@@ -3268,6 +3489,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
+              {tab === 'devotees'  && <DevoteesTab memberProfiles={memberProfiles} allContacts={allContacts} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
