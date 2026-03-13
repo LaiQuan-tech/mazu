@@ -560,7 +560,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden lg:flex items-center gap-1">
-              {['home', 'about', 'deities', 'lamps', 'blessing', 'donation', 'booking'].map((item) => (
+              {['home', 'about', 'deities', 'lamps', 'blessing', 'repair', 'booking'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -575,7 +575,7 @@ const App: React.FC = () => {
                     'deities': '神明',
                     'lamps': '點燈',
                     'blessing': '祈福',
-                    'donation': '捐獻',
+                    'repair': '捐獻',
                     'booking': '問事',
                   }[item]}
                   {activeSection === item && (
@@ -613,7 +613,7 @@ const App: React.FC = () => {
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1">
-            {['home', 'about', 'deities', 'lamps', 'blessing', 'donation', 'booking'].map((item) => (
+            {['home', 'about', 'deities', 'lamps', 'blessing', 'repair', 'booking'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
@@ -813,7 +813,7 @@ const App: React.FC = () => {
                       <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>
                       {bulletin.linkedService && (() => {
                         const svcLabel:  Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
-                        const svcAnchor: Record<string, string> = { lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation' };
+                        const svcAnchor: Record<string, string> = { lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'repair' };
                         return (
                           <button
                             onClick={e => { e.stopPropagation(); scrollToSection(svcAnchor[bulletin.linkedService!] ?? bulletin.linkedService!); }}
