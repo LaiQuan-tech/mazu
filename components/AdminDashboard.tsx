@@ -1201,83 +1201,136 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
 
 // ─── Devotees Tab (信眾管理) ─────────────────────────────────────────────────
 
+type DevoteeSortKey = 'default' | 'lamps' | 'bookings' | 'activities' | 'donation';
+type DevoteeSortDir = 'asc' | 'desc';
+
 interface DevoteeRow {
   id: string;
   name: string;
   phone?: string;
   gender?: string;
-  birthDate?: string;
-  zodiac?: string;
-  address?: string;
   sourceType: '會員' | '親友';
-  sourceLabel: string;   // '會員' 或親友關係（父母親/兒女/…）
-  ownerName?: string;    // 親友才有：所屬會員姓名
+  sourceLabel: string;
+  ownerName?: string;
   ownerPhone?: string;
+  stats: { lamps: number; bookingCount: number; activities: number; donation: number };
 }
 
 const DevoteesTab = ({
   memberProfiles,
   allContacts,
+  bookings,
+  donations,
+  lampRegistrations,
+  registrations,
 }: {
   memberProfiles: MemberProfileRecord[];
   allContacts: MemberContact[];
+  bookings: BookingRecord[];
+  donations: DonationRecord[];
+  lampRegistrations: LampRegistrationRecord[];
+  registrations: RegistrationRecord[];
 }) => {
-  const [search, setSearch]         = useState('');
+  const [search, setSearch]             = useState('');
   const [filterGender, setFilterGender] = useState('');
   const [filterSource, setFilterSource] = useState<'all' | 'member' | 'contact'>('all');
-  const [page, setPage]             = useState(0);
+  const [sortBy, setSortBy]             = useState<DevoteeSortKey>('default');
+  const [sortDir, setSortDir]           = useState<DevoteeSortDir>('desc');
+  const [page, setPage]                 = useState(0);
+
+  const handleSort = (col: DevoteeSortKey) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('desc'); }
+  };
+
+  const SortTh = ({ col, label }: { col: DevoteeSortKey; label: string }) => (
+    <th
+      className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-temple-red transition-colors whitespace-nowrap"
+      onClick={() => handleSort(col)}
+    >
+      <span className="inline-flex items-center justify-center gap-1">
+        {label}
+        {sortBy === col
+          ? sortDir === 'asc'
+            ? <ChevronUp className="w-3.5 h-3.5 text-temple-red" />
+            : <ChevronDown className="w-3.5 h-3.5 text-temple-red" />
+          : <ChevronsUpDown className="w-3.5 h-3.5 opacity-30" />}
+      </span>
+    </th>
+  );
 
   const rows = useMemo<DevoteeRow[]>(() => {
-    const memberRows: DevoteeRow[] = memberProfiles.map(p => ({
-      id: `m-${p.userId}`,
-      name: p.name || '（未填姓名）',
-      phone: p.phone,
-      gender: p.gender,
-      birthDate: p.birthDate,
-      zodiac: p.zodiac,
-      address: p.address,
-      sourceType: '會員',
-      sourceLabel: '會員',
-    }));
+    const memberRows: DevoteeRow[] = memberProfiles.map(p => {
+      const ph = p.phone;
+      return {
+        id: `m-${p.userId}`,
+        name: p.name || '（未填姓名）',
+        phone: ph,
+        gender: p.gender,
+        sourceType: '會員',
+        sourceLabel: '會員',
+        stats: {
+          lamps:        lampRegistrations.filter(l => l.phone === ph).length,
+          bookingCount: bookings.filter(b => b.phone === ph).length,
+          activities:   registrations.filter(r => r.phone === ph).length,
+          donation:     donations.filter(d => d.phone === ph).reduce((s, d) => s + Number(d.amount), 0),
+        },
+      };
+    });
+
     const contactRows: DevoteeRow[] = allContacts.map(c => {
       const owner = memberProfiles.find(p => p.userId === c.userId);
+      const ph = owner?.phone;
+      const nm = c.name;
       return {
         id: `c-${c.id}`,
-        name: c.name,
+        name: nm,
         phone: c.phone || undefined,
         gender: c.gender,
-        birthDate: c.birthDate,
-        zodiac: c.zodiac,
-        address: c.address,
         sourceType: '親友',
         sourceLabel: c.label,
         ownerName: owner?.name || '（未知）',
-        ownerPhone: owner?.phone,
+        ownerPhone: ph,
+        stats: {
+          lamps:        lampRegistrations.filter(l => l.phone === ph && l.name === nm).length,
+          bookingCount: bookings.filter(b => b.phone === ph && b.name === nm).length,
+          activities:   registrations.filter(r => r.phone === ph && r.name === nm).length,
+          donation:     donations.filter(d => d.phone === ph && d.name === nm).reduce((s, d) => s + Number(d.amount), 0),
+        },
       };
     });
+
     return [...memberRows, ...contactRows];
-  }, [memberProfiles, allContacts]);
+  }, [memberProfiles, allContacts, bookings, donations, lampRegistrations, registrations]);
 
   const genders = ['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'];
 
   const filtered = useMemo(() => {
-    return rows.filter(r => {
+    const base = rows.filter(r => {
       if (search && !r.name.includes(search) && !(r.phone || '').includes(search)) return false;
       if (filterGender && r.gender !== filterGender) return false;
       if (filterSource === 'member'  && r.sourceType !== '會員') return false;
       if (filterSource === 'contact' && r.sourceType !== '親友') return false;
       return true;
     });
-  }, [rows, search, filterGender, filterSource]);
+    base.sort((a, b) => {
+      if (sortBy === 'lamps')      { const d = a.stats.lamps - b.stats.lamps;               return sortDir === 'asc' ? d : -d; }
+      if (sortBy === 'bookings')   { const d = a.stats.bookingCount - b.stats.bookingCount;  return sortDir === 'asc' ? d : -d; }
+      if (sortBy === 'activities') { const d = a.stats.activities - b.stats.activities;      return sortDir === 'asc' ? d : -d; }
+      if (sortBy === 'donation')   { const d = a.stats.donation - b.stats.donation;          return sortDir === 'asc' ? d : -d; }
+      return 0;
+    });
+    return base;
+  }, [rows, search, filterGender, filterSource, sortBy, sortDir]);
 
-  useEffect(() => { setPage(0); }, [search, filterGender, filterSource]);
+  useEffect(() => { setPage(0); }, [search, filterGender, filterSource, sortBy]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const handleExport = () => {
     exportExcel('信眾名單.xlsx', filtered.map(r => [
-      r.name, r.phone || '', r.gender || '', r.birthDate || '', r.zodiac || '',
-      r.address || '', r.sourceType, r.sourceLabel, r.ownerName || '',
-    ]), ['姓名', '電話', '性別', '農曆生日', '生肖', '地址', '身份類型', '關係/身份', '所屬會員']);
+      r.name, r.phone || '', r.gender || '', r.sourceType, r.sourceLabel, r.ownerName || '',
+      r.stats.lamps, r.stats.bookingCount, r.stats.activities, r.stats.donation,
+    ]), ['姓名', '電話', '性別', '身份類型', '關係/身份', '所屬會員', '點燈', '問事', '活動', '捐獻(NT$)']);
   };
 
   return (
@@ -1349,14 +1402,15 @@ const DevoteesTab = ({
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[580px]">
+              <table className="w-full min-w-[640px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">姓名</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">身份</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">農曆生日</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">地址</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">電話</th>
+                    <SortTh col="lamps"      label="點燈" />
+                    <SortTh col="bookings"   label="問事" />
+                    <SortTh col="activities" label="活動" />
+                    <SortTh col="donation"   label="捐獻" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1381,27 +1435,33 @@ const DevoteesTab = ({
                               <BookUser className="w-3 h-3" /> {r.sourceLabel}
                             </span>
                             <p className="text-xs text-gray-400 mt-0.5">
-                              所屬：{r.ownerName}{r.ownerPhone ? ` · ${r.ownerPhone}` : ''}
+                              {r.ownerName}{r.ownerPhone ? ` · ${r.ownerPhone}` : ''}
                             </p>
                           </div>
                         )}
                       </td>
-                      {/* 生日 */}
-                      <td className="px-4 py-3">
-                        {r.birthDate
-                          ? <p className="text-sm text-gray-600">{r.birthDate}{r.zodiac ? <span className="text-gray-400">　{r.zodiac}</span> : ''}</p>
+                      {/* 點燈 */}
+                      <td className="px-4 py-3 text-center">
+                        {r.stats.lamps > 0
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><Flame className="w-3 h-3" />{r.stats.lamps}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
-                      {/* 地址 */}
-                      <td className="px-4 py-3 max-w-[200px]">
-                        {r.address
-                          ? <p className="text-xs text-gray-500 truncate">{r.address}</p>
+                      {/* 問事 */}
+                      <td className="px-4 py-3 text-center">
+                        {r.stats.bookingCount > 0
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"><BookOpen className="w-3 h-3" />{r.stats.bookingCount}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
-                      {/* 電話 */}
-                      <td className="px-4 py-3">
-                        {r.phone
-                          ? <p className="text-sm text-gray-600 flex items-center gap-1"><Phone className="w-3 h-3 text-gray-400" />{r.phone}</p>
+                      {/* 活動 */}
+                      <td className="px-4 py-3 text-center">
+                        {r.stats.activities > 0
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700"><Sparkles className="w-3 h-3" />{r.stats.activities}</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      {/* 捐獻 */}
+                      <td className="px-4 py-3 text-right">
+                        {r.stats.donation > 0
+                          ? <span className="text-sm font-bold text-green-700">NT${r.stats.donation.toLocaleString()}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                     </tr>
@@ -3489,7 +3549,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
-              {tab === 'devotees'  && <DevoteesTab memberProfiles={memberProfiles} allContacts={allContacts} />}
+              {tab === 'devotees'  && <DevoteesTab memberProfiles={memberProfiles} allContacts={allContacts} bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
