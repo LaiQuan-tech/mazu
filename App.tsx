@@ -29,14 +29,15 @@ import {
   Sparkles,
   Share2,
   Copy,
-  CheckCircle
+  CheckCircle,
+  ShoppingBag
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
@@ -89,7 +90,9 @@ interface BlessingPersonEntry {
   address: string;
   contactLabel?: string;
   _bKey?: number;
-  packageId?: string; // 所選方案 ID（有多方案時）
+  packageId?: string;              // 所選方案 ID（有多方案時）
+  selectedAddonIds?: string[];     // 固定品項勾選的 addon.id 清單
+  voluntaryFees?: Record<string, number>; // voluntary addon.id → 自填金額
 }
 
 // 水墨筆刷分隔線元件
@@ -365,6 +368,15 @@ const App: React.FC = () => {
     try {
       await Promise.all(blessingPersons.map(p => {
         const pkg = hasPackages ? blessingModal.packages.find(pk => pk.id === p.packageId) : undefined;
+        const eventAddons = blessingModal.addons || [];
+        const selectedAddons: BlessingAddon[] = [
+          // 固定品項：勾選即加入
+          ...eventAddons.filter(a => !a.voluntary && (p.selectedAddonIds || []).includes(a.id)),
+          // 隨喜品項：有金額（≥1）才加入，fee 用自填值
+          ...eventAddons
+            .filter(a => a.voluntary && (p.voluntaryFees?.[a.id] ?? 0) >= 1)
+            .map(a => ({ ...a, fee: p.voluntaryFees![a.id] })),
+        ];
         return createBlessingRegistration({
           eventId: blessingModal.id,
           name: p.name.trim(),
@@ -376,6 +388,7 @@ const App: React.FC = () => {
           notes: blessingNotes || undefined,
           packageName: pkg?.name,
           packageFee:  pkg?.fee,
+          selectedAddons: selectedAddons.length > 0 ? selectedAddons : undefined,
         } as BlessingRegistrationData);
       }));
       if (member) {
@@ -1376,6 +1389,64 @@ const App: React.FC = () => {
                             </select>
                           </div>
                         )}
+                        {/* 加購項目（有設定時才顯示） */}
+                        {blessingModal.addons && blessingModal.addons.length > 0 && (() => {
+                          const fixedAddons = blessingModal.addons.filter(a => !a.voluntary);
+                          const voluntaryAddons = blessingModal.addons.filter(a => a.voluntary);
+                          const pkg = blessingModal.packages?.find(pk => pk.id === p.packageId);
+                          const pkgFee = pkg?.fee ?? (blessingModal.packages?.length ? 0 : (blessingModal.fee ?? 0));
+                          const fixedTotal = fixedAddons
+                            .filter(a => (p.selectedAddonIds || []).includes(a.id))
+                            .reduce((s, a) => s + a.fee, 0);
+                          const volTotal = voluntaryAddons
+                            .reduce((s, a) => s + (p.voluntaryFees?.[a.id] || 0), 0);
+                          const total = pkgFee + fixedTotal + volTotal;
+                          return (
+                            <div className="border border-temple-gold/30 rounded-xl p-3 bg-temple-bg/30">
+                              <p className="text-xs font-semibold text-temple-dark mb-2 flex items-center gap-1.5">
+                                <ShoppingBag className="w-3.5 h-3.5" /> 加購項目（可多選）
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                {/* 固定費用品項：勾選框 */}
+                                {fixedAddons.map(addon => (
+                                  <label key={addon.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 cursor-pointer hover:border-temple-gold/60 hover:bg-temple-gold/5 transition-all">
+                                    <input type="checkbox" className="accent-temple-red w-4 h-4"
+                                      checked={(p.selectedAddonIds || []).includes(addon.id)}
+                                      onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
+                                        ...x,
+                                        selectedAddonIds: e.target.checked
+                                          ? [...(x.selectedAddonIds || []), addon.id]
+                                          : (x.selectedAddonIds || []).filter(id => id !== addon.id)
+                                      } : x))} />
+                                    <span className="text-sm text-gray-700 flex-1">{addon.name}</span>
+                                    <span className="text-xs font-semibold text-temple-red">NT${addon.fee.toLocaleString()}</span>
+                                  </label>
+                                ))}
+                                {/* 隨喜品項：直接顯示金額輸入 */}
+                                {voluntaryAddons.map(addon => (
+                                  <div key={addon.id} className="flex items-center gap-2 p-2 rounded-lg border border-green-200 bg-green-50/40 sm:col-span-2">
+                                    <HeartHandshake className="w-4 h-4 text-green-600 shrink-0" />
+                                    <span className="text-sm text-gray-700 flex-1">{addon.name}</span>
+                                    <input type="number" min="1" placeholder="金額（選填）"
+                                      value={p.voluntaryFees?.[addon.id] || ''}
+                                      onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
+                                        ...x,
+                                        voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: e.target.value ? Number(e.target.value) : 0 }
+                                      } : x))}
+                                      className="w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-temple-gold" />
+                                    <span className="text-xs text-gray-400 shrink-0">NT$</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* 小計 */}
+                              {total > 0 && (
+                                <p className="text-right text-xs font-semibold text-temple-red mt-2">
+                                  小計 NT${total.toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {/* 生日選擇器 */}
                         <BirthDatePicker
                           key={`blessing-${p.id}-${p._bKey ?? 0}`}

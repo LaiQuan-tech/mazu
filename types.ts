@@ -235,6 +235,14 @@ export enum BlessingStatus {
   CANCELLED = '已取消'
 }
 
+export interface BlessingAddon {
+  id:           string;    // nanoid，前端產生
+  name:         string;    // 品項名稱，e.g. '蠟燭' / '隨喜敬獻'
+  fee:          number;    // 固定費用；voluntary 時為 0（儲存時改為實際輸入值）
+  voluntary?:   boolean;   // true = 信眾自填金額
+  description?: string;    // 說明（選填）
+}
+
 export interface BlessingEventPackage {
   id:           string;   // 前端用 nanoid / random string
   name:         string;   // 方案名稱，e.g. '基礎護持'
@@ -251,6 +259,7 @@ export interface BlessingEventData {
   registrationDeadline?: string; // ISO datetime
   fee: number;                // 無方案時的統一費用（有方案時可設 0）
   packages: BlessingEventPackage[]; // 多方案（空陣列表示只有單一費用）
+  addons: BlessingAddon[];    // 可加購品項（空陣列 = 無加購）
   imageUrl?: string;
   isActive: boolean;
   sortOrder: number;
@@ -273,6 +282,7 @@ export interface BlessingRegistrationData {
   notes?: string;
   packageName?: string;   // 所選方案名稱（無方案時為 undefined）
   packageFee?:  number;   // 所選方案費用（無方案時為 undefined）
+  selectedAddons?: BlessingAddon[];  // 此人選擇的加購（voluntary 項目 fee 為實際輸入值）
 }
 
 export interface BlessingRegistrationRecord extends BlessingRegistrationData {

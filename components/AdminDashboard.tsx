@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, supabase } from '../services/supabase';
-import { BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -10,7 +10,7 @@ import {
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby,
-  Eye, EyeOff
+  Eye, EyeOff, ShoppingBag
 } from 'lucide-react';
 
 type Tab = 'overview' | 'bookings' | 'donations' | 'members' | 'devotees' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
@@ -3029,7 +3029,7 @@ const BLESSING_EVENT_TYPES = ['法會', '進香', '祭典', '祈福', '其他'];
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
   startDate: '', endDate: '', registrationDeadline: '',
-  fee: 0, packages: [], imageUrl: '', isActive: true, sortOrder: 0,
+  fee: 0, packages: [], addons: [], imageUrl: '', isActive: true, sortOrder: 0,
 });
 
 const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
@@ -3078,7 +3078,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
       title: e.title, description: e.description || '',
       eventType: e.eventType, startDate: e.startDate, endDate: e.endDate,
       registrationDeadline: e.registrationDeadline ? e.registrationDeadline.slice(0, 16) : '',
-      fee: e.fee, packages: e.packages || [], imageUrl: e.imageUrl || '', isActive: e.isActive, sortOrder: e.sortOrder,
+      fee: e.fee, packages: e.packages || [], addons: e.addons || [], imageUrl: e.imageUrl || '', isActive: e.isActive, sortOrder: e.sortOrder,
     });
     setShowModal(true);
   };
@@ -3137,8 +3137,13 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
     if (!selectedEvent) return;
     exportExcel(
       `祈福報名_${selectedEvent.title}.xlsx`,
-      filteredRegs.map(r => [r.name, r.phone, r.packageName || '', r.packageFee ?? '', r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt)]),
-      ['姓名', '電話', '方案', '費用', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間']
+      filteredRegs.map(r => [
+        r.name, r.phone, r.packageName || '', r.packageFee ?? '',
+        (r.selectedAddons || []).map(a => `${a.name}(NT$${a.fee})`).join(' / '),
+        (r.selectedAddons || []).reduce((s, a) => s + a.fee, 0) || '',
+        r.gender || '', r.birthDate || '', r.zodiac || '', r.address || '', r.notes || '', r.status, fmtDate(r.createdAt)
+      ]),
+      ['姓名', '電話', '方案', '費用', '加購項目', '加購小計', '性別', '生日', '生肖', '地址', '備註', '狀態', '報名時間']
     );
   };
 
@@ -3195,6 +3200,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                     <th className="px-4 py-3 text-left">姓名</th>
                     <th className="px-4 py-3 text-left">電話</th>
                     <th className="px-4 py-3 text-left">方案</th>
+                    <th className="px-4 py-3 text-left">加購</th>
                     <th className="px-4 py-3 text-left">生日 / 生肖</th>
                     <th className="px-4 py-3 text-left">地址</th>
                     <th className="px-4 py-3 text-left">備註</th>
@@ -3219,6 +3225,13 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                           ? <span className="inline-flex flex-col gap-0.5">
                               <span className="text-xs font-medium text-temple-red">{r.packageName}</span>
                               {r.packageFee !== undefined && <span className="text-xs text-gray-400">NT${r.packageFee.toLocaleString()}</span>}
+                            </span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[160px]">
+                        {r.selectedAddons && r.selectedAddons.length > 0
+                          ? <span className="text-xs leading-relaxed">
+                              {r.selectedAddons.map(a => `${a.name}(NT$${a.fee.toLocaleString()})`).join(' / ')}
                             </span>
                           : <span className="text-gray-300">—</span>}
                       </td>
@@ -3345,6 +3358,57 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                           <button type="button"
                             onClick={() => setForm(f => ({ ...f, packages: f.packages.filter((_, i) => i !== idx) }))}
                             className="text-red-400 hover:text-red-600 transition-colors shrink-0 mt-0.5">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* 加購品項設定 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <ShoppingBag className="w-4 h-4 text-temple-red/70" /> 加購品項
+                  </label>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name: '', fee: 0, voluntary: false }] }))}
+                    className="flex items-center gap-1 text-xs text-temple-red hover:text-temple-red/80 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> 新增加購品項
+                  </button>
+                </div>
+                {(!form.addons || form.addons.length === 0) ? (
+                  <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+                    無加購品項。點擊「新增加購品項」可設定固定費用品項或隨喜敬獻。
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(form.addons || []).map((addon, idx) => (
+                      <div key={addon.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={addon.name}
+                            onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, name: e.target.value } : a) }))}
+                            placeholder="品項名稱 *"
+                            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                          <input
+                            type="number" min={0}
+                            value={addon.voluntary ? '' : addon.fee}
+                            disabled={!!addon.voluntary}
+                            onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, fee: Number(e.target.value) } : a) }))}
+                            placeholder={addon.voluntary ? '自填' : '費用 NT$'}
+                            className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red disabled:bg-gray-100 disabled:text-gray-400" />
+                          <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap cursor-pointer select-none">
+                            <input type="checkbox"
+                              checked={!!addon.voluntary}
+                              onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, voluntary: e.target.checked, fee: 0 } : a) }))}
+                              className="accent-green-600 w-3.5 h-3.5" />
+                            隨喜
+                          </label>
+                          <button type="button"
+                            onClick={() => setForm(f => ({ ...f, addons: (f.addons || []).filter((_, i) => i !== idx) }))}
+                            className="text-red-400 hover:text-red-600 transition-colors shrink-0">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
