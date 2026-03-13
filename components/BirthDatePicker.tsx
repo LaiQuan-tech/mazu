@@ -239,10 +239,12 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
 
   const handleBirthHourChange = (hour: string) => {
     setBirthHour(hour);
-    const base = currentBirthDate.replace(/[子丑寅卯辰巳午未申酉戌亥]時$/, '');
-    const newDate = base + hour;
-    setCurrentBirthDate(newDate);
-    onChange(newDate);
+    // 時辰不影響生肖，直接重算整個日期（帶入新時辰），讓 zodiac 正確傳給父層
+    if (inputMode === 'solar') {
+      applySolar(solarYear, solarMonth, solarDay, hour);
+    } else {
+      applyLunar(lunarYear, lunarMonthValue, lunarDay, hour);
+    }
   };
 
   // ── 樣式 ───────────────────────────────────────────────────────────────────

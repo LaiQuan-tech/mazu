@@ -98,6 +98,7 @@ const App: React.FC = () => {
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -1768,14 +1769,23 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
+          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm gap-4">
             <p>&copy; {new Date().getFullYear()} 台北古亭和聖壇. All rights reserved. 網站設計：和聖壇管理委員會</p>
-            <button
-              onClick={() => setShowLoginModal(true)}
-              className="mt-4 md:mt-0 flex items-center hover:text-temple-gold transition-colors"
-            >
-              <Settings className="w-4 h-4 mr-1" /> 管理員登入
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="hover:text-temple-gold transition-colors"
+              >
+                隱私權政策
+              </button>
+              <span className="text-gray-700">·</span>
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="flex items-center hover:text-temple-gold transition-colors"
+              >
+                <Settings className="w-4 h-4 mr-1" /> 管理員登入
+              </button>
+            </div>
           </div>
         </div>
       </footer>
@@ -1915,6 +1925,88 @@ const App: React.FC = () => {
               className="w-full mt-4 py-2.5 bg-temple-red text-white rounded-xl font-medium text-sm hover:bg-temple-red/90 transition-colors">
               開始收集資料
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 隱私權政策 Modal ── */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowPrivacyModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-temple-red px-6 py-5 flex items-center justify-between shrink-0">
+              <h2 className="text-white font-bold text-lg font-serif">隱私權政策</h2>
+              <button onClick={() => setShowPrivacyModal(false)} className="text-white/70 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 leading-relaxed">
+              <p className="text-gray-500 text-xs">最後更新：{new Date().getFullYear()} 年</p>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">一、</span>總則</h3>
+                <p>台北古亭和聖壇（以下簡稱「本宮」）重視您的個人資料保護。本政策說明本宮在您使用本網站各項服務（包括點燈登記、祈福報名、捐獻護持、問事預約等）時，如何收集、使用及保護您的個人資料，適用範圍以本網站為限。</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">二、</span>收集的個人資料</h3>
+                <p className="mb-2">本宮僅在您主動填寫表單時收集以下資料：</p>
+                <ul className="space-y-1 pl-4">
+                  {['姓名', '出生年月日及生肖', '現居地址', '聯絡電話', '電子郵件（會員帳號）', '捐款金額及護持類別', '問事希望日期與時段', '備註（含匯款帳號後五碼）'].map(item => (
+                    <li key={item} className="flex items-start gap-2"><span className="text-temple-gold mt-1">•</span>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">三、</span>資料使用目的</h3>
+                <p className="mb-2">所蒐集之個人資料，僅用於以下目的：</p>
+                <ul className="space-y-1 pl-4">
+                  {[
+                    '辦理點燈、祈福、捐獻、問事等服務之登記與確認',
+                    '廟方人員與您聯繫服務細節（電話或其他方式）',
+                    '核對匯款紀錄',
+                    '寄送活動通知（需您同意）',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2"><span className="text-temple-gold mt-1">•</span>{item}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-gray-500">本宮不會將您的個人資料出售、出租或以任何形式提供予第三方，法律要求除外。</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">四、</span>資料保存與安全</h3>
+                <p>個人資料儲存於受存取控制保護的雲端資料庫，本宮採取合理的技術措施防止未授權存取、洩漏或竄改。資料保存期限以服務完成後一年為原則，或依法令規定辦理。</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">五、</span>您的權利</h3>
+                <p>依據個人資料保護法，您得向本宮提出以下請求：查詢、閱覽、製給複製本、補充或更正、停止蒐集/處理/利用、刪除。如需行使上述權利，請透過下方聯絡資訊與本宮聯繫。</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">六、</span>Cookie 使用</h3>
+                <p>本網站使用瀏覽器本機儲存（localStorage）保存會員登入狀態，不使用追蹤型 Cookie，不與第三方廣告平台共享資料。</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">七、</span>政策修訂</h3>
+                <p>本政策如有修訂，將公告於本網站，修訂後繼續使用本網站即視為同意修訂後的內容。</p>
+              </div>
+
+              <div className="bg-temple-bg rounded-xl p-4">
+                <h3 className="font-bold text-gray-800 mb-2">聯絡資訊</h3>
+                <p>台北古亭和聖壇　｜　100臺北市中正區晉江街72巷9號</p>
+                <p>電話：(02) 2345-6789　｜　開放時間：每日 06:00 – 21:00</p>
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="shrink-0 px-6 py-4 border-t border-gray-100 flex justify-end">
+              <button onClick={() => setShowPrivacyModal(false)} className="px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                我已閱讀並了解
+              </button>
+            </div>
           </div>
         </div>
       )}
