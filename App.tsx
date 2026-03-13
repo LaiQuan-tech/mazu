@@ -695,7 +695,7 @@ const App: React.FC = () => {
           </div>
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 font-serif drop-shadow-lg leading-tight">
             和聖壇 <br />
-            <span className="text-temple-gold">澤被凡間</span>
+            <span className="text-temple-gold">靈感護佑</span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-200 mb-10 font-light tracking-wide max-w-2xl mx-auto">
             誠心祈求，自有感應。和聖壇提供線上預約服務，<br />為信眾指點迷津，解惑安神。
