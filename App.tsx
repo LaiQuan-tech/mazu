@@ -1123,6 +1123,16 @@ const App: React.FC = () => {
                       </div>
                     )}
 
+                    {/* 匯款資訊 */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
+                      <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
+                      <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
+                      <p className="text-amber-900">分行：大安分行</p>
+                      <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
+                      <p className="text-amber-900">戶名：王順文</p>
+                      <p className="text-amber-700 text-xs mt-1">匯款完成後請於備註填寫後五碼，收到款項即完成登記！</p>
+                    </div>
+
                     {/* 備註（共用） */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
@@ -1390,6 +1400,16 @@ const App: React.FC = () => {
                       </div>
                     )}
 
+                    {/* 匯款資訊 */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
+                      <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
+                      <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
+                      <p className="text-amber-900">分行：大安分行</p>
+                      <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
+                      <p className="text-amber-900">戶名：王順文</p>
+                      <p className="text-amber-700 text-xs mt-1">匯款完成後請於備註填寫後五碼，收到款項即完成登記！</p>
+                    </div>
+
                     {/* 備註（共用） */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
@@ -1542,6 +1562,16 @@ const App: React.FC = () => {
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
                     </div>
                   )}
+
+                  {/* 匯款資訊 */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
+                    <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
+                    <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
+                    <p className="text-amber-900">分行：大安分行</p>
+                    <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
+                    <p className="text-amber-900">戶名：王順文</p>
+                    <p className="text-amber-700 text-xs mt-1">匯款完成後請於備註填寫後五碼，收到款項即完成登記！</p>
+                  </div>
 
                   <div>
                     <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>
