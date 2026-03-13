@@ -132,7 +132,7 @@ const App: React.FC = () => {
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
   const [showMemberPortal, setShowMemberPortal] = useState(false);
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
-  const [showContactPicker, setShowContactPicker] = useState<{ form: 'lamp' | 'booking' | 'donation' | 'blessing'; personId: string } | null>(null);
+  const [showContactPicker, setShowContactPicker] = useState<{ form: 'lamp' | 'booking' | 'donation' | 'blessing' | 'repair'; personId: string } | null>(null);
   // ── 祈福活動 ──
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingModal, setBlessingModal] = useState<BlessingEventRecord | null>(null);
@@ -227,7 +227,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleOpenContactPicker = (form: 'lamp' | 'booking' | 'donation' | 'blessing', personId: string) => {
+  const handleOpenContactPicker = (form: 'lamp' | 'booking' | 'donation' | 'blessing' | 'repair', personId: string) => {
     if (!member) { setShowMemberPortal(true); return; }
     const hasProfile = !!(memberProfile && memberProfile.name);
     if (!hasProfile && memberContacts.length === 0) { alert('請先至會員中心填寫個人資料或新增聯絡人'); return; }
@@ -1684,9 +1684,15 @@ const App: React.FC = () => {
                       <X className="w-5 h-5" />
                     </button>
                   </div>
-                  <input required type="text" placeholder="大德姓名 *" value={repairName}
-                    onChange={e => setRepairName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                  <div className="flex items-center gap-2">
+                    <input required type="text" placeholder="大德姓名 *" value={repairName}
+                      onChange={e => setRepairName(e.target.value)}
+                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
+                    <button type="button" onClick={() => handleOpenContactPicker('repair', '__repair__')}
+                      className="flex items-center gap-1 text-xs px-2.5 py-2 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all shrink-0">
+                      <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                    </button>
+                  </div>
                   <input required type="number" placeholder="捐款金額 (NTD) *" min="1" value={repairAmount || ''}
                     onChange={e => setRepairAmount(Number(e.target.value))}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
@@ -2250,6 +2256,9 @@ const App: React.FC = () => {
                     setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, address: addr, contactLabel: lbl } : x));
                   } else if (form === 'blessing') {
                     setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: memberProfile.name, birthDate: memberProfile.birthDate, zodiac: memberProfile.zodiac, gender: memberProfile.gender || '', address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
+                  } else if (form === 'repair') {
+                    setRepairName(memberProfile.name);
+                    if (memberProfile.phone) setGuestPhone(memberProfile.phone);
                   }
                   setShowContactPicker(null);
                 };
@@ -2295,6 +2304,9 @@ const App: React.FC = () => {
                       setDonationPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, address: addr, contactLabel: lbl } : x));
                     } else if (form === 'blessing') {
                       setBlessingPersons(prev => prev.map(x => x.id === personId ? { ...x, name: contact.name, birthDate: contact.birthDate, zodiac: contact.zodiac, gender: contact.gender || '', address: addr, contactLabel: lbl, _bKey: (x._bKey ?? 0) + 1 } : x));
+                    } else if (form === 'repair') {
+                      setRepairName(contact.name);
+                      if (contact.phone) setGuestPhone(contact.phone);
                     }
                     setShowContactPicker(null);
                   }}
