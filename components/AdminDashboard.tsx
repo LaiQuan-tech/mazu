@@ -650,7 +650,7 @@ const DonationsTab = ({ donations, memberProfiles }: { donations: DonationRecord
   const handleExport = () => {
     exportExcel('捐款資料.xlsx', filtered.map(d => [
       d.name, d.phone, d.gender || '', d.address || '', Number(d.amount), d.type, d.repairProjectName || '', d.notes || '', fmtDate(d.createdAt)
-    ]), ['姓名', '電話', '性別', '聯絡地址', '金額', '捐款類型', '修復神尊', '備註', '建立時間']);
+    ]), ['姓名', '電話', '性別', '現居地址', '金額', '捐款類型', '修復神尊', '備註', '建立時間']);
   };
 
   return (
@@ -3838,7 +3838,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'devotees',  label: '信眾管理',   icon: <BookUser className="w-4 h-4" /> },
     { key: 'lamps',     label: '點燈管理',   icon: <Flame className="w-4 h-4" /> },
     { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
-    { key: 'repairs',   label: '修復專案',   icon: <Wrench className="w-5 h-5" /> },
+    { key: 'repairs',   label: '修復專案',   icon: <Wrench className="w-4 h-4" /> },
     { key: 'donations', label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'bookings',  label: '問事管理',   icon: <BookOpen className="w-4 h-4" /> },
     { key: 'photos',    label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },

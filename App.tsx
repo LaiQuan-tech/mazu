@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Settings,
-  MessageCircle,
   Lock,
   Eye,
   EyeOff,
@@ -31,7 +30,8 @@ import {
   Copy,
   CheckCircle,
   ShoppingBag,
-  Wrench
+  Wrench,
+  BookOpen
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
@@ -187,7 +187,6 @@ const App: React.FC = () => {
   const [bookingNotes, setBookingNotes] = useState('');
 
   // ── 捐獻多人 ──
-  const [donationMode, setDonationMode] = useState<'general' | 'repair'>('general');
   const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
   const [donationNotes, setDonationNotes] = useState('');
   const [repairProjects, setRepairProjects] = useState<RepairProject[]>([]);
@@ -197,7 +196,7 @@ const App: React.FC = () => {
   const [repairSelectedProj, setRepairSelectedProj] = useState<RepairProject | null>(null);
   const [repairName, setRepairName] = useState('');
   const [repairAmount, setRepairAmount] = useState(0);
-  const [repairPhone, setRepairPhone] = useState('');
+  const [repairNotes, setRepairNotes] = useState('');
   const [repairFormStatus, setRepairFormStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   // ── 訪客（未登入）電話 ──
   const [guestPhone, setGuestPhone] = useState('');
@@ -641,7 +640,7 @@ const App: React.FC = () => {
                   'deities': '神明',
                   'lamps': '點燈',
                   'blessing': '祈福',
-                  'donation': '捐獻',
+                  'repair': '捐獻',
                   'booking': '問事',
                 }[item]}
               </button>
@@ -711,7 +710,7 @@ const App: React.FC = () => {
             </button>
             <button
               onClick={() => scrollToSection('services')}
-              className="px-8 py-4 bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold rounded-md transition-all flex items-center justify-center gap-2 text-lg"
+              className="px-8 py-4 bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold rounded-full transition-all flex items-center justify-center gap-2 text-lg"
             >
               <ScrollText className="w-5 h-5" />
               了解服務項目
@@ -994,9 +993,9 @@ const App: React.FC = () => {
               <p className="text-gray-600 mb-6">
                 事業、感情、家運遇有瓶頸，誠心向神明請示。本壇提供一對一專人解籤與問事服務。
               </p>
-              <a href="#booking" className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
+              <button onClick={() => scrollToSection('booking')} className="text-temple-red font-bold hover:text-temple-gold inline-flex items-center">
                 線上預約 <ChevronRight className="w-4 h-4 ml-1" />
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -1367,12 +1366,10 @@ const App: React.FC = () => {
                             第 {idx + 1} 位報名者{p.contactLabel ? <span className="ml-1.5 text-xs text-temple-red font-normal bg-temple-red/10 px-1.5 py-0.5 rounded-full">{p.contactLabel}</span> : null}
                           </span>
                           <div className="flex items-center gap-2">
-                            {member && (
-                              <button type="button" onClick={() => handleOpenContactPicker('blessing', p.id)}
-                                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                                <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
-                              </button>
-                            )}
+                            <button type="button" onClick={() => handleOpenContactPicker('blessing', p.id)}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                              <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                            </button>
                             {blessingPersons.length > 1 && (
                               <button type="button" onClick={() => setBlessingPersons(prev => prev.filter(x => x.id !== p.id))}
                                 className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -1648,7 +1645,7 @@ const App: React.FC = () => {
                   <p className="text-lg font-bold text-gray-900 mb-1">感謝您護持修復「{repairSelectedProj.name}」！</p>
                   <p className="text-sm text-gray-500 mb-4">廟方人員將與您聯繫後續事宜。</p>
                   <button type="button"
-                    onClick={() => { setRepairSelectedProj(null); setRepairName(''); setRepairAmount(0); setRepairPhone(''); setRepairFormStatus('idle'); }}
+                    onClick={() => { setRepairSelectedProj(null); setRepairName(''); setRepairAmount(0); setRepairNotes(''); setRepairFormStatus('idle'); }}
                     className="px-5 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
                     返回
                   </button>
@@ -1661,11 +1658,12 @@ const App: React.FC = () => {
                   try {
                     await submitDonation({
                       name: repairName,
-                      phone: member ? (memberProfile?.phone ?? '') : repairPhone,
+                      phone: member ? (memberProfile?.phone ?? '') : guestPhone,
                       amount: repairAmount,
                       type: DonationType.REPAIR,
                       repairProjectId: repairSelectedProj.id,
                       repairProjectName: repairSelectedProj.name,
+                      notes: repairNotes || undefined,
                     });
                     setRepairFormStatus('success');
                     // 重新載入進度
@@ -1693,10 +1691,21 @@ const App: React.FC = () => {
                     onChange={e => setRepairAmount(Number(e.target.value))}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                   {!member && (
-                    <input required type="tel" placeholder="聯絡電話 *" value={repairPhone}
-                      onChange={e => setRepairPhone(e.target.value)}
+                    <input required type="tel" placeholder="聯絡電話 *" value={guestPhone}
+                      onChange={e => setGuestPhone(e.target.value)}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                   )}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
+                    <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
+                    <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
+                    <p className="text-amber-900">分行：大安分行</p>
+                    <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
+                    <p className="text-amber-900">戶名：王順文</p>
+                    <p className="text-amber-700 text-xs mt-1">匯款完成後請於下方備註填寫後五碼！</p>
+                  </div>
+                  <input type="text" placeholder="備註 / 匯款帳號後五碼（選填）" value={repairNotes}
+                    onChange={e => setRepairNotes(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                   {repairFormStatus === 'error' && (
                     <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-sm">
                       <AlertCircle className="w-4 h-4" /> 提交失敗，請稍後再試。
@@ -2072,7 +2081,7 @@ const App: React.FC = () => {
                   <div className="pt-4">
                     <button type="submit" disabled={bookingStatus === 'loading'}
                       className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
-                      <Flame className="w-5 h-5" />
+                      <BookOpen className="w-5 h-5" />
                       {bookingStatus === 'loading' ? '送出中...' : `確認送出預約（共 ${bookingPersons.length} 人）`}
                     </button>
                     <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
