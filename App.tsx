@@ -47,6 +47,7 @@ import BirthDatePicker from './components/BirthDatePicker';
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
 const newId = () => Math.random().toString(36).slice(2, 10);
 const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
+const ENABLE_GROUP_BOOKING = false; // 揪團功能暫時停用，需要時設回 true
 
 interface LampPersonEntry {
   id: string;
@@ -990,7 +991,7 @@ const App: React.FC = () => {
 
           {/* Registration Form */}
           <div className="max-w-2xl mx-auto">
-            {sharedSession?.serviceType === 'lamp' && (
+            {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'lamp' && (
               <SharedFormPanel
                 session={sharedSession} isCreator={isCreator}
                 lampConfigs={lampConfigs} blessingEvent={null}
@@ -1124,7 +1125,7 @@ const App: React.FC = () => {
                       <Flame className="w-4 h-4" />
                       {lampStatus === 'loading' ? '送出中...' : `送出登記（共 ${lampPersons.length} 人）`}
                     </button>
-                    {!sharedSession && (
+                    {ENABLE_GROUP_BOOKING && !sharedSession && (
                       <button type="button" onClick={() => handleCreateSharedSession('lamp')}
                         disabled={creatingShare}
                         className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
@@ -1225,7 +1226,7 @@ const App: React.FC = () => {
         </div>
 
         {/* ── 共享報名 Panel（祈福）── */}
-        {sharedSession?.serviceType === 'blessing' && (
+        {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'blessing' && (
           <div className="max-w-2xl mx-auto px-4 mt-6">
             <SharedFormPanel
               session={sharedSession} isCreator={isCreator}
@@ -1368,7 +1369,7 @@ const App: React.FC = () => {
                       className="w-full py-3 bg-temple-red text-white font-bold rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                       {blessingStatus === 'loading' ? '送出中...' : `確認報名（共 ${blessingPersons.length} 人）`}
                     </button>
-                    {!sharedSession && (
+                    {ENABLE_GROUP_BOOKING && !sharedSession && (
                       <button type="button" onClick={() => handleCreateSharedSession('blessing')}
                         disabled={creatingShare}
                         className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
@@ -1553,7 +1554,7 @@ const App: React.FC = () => {
             </p>
           </div>
 
-          {sharedSession?.serviceType === 'booking' && (
+          {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'booking' && (
             <SharedFormPanel
               session={sharedSession} isCreator={isCreator}
               lampConfigs={lampConfigs} blessingEvent={null}
@@ -1706,7 +1707,7 @@ const App: React.FC = () => {
                       {bookingStatus === 'loading' ? '送出中...' : `確認送出預約（共 ${bookingPersons.length} 人）`}
                     </button>
                     <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
-                    {!sharedSession && (
+                    {ENABLE_GROUP_BOOKING && !sharedSession && (
                       <>
                         <button type="button" onClick={() => handleCreateSharedSession('booking')}
                           disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
@@ -1935,7 +1936,7 @@ const App: React.FC = () => {
 
       {/* Admin Login Modal */}
       {/* ── 共享報名表連結 Modal ── */}
-      {showShareModal && sharedSession && (
+      {ENABLE_GROUP_BOOKING && showShareModal && sharedSession && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-6">
