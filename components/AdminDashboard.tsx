@@ -2067,6 +2067,18 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
+              {halls.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">所屬殿</label>
+                  <select value={form.hallId || ''} onChange={e => setForm({ ...form, hallId: e.target.value || null })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none text-sm bg-white">
+                    <option value="">— 不指定殿 —</option>
+                    {halls.map(h => (
+                      <option key={h.id} value={h.id}>{h.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">名稱 *</label>
                 <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
@@ -2100,18 +2112,6 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   </label>
                 )}
               </div>
-              {halls.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">所屬殿</label>
-                  <select value={form.hallId || ''} onChange={e => setForm({ ...form, hallId: e.target.value || null })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none text-sm bg-white">
-                    <option value="">— 不指定殿 —</option>
-                    {halls.map(h => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })}
                   className="w-4 h-4 accent-temple-red rounded border-gray-300 focus:ring-temple-red" />
