@@ -38,8 +38,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
+import { BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -123,6 +123,8 @@ const App: React.FC = () => {
   const heroIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [aboutImageUrl, setAboutImageUrl] = useState('/picture/Introduction 1.jpg');
   const [deities, setDeities] = useState<DeityRecord[]>([]);
+  const [deityHalls, setDeityHalls] = useState<HallRecord[]>([]);
+  const [selectedHall, setSelectedHall] = useState<string | null>(null);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   // ── 點燈多人 ──
   const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
@@ -237,6 +239,7 @@ const App: React.FC = () => {
   useEffect(() => {
     getBulletins().then(setBulletins).catch(console.error);
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
+    getDeityHalls().then(setDeityHalls).catch(console.error);
     getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
     getBlessingEvents(true).then(setBlessingEvents).catch(console.error);
     Promise.all([getRepairProjects(), getRepairProjectTotals()])
@@ -908,9 +911,37 @@ const App: React.FC = () => {
               <span className="w-12 h-px bg-temple-gold/70" />
             </div>
           </div>
-          {deities.length > 0 ? (
+          {deityHalls.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2 mb-8">
+              <button
+                onClick={() => setSelectedHall(null)}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                  selectedHall === null
+                    ? 'bg-temple-red text-white border-temple-red shadow-md'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-temple-red/50 hover:text-temple-red'
+                }`}>
+                全部
+              </button>
+              {deityHalls.map(h => (
+                <button key={h.id}
+                  onClick={() => setSelectedHall(h.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                    selectedHall === h.id
+                      ? 'bg-temple-red text-white border-temple-red shadow-md'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-temple-red/50 hover:text-temple-red'
+                  }`}>
+                  {h.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {(() => {
+            const filteredDeities = selectedHall
+              ? deities.filter(d => d.hallId === selectedHall)
+              : deities;
+            return filteredDeities.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {deities.map((deity) => (
+              {filteredDeities.map((deity) => (
                 <div key={deity.id} className="bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
                   <div className="h-48 bg-gradient-to-br from-temple-red/10 to-temple-gold/10 flex items-center justify-center overflow-hidden">
                     {deity.imagePath ? (
@@ -929,9 +960,10 @@ const App: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-center text-gray-400">載入中...</p>
-          )}
+            ) : (
+              <p className="text-center text-gray-400">{deities.length === 0 ? '載入中...' : '此殿尚無神明'}</p>
+            );
+          })()}
         </div>
       </section>
 

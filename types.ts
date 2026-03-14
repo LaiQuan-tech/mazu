@@ -306,6 +306,17 @@ export interface BlessingRegistrationRecord extends BlessingRegistrationData {
   createdAt: string;
 }
 
+// ─── Deity Halls (殿) ────────────────────────────────────
+export interface HallData {
+  name: string;
+  displayOrder: number;
+}
+export interface HallRecord extends HallData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Deities (神明介紹) ──────────────────────────────────
 export interface DeityData {
   name: string;
@@ -314,6 +325,7 @@ export interface DeityData {
   imagePath: string | null;
   displayOrder: number;
   isVisible: boolean;   // false = 隱藏（不顯示於前台）
+  hallId?: string | null;
 }
 
 export interface DeityRecord extends DeityData {

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -334,6 +334,47 @@ export const getSiteImagePublicUrl = (storagePath: string): string => {
   return data.publicUrl;
 };
 
+// ─── Deity Halls (殿) ─────────────────────────────────────────────────────────
+
+export const getDeityHalls = async (): Promise<HallRecord[]> => {
+  const { data, error } = await supabase
+    .from('deity_halls')
+    .select('*')
+    .order('display_order', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(row => ({
+    id: row.id,
+    name: row.name,
+    displayOrder: row.display_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const createDeityHall = async (data: HallData): Promise<boolean> => {
+  const { error } = await supabase.from('deity_halls').insert([{
+    name: data.name,
+    display_order: data.displayOrder,
+  }]);
+  if (error) throw error;
+  return true;
+};
+
+export const updateDeityHall = async (id: string, data: Partial<HallData>): Promise<boolean> => {
+  const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.name !== undefined) upd.name = data.name;
+  if (data.displayOrder !== undefined) upd.display_order = data.displayOrder;
+  const { error } = await supabase.from('deity_halls').update(upd).eq('id', id);
+  if (error) throw error;
+  return true;
+};
+
+export const deleteDeityHall = async (id: string): Promise<boolean> => {
+  const { error } = await supabase.from('deity_halls').delete().eq('id', id);
+  if (error) throw error;
+  return true;
+};
+
 // ─── Deities (神明介紹) ────────────────────────────────────────────────────────
 
 export const getDeities = async (): Promise<DeityRecord[]> => {
@@ -355,6 +396,7 @@ export const getDeities = async (): Promise<DeityRecord[]> => {
     imagePath: row.image_path,
     displayOrder: row.display_order,
     isVisible: row.is_visible !== false,
+    hallId: row.hall_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -368,6 +410,7 @@ export const createDeity = async (data: DeityData): Promise<boolean> => {
     image_path: data.imagePath || null,
     display_order: data.displayOrder,
     is_visible: data.isVisible !== false,
+    hall_id: data.hallId ?? null,
   }]);
 
   if (error) {
@@ -385,6 +428,7 @@ export const updateDeity = async (id: string, data: Partial<DeityData>): Promise
   if (data.imagePath !== undefined) updateData.image_path = data.imagePath;
   if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
   if (data.isVisible !== undefined) updateData.is_visible = data.isVisible;
+  if (data.hallId !== undefined) updateData.hall_id = data.hallId ?? null;
 
   const { error } = await supabase
     .from('deities')

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, supabase } from '../services/supabase';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, supabase } from '../services/supabase';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -1815,10 +1815,16 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
 
 // ─── Deities Tab (神明管理) ──────────────────────────────────────────────────────
 
-const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh: () => void }) => {
+const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; halls: HallRecord[]; onRefresh: () => void }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<DeityData>({ name: '', title: '', description: '', imagePath: null, displayOrder: 0, isVisible: true });
+  const [form, setForm] = useState<DeityData>({ name: '', title: '', description: '', imagePath: null, displayOrder: 0, isVisible: true, hallId: null });
+  // ── Hall management ──
+  const [newHallName, setNewHallName] = useState('');
+  const [addingHall, setAddingHall] = useState(false);
+  const [editingHallId, setEditingHallId] = useState<string | null>(null);
+  const [editingHallName, setEditingHallName] = useState('');
+  const [savingHall, setSavingHall] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1835,7 +1841,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: '', title: '', description: '', imagePath: null, displayOrder: deities.length + 1, isVisible: true });
+    setForm({ name: '', title: '', description: '', imagePath: null, displayOrder: deities.length + 1, isVisible: true, hallId: null });
     setImageFile(null);
     setImagePreview(null);
     setShowModal(true);
@@ -1852,7 +1858,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
 
   const openEdit = (d: DeityRecord) => {
     setEditingId(d.id);
-    setForm({ name: d.name, title: d.title, description: d.description, imagePath: d.imagePath, displayOrder: d.displayOrder, isVisible: d.isVisible });
+    setForm({ name: d.name, title: d.title, description: d.description, imagePath: d.imagePath, displayOrder: d.displayOrder, isVisible: d.isVisible, hallId: d.hallId ?? null });
     setImageFile(null);
     setImagePreview(d.imagePath ? getSiteImagePublicUrl(d.imagePath) : null);
     setShowModal(true);
@@ -1900,6 +1906,37 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
     }
   };
 
+  const handleAddHall = async () => {
+    if (!newHallName.trim()) return;
+    setSavingHall(true);
+    try {
+      await createDeityHall({ name: newHallName.trim(), displayOrder: halls.length + 1 });
+      setNewHallName('');
+      setAddingHall(false);
+      onRefresh();
+    } catch { alert('新增失敗'); }
+    finally { setSavingHall(false); }
+  };
+
+  const handleUpdateHall = async (id: string) => {
+    if (!editingHallName.trim()) return;
+    setSavingHall(true);
+    try {
+      await updateDeityHall(id, { name: editingHallName.trim() });
+      setEditingHallId(null);
+      onRefresh();
+    } catch { alert('更新失敗'); }
+    finally { setSavingHall(false); }
+  };
+
+  const handleDeleteHall = async (id: string, name: string) => {
+    if (!confirm(`確定要刪除「${name}」殿？所有屬於此殿的神明將改為「未分殿」。`)) return;
+    try {
+      await deleteDeityHall(id);
+      onRefresh();
+    } catch { alert('刪除失敗'); }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -1912,6 +1949,57 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
         </button>
       </div>
 
+      {/* 殿管理 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-gray-700">殿管理</h4>
+          {!addingHall && (
+            <button onClick={() => setAddingHall(true)}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 bg-temple-red/10 text-temple-red rounded-lg hover:bg-temple-red/20 transition-colors">
+              <Plus className="w-3 h-3" /> 新增殿
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {halls.map(h => (
+            <div key={h.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
+              {editingHallId === h.id ? (
+                <>
+                  <input autoFocus value={editingHallName} onChange={e => setEditingHallName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleUpdateHall(h.id); if (e.key === 'Escape') setEditingHallId(null); }}
+                    className="text-sm border border-gray-300 rounded px-2 py-0.5 w-24 focus:outline-none focus:ring-1 focus:ring-temple-red/40" />
+                  <button onClick={() => handleUpdateHall(h.id)} disabled={savingHall}
+                    className="text-xs text-green-600 hover:text-green-800 font-medium disabled:opacity-40">確認</button>
+                  <button onClick={() => setEditingHallId(null)} className="text-xs text-gray-400 hover:text-gray-600">取消</button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-gray-700">{h.name}</span>
+                  <button onClick={() => { setEditingHallId(h.id); setEditingHallName(h.name); }}
+                    className="text-gray-400 hover:text-blue-500 transition-colors"><Edit2 className="w-3 h-3" /></button>
+                  <button onClick={() => handleDeleteHall(h.id, h.name)}
+                    className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                </>
+              )}
+            </div>
+          ))}
+          {halls.length === 0 && !addingHall && (
+            <p className="text-xs text-gray-400">尚未建立任何殿，點擊「新增殿」開始建立</p>
+          )}
+          {addingHall && (
+            <div className="flex items-center gap-2">
+              <input autoFocus value={newHallName} onChange={e => setNewHallName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddHall(); if (e.key === 'Escape') setAddingHall(false); }}
+                placeholder="殿名稱" className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 w-32 focus:outline-none focus:ring-1 focus:ring-temple-red/40" />
+              <button onClick={handleAddHall} disabled={savingHall || !newHallName.trim()}
+                className="text-xs px-3 py-1.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] disabled:opacity-40 transition-colors">新增</button>
+              <button onClick={() => { setAddingHall(false); setNewHallName(''); }}
+                className="text-xs text-gray-400 hover:text-gray-600">取消</button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {dSaving && <div className="px-6 py-2 bg-blue-50 text-blue-600 text-xs flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
         <table className="w-full text-sm">
@@ -1920,6 +2008,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
               <th className="px-3 py-3 w-8"></th>
               <th className="px-6 py-3 text-left">圖片</th>
               <th className="px-6 py-3 text-left">名稱</th>
+              <th className="px-6 py-3 text-left">殿</th>
               <th className="px-6 py-3 text-left">尊稱</th>
               <th className="px-6 py-3 text-left">介紹</th>
               <th className="px-6 py-3 text-right">操作</th>
@@ -1946,6 +2035,9 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
                   {d.name}
                   {!d.isVisible && <span className="ml-2 text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">已隱藏</span>}
                 </td>
+                <td className="px-6 py-4 text-gray-500">
+                  {d.hallId ? (halls.find(h => h.id === d.hallId)?.name ?? '-') : '-'}
+                </td>
                 <td className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
                 <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
                 <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
@@ -1960,7 +2052,7 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
               </tr>
             ))}
             {deities.length === 0 && (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">尚無神明資料</td></tr>
+              <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">尚無神明資料</td></tr>
             )}
           </tbody>
         </table>
@@ -2008,6 +2100,18 @@ const DeitiesTab = ({ deities, onRefresh }: { deities: DeityRecord[]; onRefresh:
                   </label>
                 )}
               </div>
+              {halls.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">所屬殿</label>
+                  <select value={form.hallId || ''} onChange={e => setForm({ ...form, hallId: e.target.value || null })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none text-sm bg-white">
+                    <option value="">— 不指定殿 —</option>
+                    {halls.map(h => (
+                      <option key={h.id} value={h.id}>{h.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })}
                   className="w-4 h-4 accent-temple-red rounded border-gray-300 focus:ring-temple-red" />
@@ -3768,6 +3872,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [siteImages, setSiteImages] = useState<SiteImageRecord[]>([]);
   const [deitiesList, setDeitiesList] = useState<DeityRecord[]>([]);
+  const [deityHalls, setDeityHalls] = useState<HallRecord[]>([]);
   const [heroSlidesList, setHeroSlidesList] = useState<HeroSlideRecord[]>([]);
   const [scriptureVerses, setScriptureVerses] = useState<ScriptureVerseRecord[]>([]);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
@@ -3787,12 +3892,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hs, sv, lc, lr, mp, ac, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getMemberContacts().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
+      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getMemberContacts().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
       setSiteImages(si);
       setDeitiesList(dt);
+      setDeityHalls(hl);
       setHeroSlidesList(hs);
       setScriptureVerses(sv);
       setLampConfigs(lc);
@@ -3920,7 +4026,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
               {tab === 'devotees'  && <DevoteesTab memberProfiles={memberProfiles} allContacts={allContacts} bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
-              {tab === 'deities'  && <DeitiesTab deities={deitiesList} onRefresh={fetchAll} />}
+              {tab === 'deities'  && <DeitiesTab deities={deitiesList} halls={deityHalls} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
               {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
