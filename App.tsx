@@ -672,13 +672,6 @@ const App: React.FC = () => {
               >
                 聖母經
               </button>
-              <button
-                onClick={() => handleLineClick('nav')}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold bg-[#06C755] text-white shadow-md hover:bg-[#05a847] hover:shadow-lg hover:scale-105 transition-all duration-200"
-              >
-                <LineIcon className="w-4 h-4" />
-                加入 LINE
-              </button>
               <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
               <button
                 onClick={() => setShowMemberPortal(true)}
@@ -728,13 +721,6 @@ const App: React.FC = () => {
               className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
             >
               ✦ 聖母經
-            </button>
-            <button
-              onClick={() => { handleLineClick('mobile-menu'); setIsMenuOpen(false); }}
-              className="w-full px-4 py-3 rounded-lg text-base font-bold transition-all duration-200 bg-[#06C755] text-white hover:bg-[#05a847] flex items-center gap-2"
-            >
-              <LineIcon className="w-5 h-5" />
-              加入 LINE 官方帳號
             </button>
             <button
               onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
