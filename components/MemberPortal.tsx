@@ -831,7 +831,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
     setAuthError('');
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { setAuthError('帳號或密碼錯誤，請再試一次。'); return; }
+      if (error) {
+        if (error.message === 'Email not confirmed') {
+          setAuthError('信箱尚未確認，請至您的信箱點擊確認連結後再登入。若未收到信，請檢查垃圾郵件。');
+        } else {
+          setAuthError('帳號或密碼錯誤，請再試一次。');
+        }
+        return;
+      }
       if (data.user?.email) {
         setCurrentUser({ email: data.user.email });
         loadContacts();
@@ -852,10 +859,32 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
     setAuthError('');
     setAuthSuccess('');
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) { setAuthError(error.message); return; }
-      setAuthSuccess('註冊成功！請至信箱確認後即可登入。');
-      setAuthTab('login');
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('already registered') || msg.includes('already been registered')) {
+          setAuthError('此信箱已有帳號，請直接登入。');
+        } else if (msg.includes('rate limit')) {
+          setAuthError('請求過於頻繁，請稍後再試。');
+        } else if (msg.includes('invalid email')) {
+          setAuthError('信箱格式不正確，請重新確認。');
+        } else {
+          setAuthError(error.message);
+        }
+        return;
+      }
+      setPassword('');
+      setConfirmPassword('');
+      if (data.session) {
+        // Supabase 已關閉 Email 確認要求，直接登入成功
+        setCurrentUser({ email: data.user!.email! });
+        loadContacts();
+        loadProfile();
+      } else {
+        // 需要 Email 確認
+        setAuthSuccess('註冊成功！請至信箱點擊確認連結，確認後即可登入。');
+        setAuthTab('login');
+      }
     } catch {
       setAuthError('註冊失敗，請稍後再試。');
     } finally {

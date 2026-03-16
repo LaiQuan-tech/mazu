@@ -799,9 +799,13 @@ export const getMemberContactsByUserId = async (userId: string): Promise<MemberC
 };
 
 export const getMemberContacts = async (): Promise<MemberContact[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('member_contacts')
     .select('*')
+    .eq('user_id', user.id)   // 明確只取自己的資料，不依賴 RLS
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -948,9 +952,13 @@ export const getAllMemberProfiles = async (): Promise<MemberProfileRecord[]> => 
 };
 
 export const getProfile = async (): Promise<ProfileData | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const { data, error } = await supabase
     .from('member_profiles')
     .select('*')
+    .eq('user_id', user.id)   // 明確只取自己的 profile，不依賴 RLS
     .maybeSingle();
 
   if (error || !data) return null;
