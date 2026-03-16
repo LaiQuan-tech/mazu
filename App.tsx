@@ -2316,29 +2316,6 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* LINE CTA Banner */}
-      <section className="bg-[#06C755] py-12 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-white rounded-2xl p-3 shadow-lg">
-              <LineIcon className="w-14 h-14" />
-            </div>
-          </div>
-          <h2 className="text-white text-2xl sm:text-3xl font-bold mb-2">加入和聖壇 LINE 官方帳號</h2>
-          <p className="text-white/90 text-base sm:text-lg mb-6">
-            最新公告、法會活動、問事預約資訊第一時間通知
-          </p>
-          <button
-            onClick={() => handleLineClick('cta-banner')}
-            className="inline-flex items-center gap-3 bg-white text-[#06C755] font-bold text-lg px-8 py-4 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200"
-          >
-            <LineIcon className="w-7 h-7" />
-            立即加入好友
-          </button>
-          <p className="text-white/70 text-sm mt-4">LINE ID：@heshengart</p>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer id="contact" className="bg-temple-dark text-white border-t border-white/10 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
