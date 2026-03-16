@@ -10,9 +10,9 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['overview', 'bulletins', 'deities', 'members', 'devotees', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'photos', 'scripture'],
+  admin:   ['overview', 'bulletins', 'deities', 'members', 'devotees', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture'],
   staff:   ['overview', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
-  finance: ['overview', 'donations'],
+  finance: ['overview', 'donations', 'receivables'],
 };
 
 export enum ConsultationType {

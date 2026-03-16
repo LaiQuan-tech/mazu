@@ -13,7 +13,7 @@ import {
   Eye, EyeOff, ShoppingBag, Wrench
 } from 'lucide-react';
 
-type Tab = 'overview' | 'bookings' | 'donations' | 'repairs' | 'members' | 'devotees' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings';
+type Tab = 'overview' | 'bookings' | 'donations' | 'repairs' | 'members' | 'devotees' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -3864,10 +3864,204 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
   );
 };
 
+// ─── ReceivablesTab（應收管理）────────────────────────────────────────────────
+
+const ReceivablesTab: React.FC<{
+  lampRegistrations:     LampRegistrationRecord[];
+  lampConfigs:           LampServiceConfig[];
+  blessingRegistrations: BlessingRegistrationRecord[];
+  blessingEvents:        BlessingEventRecord[];
+  donations:             DonationRecord[];
+  memberProfiles:        MemberProfileRecord[];
+}> = ({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, donations, memberProfiles }) => {
+  const [filter, setFilter] = useState<'all' | 'lamp' | 'blessing' | 'donation'>('all');
+  const [search, setSearch] = useState('');
+  const [selectedMember, setSelectedMember] = useState<MemberProfileRecord | null>(null);
+
+  type IncomeRow = {
+    id: string; date: string; name: string; phone: string;
+    type: '點燈' | '祈福' | '捐獻'; typeKey: 'lamp' | 'blessing' | 'donation';
+    detail: string; amount: number; status: string;
+  };
+
+  const rows = useMemo<IncomeRow[]>(() => {
+    const lampRows: IncomeRow[] = lampRegistrations.map(r => {
+      const cfg = lampConfigs.find(c => c.id === r.serviceId);
+      return { id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
+        type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—', amount: cfg?.fee || 0, status: r.status };
+    });
+    const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
+      const ev = blessingEvents.find(e => e.id === r.eventId);
+      const addonTotal = r.selectedAddons?.reduce((s, a) => s + a.fee, 0) || 0;
+      return { id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
+        type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
+        amount: (r.packageFee || 0) + addonTotal, status: r.status };
+    });
+    const donationRows: IncomeRow[] = donations.map(r => ({
+      id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
+      type: '捐獻', typeKey: 'donation', detail: r.type, amount: r.amount, status: '已完成',
+    }));
+    return [...lampRows, ...blessingRows, ...donationRows]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, donations]);
+
+  const filtered = useMemo(() => {
+    let r = rows;
+    if (filter !== 'all') r = r.filter(row => row.typeKey === filter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      r = r.filter(row => row.name.toLowerCase().includes(q) || row.phone.includes(q));
+    }
+    return r;
+  }, [rows, filter, search]);
+
+  const totalLamp     = useMemo(() => rows.filter(r => r.typeKey === 'lamp').reduce((s, r) => s + r.amount, 0), [rows]);
+  const totalBlessing = useMemo(() => rows.filter(r => r.typeKey === 'blessing').reduce((s, r) => s + r.amount, 0), [rows]);
+  const totalDonation = useMemo(() => rows.filter(r => r.typeKey === 'donation').reduce((s, r) => s + r.amount, 0), [rows]);
+  const total = totalLamp + totalBlessing + totalDonation;
+
+  const findMember = (phone: string) => memberProfiles.find(p => p.phone === phone) || null;
+
+  const typeBadge = (typeKey: 'lamp' | 'blessing' | 'donation', label: string) => {
+    const cls =
+      typeKey === 'lamp'     ? 'bg-amber-100 text-amber-700' :
+      typeKey === 'blessing' ? 'bg-purple-100 text-purple-700' :
+                               'bg-green-100 text-green-700';
+    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{label}</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 統計卡片 */}
+      <div className="grid grid-cols-4 gap-4">
+        {([
+          { label: '總收入',   amount: total,         cls: 'text-temple-red' },
+          { label: '點燈',     amount: totalLamp,     cls: 'text-amber-600'  },
+          { label: '祈福',     amount: totalBlessing, cls: 'text-purple-600' },
+          { label: '捐獻',     amount: totalDonation, cls: 'text-green-600'  },
+        ] as const).map(({ label, amount, cls }) => (
+          <div key={label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <p className="text-sm text-gray-500 mb-1">{label}</p>
+            <p className={`text-2xl font-bold ${cls}`}>NT$ {amount.toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 篩選 + 搜尋 + 表格 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
+          <div className="flex gap-1">
+            {(['all', 'lamp', 'blessing', 'donation'] as const).map(key => {
+              const label = key === 'all' ? '全部' : key === 'lamp' ? '點燈' : key === 'blessing' ? '祈福' : '捐獻';
+              return (
+                <button key={key} onClick={() => setFilter(key)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    filter === key ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}>{label}</button>
+              );
+            })}
+          </div>
+          <div className="relative ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="搜尋姓名 / 電話"
+              className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red w-56" />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
+                {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員'].map(h => (
+                  <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} className="text-center text-gray-400 py-16">暫無資料</td></tr>
+              ) : filtered.map(row => {
+                const member = findMember(row.phone);
+                return (
+                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                    <td className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
+                    <td className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
+                    <td className="px-5 py-3 text-gray-500">{row.phone}</td>
+                    <td className="px-5 py-3">{typeBadge(row.typeKey, row.type)}</td>
+                    <td className="px-5 py-3 text-gray-600 max-w-[180px] truncate" title={row.detail}>{row.detail}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-gray-800">NT$ {row.amount.toLocaleString()}</td>
+                    <td className="px-5 py-3">{statusBadge(row.status)}</td>
+                    <td className="px-5 py-3">
+                      {member ? (
+                        <button onClick={() => setSelectedMember(member)}
+                          className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
+                          <User className="w-3 h-3" /> {member.name}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {filtered.length > 0 && (
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/40">
+            <p className="text-sm text-gray-400">共 {filtered.length} 筆</p>
+            <p className="text-sm font-semibold text-gray-700">
+              篩選合計：NT$ {filtered.reduce((s, r) => s + r.amount, 0).toLocaleString()}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 會員詳情 Modal */}
+      {selectedMember && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedMember(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <User className="w-4 h-4 text-temple-red" /> 會員資訊
+              </h3>
+              <button onClick={() => setSelectedMember(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2.5 text-sm">
+              {([
+                ['姓名', selectedMember.name],
+                ['電話', selectedMember.phone],
+                ['生日', selectedMember.birthDate],
+                ['生肖', selectedMember.zodiac || '—'],
+                ['性別', selectedMember.gender || '—'],
+                ['地址', selectedMember.address || '—'],
+              ] as [string, string][]).map(([label, value]) => (
+                <div key={label} className="flex gap-3">
+                  <span className="text-gray-400 w-10 shrink-0">{label}</span>
+                  <span className="text-gray-800 break-all">{value}</span>
+                </div>
+              ))}
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-400">加入時間：{fmtDate(selectedMember.createdAt)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
-  const [tab, setTab] = useState<Tab>(role === 'finance' ? 'donations' : 'overview');
+  const [tab, setTab] = useState<Tab>(role === 'finance' ? 'receivables' : 'overview');
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
@@ -3947,8 +4141,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'lamps',     label: '點燈管理',   icon: <Flame className="w-4 h-4" /> },
     { key: 'blessings', label: '祈福管理',   icon: <Sparkles className="w-4 h-4" /> },
     { key: 'repairs',   label: '修復專案',   icon: <Wrench className="w-4 h-4" /> },
-    { key: 'donations', label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
-    { key: 'photos',    label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
+    { key: 'donations',    label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
+    { key: 'receivables', label: '應收管理',   icon: <Banknote className="w-4 h-4" /> },
+    { key: 'photos',      label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
   ];
   const allowed = ROLE_ALLOWED_TABS[role];
@@ -4041,7 +4236,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'scripture' && <ScriptureTab verses={scriptureVerses} onRefresh={fetchAll} />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
-              {tab === 'repairs' && <RepairProjectsTab onRefresh={fetchAll} />}
+              {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
+              {tab === 'receivables' && <ReceivablesTab lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} donations={donations} memberProfiles={memberProfiles} />}
             </>
           )}
         </div>
