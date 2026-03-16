@@ -292,6 +292,7 @@ export interface BlessingEventPackage {
   id:           string;   // 前端用 nanoid / random string
   name:         string;   // 方案名稱，e.g. '基礎護持'
   fee:          number;   // 方案費用
+  totalQty?:    number;   // 限量名額（undefined 或 0 = 不限）
   description?: string;   // 簡短說明（選填）
 }
 

@@ -38,8 +38,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
+import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingRegistrations, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -498,11 +498,15 @@ const App: React.FC = () => {
     }
   };
 
+  const [eventRegistrations, setEventRegistrations] = useState<BlessingRegistrationRecord[]>([]);
+
   const openBlessingModal = (event: BlessingEventRecord) => {
     setBlessingModal(event);
     setBlessingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: memberProfile?.address ?? '', contactLabel: '本人' }]);
     setBlessingNotes('');
     setBlessingStatus('idle');
+    // 抓取此活動目前已報名資料，用於計算方案／供品剩餘名額
+    getBlessingRegistrations(event.id).then(setEventRegistrations).catch(() => setEventRegistrations([]));
   };
 
   const scrollToSection = (id: string) => {
@@ -1707,20 +1711,49 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         {/* 護持方案（有多方案時才顯示） */}
-                        {blessingModal.packages && blessingModal.packages.length > 0 && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">護持方案 *</label>
-                            <select required value={p.packageId || ''} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, packageId: e.target.value } : x))}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                              <option value="">請選擇方案</option>
-                              {blessingModal.packages.map(pkg => (
-                                <option key={pkg.id} value={pkg.id}>
-                                  {pkg.name}　NT${pkg.fee.toLocaleString()}{pkg.description ? `　${pkg.description}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
+                        {blessingModal.packages && blessingModal.packages.length > 0 && (() => {
+                          // 計算各方案已報名人數
+                          const pkgCount: Record<string, number> = {};
+                          eventRegistrations.forEach(r => { if (r.packageName) pkgCount[r.packageName] = (pkgCount[r.packageName] || 0) + 1; });
+                          return (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1.5">護持方案 *</label>
+                              <div className="space-y-1.5">
+                                {blessingModal.packages.map(pkg => {
+                                  const claimed = pkgCount[pkg.name] || 0;
+                                  const remaining = pkg.totalQty ? pkg.totalQty - claimed : null;
+                                  const isFull = remaining !== null && remaining <= 0;
+                                  const isSelected = p.packageId === pkg.id;
+                                  return (
+                                    <label key={pkg.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all select-none ${
+                                      isFull ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
+                                      : isSelected ? 'border-temple-red bg-temple-red/5'
+                                      : 'border-gray-200 hover:border-temple-red/40 bg-white'
+                                    }`}>
+                                      <input type="radio" name={`pkg-${p.id}`} required
+                                        disabled={isFull}
+                                        checked={isSelected}
+                                        onChange={() => !isFull && setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, packageId: pkg.id } : x))}
+                                        className="accent-temple-red w-4 h-4 shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-sm font-medium text-gray-800">{pkg.name}</span>
+                                        {pkg.description && <span className="text-xs text-gray-400 ml-1.5">{pkg.description}</span>}
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <p className="text-sm font-semibold text-temple-red">NT${pkg.fee.toLocaleString()}</p>
+                                        {remaining !== null && (
+                                          <p className={`text-[11px] ${isFull ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                                            {isFull ? '名額已滿' : `剩 ${remaining} 名`}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {/* 加購項目（有設定時才顯示） */}
                         {blessingModal.addons && blessingModal.addons.length > 0 && (() => {
                           const fixedAddons = blessingModal.addons.filter(a => !a.voluntary);
@@ -1781,11 +1814,13 @@ const App: React.FC = () => {
                         })()}
                         {/* 供品名額認領（有設定時才顯示） */}
                         {blessingModal.offerings && blessingModal.offerings.length > 0 && (() => {
-                          // 計算每個供品已被認領的數量
-                          const claimedCountMap: Record<string, number> = {};
-                          blessingModal.offerings.forEach(o => { claimedCountMap[o.id] = 0; });
-                          // 注意：此處無法即時查 DB，先顯示同一次提交中同批人的認領
-                          // （精確數量由後台管理，前台顯示為參考）
+                          // 從已報名記錄計算每個供品實際已認領數
+                          const offeringClaimedMap: Record<string, number> = {};
+                          eventRegistrations.forEach(r =>
+                            (r.claimedOfferings || []).forEach(o => {
+                              offeringClaimedMap[o.id] = (offeringClaimedMap[o.id] || 0) + 1;
+                            })
+                          );
                           return (
                             <div className="border border-orange-300/60 rounded-xl p-3 bg-orange-50/40">
                               <p className="text-xs font-semibold text-orange-800 mb-2 flex items-center gap-1.5">
@@ -1793,13 +1828,19 @@ const App: React.FC = () => {
                               </p>
                               <div className="space-y-1.5">
                                 {blessingModal.offerings.map(off => {
-                                  const claimed = (p.claimedOfferingIds || []).includes(off.id);
+                                  const dbClaimed = offeringClaimedMap[off.id] || 0;
+                                  const remaining = off.totalQty - dbClaimed;
+                                  const isFull = remaining <= 0;
+                                  const isChecked = (p.claimedOfferingIds || []).includes(off.id);
                                   return (
-                                    <label key={off.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all select-none ${
-                                      claimed ? 'border-orange-400 bg-orange-100/60' : 'border-gray-200 bg-white hover:border-orange-300'
+                                    <label key={off.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all select-none ${
+                                      isFull && !isChecked ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
+                                      : isChecked ? 'border-orange-400 bg-orange-100/60 cursor-pointer'
+                                      : 'border-gray-200 bg-white hover:border-orange-300 cursor-pointer'
                                     }`}>
                                       <input type="checkbox"
-                                        checked={claimed}
+                                        disabled={isFull && !isChecked}
+                                        checked={isChecked}
                                         onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
                                           ...x,
                                           claimedOfferingIds: e.target.checked
@@ -1815,7 +1856,9 @@ const App: React.FC = () => {
                                         {off.fee && off.fee > 0
                                           ? <span className="text-xs font-semibold text-orange-700">NT${off.fee.toLocaleString()}</span>
                                           : <span className="text-xs text-gray-400">免費認領</span>}
-                                        <div className="text-[11px] text-gray-400">剩餘 {off.totalQty} 份</div>
+                                        <div className={`text-[11px] mt-0.5 ${isFull ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                                          {isFull ? '已全數認領' : `剩餘 ${remaining} 份`}
+                                        </div>
                                       </div>
                                     </label>
                                   );

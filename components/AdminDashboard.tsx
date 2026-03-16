@@ -3460,7 +3460,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                       <div key={pkg.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
                         <div className="flex items-start gap-2">
                           <div className="flex-1 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                               <input
                                 value={pkg.name}
                                 onChange={e => setForm(f => ({ ...f, packages: f.packages.map((p, i) => i === idx ? { ...p, name: e.target.value } : p) }))}
@@ -3471,6 +3471,12 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                                 value={pkg.fee}
                                 onChange={e => setForm(f => ({ ...f, packages: f.packages.map((p, i) => i === idx ? { ...p, fee: Number(e.target.value) } : p) }))}
                                 placeholder="費用 NT$"
+                                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                              <input
+                                type="number" min={1}
+                                value={pkg.totalQty ?? ''}
+                                onChange={e => setForm(f => ({ ...f, packages: f.packages.map((p, i) => i === idx ? { ...p, totalQty: e.target.value ? Number(e.target.value) : undefined } : p) }))}
+                                placeholder="名額上限（空=不限）"
                                 className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
                             </div>
                             <input
