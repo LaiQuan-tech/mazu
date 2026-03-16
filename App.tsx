@@ -46,6 +46,30 @@ import ScripturePage from './components/ScripturePage';
 import MemberPortal from './components/MemberPortal';
 import BirthDatePicker from './components/BirthDatePicker';
 
+// ── 工具函式 ────────────────────────────────────────────────────────────────────
+
+/** 從指定日期（預設今天）往後找最近的週六，回傳 YYYY-MM-DD */
+const getNextSaturday = (from = new Date()): string => {
+  const d = new Date(from);
+  const diff = (6 - d.getDay() + 7) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split('T')[0];
+};
+
+/** 共用匯款資訊區塊 */
+const BankInfoBox: React.FC<{ tip?: string }> = ({ tip }) => (
+  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
+    <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
+    <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
+    <p className="text-amber-900">分行：大安分行</p>
+    <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
+    <p className="text-amber-900">戶名：王順文</p>
+    <p className="text-amber-700 text-xs mt-1">
+      {tip ?? '匯款完成後請於備註填寫後五碼，收到款項即完成登記！'}
+    </p>
+  </div>
+);
+
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
 const newId = () => Math.random().toString(36).slice(2, 10);
 const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
@@ -196,7 +220,7 @@ const App: React.FC = () => {
   // ── 問事多人 ──
   const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
   const [bookingDate, setBookingDate] = useState('');
-  const [bookingTime, setBookingTime] = useState('');
+  const [bookingTime, setBookingTime] = useState('evening'); // 目前僅開放晚上，預設帶入
   const [bookingNotes, setBookingNotes] = useState('');
 
   // ── 捐獻多人 ──
@@ -293,7 +317,23 @@ const App: React.FC = () => {
       });
     }
 
-    const handleScroll = () => setIsScrolled(window.scrollY > 30);
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 30);
+      // 依捲動位置更新 nav active（由下往上找第一個頂部已進入視窗的區塊）
+      const pairs: [string, string][] = [
+        ['donation', 'donation'], ['repair', 'donation'],
+        ['blessing', 'blessing'], ['lamps', 'lamps'],
+        ['booking', 'booking'], ['deities', 'deities'],
+        ['about', 'about'], ['home', 'home'],
+      ];
+      for (const [id, navId] of pairs) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 120) {
+          setActiveSection(navId);
+          return;
+        }
+      }
+    };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -586,7 +626,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden lg:flex items-center gap-1">
-              {['home', 'about', 'deities', 'booking', 'lamps', 'blessing', 'repair'].map((item) => (
+              {['home', 'about', 'deities', 'booking', 'lamps', 'blessing', 'donation'].map((item) => (
                 <button
                   key={item}
                   onClick={() => scrollToSection(item)}
@@ -601,7 +641,7 @@ const App: React.FC = () => {
                     'deities': '神明',
                     'lamps': '點燈',
                     'blessing': '祈福',
-                    'repair': '捐獻',
+                    'donation': '捐獻',
                     'booking': '問事',
                   }[item]}
                   {activeSection === item && (
@@ -639,7 +679,7 @@ const App: React.FC = () => {
         {/* Mobile menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-[#F0E9CE]/98 backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1">
-            {['home', 'about', 'deities', 'booking', 'lamps', 'blessing', 'repair'].map((item) => (
+            {['home', 'about', 'deities', 'booking', 'lamps', 'blessing', 'donation'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item)}
@@ -654,7 +694,7 @@ const App: React.FC = () => {
                   'deities': '神明',
                   'lamps': '點燈',
                   'blessing': '祈福',
-                  'repair': '捐獻',
+                  'donation': '捐獻',
                   'booking': '問事',
                 }[item]}
               </button>
@@ -966,7 +1006,7 @@ const App: React.FC = () => {
                   <div className="p-6 text-center">
                     <h4 className="text-xl font-bold text-temple-dark font-serif mb-1">{deity.name}</h4>
                     {deity.title && <p className="text-temple-red text-sm font-medium mb-3">{deity.title}</p>}
-                    <p className="text-gray-600 text-sm leading-relaxed">{deity.description}</p>
+                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-4">{deity.description}</p>
                   </div>
                 </div>
               ))}
@@ -1179,23 +1219,32 @@ const App: React.FC = () => {
                   {/* 共用：日期、時段 */}
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 (限週六) *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700">希望預約日期（限週六）*</label>
+                        <button type="button" onClick={() => setBookingDate(getNextSaturday())}
+                          className="text-xs text-temple-red font-medium hover:underline">
+                          選最近週六 →
+                        </button>
+                      </div>
                       <input type="date" required value={bookingDate}
-                        onChange={e => {
-                          const d = new Date(e.target.value);
-                          if (e.target.value && d.getDay() !== 6) { alert('抱歉，目前僅開放每週六預約問事。'); return; }
-                          setBookingDate(e.target.value);
-                        }}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
-                      <p className="text-xs text-gray-400 mt-1">請選擇週六日期</p>
+                        onChange={e => setBookingDate(e.target.value)}
+                        className={`w-full px-4 py-3 rounded-lg border transition-all outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red ${
+                          bookingDate && new Date(bookingDate).getDay() !== 6
+                            ? 'border-red-400 bg-red-50'
+                            : 'border-gray-300'
+                        }`} />
+                      {bookingDate && new Date(bookingDate).getDay() !== 6 && (
+                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          ⚠ 請選擇週六日期
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">希望時段 (限晚上) *</label>
-                      <select required value={bookingTime} onChange={e => setBookingTime(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white">
-                        <option value="">請選擇時段</option>
-                        <option value="evening">晚上 (19:00 - 21:00)</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">預約時段</label>
+                      <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 text-sm flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-temple-gold shrink-0" />
+                        晚上 19:00 – 21:00（目前唯一開放時段）
+                      </div>
                     </div>
                   </div>
 
@@ -1429,14 +1478,7 @@ const App: React.FC = () => {
                     )}
 
                     {/* 匯款資訊 */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
-                      <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
-                      <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
-                      <p className="text-amber-900">分行：大安分行</p>
-                      <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
-                      <p className="text-amber-900">戶名：王順文</p>
-                      <p className="text-amber-700 text-xs mt-1">匯款完成後請於備註填寫後五碼，收到款項即完成登記！</p>
-                    </div>
+                    <BankInfoBox />
 
                     {/* 備註（共用） */}
                     <div>
@@ -1490,7 +1532,13 @@ const App: React.FC = () => {
           </div>
 
           {blessingEvents.length === 0 ? (
-            <div className="text-center text-gray-400 py-12 text-sm">目前暫無祈福活動，請關注最新公告。</div>
+            <div className="text-center text-gray-400 py-12 text-sm space-y-2">
+              <p>目前暫無祈福活動</p>
+              <button onClick={() => scrollToSection('bulletin')}
+                className="text-temple-red text-xs font-medium hover:underline flex items-center gap-1 mx-auto">
+                查看最新公告 →
+              </button>
+            </div>
           ) : (
             <div className="space-y-5">
               {blessingEvents.map(ev => {
@@ -1706,6 +1754,7 @@ const App: React.FC = () => {
                                   <div key={addon.id} className="flex items-center gap-2 p-2 rounded-lg border border-green-200 bg-green-50/40 sm:col-span-2">
                                     <HeartHandshake className="w-4 h-4 text-green-600 shrink-0" />
                                     <span className="text-sm text-gray-700 flex-1">{addon.name}</span>
+                                    <span className="text-xs text-gray-500 font-medium shrink-0">NT$</span>
                                     <input type="number" min="1" placeholder="金額（選填）"
                                       value={p.voluntaryFees?.[addon.id] || ''}
                                       onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
@@ -1713,7 +1762,6 @@ const App: React.FC = () => {
                                         voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: e.target.value ? Number(e.target.value) : 0 }
                                       } : x))}
                                       className="w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-temple-gold" />
-                                    <span className="text-xs text-gray-400 shrink-0">NT$</span>
                                   </div>
                                 ))}
                               </div>
@@ -1756,14 +1804,7 @@ const App: React.FC = () => {
                     )}
 
                     {/* 匯款資訊 */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
-                      <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
-                      <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
-                      <p className="text-amber-900">分行：大安分行</p>
-                      <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
-                      <p className="text-amber-900">戶名：王順文</p>
-                      <p className="text-amber-700 text-xs mt-1">匯款完成後請於備註填寫後五碼，收到款項即完成登記！</p>
-                    </div>
+                    <BankInfoBox />
 
                     {/* 備註（共用） */}
                     <div>
@@ -1952,14 +1993,7 @@ const App: React.FC = () => {
                       onChange={e => setGuestPhone(e.target.value)}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                   )}
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
-                    <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
-                    <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
-                    <p className="text-amber-900">分行：大安分行</p>
-                    <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
-                    <p className="text-amber-900">戶名：王順文</p>
-                    <p className="text-amber-700 text-xs mt-1">匯款完成後請於下方備註填寫後五碼！</p>
-                  </div>
+                  <BankInfoBox tip="匯款完成後請於下方備註填寫後五碼！" />
                   <input type="text" placeholder="備註 / 匯款帳號後五碼（選填）" value={repairNotes}
                     onChange={e => setRepairNotes(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
@@ -2112,14 +2146,7 @@ const App: React.FC = () => {
                   )}
 
                   {/* 匯款資訊 */}
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
-                    <p className="font-bold text-amber-800 mb-1">💳 匯款資訊</p>
-                    <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
-                    <p className="text-amber-900">分行：大安分行</p>
-                    <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
-                    <p className="text-amber-900">戶名：王順文</p>
-                    <p className="text-amber-700 text-xs mt-1">匯款完成後請於備註填寫後五碼，收到款項即完成登記！</p>
-                  </div>
+                  <BankInfoBox />
 
                   <div>
                     <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>
@@ -2259,7 +2286,7 @@ const App: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
         title="加入 LINE 問事"
-        className="fixed bottom-8 right-8 z-[60] bg-[#06C755] w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
+        className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[60] bg-[#06C755] w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
       >
         <LineIcon className="w-10 h-10" />
       </a>
