@@ -363,10 +363,10 @@ const OverviewTab = ({
   const latestBookings  = [...bookings].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
 
   const serviceTabs = [
+    { key: 'booking'  as const, label: '問事', badge: bookingPending  },
     { key: 'lamps'    as const, label: '點燈', badge: lampPending     },
     { key: 'blessing' as const, label: '祈福', badge: blessingPending },
     { key: 'donation' as const, label: '捐獻', badge: donationRecent  },
-    { key: 'booking'  as const, label: '問事', badge: bookingPending  },
   ];
 
   const rowCls = 'flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0';
