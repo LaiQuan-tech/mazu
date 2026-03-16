@@ -1033,6 +1033,214 @@ const App: React.FC = () => {
         </div>
       </section>
 
+{/* Booking Section */}
+      <section id="booking" className="py-20 bg-temple-red relative text-white">
+        {/* Pattern Overlay */}
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4854A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-12">
+            <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2">
+              線上服務
+            </h2>
+            <h3 className="text-4xl font-bold mb-2 font-serif">
+              預約問事表單
+            </h3>
+            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+              <span className="w-12 h-px bg-temple-gold/60" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/60" />
+            </div>
+            <p className="text-red-100 max-w-2xl mx-auto">
+              請填寫下方資料，我們將儘速為您安排問事時間。<br />
+              <span className="text-temple-gold font-bold">※ 目前僅開放每週六晚上 (19:00 - 21:00) 時段預約。</span>
+            </p>
+          </div>
+
+          {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'booking' && (
+            <SharedFormPanel
+              session={sharedSession} isCreator={isCreator}
+              lampConfigs={lampConfigs} blessingEvent={null}
+              memberProfile={memberProfile}
+              onAddEntries={handleAddSharedEntries}
+              onSubmitAll={handleSubmitSharedSession}
+              onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
+              submitStatus={sharedSubmitStatus}
+            />
+          )}
+          <div className="bg-white text-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-8 md:p-12">
+              {bookingStatus === 'success' ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  </div>
+                  <h4 className="text-2xl font-bold text-gray-900 mb-2">預約成功！</h4>
+                  <p className="text-gray-600 mb-6">
+                    感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終問事時間。
+                  </p>
+                  {!member && (
+                    <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
+                      <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
+                      <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理親友通訊錄！</p>
+                      <button type="button" onClick={() => setShowMemberPortal(true)}
+                        className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                        立即加入會員
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setBookingStatus('idle')}
+                    className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    再預約一筆
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* 人員卡片列表 */}
+                  {bookingPersons.map((p, idx) => (
+                    <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位問事者</span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => handleOpenContactPicker('booking', p.id)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
+                            <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
+                          </button>
+                          {bookingPersons.length > 1 && (
+                            <button type="button" onClick={() => setBookingPersons(prev => prev.filter(x => x.id !== p.id))}
+                              className="text-gray-400 hover:text-red-500 transition-colors p-0.5">
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {/* 姓名 / 稱謂 / 生日 / 生肖 / 問事項目 */}
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input required type="text" placeholder="信眾大名 *"
+                            value={p.name}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                          <select value={p.contactLabel || ''}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
+                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">稱謂 / 關係</option>
+                            {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        {/* 生日選擇器 */}
+                        <BirthDatePicker
+                          key={`booking-${p.id}-${p._bKey ?? 0}`}
+                          birthDate={p.birthDate}
+                          zodiac={p.zodiac}
+                          onChange={(birthDate, zodiac) => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <select value={p.gender || ''}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            <option value="">性別（選填）</option>
+                            {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                          <select required value={p.type}
+                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
+                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                            {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <input required type="text" placeholder="現居地址 *"
+                          value={p.address}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
+                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* 新增人員 */}
+                  <button type="button"
+                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '' }])}
+                    className="w-full py-2.5 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
+                    <Plus className="w-4 h-4" /> 新增人員
+                  </button>
+
+                  {/* 共用：日期、時段 */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 (限週六) *</label>
+                      <input type="date" required value={bookingDate}
+                        onChange={e => {
+                          const d = new Date(e.target.value);
+                          if (e.target.value && d.getDay() !== 6) { alert('抱歉，目前僅開放每週六預約問事。'); return; }
+                          setBookingDate(e.target.value);
+                        }}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                      <p className="text-xs text-gray-400 mt-1">請選擇週六日期</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">希望時段 (限晚上) *</label>
+                      <select required value={bookingTime} onChange={e => setBookingTime(e.target.value)}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white">
+                        <option value="">請選擇時段</option>
+                        <option value="evening">晚上 (19:00 - 21:00)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 訪客電話（未登入才顯示） */}
+                  {!member && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
+                      <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                        placeholder="請留下方便聯繫的電話"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
+                    <textarea rows={3} value={bookingNotes} onChange={e => setBookingNotes(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none"
+                      placeholder="請簡述您想請示的問題..." />
+                  </div>
+
+                  {bookingStatus === 'error' && (
+                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" />
+                      <span>預約提交失敗，請檢查網路或稍後再試。</span>
+                    </div>
+                  )}
+
+                  <div className="pt-4">
+                    <button type="submit" disabled={bookingStatus === 'loading'}
+                      className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
+                      <BookOpen className="w-5 h-5" />
+                      {bookingStatus === 'loading' ? '送出中...' : `確認送出預約（共 ${bookingPersons.length} 人）`}
+                    </button>
+                    <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
+                    {ENABLE_GROUP_BOOKING && !sharedSession && (
+                      <>
+                        <button type="button" onClick={() => handleCreateSharedSession('booking')}
+                          disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
+                          className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
+                          <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
+                        </button>
+                        {(!bookingDate || bookingTime !== 'evening') && (
+                          <p className="text-center text-xs text-gray-400 mt-1.5">
+                            ※ 請先選擇日期與時段，才能建立揪團報名表
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
 {/* Lamps Section */}
       <section id="lamps" className="py-20 bg-temple-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1929,214 +2137,6 @@ const App: React.FC = () => {
                       <HeartHandshake className="w-5 h-5" />
                       {donationStatus === 'loading' ? '送出中...' : `確認捐獻護持（共 ${donationPersons.length} 人）`}
                     </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-{/* Booking Section */}
-      <section id="booking" className="py-20 bg-temple-red relative text-white">
-        {/* Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4854A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center mb-12">
-            <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2">
-              線上服務
-            </h2>
-            <h3 className="text-4xl font-bold mb-2 font-serif">
-              預約問事表單
-            </h3>
-            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
-              <span className="w-12 h-px bg-temple-gold/60" />
-              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-              <span className="w-12 h-px bg-temple-gold/60" />
-            </div>
-            <p className="text-red-100 max-w-2xl mx-auto">
-              請填寫下方資料，我們將儘速為您安排問事時間。<br />
-              <span className="text-temple-gold font-bold">※ 目前僅開放每週六晚上 (19:00 - 21:00) 時段預約。</span>
-            </p>
-          </div>
-
-          {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'booking' && (
-            <SharedFormPanel
-              session={sharedSession} isCreator={isCreator}
-              lampConfigs={lampConfigs} blessingEvent={null}
-              memberProfile={memberProfile}
-              onAddEntries={handleAddSharedEntries}
-              onSubmitAll={handleSubmitSharedSession}
-              onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
-              submitStatus={sharedSubmitStatus}
-            />
-          )}
-          <div className="bg-white text-gray-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-8 md:p-12">
-              {bookingStatus === 'success' ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle2 className="w-10 h-10 text-green-600" />
-                  </div>
-                  <h4 className="text-2xl font-bold text-gray-900 mb-2">預約成功！</h4>
-                  <p className="text-gray-600 mb-6">
-                    感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終問事時間。
-                  </p>
-                  {!member && (
-                    <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
-                      <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
-                      <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理親友通訊錄！</p>
-                      <button type="button" onClick={() => setShowMemberPortal(true)}
-                        className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
-                        立即加入會員
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setBookingStatus('idle')}
-                    className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    再預約一筆
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* 人員卡片列表 */}
-                  {bookingPersons.map((p, idx) => (
-                    <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-600">第 {idx + 1} 位問事者</span>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => handleOpenContactPicker('booking', p.id)}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-temple-gold/20 border border-temple-gold text-temple-dark hover:bg-temple-gold/40 transition-all">
-                            <BookUser className="w-3 h-3 text-temple-red" /> 通訊錄
-                          </button>
-                          {bookingPersons.length > 1 && (
-                            <button type="button" onClick={() => setBookingPersons(prev => prev.filter(x => x.id !== p.id))}
-                              className="text-gray-400 hover:text-red-500 transition-colors p-0.5">
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {/* 姓名 / 稱謂 / 生日 / 生肖 / 問事項目 */}
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <input required type="text" placeholder="信眾大名 *"
-                            value={p.name}
-                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                          <select value={p.contactLabel || ''}
-                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">稱謂 / 關係</option>
-                            {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        </div>
-                        {/* 生日選擇器 */}
-                        <BirthDatePicker
-                          key={`booking-${p.id}-${p._bKey ?? 0}`}
-                          birthDate={p.birthDate}
-                          zodiac={p.zodiac}
-                          onChange={(birthDate, zodiac) => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, birthDate, zodiac } : x))}
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <select value={p.gender || ''}
-                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">性別（選填）</option>
-                            {['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'].map(g => <option key={g} value={g}>{g}</option>)}
-                          </select>
-                          <select required value={p.type}
-                            onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, type: e.target.value as ConsultationType } : x))}
-                            className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            {Object.values(ConsultationType).map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        </div>
-                        <input required type="text" placeholder="現居地址 *"
-                          value={p.address}
-                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
-                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* 新增人員 */}
-                  <button type="button"
-                    onClick={() => setBookingPersons(prev => [...prev, { id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '' }])}
-                    className="w-full py-2.5 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1.5">
-                    <Plus className="w-4 h-4" /> 新增人員
-                  </button>
-
-                  {/* 共用：日期、時段 */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">希望預約日期 (限週六) *</label>
-                      <input type="date" required value={bookingDate}
-                        onChange={e => {
-                          const d = new Date(e.target.value);
-                          if (e.target.value && d.getDay() !== 6) { alert('抱歉，目前僅開放每週六預約問事。'); return; }
-                          setBookingDate(e.target.value);
-                        }}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
-                      <p className="text-xs text-gray-400 mt-1">請選擇週六日期</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">希望時段 (限晚上) *</label>
-                      <select required value={bookingTime} onChange={e => setBookingTime(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white">
-                        <option value="">請選擇時段</option>
-                        <option value="evening">晚上 (19:00 - 21:00)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* 訪客電話（未登入才顯示） */}
-                  {!member && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
-                      <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
-                        placeholder="請留下方便聯繫的電話"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
-                    <textarea rows={3} value={bookingNotes} onChange={e => setBookingNotes(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none"
-                      placeholder="請簡述您想請示的問題..." />
-                  </div>
-
-                  {bookingStatus === 'error' && (
-                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
-                      <span>預約提交失敗，請檢查網路或稍後再試。</span>
-                    </div>
-                  )}
-
-                  <div className="pt-4">
-                    <button type="submit" disabled={bookingStatus === 'loading'}
-                      className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
-                      <BookOpen className="w-5 h-5" />
-                      {bookingStatus === 'loading' ? '送出中...' : `確認送出預約（共 ${bookingPersons.length} 人）`}
-                    </button>
-                    <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
-                    {ENABLE_GROUP_BOOKING && !sharedSession && (
-                      <>
-                        <button type="button" onClick={() => handleCreateSharedSession('booking')}
-                          disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
-                          className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
-                          <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
-                        </button>
-                        {(!bookingDate || bookingTime !== 'evening') && (
-                          <p className="text-center text-xs text-gray-400 mt-1.5">
-                            ※ 請先選擇日期與時段，才能建立揪團報名表
-                          </p>
-                        )}
-                      </>
-                    )}
                   </div>
                 </form>
               )}
