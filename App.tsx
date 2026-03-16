@@ -38,7 +38,7 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
@@ -107,6 +107,7 @@ const App: React.FC = () => {
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
@@ -162,6 +163,16 @@ const App: React.FC = () => {
       if (error) {
         setLoginError('帳號或密碼錯誤，請再試一次。');
       } else {
+        // 抓取帳號的權限組別（查無資料時預設 admin）
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('admin_profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .single();
+          setAdminRole((profile?.role as AdminRole) ?? 'admin');
+        }
         setShowAdmin(true);
         setShowLoginModal(false);
         setLoginEmail('');
@@ -549,7 +560,7 @@ const App: React.FC = () => {
     : '';
 
   if (showAdmin) {
-    return <AdminDashboard onBack={() => setShowAdmin(false)} />;
+    return <AdminDashboard onBack={() => setShowAdmin(false)} role={adminRole} />;
   }
 
   if (showScripture) {

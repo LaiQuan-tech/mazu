@@ -1,5 +1,20 @@
 import React from 'react';
 
+// ─── Admin Role（後台權限分級）────────────────────────────
+export type AdminRole = 'admin' | 'staff' | 'finance';
+
+export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
+  admin:   '管理組',
+  staff:   '行政組',
+  finance: '財務組',
+};
+
+export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
+  admin:   ['overview', 'bulletins', 'deities', 'members', 'devotees', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'photos', 'scripture'],
+  staff:   ['overview', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations'],
+  finance: ['overview', 'donations'],
+};
+
 export enum ConsultationType {
   CAREER = '事業前途',
   HEALTH = '身體健康',

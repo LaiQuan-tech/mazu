@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, supabase } from '../services/supabase';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -17,6 +17,7 @@ type Tab = 'overview' | 'bookings' | 'donations' | 'repairs' | 'members' | 'devo
 
 interface AdminDashboardProps {
   onBack: () => void;
+  role: AdminRole;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -3865,8 +3866,8 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
 
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
-  const [tab, setTab] = useState<Tab>('overview');
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
+  const [tab, setTab] = useState<Tab>(role === 'finance' ? 'donations' : 'overview');
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
@@ -3936,7 +3937,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     onBack();
   };
 
-  const navItems: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  const allNavItems: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview',  label: '總覽',      icon: <LayoutDashboard className="w-4 h-4" /> },
     { key: 'bulletins', label: '公佈欄管理', icon: <Megaphone className="w-4 h-4" /> },
     { key: 'deities',   label: '神明資訊',   icon: <Flame className="w-4 h-4" /> },
@@ -3950,6 +3951,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     { key: 'photos',    label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
   ];
+  const allowed = ROLE_ALLOWED_TABS[role];
+  const navItems = allNavItems.filter(n => allowed.includes(n.key));
 
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans">
@@ -3958,6 +3961,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
         <div className="px-5 py-6 border-b border-white/10">
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">和聖壇</p>
           <h1 className="text-lg font-bold font-serif">後台管理</h1>
+          <span className={`inline-block mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+            role === 'admin'   ? 'bg-temple-red/80 text-white' :
+            role === 'staff'   ? 'bg-blue-500/70 text-white'   :
+                                 'bg-yellow-500/70 text-white'
+          }`}>
+            {ADMIN_ROLE_LABEL[role]}
+          </span>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map(({ key, label, icon }) => {
