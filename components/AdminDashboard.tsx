@@ -3141,7 +3141,7 @@ const BLESSING_EVENT_TYPES = ['法會', '進香', '祭典', '祈福', '其他'];
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
   startDate: '', endDate: '', registrationDeadline: '',
-  fee: 0, packages: [], addons: [], imageUrl: '', isActive: true, sortOrder: 0,
+  fee: 0, packages: [], addons: [], offerings: [], imageUrl: '', isActive: true, sortOrder: 0,
 });
 
 const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
@@ -3340,12 +3340,24 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                             </span>
                           : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[160px]">
-                        {r.selectedAddons && r.selectedAddons.length > 0
-                          ? <span className="text-xs leading-relaxed">
-                              {r.selectedAddons.map(a => `${a.name}(NT$${a.fee.toLocaleString()})`).join(' / ')}
-                            </span>
-                          : <span className="text-gray-300">—</span>}
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
+                        {r.selectedAddons && r.selectedAddons.length > 0 && (
+                          <span className="text-xs leading-relaxed">
+                            {r.selectedAddons.map(a => `${a.name}(NT$${a.fee.toLocaleString()})`).join(' / ')}
+                          </span>
+                        )}
+                        {r.claimedOfferings && r.claimedOfferings.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {r.claimedOfferings.map(o => (
+                              <span key={o.id} className="inline-flex items-center gap-0.5 bg-orange-100 text-orange-700 text-[11px] font-medium px-1.5 py-0.5 rounded-full">
+                                🕯 {o.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {(!r.selectedAddons || r.selectedAddons.length === 0) && (!r.claimedOfferings || r.claimedOfferings.length === 0) && (
+                          <span className="text-gray-300">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">
                         {r.birthDate && <p>{r.birthDate}</p>}
@@ -3529,6 +3541,64 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                   </div>
                 )}
               </div>
+
+              {/* ── 供品名額 ── */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <Flame className="w-4 h-4 text-orange-500/70" /> 供品名額（限量認領）
+                  </label>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, offerings: [...(f.offerings || []), { id: Math.random().toString(36).slice(2), name: '', totalQty: 1, fee: 0 }] }))}
+                    className="flex items-center gap-1 text-xs text-temple-red hover:text-temple-red/80 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> 新增供品
+                  </button>
+                </div>
+                {(!form.offerings || form.offerings.length === 0) ? (
+                  <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+                    無供品名額。點擊「新增供品」可設定限量認領項目（如：五果一份、香爐一個）。
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(form.offerings || []).map((off, idx) => (
+                      <div key={off.id} className="border border-orange-200 rounded-lg p-3 bg-orange-50/40">
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={off.name}
+                            onChange={e => setForm(f => ({ ...f, offerings: (f.offerings || []).map((o, i) => i === idx ? { ...o, name: e.target.value } : o) }))}
+                            placeholder="供品名稱 * (e.g. 五果一份)"
+                            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400" />
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">名額</span>
+                            <input
+                              type="number" min={1}
+                              value={off.totalQty}
+                              onChange={e => setForm(f => ({ ...f, offerings: (f.offerings || []).map((o, i) => i === idx ? { ...o, totalQty: Number(e.target.value) || 1 } : o) }))}
+                              className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-400" />
+                          </div>
+                          <input
+                            type="number" min={0}
+                            value={off.fee ?? 0}
+                            onChange={e => setForm(f => ({ ...f, offerings: (f.offerings || []).map((o, i) => i === idx ? { ...o, fee: Number(e.target.value) } : o) }))}
+                            placeholder="費用 NT$"
+                            className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400" />
+                          <button type="button"
+                            onClick={() => setForm(f => ({ ...f, offerings: (f.offerings || []).filter((_, i) => i !== idx) }))}
+                            className="text-red-400 hover:text-red-600 transition-colors shrink-0">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <input
+                          value={off.description || ''}
+                          onChange={e => setForm(f => ({ ...f, offerings: (f.offerings || []).map((o, i) => i === idx ? { ...o, description: e.target.value } : o) }))}
+                          placeholder="說明（選填）"
+                          className="mt-1.5 w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">開始日期 *</label>

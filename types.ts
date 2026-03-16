@@ -273,6 +273,21 @@ export interface BlessingAddon {
   description?: string;    // 說明（選填）
 }
 
+/** 法會供品名額（限量認領，非加購） */
+export interface BlessingOffering {
+  id:           string;    // nanoid，前端產生
+  name:         string;    // e.g. '五果一份'、'香爐一個'
+  totalQty:     number;    // 總名額（限量）
+  fee?:         number;    // 認領費用，0 或未填 = 免費認領
+  description?: string;    // 說明（選填）
+}
+
+/** 報名者所認領的供品（存入 registration） */
+export interface ClaimedOffering {
+  id:   string;  // 對應 BlessingOffering.id
+  name: string;  // 冗餘存名稱，方便顯示
+}
+
 export interface BlessingEventPackage {
   id:           string;   // 前端用 nanoid / random string
   name:         string;   // 方案名稱，e.g. '基礎護持'
@@ -289,7 +304,8 @@ export interface BlessingEventData {
   registrationDeadline?: string; // ISO datetime
   fee: number;                // 無方案時的統一費用（有方案時可設 0）
   packages: BlessingEventPackage[]; // 多方案（空陣列表示只有單一費用）
-  addons: BlessingAddon[];    // 可加購品項（空陣列 = 無加購）
+  addons: BlessingAddon[];          // 可加購品項（空陣列 = 無加購）
+  offerings: BlessingOffering[];    // 法會供品名額（限量認領，空陣列 = 無）
   imageUrl?: string;
   isActive: boolean;
   sortOrder: number;
@@ -312,7 +328,8 @@ export interface BlessingRegistrationData {
   notes?: string;
   packageName?: string;   // 所選方案名稱（無方案時為 undefined）
   packageFee?:  number;   // 所選方案費用（無方案時為 undefined）
-  selectedAddons?: BlessingAddon[];  // 此人選擇的加購（voluntary 項目 fee 為實際輸入值）
+  selectedAddons?: BlessingAddon[];      // 此人選擇的加購（voluntary 項目 fee 為實際輸入值）
+  claimedOfferings?: ClaimedOffering[];  // 此人認領的法會供品
 }
 
 export interface BlessingRegistrationRecord extends BlessingRegistrationData {

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -997,6 +997,7 @@ const mapBlessingEvent = (row: any): BlessingEventRecord => ({
   fee: row.fee,
   packages: Array.isArray(row.packages) ? (row.packages as BlessingEventPackage[]) : [],
   addons: Array.isArray(row.addons) ? (row.addons as BlessingAddon[]) : [],
+  offerings: Array.isArray(row.offerings) ? (row.offerings as BlessingOffering[]) : [],
   imageUrl: row.image_url || undefined,
   isActive: row.is_active,
   sortOrder: row.sort_order,
@@ -1016,7 +1017,8 @@ const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
   notes: row.notes || undefined,
   packageName: row.package_name ?? undefined,
   packageFee:  row.package_fee  ?? undefined,
-  selectedAddons: Array.isArray(row.selected_addons) ? (row.selected_addons as BlessingAddon[]) : [],
+  selectedAddons:   Array.isArray(row.selected_addons)   ? (row.selected_addons   as BlessingAddon[])    : [],
+  claimedOfferings: Array.isArray(row.claimed_offerings) ? (row.claimed_offerings as ClaimedOffering[]) : [],
   status: (row.status as BlessingStatus) || BlessingStatus.PENDING,
   createdAt: row.created_at,
 });
@@ -1046,6 +1048,7 @@ export const createBlessingEvent = async (d: BlessingEventData): Promise<boolean
     fee: d.fee,
     packages: d.packages || [],
     addons: d.addons || [],
+    offerings: d.offerings || [],
     image_url: d.imageUrl || null,
     is_active: d.isActive,
     sort_order: d.sortOrder,
@@ -1068,6 +1071,7 @@ export const updateBlessingEvent = async (id: string, d: Partial<BlessingEventDa
   if (d.sortOrder           !== undefined) payload.sort_order           = d.sortOrder;
   if (d.packages            !== undefined) payload.packages             = d.packages;
   if (d.addons              !== undefined) payload.addons               = d.addons;
+  if (d.offerings           !== undefined) payload.offerings            = d.offerings;
   const { error } = await supabase.from('blessing_events').update(payload).eq('id', id);
   if (error) { console.error(error); throw error; }
   return true;
@@ -1099,9 +1103,10 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData): P
     gender: d.gender || null,
     address: d.address || null,
     notes: d.notes || null,
-    package_name: d.packageName || null,
-    package_fee:  d.packageFee  ?? null,
-    selected_addons: d.selectedAddons || [],
+    package_name:      d.packageName       || null,
+    package_fee:       d.packageFee        ?? null,
+    selected_addons:   d.selectedAddons    || [],
+    claimed_offerings: d.claimedOfferings  || [],
   });
   if (error) { console.error(error); throw error; }
   return true;

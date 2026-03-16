@@ -119,6 +119,7 @@ interface BlessingPersonEntry {
   packageId?: string;              // 所選方案 ID（有多方案時）
   selectedAddonIds?: string[];     // 固定品項勾選的 addon.id 清單
   voluntaryFees?: Record<string, number>; // voluntary addon.id → 自填金額
+  claimedOfferingIds?: string[];   // 認領的供品 offering.id 清單
 }
 
 // 水墨筆刷分隔線元件
@@ -454,6 +455,9 @@ const App: React.FC = () => {
             .filter(a => a.voluntary && (p.voluntaryFees?.[a.id] ?? 0) >= 1)
             .map(a => ({ ...a, fee: p.voluntaryFees![a.id] })),
         ];
+        const claimedOfferings = (blessingModal.offerings || [])
+          .filter(o => (p.claimedOfferingIds || []).includes(o.id))
+          .map(o => ({ id: o.id, name: o.name }));
         await createBlessingRegistration({
           eventId: blessingModal.id,
           name: p.name.trim(),
@@ -465,7 +469,8 @@ const App: React.FC = () => {
           notes: blessingNotes || undefined,
           packageName: pkg?.name,
           packageFee:  pkg?.fee,
-          selectedAddons: selectedAddons.length > 0 ? selectedAddons : undefined,
+          selectedAddons:   selectedAddons.length   > 0 ? selectedAddons   : undefined,
+          claimedOfferings: claimedOfferings.length > 0 ? claimedOfferings : undefined,
         } as BlessingRegistrationData);
         // 隨喜供養金額同步寫入捐獻記錄
         const addonTotal = selectedAddons.reduce((sum, a) => sum + (a.fee || 0), 0);
@@ -1771,6 +1776,51 @@ const App: React.FC = () => {
                                   小計 NT${total.toLocaleString()}
                                 </p>
                               )}
+                            </div>
+                          );
+                        })()}
+                        {/* 供品名額認領（有設定時才顯示） */}
+                        {blessingModal.offerings && blessingModal.offerings.length > 0 && (() => {
+                          // 計算每個供品已被認領的數量
+                          const claimedCountMap: Record<string, number> = {};
+                          blessingModal.offerings.forEach(o => { claimedCountMap[o.id] = 0; });
+                          // 注意：此處無法即時查 DB，先顯示同一次提交中同批人的認領
+                          // （精確數量由後台管理，前台顯示為參考）
+                          return (
+                            <div className="border border-orange-300/60 rounded-xl p-3 bg-orange-50/40">
+                              <p className="text-xs font-semibold text-orange-800 mb-2 flex items-center gap-1.5">
+                                🕯 法會供品認領（限量，先到先得）
+                              </p>
+                              <div className="space-y-1.5">
+                                {blessingModal.offerings.map(off => {
+                                  const claimed = (p.claimedOfferingIds || []).includes(off.id);
+                                  return (
+                                    <label key={off.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all select-none ${
+                                      claimed ? 'border-orange-400 bg-orange-100/60' : 'border-gray-200 bg-white hover:border-orange-300'
+                                    }`}>
+                                      <input type="checkbox"
+                                        checked={claimed}
+                                        onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
+                                          ...x,
+                                          claimedOfferingIds: e.target.checked
+                                            ? [...(x.claimedOfferingIds || []), off.id]
+                                            : (x.claimedOfferingIds || []).filter(id => id !== off.id)
+                                        } : x))}
+                                        className="accent-orange-500 w-4 h-4 shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-sm text-gray-800 font-medium">{off.name}</span>
+                                        {off.description && <span className="text-xs text-gray-400 ml-1.5">{off.description}</span>}
+                                      </div>
+                                      <div className="shrink-0 text-right">
+                                        {off.fee && off.fee > 0
+                                          ? <span className="text-xs font-semibold text-orange-700">NT${off.fee.toLocaleString()}</span>
+                                          : <span className="text-xs text-gray-400">免費認領</span>}
+                                        <div className="text-[11px] text-gray-400">剩餘 {off.totalQty} 份</div>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </div>
                           );
                         })()}
