@@ -98,10 +98,10 @@ export interface ServiceItem {
 // ─── Bulletin (公佈欄) ────────────────────────────────────
 export enum BulletinCategory {
   GENERAL  = '一般公告',
+  BOOKING  = '問事公告',
   LAMP     = '點燈公告',
   BLESSING = '祈福公告',
   DONATION = '捐獻公告',
-  BOOKING  = '問事公告'
 }
 
 export interface BulletinData {
