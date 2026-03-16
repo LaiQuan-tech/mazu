@@ -1208,7 +1208,6 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
                                 <div>
                                   <p className="text-sm font-semibold text-gray-800">
                                     {rec.name}
-                                    {rec.zodiac && <span className="ml-1.5 text-xs text-gray-400 font-normal">{rec.zodiac}年</span>}
                                   </p>
                                   <p className="text-xs text-gray-500 mt-0.5">
                                     {rec.kind === 'lamp'     && rec.serviceName}
@@ -1279,11 +1278,6 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
                               </div>
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                                 {c.birthDate && <span className="text-xs text-gray-500">{c.birthDate}</span>}
-                                {c.zodiac && (
-                                  <span className="text-xs bg-temple-gold/15 text-temple-dark px-1.5 rounded">
-                                    {c.zodiac}年
-                                  </span>
-                                )}
                                 {c.address && <span className="text-xs text-gray-400 w-full truncate">{c.address}</span>}
                               </div>
                             </div>

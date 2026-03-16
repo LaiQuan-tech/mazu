@@ -39,7 +39,7 @@ const LineIcon = ({ className }: { className?: string }) => (
 );
 
 import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingRegistrations, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingRegistrations, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -47,6 +47,14 @@ import MemberPortal from './components/MemberPortal';
 import BirthDatePicker from './components/BirthDatePicker';
 
 // ── 工具函式 ────────────────────────────────────────────────────────────────────
+
+const LINE_URL = 'https://lin.ee/lj0gLqR';
+
+/** 點擊 LINE 按鈕：記錄導流來源後開啟官方帳號 */
+const handleLineClick = (source: string) => {
+  trackLineClick(source).catch(() => {});
+  window.open(LINE_URL, '_blank', 'noopener,noreferrer');
+};
 
 /** 從指定日期（預設今天）往後找最近的週六，回傳 YYYY-MM-DD */
 const getNextSaturday = (from = new Date()): string => {
@@ -664,6 +672,13 @@ const App: React.FC = () => {
               >
                 聖母經
               </button>
+              <button
+                onClick={() => handleLineClick('nav')}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold bg-[#06C755] text-white shadow-md hover:bg-[#05a847] hover:shadow-lg hover:scale-105 transition-all duration-200"
+              >
+                <LineIcon className="w-4 h-4" />
+                加入 LINE
+              </button>
               <div className="w-px h-6 bg-[#3D2800]/20 mx-1" />
               <button
                 onClick={() => setShowMemberPortal(true)}
@@ -713,6 +728,13 @@ const App: React.FC = () => {
               className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 text-temple-red border border-temple-red/30 hover:bg-temple-red/10"
             >
               ✦ 聖母經
+            </button>
+            <button
+              onClick={() => { handleLineClick('mobile-menu'); setIsMenuOpen(false); }}
+              className="w-full px-4 py-3 rounded-lg text-base font-bold transition-all duration-200 bg-[#06C755] text-white hover:bg-[#05a847] flex items-center gap-2"
+            >
+              <LineIcon className="w-5 h-5" />
+              加入 LINE 官方帳號
             </button>
             <button
               onClick={() => { setShowMemberPortal(true); setIsMenuOpen(false); }}
@@ -779,6 +801,38 @@ const App: React.FC = () => {
               了解服務項目
             </button>
           </div>
+
+        </div>
+
+        {/* 社群連結 — 右下角絕對定位，不受內容高度影響 */}
+        <div className="absolute right-5 sm:right-8 bottom-24 z-10 flex flex-col items-center gap-3">
+          <span className="text-white/50 text-[10px] tracking-widest [writing-mode:vertical-rl] mb-1">FOLLOW</span>
+          <button
+            onClick={() => handleLineClick('hero')}
+            title="加入 LINE 官方帳號"
+            className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+          >
+            <LineIcon className="w-5 h-5" />
+          </button>
+          <a
+            href="https://www.facebook.com/100064534546570"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Facebook"
+            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white shadow-lg hover:bg-[#1877F2] hover:border-[#1877F2] hover:scale-110 transition-all"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
+          </a>
+          <a
+            href="https://www.instagram.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Instagram"
+            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white shadow-lg hover:bg-gradient-to-br hover:from-[#f09433] hover:via-[#e6683c] hover:to-[#bc1888] hover:border-transparent hover:scale-110 transition-all"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 018.458 2.525c.636-.247 1.363-.416 2.427-.465C11.901 2.013 12.256 2 14.71 2h-.05zm-.63 1.802h-.128c-2.37 0-2.703.01-3.653.055-.877.04-1.354.187-1.671.31a2.785 2.785 0 00-1.033.672 2.785 2.785 0 00-.672 1.033c-.123.317-.27.794-.31 1.671-.045.95-.055 1.283-.055 3.653v.128c0 2.37.01 2.703.055 3.653.04.877.187 1.354.31 1.671.163.418.358.718.672 1.033.315.314.615.509 1.033.672.317.123.794.27 1.671.31.95.045 1.283.055 3.653.055h.128c2.37 0 2.703-.01 3.653-.055.877-.04 1.354-.187 1.671-.31a2.785 2.785 0 001.033-.672 2.785 2.785 0 00.672-1.033c.123-.317.27-.794.31-1.671.045-.95.055-1.283.055-3.653v-.128c0-2.37-.01-2.703-.055-3.653-.04-.877-.187-1.354-.31-1.671a2.785 2.785 0 00-.672-1.033 2.785 2.785 0 00-1.033-.672c-.317-.123-.794-.27-1.671-.31-.95-.045-1.283-.055-3.653-.055zm0 3.063a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd" /></svg>
+          </a>
+          <div className="w-px h-6 bg-white/30 mt-1" />
         </div>
 
         {/* Dot Indicators */}
@@ -2276,6 +2330,29 @@ const App: React.FC = () => {
         </div>
       </section>
 
+      {/* LINE CTA Banner */}
+      <section className="bg-[#06C755] py-12 px-4">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="flex justify-center mb-4">
+            <div className="bg-white rounded-2xl p-3 shadow-lg">
+              <LineIcon className="w-14 h-14" />
+            </div>
+          </div>
+          <h2 className="text-white text-2xl sm:text-3xl font-bold mb-2">加入和聖壇 LINE 官方帳號</h2>
+          <p className="text-white/90 text-base sm:text-lg mb-6">
+            最新公告、法會活動、問事預約資訊第一時間通知
+          </p>
+          <button
+            onClick={() => handleLineClick('cta-banner')}
+            className="inline-flex items-center gap-3 bg-white text-[#06C755] font-bold text-lg px-8 py-4 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200"
+          >
+            <LineIcon className="w-7 h-7" />
+            立即加入好友
+          </button>
+          <p className="text-white/70 text-sm mt-4">LINE ID：@heshengart</p>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer id="contact" className="bg-temple-dark text-white border-t border-white/10 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -2290,15 +2367,14 @@ const App: React.FC = () => {
                 歡迎各界善男信女蒞臨參香指導，共沐神恩。
               </p>
               <div className="flex space-x-4">
-                <a
-                  href="https://lin.ee/lj0gLqR"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => handleLineClick('footer')}
                   className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center hover:scale-110 transition-transform text-white"
+                  title="加入 LINE 官方帳號"
                 >
                   <span className="sr-only">LINE</span>
                   <LineIcon className="h-5 w-5" />
-                </a>
+                </button>
                 <a href="https://www.facebook.com/100064534546570" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-temple-gold hover:text-temple-red transition-colors">
                   <span className="sr-only">Facebook</span>
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
@@ -2374,15 +2450,20 @@ const App: React.FC = () => {
       </footer>
 
       {/* Floating LINE Button */}
-      <a
-        href="https://lin.ee/lj0gLqR"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="加入 LINE 問事"
-        className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[60] bg-[#06C755] w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
+      <button
+        onClick={() => handleLineClick('floating')}
+        title="加入 LINE 官方帳號"
+        className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[60] flex flex-col items-center gap-1 group"
       >
-        <LineIcon className="w-10 h-10" />
-      </a>
+        {/* Pulse ring */}
+        <span className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#06C755]/40 animate-ping" />
+        <span className="relative bg-[#06C755] w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl group-hover:scale-110 transition-transform flex items-center justify-center">
+          <LineIcon className="w-9 h-9 sm:w-10 sm:h-10" />
+        </span>
+        <span className="relative bg-[#06C755] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap">
+          加入 LINE
+        </span>
+      </button>
 
       {/* Member Portal */}
       {showMemberPortal && (

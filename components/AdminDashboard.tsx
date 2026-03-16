@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, supabase } from '../services/supabase';
 import { AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -322,7 +322,7 @@ function useDragSort<T extends { id: string }>(
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 const OverviewTab = ({
-  bookings, donations, lampRegistrations, blessingRegistrations, lampConfigs, blessingEvents,
+  bookings, donations, lampRegistrations, blessingRegistrations, lampConfigs, blessingEvents, lineStats,
 }: {
   bookings:             BookingRecord[];
   donations:            DonationRecord[];
@@ -330,6 +330,7 @@ const OverviewTab = ({
   blessingRegistrations: BlessingRegistrationRecord[];
   lampConfigs:          LampServiceConfig[];
   blessingEvents:       BlessingEventRecord[];
+  lineStats:            { today: number; total: number };
 }) => {
   const [activeService, setActiveService] = useState<'lamps' | 'blessing' | 'donation' | 'booking'>('lamps');
 
@@ -380,11 +381,35 @@ const OverviewTab = ({
       <h2 className="text-xl font-bold text-gray-800 mb-6">總覽</h2>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
         <StatCard icon={<ClipboardList className="w-5 h-5 text-blue-600" />}   label="總報名數"    value={totalRegistrations}                         sub="全部服務"    color="bg-blue-50" />
         <StatCard icon={<AlertCircle className="w-5 h-5 text-yellow-600" />}   label="待處理報名"  value={allPending}                                 sub="需要處理"    color="bg-yellow-50" />
         <StatCard icon={<Banknote className="w-5 h-5 text-green-600" />}       label="累計捐款"    value={`NT$ ${totalDonation.toLocaleString()}`}    sub="全部紀錄"    color="bg-green-50" />
         <StatCard icon={<Users className="w-5 h-5 text-purple-600" />}         label="不重複信眾"  value={uniquePhones}                               sub="依電話計算"  color="bg-purple-50" />
+      </div>
+
+      {/* LINE 導流統計 */}
+      <div className="bg-[#06C755]/5 border border-[#06C755]/30 rounded-xl p-5 mb-8 flex flex-col sm:flex-row items-center gap-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-[#06C755] rounded-xl p-3 shrink-0">
+            <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500 mb-0.5">LINE 官方帳號導流</p>
+            <p className="text-xs text-gray-400">統計加入好友點擊次數</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-8 sm:ml-auto">
+          <div className="text-center">
+            <p className="text-3xl font-bold text-[#06C755]">{lineStats.today}</p>
+            <p className="text-xs text-gray-500 mt-0.5">今日點擊</p>
+          </div>
+          <div className="w-px h-12 bg-[#06C755]/20" />
+          <div className="text-center">
+            <p className="text-3xl font-bold text-gray-700">{lineStats.total}</p>
+            <p className="text-xs text-gray-500 mt-0.5">累計點擊</p>
+          </div>
+        </div>
       </div>
 
       {/* 最新報名 */}
@@ -4154,6 +4179,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [usersLastLogin, setUsersLastLogin] = useState<Record<string, string>>({});
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
+  const [lineStats, setLineStats] = useState<{ today: number; total: number }>({ today: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -4163,7 +4189,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getMemberContacts().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[])]);
+      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getMemberContacts().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 }))]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -4180,6 +4206,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
       setAllRegistrations(ar);
       setBlessingEvents(be);
       setBlessingRegistrations(br);
+      setLineStats(ls);
     } catch {
       setError('無法載入資料，請稍後再試。');
     } finally {
@@ -4301,7 +4328,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
             </div>
           ) : (
             <>
-              {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} lampConfigs={lampConfigs} blessingEvents={blessingEvents} />}
+              {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} lampConfigs={lampConfigs} blessingEvents={blessingEvents} lineStats={lineStats} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} />}
               {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}

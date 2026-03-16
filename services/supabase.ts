@@ -1357,3 +1357,25 @@ export const uploadRepairProjectImage = async (file: File): Promise<string> => {
   const { data } = supabase.storage.from(SITE_IMAGES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 };
+
+// ─── LINE Click Tracking ───────────────────────────────────────────────────
+
+/** 記錄一次 LINE 按鈕點擊（fire-and-forget，不拋錯） */
+export const trackLineClick = async (source: string): Promise<void> => {
+  try {
+    await supabase.from('line_clicks').insert([{ source }]);
+  } catch {
+    // 不影響使用者體驗
+  }
+};
+
+/** 取得 LINE 導流統計（今日 / 累計） */
+export const getLineClickStats = async (): Promise<{ today: number; total: number }> => {
+  const { data, error } = await supabase
+    .from('line_clicks')
+    .select('clicked_at');
+  if (error || !data) return { today: 0, total: 0 };
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = data.filter(r => (r.clicked_at as string).slice(0, 10) === todayStr).length;
+  return { today, total: data.length };
+};
