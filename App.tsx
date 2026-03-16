@@ -790,8 +790,8 @@ const App: React.FC = () => {
 
         </div>
 
-        {/* 社群連結 — 右下角絕對定位，不受內容高度影響 */}
-        <div className="absolute right-5 sm:right-8 bottom-24 z-10 flex flex-col items-center gap-3">
+        {/* 社群連結 — 左側絕對定位，與右下角浮動按鈕左右平衡 */}
+        <div className="absolute left-5 sm:left-8 bottom-24 z-10 flex flex-col items-center gap-3">
           <span className="text-white/50 text-[10px] tracking-widest [writing-mode:vertical-rl] mb-1">FOLLOW</span>
           <button
             onClick={() => handleLineClick('hero')}
