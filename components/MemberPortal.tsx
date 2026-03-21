@@ -865,7 +865,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
         if (msg.includes('already registered') || msg.includes('already been registered')) {
           setAuthError('此信箱已有帳號，請直接登入。');
         } else if (msg.includes('rate limit')) {
-          setAuthError('請求過於頻繁，請稍後再試。');
+          setAuthError('目前驗證信發送已達上限，請稍後（約1小時後）再試，或聯繫管理員。');
         } else if (msg.includes('invalid email')) {
           setAuthError('信箱格式不正確，請重新確認。');
         } else {
