@@ -270,6 +270,7 @@ export interface ProfileData {
 /** 後台用：所有已註冊會員的完整資料列 */
 export interface MemberProfileRecord extends ProfileData {
   userId: string;
+  memberNumber?: number;
   createdAt: string;
   updatedAt?: string;
 }

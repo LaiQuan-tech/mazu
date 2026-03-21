@@ -1167,6 +1167,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 {selectedProfile.name || '（未填姓名）'}
                 {selectedProfile.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-normal">{selectedProfile.gender}</span>}
+                {selectedProfile.memberNumber && <span className="text-xs font-mono bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-normal">#{String(selectedProfile.memberNumber).padStart(4, '0')}</span>}
               </h2>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-sm text-gray-500">
                 {selectedProfile.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{selectedProfile.phone}</span>}
@@ -1383,6 +1384,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
             <table className="w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">編號</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">姓名</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">性別</th>
                   <SortTh col="lamps"      label="點燈"   align="center" />
@@ -1403,6 +1405,11 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                     }}
                     className="cursor-pointer hover:bg-temple-bg/60 transition-all group"
                   >
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-mono text-gray-400">
+                        {p.memberNumber ? `#${String(p.memberNumber).padStart(4, '0')}` : '—'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-semibold text-gray-800 group-hover:text-temple-red transition-colors">
                         {p.name || <span className="text-gray-400 font-normal italic">（未填）</span>}

@@ -1011,6 +1011,7 @@ export const getAllMemberProfiles = async (): Promise<MemberProfileRecord[]> => 
   if (error || !data) return [];
   return data.map(row => ({
     userId: row.user_id,
+    memberNumber: row.member_number ?? undefined,
     name: row.name || '',
     phone: row.phone || '',
     birthDate: row.birth_date || '',
