@@ -58,8 +58,15 @@ export const getBookings = async (): Promise<BookingRecord[]> => {
     type: row.type,
     notes: row.notes,
     status: row.status as BookingStatus,
+    divineMessage: row.divine_message || undefined,
     createdAt: row.created_at,
   }));
+};
+
+export const updateBookingDivineMessage = async (id: string, message: string): Promise<boolean> => {
+  const { error } = await supabase.from('bookings').update({ divine_message: message }).eq('id', id);
+  if (error) throw error;
+  return true;
 };
 
 export const updateBookingStatus = async (id: string, status: BookingStatus): Promise<boolean> => {
@@ -1252,7 +1259,8 @@ export const getMyBookings = async (phone: string): Promise<BookingRecord[]> => 
     zodiac: row.zodiac as ZodiacSign | undefined, address: row.address || undefined,
     contactLabel: row.contact_label || undefined, bookingDate: row.booking_date,
     bookingTime: row.booking_time, type: row.type, notes: row.notes || undefined,
-    status: row.status as BookingStatus, createdAt: row.created_at,
+    status: row.status as BookingStatus, divineMessage: row.divine_message || undefined,
+    createdAt: row.created_at,
   }));
 };
 

@@ -59,6 +59,7 @@ export interface BookingData {
   type: ConsultationType;
   notes?: string;
   status?: BookingStatus;
+  divineMessage?: string;
   createdAt?: any;
 }
 

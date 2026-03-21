@@ -8,7 +8,7 @@ import { MemberContact, MemberContactData, ProfileData, ZodiacSign, LampRegistra
 // ── 報名紀錄顯示用型別 ──────────────────────────────────────────────────────
 type PortalRecord =
   | { kind: 'lamp';     id: string; name: string; zodiac?: string; serviceName: string; status: LampRegistrationStatus; createdAt: string; }
-  | { kind: 'booking';  id: string; name: string; zodiac?: string; consultType: string;  bookingDate: string; status: BookingStatus;  createdAt: string; }
+  | { kind: 'booking';  id: string; name: string; zodiac?: string; consultType: string;  bookingDate: string; status: BookingStatus; divineMessage?: string; createdAt: string; }
   | { kind: 'blessing'; id: string; name: string; zodiac?: string; eventTitle: string;  packageName?: string; packageFee?: number; status: BlessingStatus; createdAt: string; };
 
 // 簡繁對映（lunar-javascript 部分生肖用簡體）
@@ -769,7 +769,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
       const eventMap = new Map(events.map(e => [e.id, e.title]));
       const all: PortalRecord[] = [
         ...lamps.map(r => ({ kind: 'lamp'     as const, id: r.id, name: r.name, zodiac: r.zodiac, serviceName: lampMap.get(r.serviceId) ?? r.serviceId, status: r.status, createdAt: r.createdAt })),
-        ...bookings.map(r => ({ kind: 'booking' as const, id: r.id, name: r.name, zodiac: r.zodiac, consultType: r.type, bookingDate: (r as any).bookingDate, status: r.status as any, createdAt: (r as any).createdAt })),
+        ...bookings.map(r => ({ kind: 'booking' as const, id: r.id, name: r.name, zodiac: r.zodiac, consultType: r.type, bookingDate: (r as any).bookingDate, status: r.status as any, divineMessage: r.divineMessage, createdAt: (r as any).createdAt })),
         ...blessings.map(r => ({ kind: 'blessing' as const, id: r.id, name: r.name, zodiac: r.zodiac, eventTitle: eventMap.get(r.eventId) ?? '法會', packageName: r.packageName, packageFee: r.packageFee, status: r.status, createdAt: r.createdAt })),
       ];
       all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -1215,6 +1215,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
                                   {rec.status}
                                 </span>
                               </div>
+                              {rec.kind === 'booking' && rec.divineMessage && (
+                                <div className="mt-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                                  <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1">
+                                    <span>✦</span> 聖母的話
+                                  </p>
+                                  <p className="text-sm text-amber-900 leading-relaxed whitespace-pre-wrap">{rec.divineMessage}</p>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

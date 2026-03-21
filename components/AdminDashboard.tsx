@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, supabase } from '../services/supabase';
 import { AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -577,6 +577,20 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
   const [page, setPage] = useState(0);
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
+  const [divineEdit, setDivineEdit] = useState<{ id: string; name: string; text: string } | null>(null);
+  const [divineSaving, setDivineSaving] = useState(false);
+
+  const handleSaveDivine = async () => {
+    if (!divineEdit) return;
+    setDivineSaving(true);
+    try {
+      await updateBookingDivineMessage(divineEdit.id, divineEdit.text);
+      setDivineEdit(null);
+    } catch (e: any) {
+      alert('儲存失敗：' + (e?.message ?? String(e)));
+    }
+    setDivineSaving(false);
+  };
 
   const filtered = useMemo(() => {
     const result = bookings.filter(b => {
@@ -745,7 +759,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '預約時間 / 項目', '備註', '狀態', '操作'].map(h => (
+                  {['信眾資訊', '預約時間 / 項目', '備註', '聖母的話', '狀態', '操作'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -784,6 +798,18 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                       <p className="text-sm text-gray-700 truncate">{b.notes || <span className="text-gray-300 italic">無備註</span>}</p>
                       <p className="text-xs text-gray-400 mt-1">{fmtDate(b.createdAt)}</p>
                     </td>
+                    <td className="px-5 py-4 max-w-[160px]" onClick={e => e.stopPropagation()}>
+                      {b.divineMessage
+                        ? <p className="text-xs text-amber-800 line-clamp-2 cursor-pointer hover:text-amber-900"
+                            onClick={() => setDivineEdit({ id: b.id, name: b.name, text: b.divineMessage! })}>
+                            {b.divineMessage}
+                          </p>
+                        : <button onClick={() => setDivineEdit({ id: b.id, name: b.name, text: '' })}
+                            className="text-xs text-gray-400 hover:text-temple-red transition-colors flex items-center gap-1">
+                            <Plus className="w-3 h-3" /> 填寫
+                          </button>
+                      }
+                    </td>
                     <td className="px-5 py-4">{statusBadge(b.status)}</td>
                     <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                       <select value={b.status || BookingStatus.PENDING}
@@ -802,6 +828,38 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
         )}
       </div>
       {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
+
+      {/* 聖母的話 編輯 Modal */}
+      {divineEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDivineEdit(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <span className="text-temple-gold text-lg">✦</span> 聖母的話
+                <span className="text-sm font-normal text-gray-500 ml-1">— {divineEdit.name}</span>
+              </h3>
+              <button onClick={() => setDivineEdit(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <textarea
+              value={divineEdit.text}
+              onChange={e => setDivineEdit(d => d ? { ...d, text: e.target.value } : d)}
+              placeholder="在此填寫聖母的指示、訓示或建議..."
+              rows={6}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-temple-gold/40 focus:border-temple-gold outline-none resize-none"
+            />
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setDivineEdit(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                取消
+              </button>
+              <button onClick={handleSaveDivine} disabled={divineSaving}
+                className="flex-1 px-4 py-2 bg-temple-gold text-white rounded-lg text-sm hover:bg-temple-gold/90 disabled:opacity-50 transition-colors font-medium">
+                {divineSaving ? '儲存中...' : '儲存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
