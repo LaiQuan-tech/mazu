@@ -759,7 +759,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '預約時間 / 項目', '備註', '聖母的話', '狀態', '操作'].map(h => (
+                  {['信眾資訊', '預約時間 / 項目', '備註', '神明的話', '狀態', '操作'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -829,13 +829,13 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       </div>
       {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
 
-      {/* 聖母的話 編輯 Modal */}
+      {/* 神明的話 編輯 Modal */}
       {divineEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDivineEdit(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <span className="text-temple-gold text-lg">✦</span> 聖母的話
+                <span className="text-temple-gold text-lg">✦</span> 神明的話
                 <span className="text-sm font-normal text-gray-500 ml-1">— {divineEdit.name}</span>
               </h3>
               <button onClick={() => setDivineEdit(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
