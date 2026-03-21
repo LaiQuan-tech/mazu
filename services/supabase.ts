@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -19,6 +19,7 @@ export const submitBooking = async (data: BookingData): Promise<boolean> => {
     contact_label: data.contactLabel || null,
     booking_date: data.bookingDate,
     booking_time: data.bookingTime,
+    session_id: data.sessionId || null,
     type: data.type,
     notes: data.notes || null,
     status: BookingStatus.PENDING,
@@ -53,6 +54,7 @@ export const getBookings = async (): Promise<BookingRecord[]> => {
     contactLabel: row.contact_label || undefined,
     bookingDate: row.booking_date,
     bookingTime: row.booking_time,
+    sessionId: row.session_id || undefined,
     type: row.type,
     notes: row.notes,
     status: row.status as BookingStatus,
@@ -70,6 +72,68 @@ export const updateBookingStatus = async (id: string, status: BookingStatus): Pr
     console.error('Error updating booking status:', error);
     throw error;
   }
+  return true;
+};
+
+// ─── Booking Sessions ─────────────────────────────────────────────────────────
+
+export const getBookingSessions = async (activeOnly = true): Promise<BookingSessionRecord[]> => {
+  let query = supabase
+    .from('booking_sessions')
+    .select('*')
+    .order('session_date', { ascending: true })
+    .order('session_time', { ascending: true });
+  if (activeOnly) query = query.eq('is_active', true);
+  const { data, error } = await query;
+  if (error) { console.error('Error fetching booking sessions:', error); throw error; }
+  return (data || []).map(r => ({
+    id: r.id,
+    sessionDate: r.session_date,
+    sessionTime: r.session_time,
+    maxSlots: r.max_slots,
+    isActive: r.is_active,
+    createdAt: r.created_at,
+  }));
+};
+
+export const getBookingCountsBySession = async (): Promise<Record<string, number>> => {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('session_id')
+    .not('session_id', 'is', null)
+    .neq('status', BookingStatus.CANCELLED);
+  if (error) { console.error('Error fetching booking counts:', error); return {}; }
+  const counts: Record<string, number> = {};
+  (data || []).forEach((r: any) => {
+    if (r.session_id) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
+  });
+  return counts;
+};
+
+export const createBookingSession = async (data: BookingSessionData): Promise<BookingSessionRecord> => {
+  const { data: row, error } = await supabase
+    .from('booking_sessions')
+    .insert([{ session_date: data.sessionDate, session_time: data.sessionTime, max_slots: data.maxSlots, is_active: data.isActive }])
+    .select()
+    .single();
+  if (error) { console.error('Error creating booking session:', error); throw error; }
+  return { id: row.id, sessionDate: row.session_date, sessionTime: row.session_time, maxSlots: row.max_slots, isActive: row.is_active, createdAt: row.created_at };
+};
+
+export const updateBookingSession = async (id: string, updates: Partial<BookingSessionData>): Promise<boolean> => {
+  const payload: any = {};
+  if (updates.sessionDate !== undefined) payload.session_date = updates.sessionDate;
+  if (updates.sessionTime !== undefined) payload.session_time = updates.sessionTime;
+  if (updates.maxSlots !== undefined) payload.max_slots = updates.maxSlots;
+  if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+  const { error } = await supabase.from('booking_sessions').update(payload).eq('id', id);
+  if (error) { console.error('Error updating booking session:', error); throw error; }
+  return true;
+};
+
+export const deleteBookingSession = async (id: string): Promise<boolean> => {
+  const { error } = await supabase.from('booking_sessions').delete().eq('id', id);
+  if (error) { console.error('Error deleting booking session:', error); throw error; }
   return true;
 };
 

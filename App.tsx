@@ -38,8 +38,8 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingRegistrations, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, supabase } from './services/supabase';
+import { AdminRole, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, ZodiacSign } from './types';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingRegistrations, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getBookingSessions, getBookingCountsBySession, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import AdminDashboard from './components/AdminDashboard';
 import ScripturePage from './components/ScripturePage';
@@ -54,14 +54,6 @@ const LINE_URL = 'https://lin.ee/lj0gLqR';
 const handleLineClick = (source: string) => {
   trackLineClick(source).catch(() => {});
   window.open(LINE_URL, '_blank', 'noopener,noreferrer');
-};
-
-/** 從指定日期（預設今天）往後找最近的週六，回傳 YYYY-MM-DD */
-const getNextSaturday = (from = new Date()): string => {
-  const d = new Date(from);
-  const diff = (6 - d.getDay() + 7) % 7 || 7;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().split('T')[0];
 };
 
 /** 共用匯款資訊區塊 */
@@ -228,8 +220,9 @@ const App: React.FC = () => {
 
   // ── 問事多人 ──
   const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
-  const [bookingDate, setBookingDate] = useState('');
-  const [bookingTime, setBookingTime] = useState('evening'); // 目前僅開放晚上，預設帶入
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [bookingSessions, setBookingSessions] = useState<BookingSessionRecord[]>([]);
+  const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [bookingNotes, setBookingNotes] = useState('');
 
   // ── 捐獻多人 ──
@@ -360,6 +353,12 @@ const App: React.FC = () => {
     setBlessingPersons(prev => prev.map(p => p.address ? p : { ...p, address: addr }));
   }, [memberProfile?.address]);
 
+  // ── 問事場次 ──
+  useEffect(() => {
+    getBookingSessions(true).then(setBookingSessions).catch(() => {});
+    getBookingCountsBySession().then(setSessionCounts).catch(() => {});
+  }, []);
+
   const filteredBulletins = bulletinFilter === 'all'
     ? bulletins
     : bulletins.filter(b => b.category === bulletinFilter);
@@ -391,15 +390,16 @@ const App: React.FC = () => {
   // ── 問事送出（批次） ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookingDate) { alert('請選擇希望預約日期。'); return; }
-    const date = new Date(bookingDate);
-    if (date.getDay() !== 6) { alert('請選擇週六的日期。'); return; }
-    if (bookingTime !== 'evening') { alert('目前僅開放晚上時段預約。'); return; }
+    if (!selectedSessionId) { alert('請選擇問事場次。'); return; }
+    const selectedSession = bookingSessions.find(s => s.id === selectedSessionId);
+    if (!selectedSession) { alert('場次不存在，請重新選擇。'); return; }
+    const sessionRemaining = selectedSession.maxSlots - (sessionCounts[selectedSessionId] || 0);
+    if (bookingPersons.length > sessionRemaining) { alert(`此場次剩餘 ${sessionRemaining} 位，您共填寫 ${bookingPersons.length} 人，請減少人數或選擇其他場次。`); return; }
     setBookingStatus('loading');
     try {
       await Promise.all(bookingPersons.map(p => submitBooking({
         name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
-        bookingDate, bookingTime, type: p.type, notes: bookingNotes,
+        bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: bookingNotes,
       })));
       if (member) {
         autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
@@ -407,7 +407,7 @@ const App: React.FC = () => {
       }
       setBookingStatus('success');
       setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
-      setBookingDate(''); setBookingTime(''); setBookingNotes('');
+      setBookingNotes('');
     } catch (error) {
       console.error(error);
       setBookingStatus('error');
@@ -533,8 +533,10 @@ const App: React.FC = () => {
       let config: SharedSessionConfig = {};
       if (type === 'blessing' && blessingModal)
         config = { eventId: blessingModal.id, eventTitle: blessingModal.title, fee: blessingModal.fee };
-      else if (type === 'booking')
-        config = { bookingDate, bookingTime };
+      else if (type === 'booking') {
+        const sess = bookingSessions.find(s => s.id === selectedSessionId);
+        config = { bookingDate: sess?.sessionDate ?? '', bookingTime: sess?.sessionTime ?? '' };
+      }
 
       const session = await createSharedSession({ serviceType: type, config });
       setSharedSession(session);
@@ -1265,36 +1267,42 @@ const App: React.FC = () => {
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
 
-                  {/* 共用：日期、時段 */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-sm font-medium text-gray-700">希望預約日期（限週六）*</label>
-                        <button type="button" onClick={() => setBookingDate(getNextSaturday())}
-                          className="text-xs text-temple-red font-medium hover:underline">
-                          選最近週六 →
-                        </button>
+                  {/* 共用：場次選擇 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">選擇問事場次 *</label>
+                    {bookingSessions.length === 0 ? (
+                      <div className="w-full px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        目前無開放場次，請關注最新公告。
                       </div>
-                      <input type="date" required value={bookingDate}
-                        onChange={e => setBookingDate(e.target.value)}
-                        className={`w-full px-4 py-3 rounded-lg border transition-all outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red ${
-                          bookingDate && new Date(bookingDate).getDay() !== 6
-                            ? 'border-red-400 bg-red-50'
-                            : 'border-gray-300'
-                        }`} />
-                      {bookingDate && new Date(bookingDate).getDay() !== 6 && (
-                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                          ⚠ 請選擇週六日期
+                    ) : (
+                      <select required value={selectedSessionId} onChange={e => setSelectedSessionId(e.target.value)}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm">
+                        <option value="">請選擇場次...</option>
+                        {bookingSessions.map(s => {
+                          const remaining = s.maxSlots - (sessionCounts[s.id] || 0);
+                          const isFull = remaining <= 0;
+                          const d = new Date(s.sessionDate + 'T12:00:00');
+                          const days = ['日', '一', '二', '三', '四', '五', '六'];
+                          const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）${s.sessionTime}`;
+                          return (
+                            <option key={s.id} value={s.id} disabled={isFull}>
+                              {label}　{isFull ? '【已額滿】' : `剩餘 ${remaining} 位`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                    {selectedSessionId && (() => {
+                      const s = bookingSessions.find(x => x.id === selectedSessionId);
+                      if (!s) return null;
+                      const remaining = s.maxSlots - (sessionCounts[selectedSessionId] || 0);
+                      return (
+                        <p className={`text-xs mt-1 flex items-center gap-1 ${remaining <= 3 ? 'text-red-500' : 'text-green-600'}`}>
+                          <Clock className="w-3 h-3" /> 此場次尚餘 {remaining} 個名額
                         </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">預約時段</label>
-                      <div className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 text-sm flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-temple-gold shrink-0" />
-                        晚上 19:00 – 21:00（目前唯一開放時段）
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   {/* 訪客電話（未登入才顯示） */}
@@ -1331,13 +1339,13 @@ const App: React.FC = () => {
                     {ENABLE_GROUP_BOOKING && !sharedSession && (
                       <>
                         <button type="button" onClick={() => handleCreateSharedSession('booking')}
-                          disabled={creatingShare || !bookingDate || bookingTime !== 'evening'}
+                          disabled={creatingShare || !selectedSessionId}
                           className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
                           <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                         </button>
-                        {(!bookingDate || bookingTime !== 'evening') && (
+                        {!selectedSessionId && (
                           <p className="text-center text-xs text-gray-400 mt-1.5">
-                            ※ 請先選擇日期與時段，才能建立揪團報名表
+                            ※ 請先選擇場次，才能建立揪團報名表
                           </p>
                         )}
                       </>

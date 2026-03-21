@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, supabase } from '../services/supabase';
-import { AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { getBookings, updateBookingStatus, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, supabase } from '../services/supabase';
+import { AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -506,6 +506,59 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   updatingId: string | null;
   memberProfiles: MemberProfileRecord[];
 }) => {
+  // ── 場次管理狀態 ──
+  const [sessions, setSessions] = useState<BookingSessionRecord[]>([]);
+  const [sCountMap, setSCountMap] = useState<Record<string, number>>({});
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [showSessionForm, setShowSessionForm] = useState(false);
+  const [newSessionDate, setNewSessionDate] = useState('');
+  const [newSessionTime, setNewSessionTime] = useState('晚上 19:00–21:00');
+  const [newSessionMaxSlots, setNewSessionMaxSlots] = useState(15);
+  const [savingSession, setSavingSession] = useState(false);
+  const [filterSession, setFilterSession] = useState('');
+
+  const loadSessions = async () => {
+    setSessionLoading(true);
+    try {
+      const [sess, counts] = await Promise.all([getBookingSessions(false), getBookingCountsBySession()]);
+      setSessions(sess);
+      setSCountMap(counts);
+    } catch {}
+    setSessionLoading(false);
+  };
+
+  useEffect(() => { loadSessions(); }, []);
+
+  const handleAddSession = async () => {
+    if (!newSessionDate || !newSessionTime) return;
+    setSavingSession(true);
+    try {
+      await createBookingSession({ sessionDate: newSessionDate, sessionTime: newSessionTime, maxSlots: newSessionMaxSlots, isActive: true });
+      setNewSessionDate('');
+      setNewSessionTime('晚上 19:00–21:00');
+      setNewSessionMaxSlots(15);
+      setShowSessionForm(false);
+      await loadSessions();
+    } catch {}
+    setSavingSession(false);
+  };
+
+  const handleToggleSession = async (s: BookingSessionRecord) => {
+    try {
+      await updateBookingSession(s.id, { isActive: !s.isActive });
+      await loadSessions();
+    } catch {}
+  };
+
+  const handleDeleteSession = async (s: BookingSessionRecord) => {
+    const count = sCountMap[s.id] || 0;
+    if (!confirm(`確定刪除此場次？${count > 0 ? `（已有 ${count} 筆預約）` : ''}`)) return;
+    try {
+      await deleteBookingSession(s.id);
+      await loadSessions();
+    } catch {}
+  };
+
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -519,13 +572,14 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       const matchSearch = !q || b.name.toLowerCase().includes(q) || b.phone.includes(q);
       const matchStatus = !filterStatus || b.status === filterStatus;
       const matchType = !filterType || b.type === filterType;
-      return matchSearch && matchStatus && matchType;
+      const matchSession = !filterSession || (b as any).sessionId === filterSession;
+      return matchSearch && matchStatus && matchType && matchSession;
     });
     if (sortBy === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
     return result;
-  }, [bookings, search, filterStatus, filterType, sortBy]);
+  }, [bookings, search, filterStatus, filterType, filterSession, sortBy]);
 
-  useEffect(() => { setPage(0); }, [search, filterStatus, filterType, sortBy]);
+  useEffect(() => { setPage(0); }, [search, filterStatus, filterType, filterSession, sortBy]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const handleExport = () => {
@@ -550,6 +604,83 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
         </button>
       </div>
 
+      {/* 場次管理 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+            <CalendarClock className="w-5 h-5 text-temple-red" /> 場次管理
+          </h3>
+          <button onClick={() => setShowSessionForm(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors">
+            <Plus className="w-4 h-4" /> 新增場次
+          </button>
+        </div>
+
+        {showSessionForm && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">日期</label>
+              <input type="date" value={newSessionDate} onChange={e => setNewSessionDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">時段</label>
+              <input type="text" value={newSessionTime} onChange={e => setNewSessionTime(e.target.value)}
+                placeholder="晚上 19:00–21:00"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">名額上限</label>
+              <input type="number" min={1} max={100} value={newSessionMaxSlots} onChange={e => setNewSessionMaxSlots(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+            </div>
+            <div className="flex items-end">
+              <button onClick={handleAddSession} disabled={savingSession || !newSessionDate}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 transition-colors">
+                {savingSession ? '儲存中...' : '確認新增'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {sessionLoading ? (
+          <div className="text-center text-gray-400 text-sm py-4">載入中...</div>
+        ) : sessions.length === 0 ? (
+          <div className="text-center text-gray-400 text-sm py-4">尚無場次，請新增。</div>
+        ) : (
+          <div className="space-y-2">
+            {sessions.map(s => {
+              const booked = sCountMap[s.id] || 0;
+              const remaining = s.maxSlots - booked;
+              const d = new Date(s.sessionDate + 'T12:00:00');
+              const days = ['日', '一', '二', '三', '四', '五', '六'];
+              const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）${s.sessionTime}`;
+              return (
+                <div key={s.id} className={`flex items-center justify-between px-4 py-3 rounded-lg border ${s.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                      {s.isActive ? '開放中' : '已關閉'}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800">{label}</span>
+                    <span className="text-xs text-gray-500">{booked}/{s.maxSlots} 位 · {remaining <= 0 ? <span className="text-red-500 font-medium">額滿</span> : `剩 ${remaining}`}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleToggleSession(s)}
+                      className="text-xs px-2.5 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors">
+                      {s.isActive ? '關閉' : '開放'}
+                    </button>
+                    <button onClick={() => handleDeleteSession(s)}
+                      className="text-xs px-2.5 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+                      刪除
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* 搜尋 & 篩選 */}
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px]">
@@ -567,6 +698,15 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
           <option value="">全部項目</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filterSession} onChange={e => setFilterSession(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+          <option value="">全部場次</option>
+          {sessions.map(s => {
+            const d = new Date(s.sessionDate + 'T12:00:00');
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
+            return <option key={s.id} value={s.id}>{d.getMonth()+1}月{d.getDate()}日（{days[d.getDay()]}）{s.sessionTime}</option>;
+          })}
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">

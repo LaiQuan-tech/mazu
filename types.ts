@@ -55,6 +55,7 @@ export interface BookingData {
   contactLabel?: string;
   bookingDate: string;
   bookingTime: string;
+  sessionId?: string;
   type: ConsultationType;
   notes?: string;
   status?: BookingStatus;
@@ -63,6 +64,20 @@ export interface BookingData {
 
 export interface BookingRecord extends BookingData {
   id: string;
+}
+
+// ─── Booking Sessions (問事場次) ────────────────────────────────
+export interface BookingSessionData {
+  sessionDate: string;   // YYYY-MM-DD
+  sessionTime: string;   // e.g. '晚上 19:00–21:00'
+  maxSlots: number;      // 每場限量名額（預設 15）
+  isActive: boolean;
+}
+
+export interface BookingSessionRecord extends BookingSessionData {
+  id: string;
+  createdAt: string;
+  bookedCount?: number;  // 前端計算
 }
 
 export interface RepairProject {
