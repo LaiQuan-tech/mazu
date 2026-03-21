@@ -858,6 +858,7 @@ export const getMemberContactsByUserId = async (userId: string): Promise<MemberC
   return (data || []).map((row) => ({
     id: row.id,
     userId: row.user_id,
+    contactNumber: row.contact_number ?? undefined,
     label: row.label,
     name: row.name,
     phone: row.phone,
@@ -887,6 +888,7 @@ export const getMemberContacts = async (): Promise<MemberContact[]> => {
   return (data || []).map((row) => ({
     id: row.id,
     userId: row.user_id,
+    contactNumber: row.contact_number ?? undefined,
     label: row.label,
     name: row.name,
     phone: row.phone,

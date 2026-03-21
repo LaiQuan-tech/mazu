@@ -1464,6 +1464,8 @@ type DevoteeSortDir = 'asc' | 'desc';
 interface DevoteeRow {
   id: string;
   name: string;
+  memberNumber?: number;
+  contactNumber?: number;
   phone?: string;
   gender?: string;
   birthDate?: string;
@@ -1526,6 +1528,7 @@ const DevoteesTab = ({
       return {
         id: `m-${p.userId}`,
         name: p.name || '（未填姓名）',
+        memberNumber: p.memberNumber,
         phone: ph,
         gender: p.gender,
         birthDate: p.birthDate,
@@ -1549,6 +1552,7 @@ const DevoteesTab = ({
       return {
         id: `c-${c.id}`,
         name: nm,
+        contactNumber: c.contactNumber,
         phone: c.phone || undefined,
         gender: c.gender,
         birthDate: c.birthDate,
@@ -1672,6 +1676,7 @@ const DevoteesTab = ({
               <table className="w-full min-w-[640px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">編號</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">姓名</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">身份</th>
                     <SortTh col="lamps"      label="點燈" />
@@ -1683,6 +1688,12 @@ const DevoteesTab = ({
                 <tbody className="divide-y divide-gray-50">
                   {paged.map(r => (
                     <tr key={r.id} className="hover:bg-temple-bg/40 transition-colors cursor-pointer" onClick={() => setSelectedDevotee(r)}>
+                      {/* 編號 */}
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-mono text-gray-400">
+                          {r.memberNumber ? `M${String(r.memberNumber).padStart(3, '0')}` : r.contactNumber ? `C${String(r.contactNumber).padStart(3, '0')}` : '—'}
+                        </span>
+                      </td>
                       {/* 姓名 + 性別 */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2 flex-wrap">

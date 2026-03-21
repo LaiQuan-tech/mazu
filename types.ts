@@ -255,6 +255,7 @@ export interface MemberContactData {
 export interface MemberContact extends MemberContactData {
   id: string;
   userId: string;
+  contactNumber?: number;
   createdAt: string;
 }
 
