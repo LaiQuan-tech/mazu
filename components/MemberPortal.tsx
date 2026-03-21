@@ -154,6 +154,7 @@ function parseBirthDate(s: string): { gregorianYear: number; monthValue: string;
 
 interface MemberPortalProps {
   onClose: () => void;
+  pendingPhone?: string; // 訪客預約電話，用於自動預填個人資料
 }
 
 const ZODIAC_OPTIONS = Object.values(ZodiacSign);
@@ -724,7 +725,7 @@ const ProfileFormInline = ({
 };
 
 // ── MemberPortal 主元件 ───────────────────────────────────────────────────────
-const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
+const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) => {
   // ── auth state ──
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -880,6 +881,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
         setCurrentUser({ email: data.user!.email! });
         loadContacts();
         loadProfile();
+        if (pendingPhone) setPortalTab('profile');
       } else {
         // 需要 Email 確認
         setAuthSuccess('註冊成功！請至信箱點擊確認連結，確認後即可登入。');
@@ -1154,11 +1156,19 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose }) => {
 
                 {/* ── 個人資料 tab ── */}
                 {portalTab === 'profile' && (
-                  <ProfileFormInline
-                    initial={profile ?? { name: '', phone: '', birthDate: '' }}
-                    onSave={handleSaveProfile}
-                    savedAddresses={Array.from(new Set(contacts.map(c => c.address).filter((a): a is string => !!a)))}
-                  />
+                  <>
+                    {pendingPhone && !profile?.phone && (
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">💡</span>
+                        <span>已為您預填電話號碼。請確認後儲存，即可在「報名紀錄」查看您的問事預約。</span>
+                      </div>
+                    )}
+                    <ProfileFormInline
+                      initial={profile ?? { name: '', phone: pendingPhone || '', birthDate: '' }}
+                      onSave={handleSaveProfile}
+                      savedAddresses={Array.from(new Set(contacts.map(c => c.address).filter((a): a is string => !!a)))}
+                    />
+                  </>
                 )}
 
                 {/* ── 報名紀錄 tab ── */}

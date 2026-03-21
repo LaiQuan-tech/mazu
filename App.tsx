@@ -159,6 +159,7 @@ const App: React.FC = () => {
   const [member, setMember] = useState<User | null>(null);
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
   const [showMemberPortal, setShowMemberPortal] = useState(false);
+  const [memberPortalPendingPhone, setMemberPortalPendingPhone] = useState('');
   const [memberContacts, setMemberContacts] = useState<MemberContact[]>([]);
   const [showContactPicker, setShowContactPicker] = useState<{ form: 'lamp' | 'booking' | 'donation' | 'blessing' | 'repair'; personId: string } | null>(null);
   // ── 祈福活動 ──
@@ -1182,12 +1183,12 @@ const App: React.FC = () => {
                     感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終問事時間。
                   </p>
                   {!member && (
-                    <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
-                      <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
-                      <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理親友通訊錄！</p>
-                      <button type="button" onClick={() => setShowMemberPortal(true)}
-                        className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
-                        立即加入會員
+                    <div className="mb-6 mx-auto max-w-sm bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-5 text-center">
+                      <p className="text-sm font-semibold text-temple-dark mb-1">加入會員，查看您的問事紀錄</p>
+                      <p className="text-xs text-gray-500 mb-3">註冊後電話號碼將自動連結本次預約，日後查詢、填表更便利。</p>
+                      <button type="button" onClick={() => { setMemberPortalPendingPhone(guestPhone); setShowMemberPortal(true); }}
+                        className="px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+                        立即加入會員 →
                       </button>
                     </div>
                   )}
@@ -2438,10 +2439,14 @@ const App: React.FC = () => {
 
       {/* Member Portal */}
       {showMemberPortal && (
-        <MemberPortal onClose={() => {
-          setShowMemberPortal(false);
-          if (member) loadMemberContacts();
-        }} />
+        <MemberPortal
+          pendingPhone={memberPortalPendingPhone}
+          onClose={() => {
+            setShowMemberPortal(false);
+            setMemberPortalPendingPhone('');
+            if (member) loadMemberContacts();
+          }}
+        />
       )}
 
       {/* Contact Picker Modal */}
