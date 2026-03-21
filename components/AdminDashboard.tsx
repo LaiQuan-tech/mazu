@@ -515,6 +515,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   const [newSessionTime, setNewSessionTime] = useState('晚上 19:00–21:00');
   const [newSessionMaxSlots, setNewSessionMaxSlots] = useState(15);
   const [savingSession, setSavingSession] = useState(false);
+  const [sessionError, setSessionError] = useState('');
   const [filterSession, setFilterSession] = useState('');
 
   const loadSessions = async () => {
@@ -523,7 +524,9 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       const [sess, counts] = await Promise.all([getBookingSessions(false), getBookingCountsBySession()]);
       setSessions(sess);
       setSCountMap(counts);
-    } catch {}
+    } catch (e: any) {
+      setSessionError('載入場次失敗：' + (e?.message ?? String(e)));
+    }
     setSessionLoading(false);
   };
 
@@ -532,6 +535,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   const handleAddSession = async () => {
     if (!newSessionDate || !newSessionTime) return;
     setSavingSession(true);
+    setSessionError('');
     try {
       await createBookingSession({ sessionDate: newSessionDate, sessionTime: newSessionTime, maxSlots: newSessionMaxSlots, isActive: true });
       setNewSessionDate('');
@@ -539,24 +543,32 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       setNewSessionMaxSlots(15);
       setShowSessionForm(false);
       await loadSessions();
-    } catch {}
+    } catch (e: any) {
+      setSessionError('新增場次失敗：' + (e?.message ?? String(e)));
+    }
     setSavingSession(false);
   };
 
   const handleToggleSession = async (s: BookingSessionRecord) => {
+    setSessionError('');
     try {
       await updateBookingSession(s.id, { isActive: !s.isActive });
       await loadSessions();
-    } catch {}
+    } catch (e: any) {
+      setSessionError('更新場次失敗：' + (e?.message ?? String(e)));
+    }
   };
 
   const handleDeleteSession = async (s: BookingSessionRecord) => {
     const count = sCountMap[s.id] || 0;
     if (!confirm(`確定刪除此場次？${count > 0 ? `（已有 ${count} 筆預約）` : ''}`)) return;
+    setSessionError('');
     try {
       await deleteBookingSession(s.id);
       await loadSessions();
-    } catch {}
+    } catch (e: any) {
+      setSessionError('刪除場次失敗：' + (e?.message ?? String(e)));
+    }
   };
 
   const [search, setSearch] = useState('');
@@ -603,6 +615,13 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
           <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
+
+      {sessionError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{sessionError}</span>
+        </div>
+      )}
 
       {/* 場次管理 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
