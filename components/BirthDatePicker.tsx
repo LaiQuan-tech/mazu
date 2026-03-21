@@ -327,13 +327,6 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
         </div>
       )}
 
-      {/* 時辰 */}
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">時辰（可選）</label>
-        <select value={birthHour} onChange={e => handleBirthHourChange(e.target.value)} className={selCls}>
-          {SHICHEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </div>
     </div>
   );
 };

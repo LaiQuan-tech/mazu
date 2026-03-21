@@ -422,13 +422,6 @@ const ContactFormModal = ({
               </div>
             )}
 
-            {/* 時辰 */}
-            <div className="mt-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">時辰</label>
-              <select value={birthHour} onChange={e => handleBirthHourChange(e.target.value)} className={selCls}>
-                {SHICHEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
           </div>
 
           {/* 生肖（自動帶入，可手動修改） */}
@@ -691,13 +684,6 @@ const ProfileFormInline = ({
           </div>
         )}
 
-        {/* 時辰 */}
-        <div className="mt-2">
-          <label className="block text-xs font-medium text-gray-500 mb-1">時辰</label>
-          <select value={birthHour} onChange={e => handleBirthHourChange(e.target.value)} className={selCls}>
-            {SHICHEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
       </div>
 
       {/* 生肖 */}
