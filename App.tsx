@@ -95,6 +95,7 @@ interface BookingPersonEntry {
   address: string;
   contactLabel?: string;
   type: ConsultationType;
+  notes?: string;
   _bKey?: number;
 }
 interface DonationPersonEntry {
@@ -224,7 +225,6 @@ const App: React.FC = () => {
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [bookingSessions, setBookingSessions] = useState<BookingSessionRecord[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
-  const [bookingNotes, setBookingNotes] = useState('');
 
   // ── 捐獻多人 ──
   const [donationPersons, setDonationPersons] = useState<DonationPersonEntry[]>([{ id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }]);
@@ -400,7 +400,7 @@ const App: React.FC = () => {
     try {
       await Promise.all(bookingPersons.map(p => submitBooking({
         name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
-        bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: bookingNotes,
+        bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: p.notes || undefined,
       })));
       if (member) {
         autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
@@ -408,7 +408,6 @@ const App: React.FC = () => {
       }
       setBookingStatus('success');
       setBookingPersons([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: memberProfile?.address ?? '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
-      setBookingNotes('');
     } catch (error) {
       console.error(error);
       setBookingStatus('error');
@@ -1257,6 +1256,10 @@ const App: React.FC = () => {
                           value={p.address}
                           onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, address: e.target.value } : x))}
                           className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        <textarea rows={2} placeholder="問事內容（選填）"
+                          value={p.notes || ''}
+                          onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, notes: e.target.value } : x))}
+                          className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none" />
                       </div>
                     </div>
                   ))}
@@ -1315,13 +1318,6 @@ const App: React.FC = () => {
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
                     </div>
                   )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">詳細說明 (選填)</label>
-                    <textarea rows={3} value={bookingNotes} onChange={e => setBookingNotes(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none"
-                      placeholder="請簡述您想請示的問題..." />
-                  </div>
 
                   {bookingStatus === 'error' && (
                     <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
