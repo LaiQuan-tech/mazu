@@ -217,7 +217,6 @@ const ProfileFormInline = ({
   const [synced, setSynced] = useState(false);
   useEffect(() => {
     if (synced || !initial.name) return;
-    // 生日的解析與下拉狀態現在由 BirthDatePicker 自己處理，這裡只要把值交給它
     setForm(initial);
     setSynced(true);
   }, [initial.name]);
@@ -300,8 +299,18 @@ const ProfileFormInline = ({
             生日改用共用的 BirthDatePicker（與問事／點燈／法會等表單同一個元件）。
             以前這裡有一份自己的換算與 UI，等於全站維護兩套：兩邊的月份字表、
             跨年處理、儲存格式各走各的，這正是資料庫裡出現兩種生日格式的原因。
+
+            **`key` 一定要跟著 synced 變**：BirthDatePicker 的年月日是三個 useState
+            的惰性初始值，**只在掛載時從 birthDate 解析一次**，之後改 prop 畫面不會動。
+            這一頁是先掛載空表單、再非同步載入 profile，沒有這個 key 的話生日永遠停在
+            「吉年／吉月／吉日」——資料庫裡明明有值，會員看到空的以為沒存到，
+            於是一填再填（廟方 2026-09-10 回報「輸入好幾次還是沒有被記錄下來」，
+            實際上每一次都存成功了）。
+            synced 只會 false→true 一次，所以不會在使用者輸入到一半時把內容洗掉。
+            App.tsx 的問事／點燈／祈福三張表用 `_bKey` 做同一件事，這裡是第四處。
           */}
           <BirthDatePicker
+            key={`profile-birth-${synced ? 1 : 0}`}
             birthDate={form.birthDate}
             onChange={(bd, z) => setForm(f => ({ ...f, birthDate: bd, zodiac: z ?? f.zodiac }))}
           />
