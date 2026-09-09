@@ -41,6 +41,7 @@ const LineIcon = ({ className }: { className?: string }) => (
 );
 
 import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign } from './types';
+import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession } from './services/sharedSessionStore';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
@@ -304,6 +305,60 @@ const DeityCard: React.FC<{ deity: DeityRecord; index: number }> = ({ deity, ind
 );
 
 const DEITY_PAGE = 4;
+
+const SHARED_LABEL: Record<SharedServiceType, string> = {
+  lamp: '點燈', blessing: '祈福活動', booking: '問事',
+};
+
+/**
+ * 「您有未送出的揪團報名表」提示卡
+ *
+ * ── 為什麼需要 ──
+ * 共享場次沒有擁有者欄位（capability 模式），主揪的身分只記在自己的瀏覽器；
+ * 而場次 id 原本只存在網址列的 ?share= 裡。主揪一關分頁或點一下導覽列，
+ * 整張還沒送出的表就再也找不回來（廟方 2026-09-10 回報「整張訂單都不見」）。
+ * 清單改存 localStorage 後（見 services/sharedSessionStore.ts），這張卡負責把它撈回來。
+ *
+ * ── 為什麼做得這麼顯眼 ──
+ * 廟方明講「需要很明顯，不然會找不到」。所以放在表單正上方、用實心底色與
+ * 醒目的邊框，而不是一行淡淡的文字連結。人數也寫出來——「已有 3 人加入」
+ * 比「有一張未完成的表」更能讓人想起這件事還沒做完。
+ */
+const PendingSharedCard: React.FC<{
+  rows: { meta: MySharedSession; session: SharedSessionRecord }[];
+  onOpen: (meta: MySharedSession) => void;
+}> = ({ rows, onOpen }) => (
+  <div className="mb-6 rounded-2xl border-2 border-temple-gold bg-temple-gold/10 p-5">
+    <p className="font-serif text-lg font-bold text-temple-dark mb-1">
+      您有 {rows.length} 張還沒送出的揪團報名表
+    </p>
+    <p className="text-sm text-gray-600 mb-4">
+      親友填好之後要由您按下「送出」才會成立，廟方在那之前不會收到。
+    </p>
+    <div className="space-y-2">
+      {rows.map(({ meta, session }) => (
+        <button
+          key={meta.id}
+          type="button"
+          onClick={() => onOpen(meta)}
+          className="w-full text-left rounded-xl bg-white border border-temple-gold/40 px-4 py-3 hover:border-temple-red transition-colors flex items-center justify-between gap-3"
+        >
+          <span className="min-w-0">
+            <span className="block font-medium text-temple-dark">
+              {SHARED_LABEL[session.serviceType]}
+              {session.config.eventTitle ? `・${session.config.eventTitle}` : ''}
+            </span>
+            <span className="block text-xs text-gray-500 mt-0.5">
+              {session.entries.length > 0 ? `已有 ${session.entries.length} 人加入` : '還沒有人填寫'}
+              　建立於 {session.createdAt.slice(0, 10)}
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-medium text-temple-red">繼續 →</span>
+        </button>
+      ))}
+    </div>
+  </div>
+);
 
 // 法會收件期間：根路徑以報名表取代官網首頁。主官網上線時改成 false 即可。
 const FAHUI_LANDING = true;
@@ -799,6 +854,12 @@ const App: React.FC = () => {
   // ── 共享報名表 ──
   const [sharedSession,      setSharedSession]      = useState<SharedSessionRecord | null>(null);
   const [isCreator,          setIsCreator]           = useState(false);
+  /**
+   * 這台瀏覽器開過、但**還沒送出**的共享報名表。
+   * 主揪關掉分頁就找不回來是廟方回報的問題，所以進站時主動撈出來提醒。
+   * 只留 status === 'open' 且未過期的；讀不到（被刪掉、過期）就從清單移除。
+   */
+  const [myPending, setMyPending] = useState<{ meta: MySharedSession; session: SharedSessionRecord }[]>([]);
   const [showShareModal,     setShowShareModal]      = useState(false);
   const [creatingShare,      setCreatingShare]       = useState(false);
   const [sharedSubmitStatus, setSharedSubmitStatus]  = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -964,13 +1025,26 @@ const App: React.FC = () => {
       else { setMemberContacts([]); setMemberProfile(null); }
     });
 
+    // ── 這台瀏覽器開過、還沒送出的共享報名表 ──
+    // 逐張去問狀態而不是信任 localStorage：可能已經在別台裝置送出、或已過期。
+    if (ENABLE_GROUP_BOOKING) {
+      const mine = listMyShared();
+      if (mine.length > 0) {
+        Promise.all(mine.map(async meta => {
+          const session = await getSharedSession(meta.id).catch(() => null);
+          if (!session || session.status !== 'open') { forgetMyShared(meta.id); return null; }
+          return { meta, session };
+        })).then(rows => setMyPending(rows.filter((r): r is { meta: MySharedSession; session: SharedSessionRecord } => r !== null)));
+      }
+    }
+
     // ── 共享報名表 URL 偵測 ──
     const shareId = new URLSearchParams(window.location.search).get('share');
     if (shareId) {
       getSharedSession(shareId).then(session => {
         if (!session) return;
         setSharedSession(session);
-        if (localStorage.getItem(`shared_creator_${shareId}`) === 'true') setIsCreator(true);
+        if (isMyShared(shareId)) setIsCreator(true);
         // 共享報名連結：三種服務都已獨立成頁，直接切過去（不再用捲動）
         const target: SitePage =
           session.serviceType === 'lamp' ? 'lamps' :
@@ -1450,6 +1524,9 @@ const App: React.FC = () => {
       setSharedSession(session);
       setIsCreator(true);
       localStorage.setItem(`shared_creator_${session.id}`, 'true');
+      // 另外記進清單：只有 per-id 旗標的話，主揪一離開這個網址就再也找不到這張表
+      rememberMyShared({ id: session.id, serviceType: type, path: window.location.pathname, createdAt: session.createdAt });
+      setMyPending(prev => prev.filter(x => x.session.id !== session.id));
       // 從 withKeptParams 起手而不是 location.href：這個網址會停在網址列上，
       // 建立者若直接複製網址列轉傳，會把自己的 utm_* 一起傳給親友，
       // 親友的報名就被算成建立者的來源。（複製鈕給的 sharedSessionUrl 本來就乾淨）
@@ -1516,7 +1593,8 @@ const App: React.FC = () => {
         } as BookingData)));
       }
       await markSharedSessionSubmitted(sharedSession.id);
-      localStorage.removeItem(`shared_creator_${sharedSession.id}`);
+      forgetMyShared(sharedSession.id);
+      setMyPending(prev => prev.filter(x => x.session.id !== sharedSession.id));
       setSharedSubmitStatus('success');
       const updated = await getSharedSession(sharedSession.id);
       if (updated) setSharedSession(updated);
@@ -1524,6 +1602,28 @@ const App: React.FC = () => {
       setSharedSubmitStatus('error');
     }
   };
+
+  /**
+   * 被邀請者檢視：開了 ?share= 連結、但不是建立者。
+   *
+   * 這種人只要「選方案 → 填自己的資料 → 加入」，其餘一律不該看到：
+   *   服務介紹與方案行銷卡 —— 主揪早就決定好要辦什麼了，他只是來填名字
+   *   主揪自己的登記表   —— **危險**：那張表的「送出登記」會開一筆與揪團無關的
+   *                        獨立訂單，被邀請者很容易填錯那一張（廟方 2026-09-10 回報）
+   * 實測改前：/lamps?share= 頁高 4221px，共享面板在 1238px，下方 3147px 起是主揪的表。
+   */
+  /** 這個服務底下、我開過但還沒送出的表。正在看的那一張不用再提醒 */
+  const pendingSharedFor = (type: SharedServiceType) =>
+    myPending.filter(r => r.session.serviceType === type && r.session.id !== sharedSession?.id);
+
+  /** 回到某張未送出的表。整頁重載而不是改狀態：?share= 的載入流程只在進站時跑一次，
+      手動同步狀態容易漏掉某一項（例如 isCreator、頁面切換），重載最不會錯 */
+  const openMyShared = (meta: MySharedSession): void => {
+    window.location.href = `${meta.path}?share=${meta.id}`;
+  };
+
+  const isSharedGuest = (type: SharedServiceType): boolean =>
+    ENABLE_GROUP_BOOKING && !!sharedSession && !isCreator && sharedSession.serviceType === type;
 
   const sharedSessionUrl = sharedSession
     ? `${window.location.origin}${window.location.pathname}?share=${sharedSession.id}`
@@ -2423,12 +2523,18 @@ const App: React.FC = () => {
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4854A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {pendingSharedFor('booking').length > 0 && (
+            <div className="max-w-2xl mx-auto">
+              <PendingSharedCard rows={pendingSharedFor('booking')} onOpen={openMyShared} />
+            </div>
+          )}
           <div className="text-center mb-12">
             <h2 className="text-temple-gold font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
               線上服務
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
+            {!isSharedGuest('booking') && (<>
             <h1 className="text-4xl sm:text-5xl font-bold mb-2 font-serif">
               預約問事表單
             </h1>
@@ -2460,6 +2566,7 @@ const App: React.FC = () => {
               </a>
               ，謝謝
             </p>
+            </>)}
           </div>
 
           {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'booking' && (
@@ -2473,6 +2580,8 @@ const App: React.FC = () => {
               submitStatus={sharedSubmitStatus}
             />
           )}
+          {/* 主揪自己的預約表。被邀請者要遮掉：那張的送出會開一筆與揪團無關的獨立預約 */}
+          {!isSharedGuest('booking') && (
           <div className="bg-white text-gray-800 rounded-2xl shadow-2xl overflow-hidden">
             <div className="p-8 md:p-12">
               {bookingStatus === 'success' ? (
@@ -2679,6 +2788,7 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
+          )}
         </div>
       </section>
       </div>
@@ -2689,28 +2799,41 @@ const App: React.FC = () => {
       <div className="pt-20">
       <section id="lamps" className="py-20 bg-temple-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="text-center mb-14">
+          {/* 未送出的揪團提示放在**整個區塊最上面**。放在表單上方實測是 1238px，
+              手機得先滑過四張行銷卡才看得到，等於沒提醒（廟方要求「要很明顯」）。 */}
+          {pendingSharedFor('lamp').length > 0 && (
+            <div className="max-w-2xl mx-auto">
+              <PendingSharedCard rows={pendingSharedFor('lamp')} onOpen={openMyShared} />
+            </div>
+          )}
+          {/* Header。被邀請者用精簡版：他是被找來填一筆資料的，不需要整套服務介紹 */}
+          <div className={`text-center ${isSharedGuest('lamp') ? 'mb-8' : 'mb-14'}`}>
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
               點燈服務
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
-              祈福點燈，光明護佑
-            </h1>
-            <div className="flex items-center justify-center gap-3 mt-3 mb-4">
-              <span className="w-12 h-px bg-temple-gold/70" />
-              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-              <span className="w-12 h-px bg-temple-gold/70" />
-            </div>
-            <p className="text-gray-500 max-w-xl mx-auto">
-              為本人或家人點燃平安燈，祈求諸事順遂、光明護佑。歡迎線上登記，廟方人員將與您確認細節。
-            </p>
+            {!isSharedGuest('lamp') && (
+              <>
+                <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
+                  祈福點燈，光明護佑
+                </h1>
+                <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+                  <span className="w-12 h-px bg-temple-gold/70" />
+                  <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+                  <span className="w-12 h-px bg-temple-gold/70" />
+                </div>
+                <p className="text-gray-500 max-w-xl mx-auto">
+                  為本人或家人點燃平安燈，祈求諸事順遂、光明護佑。歡迎線上登記，廟方人員將與您確認細節。
+                </p>
+              </>
+            )}
           </div>
 
-          {/* Service Cards */}
-          {lampConfigs.length > 0 ? (
+          {/* Service Cards。被邀請者不顯示：方案在共享面板的下拉裡就選得到，
+              這幾張是給還在考慮要不要點燈的人看的行銷卡 */}
+          {!isSharedGuest('lamp') && (lampConfigs.length > 0 ? (
+
             <div className={`grid gap-6 mb-16 ${lampConfigs.length <= 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : lampConfigs.length === 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
               {lampConfigs.map(cfg => (
                 <div key={cfg.id} className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 flex flex-col items-center text-center hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
@@ -2734,7 +2857,7 @@ const App: React.FC = () => {
               <Flame className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p>點燈服務資訊載入中...</p>
             </div>
-          )}
+          ))}
 
           {/* Registration Form */}
           <div className="max-w-2xl mx-auto">
@@ -2749,6 +2872,9 @@ const App: React.FC = () => {
                 submitStatus={sharedSubmitStatus}
               />
             )}
+            {/* 主揪自己的登記表。**被邀請者一定要遮掉**：這張表的「送出登記」會開一筆
+                與揪團無關的獨立訂單，而它就長在共享面板正下方，很容易填錯那一張。 */}
+            {!isSharedGuest('lamp') && (
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
               <div className="bg-temple-red px-8 py-5">
                 <h4 className="text-xl font-bold text-white font-serif flex items-center gap-2">
@@ -2919,6 +3045,7 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
       </section>
@@ -2930,12 +3057,18 @@ const App: React.FC = () => {
       <div className="pt-20">
       <section id="blessing" className="py-20 bg-white relative">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {pendingSharedFor('blessing').length > 0 && (
+            <div className="max-w-2xl mx-auto">
+              <PendingSharedCard rows={pendingSharedFor('blessing')} onOpen={openMyShared} />
+            </div>
+          )}
           <div className="text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
               神明庇佑
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
+            {!isSharedGuest('blessing') && (<>
             <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">祈福活動</h1>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-temple-gold/70" />
@@ -2945,8 +3078,12 @@ const App: React.FC = () => {
             <p className="text-gray-500 max-w-xl mx-auto">
               法會、進香、祭典等各式祈福活動，誠摯邀請善男信女共同參與，祈求神明護佑平安吉祥。
             </p>
+            </>)}
           </div>
 
+          {/* 普渡橫幅與活動列表。被邀請者不顯示：主揪已經替他選好要參加哪一場，
+              共享面板裡就寫著場次名稱，這一整段只會把面板推到很下面 */}
+          {!isSharedGuest('blessing') && (<>
           {/* 中元普渡法會報名 Banner */}
           <div className="mb-8 bg-gradient-to-br from-amber-800 to-amber-950 rounded-2xl overflow-hidden shadow-lg">
             <div className="px-6 py-6 sm:flex sm:items-center sm:justify-between gap-4">
@@ -3049,6 +3186,7 @@ const App: React.FC = () => {
               })}
             </div>
           )}
+          </>)}
         </div>
 
         {/* ── 共享報名 Panel（祈福）── */}
