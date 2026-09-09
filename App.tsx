@@ -954,21 +954,48 @@ const App: React.FC = () => {
     }, 5000);
   };
 
-  const loadMemberContacts = async () => {
+  /** 回傳是否成功，讓 loadMemberDataOnce 判斷這次去重要不要保留 */
+  const loadMemberContacts = async (): Promise<boolean> => {
     try {
       const contacts = await getMemberContacts();
       setMemberContacts(contacts);
+      return true;
     } catch {
       setMemberContacts([]);
+      return false;
     }
   };
 
-  const loadMemberProfile = async () => {
+  const loadMemberProfile = async (): Promise<boolean> => {
     try {
       const p = await getProfile();
       setMemberProfile(p);
+      return true;
     } catch {
       setMemberProfile(null);
+      return false;
+    }
+  };
+
+  /**
+   * 已經替哪一位會員載過通訊錄與個人資料。
+   *
+   * 登入狀態下開首頁會重複抓三次（實測 2026-09-10：member_contacts ×3、
+   * member_profiles ×3）——getSession() 抓一次，onAuthStateChange 訂閱時
+   * 立刻送出的 INITIAL_SESSION 再抓一次，之後的事件又一次。三個各自進行的
+   * 請求除了浪費，回應順序不保證，後到的舊資料會蓋掉新的。
+   * 兩個入口都保留（拿掉任一個都會在某些時序下漏載），改成用這個 ref 去重。
+   * 送出報名後那幾處是刻意要重抓的，直接呼叫 loadMemberContacts()，不走這裡。
+   */
+  const memberDataLoadedFor = React.useRef<string | null>(null);
+  const loadMemberDataOnce = async (userId: string | undefined): Promise<void> => {
+    if (!userId || memberDataLoadedFor.current === userId) return;
+    memberDataLoadedFor.current = userId;
+    const ok = await Promise.all([loadMemberContacts(), loadMemberProfile()]);
+    // 失敗就把記號清掉：去重之後只會嘗試一次，網路瞬斷若不放行，
+    // 會員的通訊錄會一直是空的直到重新登入。另一個入口稍後還會再試一次。
+    if (!ok.every(Boolean) && memberDataLoadedFor.current === userId) {
+      memberDataLoadedFor.current = null;
     }
   };
 
@@ -1020,14 +1047,14 @@ const App: React.FC = () => {
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user ?? null;
       setMember(u);
-      if (u) { loadMemberContacts(); loadMemberProfile(); }
+      loadMemberDataOnce(u?.id);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setMember(session?.user ?? null);
       // setTimeout 脫離 onAuthStateChange callback：內部會再呼叫 auth.getUser()，
       // 在 callback 內同步呼叫有 supabase-js 已知的 auth lock 死鎖風險
-      if (session?.user) { setTimeout(() => { loadMemberContacts(); loadMemberProfile(); }, 0); }
-      else { setMemberContacts([]); setMemberProfile(null); }
+      if (session?.user) { setTimeout(() => loadMemberDataOnce(session.user.id), 0); }
+      else { memberDataLoadedFor.current = null; setMemberContacts([]); setMemberProfile(null); }
     });
 
     // ── 我開的、還沒送出的共享報名表 ──
@@ -3147,7 +3174,7 @@ const App: React.FC = () => {
               {/* 公佈欄關閉時不要留這顆——它會捲到一個不存在的區塊，等於按了沒反應 */}
               {ENABLE_BULLETIN && (
                 <button onClick={() => scrollToSection('bulletin')}
-                  className="text-temple-red text-xs font-medium hover:underline flex items-center gap-1 mx-auto">
+                  className="text-temple-red text-xs font-medium hover:underline flex items-center gap-1 mx-auto py-2">
                   查看最新公告 →
                 </button>
               )}

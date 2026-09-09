@@ -336,10 +336,13 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
         <label className="text-xs font-medium text-gray-600">
           生日{inputMode === 'solar' ? '（請填國曆，自動換算農曆）' : '（農曆輸入，自動換算國曆）'}
         </label>
+        {/* py-1.5 是為了點擊區：只有文字時實測 16px 高，低於 WCAG 2.2 的 24px。
+            這顆特別重要——它是給不記得國曆生日的長者用的入口，那正是最需要
+            大一點目標的人。加內距不影響版面（同一列的 label 本來就比較高）。 */}
         <button
           type="button"
           onClick={() => setInputMode(m => (m === 'solar' ? 'lunar' : 'solar'))}
-          className="text-xs text-temple-red underline underline-offset-2 hover:text-temple-dark shrink-0"
+          className="text-xs text-temple-red underline underline-offset-2 hover:text-temple-dark shrink-0 py-1.5 -my-1.5"
         >
           {inputMode === 'solar' ? '我只知道農曆' : '改用國曆'}
         </button>

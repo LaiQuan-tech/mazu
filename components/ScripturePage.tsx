@@ -398,7 +398,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         ))}
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
           <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>台 北 古 亭 和 聖 壇</p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 16 }}>
+          {/*
+            **這裡必須是 h1**：整頁原本一個標題標籤都沒有（2026-09-10 實測
+            document.querySelectorAll('h1,h2,h3,h4') 回傳空陣列）。五個字是逐字
+            動畫的 span，包在 div 裡看起來一樣，但螢幕閱讀器與不執行 JS 的
+            AI 檢索器沒有任何依據判斷這頁在講什麼。
+            Tailwind preflight 已把 h1 的字級與邊距重設為繼承，所以換標籤不影響外觀。
+            CLAUDE.md 的驗收方法：每頁 h1 應該剛好 1 個。
+          */}
+          <h1 style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(10px,3vw,44px)', marginBottom: 16 }}>
             {['天', '上', '聖', '母', '經'].map((ch, i) => (
               // 外層 .hero-char：JS 視差 translateY target
               // 內層 .hero-char-in：CSS 進場動畫（opacity + translateY），兩者不衝突
@@ -410,7 +418,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 }}>{ch}</span>
               </span>
             ))}
-          </div>
+          </h1>
           <p style={{ color: 'rgba(107,64,16,.55)', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　註　解　與　故　事</p>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280, animation: 'sp-fade-up 0.9s ease 1.5s both' }} />
           <p className="hero-sub" style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
