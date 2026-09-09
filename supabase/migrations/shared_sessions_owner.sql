@@ -79,9 +79,12 @@ AS $$
   ) x;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_my_shared_sessions() TO authenticated;
--- anon 不給：沒有帳號就沒有「我的場次」這件事
-REVOKE EXECUTE ON FUNCTION public.get_my_shared_sessions() FROM anon;
+-- 先從 PUBLIC 收回再指定授權。**只寫 REVOKE ... FROM anon 是沒有用的**：
+-- Postgres 建立函式時預設就 GRANT EXECUTE TO PUBLIC，anon 是靠 PUBLIC 拿到權限的，
+-- 從 anon 收回等於收一個它本來就沒有的直接授權（實測：改前訪客仍叫得動，只是
+-- auth.uid() 為 null 所以回空陣列——沒外洩，但與註解不符）。
+REVOKE EXECUTE ON FUNCTION public.get_my_shared_sessions() FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.get_my_shared_sessions() TO authenticated;
 
 -- 確認
 SELECT
