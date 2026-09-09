@@ -155,3 +155,40 @@
   .admin-table td > .justify-center,
   .admin-table td > .justify-end { justify-content: flex-start; }
 }
+
+/* ── 團鳳紋底紋 ────────────────────────────────────────────────────────────
+   參考北港武德宮的團龍紋作法：一枚極淡的圓形紋樣出血到版面邊緣外，
+   當成建築上的紋飾而不是貼紙。本壇主祀天上聖母，龍鳳相對、女神配鳳。
+
+   **放哪裡是量出來的**：把首頁各區塊切成 12×10 的格子標記哪些格有內容，
+   `#donation` 與 `#faq` 兩側各有約 240px 的空邊界，`#about` 與 `#deities`
+   幾乎排滿。所以只掛在前兩個，紋樣不會壓在文字上。
+
+   **opacity 只有 0.05**：這張圖的尾羽是實心填滿的，線條覆蓋率 30.6%，
+   幾乎是武德宮那張（16.2%）的兩倍——同樣的濃度看起來會重一倍，要更淡才對得上。
+
+   **手機不顯示**：390px 寬沒有邊界可以放，紋樣一定會壓在文字底下；
+   而且它是 152KB，對長輩的行動網路來說，看不到的裝飾不該讓他們付流量。 */
+.pattern-phoenix {
+  position: absolute;
+  top: 50%;
+  z-index: 0;
+  width: clamp(320px, 34vw, 520px);
+  aspect-ratio: 1;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: .05;
+  pointer-events: none;   /* 純裝飾，不要吃掉點擊 */
+  display: none;
+}
+@media (min-width: 1024px) {
+  .pattern-phoenix { display: block; }
+}
+/* 出血四成到畫面外：只露出大半個圓，看起來像牆上的紋飾被版面裁到 */
+.pattern-phoenix-l { left: 0;  transform: translate(-40%, -50%); }
+.pattern-phoenix-r { right: 0; transform: translate(40%, -50%); }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* 不做動畫。底紋一動就從「質感」變成「效果」，而且它出現在整頁最靜的地方 */
+}
