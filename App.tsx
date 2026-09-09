@@ -42,7 +42,7 @@ const LineIcon = ({ className }: { className?: string }) => (
 
 import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign } from './types';
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession } from './services/sharedSessionStore';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
@@ -305,6 +305,11 @@ const DeityCard: React.FC<{ deity: DeityRecord; index: number }> = ({ deity, ind
 );
 
 const DEITY_PAGE = 4;
+
+/** 各服務的獨立頁路徑。回到某張未送出的表時要帶著走 */
+const SERVICE_PATH: Record<SharedServiceType, string> = {
+  lamp: '/lamps', blessing: '/blessing', booking: '/booking',
+};
 
 const SHARED_LABEL: Record<SharedServiceType, string> = {
   lamp: '點燈', blessing: '祈福活動', booking: '問事',
@@ -1025,26 +1030,45 @@ const App: React.FC = () => {
       else { setMemberContacts([]); setMemberProfile(null); }
     });
 
-    // ── 這台瀏覽器開過、還沒送出的共享報名表 ──
-    // 逐張去問狀態而不是信任 localStorage：可能已經在別台裝置送出、或已過期。
+    // ── 我開的、還沒送出的共享報名表 ──
+    // 主要來源是帳號（get_my_shared_sessions）——這正是主揪要登入的理由，
+    // 換一台裝置也查得回來。localStorage 只是補漏：2026-09-10 改為必須登入
+    // 之前開的場次沒有 created_by，只能靠瀏覽器記號找回，否則會變成孤兒。
     if (ENABLE_GROUP_BOOKING) {
-      const mine = listMyShared();
-      if (mine.length > 0) {
-        Promise.all(mine.map(async meta => {
-          const session = await getSharedSession(meta.id).catch(() => null);
-          if (!session || session.status !== 'open') { forgetMyShared(meta.id); return null; }
-          return { meta, session };
-        })).then(rows => setMyPending(rows.filter((r): r is { meta: MySharedSession; session: SharedSessionRecord } => r !== null)));
-      }
+      (async () => {
+        const byAccount = await getMySharedSessions().catch(() => []);
+        const seen = new Set(byAccount.map(x => x.id));
+        const legacy = await Promise.all(
+          listMyShared().filter(m => !seen.has(m.id)).map(async meta => {
+            const session = await getSharedSession(meta.id).catch(() => null);
+            // 讀不到（被刪）、已送出、或已過期，就從清單清掉不再提醒
+            if (!session || session.status !== 'open') { forgetMyShared(meta.id); return null; }
+            return { meta, session };
+          })
+        );
+        const fromAccount = byAccount.map(session => ({
+          meta: { id: session.id, serviceType: session.serviceType, path: SERVICE_PATH[session.serviceType], createdAt: session.createdAt },
+          session,
+        }));
+        setMyPending([...fromAccount, ...legacy.filter((r): r is { meta: MySharedSession; session: SharedSessionRecord } => r !== null)]);
+      })();
     }
 
     // ── 共享報名表 URL 偵測 ──
     const shareId = new URLSearchParams(window.location.search).get('share');
     if (shareId) {
-      getSharedSession(shareId).then(session => {
+      getSharedSession(shareId).then(async session => {
         if (!session) return;
         setSharedSession(session);
-        if (isMyShared(shareId)) setIsCreator(true);
+        // 主揪身分優先看帳號。這裡直接問 auth 而不是讀 member 狀態：
+        // 這支 effect 與 getSession() 是兩個各自進行的非同步流程，
+        // 讀 member 會賽跑——主揪自己開連結時常常還是 null，就被當成被揪的人。
+        const { data: { user } } = await supabase.auth.getUser();
+        // createdBy 為 null 的是這次改動之前的舊場次，那時只有瀏覽器記號可查，
+        // 退回去用它，否則舊表會變成誰都不是主揪、永遠送不出去。
+        setIsCreator(
+          session.createdBy ? session.createdBy === user?.id : isMyShared(shareId)
+        );
         // 共享報名連結：三種服務都已獨立成頁，直接切過去（不再用捲動）
         const target: SitePage =
           session.serviceType === 'lamp' ? 'lamps' :
@@ -1511,6 +1535,9 @@ const App: React.FC = () => {
   // ── 共享報名表 handlers ──
   const handleCreateSharedSession = async (type: SharedServiceType) => {
     setCreatingShare(true);
+    // 主揪必須是會員：換裝置才找得回未送出的表，也才有「誰開的」可查。
+    // 被揪的人不受影響，他們不必登入（見 supabase.ts 的說明）。
+    if (!member) { setShowMemberPortal(true); return; }
     try {
       let config: SharedSessionConfig = {};
       if (type === 'blessing' && blessingModal)
@@ -2776,6 +2803,8 @@ const App: React.FC = () => {
                           className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
                           <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                         </button>
+                        {/* 主揪要有帳號才找得回未送出的表；被揪的人不必登入 */}
+                        {!member && <p className="mt-1.5 text-xs text-gray-400 text-center">揪團需登入會員，被您邀請的親友則不需要</p>}
                         {!selectedSessionId && (
                           <p className="text-center text-xs text-gray-400 mt-1.5">
                             ※ 請先選擇場次，才能建立揪團報名表
@@ -3034,13 +3063,15 @@ const App: React.FC = () => {
                       <Flame className="w-4 h-4" />
                       {lampStatus === 'loading' ? '送出中...' : `送出登記（共 ${lampPersons.length} 人）`}
                     </button>
-                    {ENABLE_GROUP_BOOKING && !sharedSession && (
+                    {ENABLE_GROUP_BOOKING && !sharedSession && (<>
                       <button type="button" onClick={() => handleCreateSharedSession('lamp')}
                         disabled={creatingShare}
                         className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                         <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                       </button>
-                    )}
+                      {/* 主揪要有帳號才找得回未送出的表；被揪的人不必登入 */}
+                      {!member && <p className="mt-1.5 text-xs text-gray-400 text-center">揪團需登入會員，被您邀請的親友則不需要</p>}
+                    </>)}
                   </form>
                 )}
               </div>
@@ -3505,13 +3536,15 @@ const App: React.FC = () => {
                       className="w-full py-3 bg-temple-red text-white font-bold rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                       {blessingStatus === 'loading' ? '送出中...' : `確認報名（共 ${blessingPersons.length} 人）`}
                     </button>
-                    {ENABLE_GROUP_BOOKING && !sharedSession && (
+                    {ENABLE_GROUP_BOOKING && !sharedSession && (<>
                       <button type="button" onClick={() => handleCreateSharedSession('blessing')}
                         disabled={creatingShare}
                         className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                         <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                       </button>
-                    )}
+                      {/* 主揪要有帳號才找得回未送出的表；被揪的人不必登入 */}
+                      {!member && <p className="mt-1.5 text-xs text-gray-400 text-center">揪團需登入會員，被您邀請的親友則不需要</p>}
+                    </>)}
                   </form>
                 )}
               </div>

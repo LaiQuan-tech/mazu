@@ -1396,27 +1396,46 @@ const mapSharedSession = (row: any): SharedSessionRecord => ({
   config:      row.config as SharedSessionConfig,
   notes:       row.notes ?? undefined,
   status:      row.status as 'open' | 'submitted',
-  entries:     (row.shared_session_entries ?? []).map(mapSharedEntry),
+  entries:     (row.shared_session_entries ?? row.entries ?? []).map(mapSharedEntry),
+  createdBy:   (row.created_by as string | null) ?? null,
   createdAt:   row.created_at,
   expiresAt:   row.expires_at,
 });
 
-// 揪團採 capability 模式：知道場次 UUID（分享連結）即可讀寫「該場次」。
-// 寫入由客戶端產生 UUID、不做 .select() 讀回（anon 無 SELECT 權限）；
-// 讀取與送出走 SECURITY DEFINER RPC，避免開放整表查詢洩漏個資。
+// 揪團：**只有主揪要有帳號**，被揪的人不必登入（概念同 Uber Eats 揪團）。
+//   主揪 authenticated  建立場次、看到全部名單、按下送出
+//   被揪的人 anon       知道 UUID 就能讀這一張、加自己那一筆
+// 名單讀取仍走 SECURITY DEFINER RPC，不開放整表查詢，避免個資外洩。
+// 寫入由客戶端產生 UUID、不做 .select() 讀回（anon 無 SELECT 權限）。
 
+/**
+ * 建立共享場次。**必須先登入**：RLS 的 WITH CHECK 要求 created_by = auth.uid()，
+ * 未登入送出會被擋下（前端也會先擋，但不能只靠前端）。
+ */
 export const createSharedSession = async (d: SharedSessionData): Promise<SharedSessionRecord> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('請先登入會員才能建立揪團報名表');
   const id = crypto.randomUUID();
   const { error } = await supabase
     .from('shared_sessions')
-    .insert({ id, service_type: d.serviceType, config: d.config, notes: d.notes || null });
+    .insert({ id, service_type: d.serviceType, config: d.config, notes: d.notes || null, created_by: user.id });
   if (error) { console.error(error); throw error; }
   return mapSharedSession({
     id, service_type: d.serviceType, config: d.config, notes: d.notes || null,
-    status: 'open', shared_session_entries: [],
+    status: 'open', shared_session_entries: [], created_by: user.id,
     created_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
+};
+
+/**
+ * 我開的、還沒送出且未過期的場次。未登入回空陣列。
+ * 換裝置也查得到——這正是主揪要登入的理由。
+ */
+export const getMySharedSessions = async (): Promise<SharedSessionRecord[]> => {
+  const { data, error } = await supabase.rpc('get_my_shared_sessions');
+  if (error || !Array.isArray(data)) return [];
+  return (data as any[]).map(mapSharedSession);
 };
 
 export const getSharedSession = async (id: string): Promise<SharedSessionRecord | null> => {

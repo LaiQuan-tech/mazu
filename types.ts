@@ -678,6 +678,8 @@ export interface SharedSessionRecord extends SharedSessionData {
   id:        string;
   status:    'open' | 'submitted';
   entries:   SharedEntryRecord[];
+  /** 主揪的會員 id。null＝2026-09-10 改為必須登入之前建立的舊場次 */
+  createdBy: string | null;
   createdAt: string;
   expiresAt: string;
 }
