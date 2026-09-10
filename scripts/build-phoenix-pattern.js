@@ -15,11 +15,12 @@
 // 廟方 2026-09-10 提供現成線稿，改成轉換既有的圖。
 //
 // ── 轉換的作法 ──
-// 原圖是灰底紅線的點陣圖（實測底 #d0d0d0、線 #c02030，線佔 18.5%）。
-//   alpha  由「綠通道離背景多遠」推出來——灰底 g=208、紅線 g=32，中間值就是
-//          去鋸齒的邊緣。**不要用二值化的色鍵**：線很細，硬切會讓邊緣鋸齒化，
-//          淡化之後整張看起來髒髒的。
-//   顏色   一律換成 temple-gold #C49820（原圖的紅與全站配色不合）。
+// 吃得下兩種常見的紋樣素材：灰底紅線、白底黑線。作法都是同一個——
+//   alpha  由「這個像素比背景暗多少」推出來，**不要用二值化的色鍵**：
+//          線很細，硬切會讓邊緣鋸齒化，淡化之後整張看起來髒髒的。
+//   背景色 取四角的中位數。素材的留白不一定是純白（第一張是 #d0d0d0），
+//          寫死常數換一張圖就失準。
+//   顏色   一律換成 temple-gold #C49820。
 // 濃淡不寫進圖裡，交給 CSS 的 opacity（見 index.css 的 .pattern-phoenix）——
 // 想調淡一點不必重跑這支腳本。
 import { createRequire } from 'node:module';
@@ -48,13 +49,25 @@ const SIZE = 880;
   const { data, info } = await sharp(SRC).raw().toBuffer({ resolveWithObject: true });
   const { width: W, height: H, channels: ch } = info;
 
+  const lum = (i) => data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+
+  // ── 0. 背景亮度：四角各取 12×12 的中位數 ──
+  // 素材的留白不一定是純白，而四角幾乎一定是背景。
+  const corner = [];
+  for (const [ox, oy] of [[0, 0], [W - 12, 0], [0, H - 12], [W - 12, H - 12]]) {
+    for (let y = oy; y < oy + 12; y++) for (let x = ox; x < ox + 12; x++) corner.push(lum((y * W + x) * ch));
+  }
+  corner.sort((a, b) => a - b);
+  const bgL = corner[corner.length >> 1];
+
   // ── 1. 找紋樣的實際範圍 ──
   // 原圖四周有大片留白，直接用整張會讓紋樣在版面上小一圈、位置也難對。
+  // 門檻取背景的七成：夠低才不會把去鋸齒的灰邊算成邊界，夠高才不會漏掉細線。
+  const edge = bgL * 0.7;
   let x0 = W, y0 = H, x1 = 0, y1 = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * ch;
-      if (data[i] - Math.max(data[i + 1], data[i + 2]) > 40) {
+      if (lum((y * W + x) * ch) < edge) {
         if (x < x0) x0 = x; if (x > x1) x1 = x;
         if (y < y0) y0 = y; if (y > y1) y1 = y;
       }
@@ -70,23 +83,18 @@ const SIZE = 880;
   const sy = Math.max(0, Math.round(by - (side - bh) / 2));
   const sw = Math.min(side, W - sx), sh = Math.min(side, H - sy);
 
-  // ── 2. 灰底紅線 → 金線＋alpha ──
-  // 背景與線條的綠通道各自取自實際像素，換一張原圖也不必改常數。
-  let bgG = 0, nbg = 0, inkG = 255;
-  for (let i = 0; i < data.length; i += ch) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    if (r - Math.max(g, b) > 40) { if (g < inkG) inkG = g; }
-    else { bgG += g; nbg++; }
-  }
-  bgG = bgG / nbg;
-  const span = Math.max(1, bgG - inkG);
+  // ── 2. 上色 → 金線＋alpha ──
+  // 線條最深處也取自實際像素，不寫死 0：掃描件的黑往往只到 30–40。
+  let inkL = 255;
+  for (let i = 0; i < data.length; i += ch) { const l = lum(i); if (l < inkL) inkL = l; }
+  const span = Math.max(1, bgL - inkL);
 
   const out = Buffer.alloc(sw * sh * 4);
   let inkPx = 0;
   for (let y = 0; y < sh; y++) {
     for (let x = 0; x < sw; x++) {
       const i = ((y + sy) * W + (x + sx)) * ch;
-      const a = Math.max(0, Math.min(1, (bgG - data[i + 1]) / span));
+      const a = Math.max(0, Math.min(1, (bgL - lum(i)) / span));
       const o = (y * sw + x) * 4;
       out[o] = INK[0]; out[o + 1] = INK[1]; out[o + 2] = INK[2];
       out[o + 3] = Math.round(a * 255);
@@ -105,6 +113,6 @@ const SIZE = 880;
 
   console.log(`團鳳紋  ${SIZE}x${SIZE}  ${(statSync(OUT).size / 1024) | 0}KB  →  ${OUT}`);
   console.log(`  原圖 ${W}x${H}，裁到 ${sw}x${sh}（紋樣範圍 x ${x0}–${x1} y ${y0}–${y1}）`);
-  console.log(`  背景綠通道 ${bgG.toFixed(0)}、線條 ${inkG} → alpha 跨距 ${span.toFixed(0)}`);
+  console.log(`  背景亮度 ${bgL.toFixed(0)}、線條最深 ${inkL.toFixed(0)} → alpha 跨距 ${span.toFixed(0)}`);
   console.log(`  線條覆蓋率 ${(inkPx / (sw * sh) * 100).toFixed(1)}%（參考站的團龍紋是 16.2%）`);
 })();
