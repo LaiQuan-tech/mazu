@@ -13,6 +13,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
+import PatternMedallion from './PatternMedallion';
 import { getDeityFeasts, getBlessingEvents } from '../services/supabase';
 import { DeityFeast, BlessingEventRecord } from '../types';
 import { resolveFeastDate, feastRuleLabel, solarToLunarLabel, weekdayLabel } from '../services/lunarCalendar';
@@ -120,8 +121,10 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
 
   return (
-    <div className="relative pt-20 bg-temple-bg min-h-screen">
-      <section className="page-content py-16 sm:py-20">
+    <div className="relative pt-20 bg-temple-bg min-h-screen overflow-hidden">
+      {/* 右邊界空 8/10、左邊 6/10，放右側 */}
+      <PatternMedallion motif="dragon" side="r" />
+      <section className="page-content py-16 sm:py-20 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* 標題：小標 h2 → 大標 h1 → 分隔飾 → 說明（全站統一寫法，見 CLAUDE.md） */}

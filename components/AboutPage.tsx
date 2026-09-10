@@ -53,7 +53,7 @@ const AboutPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // blocks 尚未載入時先給保底，避免標題閃一下才出現內容
   // 載入中用「無圖版」的保底：有圖的話會立刻下載 419KB，而資料庫幾乎一定有值、
   // 回來就把它換掉，等於白載（同樣的坑在 App.tsx 的 aboutImageUrl 也修過）。
-  return <StoryPage eyebrow="關於和聖壇" title="關於我們" blocks={blocks ?? LOADING_BLOCKS} onBack={onBack} />;
+  return <StoryPage eyebrow="關於和聖壇" title="關於我們" blocks={blocks ?? LOADING_BLOCKS} onBack={onBack} medallion="phoenix" />;
 };
 
 export default AboutPage;

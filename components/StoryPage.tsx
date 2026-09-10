@@ -1,4 +1,5 @@
 import React from 'react';
+import PatternMedallion, { PatternMotif } from './PatternMedallion';
 
 /**
  * 圖文穿插的長頁版型（關於我們、遷址捐款共用）
@@ -113,6 +114,11 @@ const StoryFigure: React.FC<{ src: string; alt: string; caption?: string; eager?
 );
 
 export interface StoryPageProps {
+  /**
+   * 底紋。這個版型兩頁共用（/about 與 /relocation），兩頁量出來都是
+   * 左邊界空 6/10、右邊界只有 1/10 與 0/10，所以固定放左側。
+   */
+  medallion?: PatternMotif;
   /** 小標（例如「關於和聖壇」） */
   eyebrow: string;
   /** 大標 */
@@ -127,9 +133,11 @@ export interface StoryPageProps {
 
 // 進場與視差的計算搬到全站共用的 hooks/useScrollMotion.ts（App 掛一次），
 // 這裡只負責掛上 .sr / .sr-figure / .sr-counter 這些 class。
-const StoryPage: React.FC<StoryPageProps> = ({ eyebrow, title, lead = [], blocks, children, onBack }) => (
+const StoryPage: React.FC<StoryPageProps> = ({ eyebrow, title, lead = [], blocks, children, onBack, medallion }) => (
   // pt-20 讓出固定導覽列的高度，否則標題會被壓在導覽列底下
-  <div className="relative pt-20 bg-temple-bg">
+  // overflow-hidden 是給底紋的：紋樣往外推四成，不裁掉會撐出水平捲軸
+  <div className="relative pt-20 bg-temple-bg overflow-hidden">
+    {medallion && <PatternMedallion motif={medallion} side="l" />}
     {/* 祥雲底圖暫時撤下，等廟方提供高解析度的圖再換上。
         元件與切好的圖都保留在 components/CloudBackdrop.tsx 與 public/cloud-*.png，
         新圖切好後把 <CloudBackdrop /> 放回這裡即可。 */}

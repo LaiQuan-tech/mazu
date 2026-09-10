@@ -42,6 +42,8 @@ const LineIcon = ({ className }: { className?: string }) => (
 
 import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign } from './types';
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession } from './services/sharedSessionStore';
+import { heroSrc } from './services/assetUrl';
+import PatternMedallion from './components/PatternMedallion';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
@@ -494,7 +496,7 @@ const HERO_SLIDESHOW = false;
  * 畫面上同時出現舊的二媽與新的三媽，而那兩版剛好是同一尊，看起來像兩尊並排。
  * index.html 的 preload 由 vite.config.ts 的 plugin 補上同一個版號，兩邊要一致。
  */
-declare const __HERO_V__: Record<string, string>;
+
 /**
  * Hero 底圖版本（內部比稿用）。
  *
@@ -520,11 +522,6 @@ const HERO = (() => {
 
 /** 後台沒設定「關於我們」照片時的保底圖 */
 const ABOUT_IMAGE_FALLBACK = '/picture/Introduction 1.jpg';
-
-const heroSrc = (file: string): string => {
-  const v = __HERO_V__?.[file];
-  return v ? `/${file}?v=${v}` : `/${file}`;
-};
 
 const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: string; drop: string; gap?: string; layer: string; priority?: boolean }> = [
   // 左前：濟公活佛。臉最低，疊在三媽之前
@@ -2152,10 +2149,8 @@ const App: React.FC = () => {
 {/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
       {ENABLE_BULLETIN && (
       <section id="bulletin" className="py-20 bg-white relative overflow-hidden">
-        {/* 團龍紋（右）。龍在鳳之上——這是首頁 Hero 之後的第一個區塊。
-            樣式與「為什麼放這裡」見 index.css 的 .pattern-medallion */}
-        <div className="pattern-medallion pattern-dragon pattern-medallion-r" aria-hidden="true"
-          style={{ backgroundImage: `url(${heroSrc('pattern-dragon.png')})` }} />
+        {/* 龍在鳳之上——這是首頁 Hero 之後的第一個區塊 */}
+        <PatternMedallion motif="dragon" side="r" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="sr sr-up text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
@@ -2576,7 +2571,10 @@ const App: React.FC = () => {
       {/* ── 預約問事（獨立分頁 /booking）── */}
       {page === 'booking' && (
       <div className="pt-20">
-      <section id="booking" className="py-20 bg-temple-red relative text-white">
+      <section id="booking" className="py-20 bg-temple-red relative overflow-hidden text-white">
+        {/* 右邊界空 8/10。**這一區是深底**（#7C5C1E）：金色紋樣在這裡是「比底亮」，
+            方向與淺底相反，實測亮度差只有淺底的六成，所以要 onDark 提高濃度 */}
+        <PatternMedallion motif="dragon" side="r" onDark />
         {/* Pattern Overlay */}
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4854A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
@@ -2857,8 +2855,10 @@ const App: React.FC = () => {
       {/* ── 祈福點燈（獨立分頁 /lamps）── */}
       {page === 'lamps' && (
       <div className="pt-20">
-      <section id="lamps" className="py-20 bg-temple-bg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="lamps" className="py-20 bg-temple-bg relative overflow-hidden">
+        {/* 右邊界空 5/10、左邊 4/10 */}
+        <PatternMedallion motif="phoenix" side="r" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* 未送出的揪團提示放在**整個區塊最上面**。放在表單上方實測是 1238px，
               手機得先滑過四張行銷卡才看得到，等於沒提醒（廟方要求「要很明顯」）。 */}
           {pendingSharedFor('lamp').length > 0 && (
@@ -3117,8 +3117,10 @@ const App: React.FC = () => {
       {/* ── 祈福活動（獨立分頁 /blessing）── */}
       {page === 'blessing' && (
       <div className="pt-20">
-      <section id="blessing" className="py-20 bg-white relative">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="blessing" className="py-20 bg-white relative overflow-hidden">
+        {/* 左右邊界都空 7/10，取右側與 /lamps 一致 */}
+        <PatternMedallion motif="phoenix" side="r" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {pendingSharedFor('blessing').length > 0 && (
             <div className="max-w-2xl mx-auto">
               <PendingSharedCard rows={pendingSharedFor('blessing')} onOpen={openMyShared} />
@@ -3935,9 +3937,7 @@ const App: React.FC = () => {
       {/* 隨喜捐獻仍留在首頁 */}
       {page === 'home' && (
       <section id="donation" className="py-20 bg-temple-bg relative overflow-hidden">
-        {/* 團鳳紋（左）。樣式與「為什麼放這裡」見 index.css 的 .pattern-medallion */}
-        <div className="pattern-medallion pattern-phoenix pattern-medallion-l" aria-hidden="true"
-          style={{ backgroundImage: `url(${heroSrc('pattern-phoenix.png')})` }} />
+        <PatternMedallion motif="phoenix" side="l" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">

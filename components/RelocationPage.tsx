@@ -256,7 +256,7 @@ const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, []);
 
   return (
-    <StoryPage eyebrow="護持遷址" title="遷址捐款" blocks={blocks} onBack={onBack}>
+    <StoryPage eyebrow="護持遷址" title="遷址捐款" blocks={blocks} onBack={onBack} medallion="dragon">
       {plans.map(p => <PlanTable key={p.id} plan={p} />)}
       <RemittanceCard />
     </StoryPage>
