@@ -4124,8 +4124,11 @@ const App: React.FC = () => {
 
       {/* ── 常見問題（首頁；內容來自 content/faq.json，與結構化資料共用同一份）── */}
       {page === 'home' && (
-      <section id="faq" className="py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="faq" className="py-20 bg-white relative overflow-hidden">
+        {/* 兩側各 240px 空邊界。接在 #donation（鳳左）之下，
+            往下捲是龍右 → 鳳左 → 龍右 */}
+        <PatternMedallion motif="dragon" side="r" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* 標題結構與其他區塊一致：小標＋大標＋菱形分隔飾＋說明（見 #deities、#donation） */}
           <div className="text-center mb-12 sr sr-up">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
