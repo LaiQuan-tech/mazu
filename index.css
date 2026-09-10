@@ -205,9 +205,13 @@
 @media (min-width: 1024px) {
   .pattern-medallion { display: block; }
 }
-/* 出血四成到畫面外：只露出大半個圓，看起來像牆上的紋飾被版面裁到 */
-.pattern-medallion-l { left: 0;  transform: translate(-40%, -50%); }
-.pattern-medallion-r { right: 0; transform: translate(40%, -50%); }
+/* 出血五成五到畫面外，只露出不到一半的圓（490px 寬剩 220px）。
+   一開始是四成，廟方 2026-09-11 覺得「顯示部分比顯示全部更好看」——確實如此：
+   露得多會讀成「貼了一個圓在旁邊」，露得少才像牆上的紋飾剛好被版面裁到。
+   而且露出的是圓的外緣，那裡正好是尾羽與鱗片最密的地方，最耐看。
+   要再收就把 55% 往上調（實測 70% 也成立，只剩 147px）。 */
+.pattern-medallion-l { left: 0;  transform: translate(-55%, -50%); }
+.pattern-medallion-r { right: 0; transform: translate(55%, -50%); }
 
 .pattern-phoenix { opacity: .18; }
 .pattern-dragon  { opacity: .135; }
