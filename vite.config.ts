@@ -31,8 +31,9 @@ const HERO_FILES = [
   // 兩張背景都要：正式站用金箔牆，?hero=blue 用藍金流體畫（見 App.tsx 的 HERO_VARIANTS）
   'hero-gold.jpg',
   'hero-blue.jpg',
-  // 團鳳紋底紋。換圖時內容雜湊會變，信眾才不會被舊快取卡住
+  // 團紋底紋（龍與鳳）。換圖時內容雜湊會變，信眾才不會被舊快取卡住
   'pattern-phoenix.png',
+  'pattern-dragon.png',
 ];
 
 const heroVersions = (): Record<string, string> => {

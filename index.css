@@ -156,26 +156,34 @@
   .admin-table td > .justify-end { justify-content: flex-start; }
 }
 
-/* ── 團鳳紋底紋 ────────────────────────────────────────────────────────────
+/* ── 團紋底紋（龍與鳳）──────────────────────────────────────────────────────
    參考北港武德宮的團龍紋作法：一枚極淡的圓形紋樣出血到版面邊緣外，
-   當成建築上的紋飾而不是貼紙。本壇主祀天上聖母，龍鳳相對、女神配鳳。
+   當成建築上的紋飾而不是貼紙。
 
-   **放哪裡是量出來的**：把首頁各區塊切成 12×10 的格子標記哪些格有內容，
-   `#donation` 與 `#faq` 兩側各有約 240px 的空邊界，`#about` 與 `#deities`
-   幾乎排滿。所以只掛在前兩個，紋樣不會壓在文字上。
+   **兩枚、一龍一鳳，龍在上**（廟方 2026-09-11 指定）：
+     #bulletin 最新活動   龍，右側
+     #donation 隨喜捐獻   鳳，左側
+   一右一左，往下捲會形成呼應。龍鳳相對，而本壇主祀天上聖母、受敕封至「天后」，
+   鳳正是后妃的紋章，所以鳳留在與捐獻相關的區塊、龍在最上面領頭。
 
-   **opacity 用 0.18**。先用「總墨量」（有墨像素的佔比 × 與底色的平均亮度差）
-   對齊參考站：
-     武德宮團龍紋  18.3% × 21.3 = 3.90
-     本站 @ 0.05   46.2% ×  2.7 = 1.25   ← 只有三分之一，廟方回報太淡
-   一開始只看覆蓋率（這張的尾羽是實心填滿的，比較密）就判斷「要更淡」是錯的，
-   每個像素的濃度同樣要算進去。0.15 讓兩者相當，廟方再要求深一點點，定 0.18。
+   **放哪裡是量出來的**：把首頁各區塊切成 12×10 的格子標記哪些格有內容。
+   只有 #bulletin、#donation、#faq 兩側各有約 240px 的空邊界；
+   #about 與 #deities 幾乎排滿、#relocation-intro 中段滿、#services 只有 120px。
+   所以紋樣完全不會壓在文字上。
+
+   **兩枚的 opacity 不同，是算出來的**。判準是「總墨量」＝有墨像素的佔比 ×
+   與底色的平均亮度差 × 平均 alpha × opacity：
+     參考站團龍紋              0.183 × 21.3        = 3.90
+     鳳 @0.18（米底 241）      46.2% alpha 0.607   = 4.52
+     龍 @0.18（白底 255）      66.9% alpha 0.485   = 6.04  ← 會重三成
+   龍是實心塊面不是線稿，覆蓋率高、又疊在白底上對比更強，所以要 0.135 才等重。
+   一開始只看覆蓋率就判斷濃淡是不夠的，每個像素的濃度同樣要算進去
+   （鳳一度設成 0.05，廟方回報太淡，就是這個原因）。
    **0.20 以上會開始搶戲**——底紋一旦讓人注意到它自己，就從質感變成裝飾品。
-   改濃淡只要動這一行，不必重跑腳本。
 
    **手機不顯示**：390px 寬沒有邊界可以放，紋樣一定會壓在文字底下；
-   而且它是 152KB，對長輩的行動網路來說，看不到的裝飾不該讓他們付流量。 */
-.pattern-phoenix {
+   而且兩張加起來 215KB，看不到的裝飾不該讓長輩的行動網路付流量。 */
+.pattern-medallion {
   position: absolute;
   top: 50%;
   z-index: 0;
@@ -184,17 +192,15 @@
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  opacity: .18;
   pointer-events: none;   /* 純裝飾，不要吃掉點擊 */
   display: none;
 }
 @media (min-width: 1024px) {
-  .pattern-phoenix { display: block; }
+  .pattern-medallion { display: block; }
 }
 /* 出血四成到畫面外：只露出大半個圓，看起來像牆上的紋飾被版面裁到 */
-.pattern-phoenix-l { left: 0;  transform: translate(-40%, -50%); }
-.pattern-phoenix-r { right: 0; transform: translate(40%, -50%); }
+.pattern-medallion-l { left: 0;  transform: translate(-40%, -50%); }
+.pattern-medallion-r { right: 0; transform: translate(40%, -50%); }
 
-@media (prefers-reduced-motion: no-preference) {
-  /* 不做動畫。底紋一動就從「質感」變成「效果」，而且它出現在整頁最靜的地方 */
-}
+.pattern-phoenix { opacity: .18; }
+.pattern-dragon  { opacity: .135; }

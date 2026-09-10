@@ -2151,8 +2151,12 @@ const App: React.FC = () => {
 
 {/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
       {ENABLE_BULLETIN && (
-      <section id="bulletin" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="bulletin" className="py-20 bg-white relative overflow-hidden">
+        {/* 團龍紋（右）。龍在鳳之上——這是首頁 Hero 之後的第一個區塊。
+            樣式與「為什麼放這裡」見 index.css 的 .pattern-medallion */}
+        <div className="pattern-medallion pattern-dragon pattern-medallion-r" aria-hidden="true"
+          style={{ backgroundImage: `url(${heroSrc('pattern-dragon.png')})` }} />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="sr sr-up text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
@@ -3931,8 +3935,8 @@ const App: React.FC = () => {
       {/* 隨喜捐獻仍留在首頁 */}
       {page === 'home' && (
       <section id="donation" className="py-20 bg-temple-bg relative overflow-hidden">
-        {/* 團鳳紋（左）。樣式與「為什麼放這裡」見 index.css 的 .pattern-phoenix */}
-        <div className="pattern-phoenix pattern-phoenix-l" aria-hidden="true"
+        {/* 團鳳紋（左）。樣式與「為什麼放這裡」見 index.css 的 .pattern-medallion */}
+        <div className="pattern-medallion pattern-phoenix pattern-medallion-l" aria-hidden="true"
           style={{ backgroundImage: `url(${heroSrc('pattern-phoenix.png')})` }} />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
@@ -4120,11 +4124,8 @@ const App: React.FC = () => {
 
       {/* ── 常見問題（首頁；內容來自 content/faq.json，與結構化資料共用同一份）── */}
       {page === 'home' && (
-      <section id="faq" className="py-20 bg-white relative overflow-hidden">
-        {/* 團鳳紋（右）。與上一個區塊左右呼應，往下捲會形成節奏 */}
-        <div className="pattern-phoenix pattern-phoenix-r" aria-hidden="true"
-          style={{ backgroundImage: `url(${heroSrc('pattern-phoenix.png')})` }} />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <section id="faq" className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 標題結構與其他區塊一致：小標＋大標＋菱形分隔飾＋說明（見 #deities、#donation） */}
           <div className="text-center mb-12 sr sr-up">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
