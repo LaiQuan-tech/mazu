@@ -34,6 +34,12 @@ const HERO_FILES = [
   // 團紋底紋（龍與鳳）。換圖時內容雜湊會變，信眾才不會被舊快取卡住
   'pattern-phoenix.png',
   'pattern-dragon.png',
+  // 首頁分享卡。LINE／FB 是拿 og:image 的**網址**當快取鍵，換了圖不換網址，
+  // 分享出去永遠是舊卡（2026-09-12 換濟公照片時廟方要求分享卡跟著換）。
+  // 注意這只解決「圖的網址」那層：對方也會快取「這個網頁的 og 標籤」，
+  // 已經分享過的網址要等它重抓；FB 用 Sharing Debugger 按「重新抓取」，
+  // LINE 沒有工具，分享時在網址後面加個 ?v=2 之類就是新網址、會重抓。
+  'og-hero.jpg',
 ];
 
 const heroVersions = (): Record<string, string> => {
@@ -46,12 +52,18 @@ const heroVersions = (): Record<string, string> => {
   return out;
 };
 
-/** 把 index.html 的 preload 也換成帶版號的網址 */
+/**
+ * 把 index.html 裡引用到的這些檔案（preload、og:image、twitter:image、JSON-LD 的 image）
+ * 都換成帶版號的網址。清單就是 HERO_FILES：列進去的檔案在 HTML 裡出現就會被補上，
+ * 不必另外維護一份「哪些標籤要換」。
+ * `(?![?\w])`：已經帶 ?v= 的不重複加；檔名是別的檔名的前綴時不誤中。
+ */
 const heroPreloadVersion = (versions: Record<string, string>): Plugin => ({
   name: 'hero-preload-version',
   transformIndexHtml(html) {
-    return html.replace(/\/(hero-[a-z]+\.(?:webp|png|jpg))(?!\?)/g, (m, file: string) =>
-      versions[file] ? `/${file}?v=${versions[file]}` : m);
+    const names = Object.keys(versions).map(f => f.replace(/\./g, '\\.')).join('|');
+    if (!names) return html;
+    return html.replace(new RegExp(`/(${names})(?![?\\w])`, 'g'), (_m, file: string) => `/${file}?v=${versions[file]}`);
   },
 });
 
