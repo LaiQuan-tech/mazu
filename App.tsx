@@ -523,6 +523,11 @@ const HERO_VARIANTS = {
   // tone 見 SilkSheen：gold＝金屬反光、flat＝完全不反光（流體畫沒有緞面光澤）
   gold: { file: 'hero-gold.jpg', tone: 'gold' as const },
   blue: { file: 'hero-blue.jpg', tone: 'flat' as const },
+  // 青花瓷（2026-09-12 廟方給的參考圖，?hero=porcelain）。
+  // 原圖是直式 907×1803 的截圖，桌機上 cover 只會露出中段那截河道，手機才看得到整張。
+  // 白底：上緣那道黑色遮罩壓上去會變灰，導覽列與宮壇名的白字也只是勉強能讀——
+  // 這一版若要採用，遮罩與字色都得另外做，現在只是拿來看構圖。
+  porcelain: { file: 'hero-porcelain.jpg', tone: 'flat' as const },
 };
 const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
 const HERO = (() => {

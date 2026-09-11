@@ -245,7 +245,7 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **不必新建資料表**：`blessing_events` 已經有需要的每一個欄位（`title`→name、`start_date`/`end_date`、`registration_deadline`→offers.validThrough、`fee`/`packages`→lowPrice/highPrice、`image_url`→image、`is_active`→要不要輸出），後台也已能編輯。缺的只是「接到 JSON-LD」那一段，照 FAQ 現成的三層機制抄：`App.tsx` 執行期覆寫、`scripts/prerender.js` 建置時快照。過期活動自動不輸出，就永久解決 Search Console 的「過期活動」回報。
   **廟方已決定（2026-09-02）：以後的法會也在「祈福活動」後台建一筆 `blessing_events`。** 所以 Event JSON-LD **只讀這一張表**，不要為了相容而支援兩個來源——多一個來源就多一種「兩邊不一致」的可能。
   這次的普渡法會走的是 `fahui_registrations` 那套獨立流程、不在該表裡，屬於過渡期的特例：9/13 過後把寫死的那段 Event 直接刪掉即可，不需要回頭補建一筆。報名流程本身維持獨立（`blessing_events` 只負責「這場活動是什麼」，不取代法會的報名表）。
-- **Hero 底圖比稿中（2026-09-09）**：正式站維持金箔牆，網址加 `?hero=blue` 可看藍金流體畫版，給廟方與內部人員在真正的首頁上比較（不是靜態截圖，三尊／導覽列／香煙／按鈕都在）。切換寫在 `App.tsx` 的 `HERO_VARIANTS`，決定要換就把 `DEFAULT_HERO` 改成 `'blue'`。
+- **Hero 底圖比稿中（2026-09-09）**：正式站維持金箔牆，網址加 `?hero=blue` 可看藍金流體畫版、`?hero=porcelain` 看青花瓷版（2026-09-12 廟方給的直式截圖，桌機 cover 只露出中段河道、手機才是整張；白底所以上緣黑遮罩會發灰、白字勉強能讀，要採用得另做遮罩與字色），給廟方與內部人員在真正的首頁上比較（不是靜態截圖，三尊／導覽列／香煙／按鈕都在）。切換寫在 `App.tsx` 的 `HERO_VARIANTS`，決定要換就把 `DEFAULT_HERO` 改掉。
   沒有任何連結指過去、不在 sitemap、query string 不會產生新的可索引網址，所以不影響 SEO。
   **要換過去的話，連帶要處理三件事**：`index.html` 的 preload 指向的是金箔牆；`og-hero.jpg` 是用金箔底反推暗化比例算出來的（見 `build-og-hero.js`），換底圖等於整支腳本的背景邏輯要重寫、三尊座標也要重量；還有全站配色是廟紅＋金，往下捲一屏就回到紅金，首屏藍金會像兩個網站。
   藍金版用 `tone="flat"`（SilkSheen 新增的模式）：流體畫沒有金屬或緞面光澤，會動的光帶只會像鏡頭髒了。flat 連 pointermove／陀螺儀監聽與 rAF 迴圈都不掛，不是把效果調到看不見。
