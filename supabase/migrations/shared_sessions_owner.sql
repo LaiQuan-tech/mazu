@@ -79,11 +79,12 @@ AS $$
   ) x;
 $$;
 
--- 先從 PUBLIC 收回再指定授權。**只寫 REVOKE ... FROM anon 是沒有用的**：
--- Postgres 建立函式時預設就 GRANT EXECUTE TO PUBLIC，anon 是靠 PUBLIC 拿到權限的，
--- 從 anon 收回等於收一個它本來就沒有的直接授權（實測：改前訪客仍叫得動，只是
--- auth.uid() 為 null 所以回空陣列——沒外洩，但與註解不符）。
-REVOKE EXECUTE ON FUNCTION public.get_my_shared_sessions() FROM PUBLIC;
+-- **PUBLIC 與 anon 要一起收，少一個都不行**。執行權有兩條路：Postgres 建函式時
+-- 預設 GRANT TO PUBLIC；Supabase 的 default privileges 又直接 GRANT 給 anon。
+-- 這支原本只寫 FROM anon，訪客仍叫得動（靠 PUBLIC）；改成只寫 FROM PUBLIC 之後
+-- 才拒絕訪客，其實是因為前一次已經把 anon 那份收掉了——兩次湊在一起才對。
+-- 2026-09-12 在 get_my_shared_history 上踩到同一坑（只收 PUBLIC，anon 還在）才弄清楚。
+REVOKE EXECUTE ON FUNCTION public.get_my_shared_sessions() FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.get_my_shared_sessions() TO authenticated;
 
 -- 確認

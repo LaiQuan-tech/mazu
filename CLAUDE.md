@@ -68,6 +68,7 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 | 單一表 404 | 表不存在（migration 沒跑）。migration 一律由使用者在 Dashboard SQL Editor 手動執行。 |
 | anon 寫入後報 RLS 42501 | anon 只有 INSERT 權限：**insert 後不可 `.select()` 讀回**。要 id 就客戶端 `crypto.randomUUID()` 先產。 |
 | 登入狀態下送出報名表失敗、未登入卻正常 | INSERT 政策只給 `TO anon` 沒給 `authenticated`。管理員登入後（存在 Supabase session）送出走 authenticated 角色 → 被 RLS 擋。**報名表的 insert 政策要 `TO anon, authenticated` 兩者都給**。症狀：只有你自己（登入測試）連續失敗、curl 與無痕視窗正常。曾耗數輪才定位。|
+| RPC 只想給登入者用，訪客卻仍叫得動 | 函式執行權有兩條路：Postgres 預設 GRANT TO PUBLIC，Supabase 的 default privileges 又直接 GRANT 給 anon。**要 `REVOKE EXECUTE ... FROM PUBLIC, anon;` 一起收再 `GRANT TO authenticated`**，只收其中一個沒用。驗證方式：拿 anon key 當 Bearer 打 `/rest/v1/rpc/<fn>`，要看到 42501 才算收乾淨（2026-09-12 `get_my_shared_history` 踩過）。 |
 | 本機 supabase CLI 連到別的專案 | CLI 連結的是 PikTag，不是本專案。DDL 無法用 CLI/anon key 跑，只能 Dashboard。 |
 | 前台要顯示統計（名額/累計） | 不要開放整表 SELECT。用既有 RPC：`get_booking_session_counts`、`get_repair_totals`、`get_blessing_event_stats`、`get_shared_session`。新需求照這模式加 SECURITY DEFINER RPC。 |
 

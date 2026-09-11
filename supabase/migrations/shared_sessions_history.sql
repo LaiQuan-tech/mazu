@@ -29,8 +29,12 @@ AS $$
   ) x;
 $$;
 
--- 同 get_my_shared_sessions：先從 PUBLIC 收回再指定授權，只 REVOKE FROM anon 是沒用的
-REVOKE EXECUTE ON FUNCTION public.get_my_shared_history() FROM PUBLIC;
+-- **PUBLIC 與 anon 要一起收**。函式的執行權有兩條路：Postgres 建函式時預設
+-- GRANT TO PUBLIC；Supabase 另外設了 default privileges，在 public schema 新建的函式
+-- 會再直接 GRANT 給 anon／authenticated／service_role。只收 PUBLIC，anon 那份還在
+-- （2026-09-12 實測：這支第一版只收 PUBLIC，訪客仍叫得動回 []；get_my_shared_sessions
+-- 之所以拒絕訪客，是因為它先後跑過 FROM anon 和 FROM PUBLIC 兩次，湊巧兩份都收了）。
+REVOKE EXECUTE ON FUNCTION public.get_my_shared_history() FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.get_my_shared_history() TO authenticated;
 
 -- 確認（登入狀態下執行才有東西；SQL Editor 是 postgres 角色，auth.uid() 為 null 會回 []）
