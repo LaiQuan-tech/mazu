@@ -111,7 +111,9 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
       <div className="bg-temple-red px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-white">
           <Users className="w-4 h-4" />
-          <span className="font-semibold text-sm">共享報名表</span>
+          {/* 「共享報名表」是那張列出所有人的單，只有主揪看得到整張；
+              被揪的人看到的是「加入」的入口，標題跟著換，免得以為自己在看整張單 */}
+          <span className="font-semibold text-sm">{isCreator ? '共享報名表' : '揪團報名'}</span>
           <span className="text-white/70 text-xs ml-1">{serviceLabel}</span>
         </div>
         <button onClick={handleRefresh} disabled={refreshing}
@@ -121,11 +123,14 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
       </div>
 
       <div className="p-5 space-y-5">
-        {/* ── 已加入名單 ── */}
+        {/* ── 已加入名單 ──
+            **只有主揪看得到名字**（廟方 2026-09-12 定調）。被揪的人只看到人數：
+            分享連結會被轉傳，任何拿到連結的人都不該看到別人的姓名、生肖、選了什麼。
+            人數保留——讓親友知道這團是活的、有人在填。 */}
         {session.entries.length > 0 && (
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2">已有 {session.entries.length} 人加入</p>
-            <div className="flex flex-wrap gap-2">
+            {isCreator && <div className="flex flex-wrap gap-2">
               {session.entries.map(e => {
                 const lampName = serviceType === 'lamp' && e.serviceId
                   ? lampConfigs.find(c => c.id === e.serviceId)?.name : undefined;
@@ -142,7 +147,7 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
                   </span>
                 );
               })}
-            </div>
+            </div>}
           </div>
         )}
 
