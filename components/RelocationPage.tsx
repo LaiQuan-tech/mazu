@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Copy, Check } from 'lucide-react';
 import StoryPage, { StoryBlock, splitParagraphs, renderInline } from './StoryPage';
 import { getAboutSections, getRelocationPlans, getSiteImagePublicUrl } from '../services/supabase';
 import { AboutSection, RelocationPlan } from '../types';
@@ -10,7 +9,7 @@ import { AboutSection, RelocationPlan } from '../types';
  * 圖文段落與捐款方案表格都來自後台，廟方自行維護：
  *   段落 → about_sections（page = 'relocation'）
  *   方案 → relocation_plans（金額當欄、回饋項目當列的矩陣）
- * 匯款方式先不放在這一頁（廟方要求），需要時再加回來。
+ * 匯款帳號 2026-09-12 起先撤下（等協會與專款帳戶成立），頁尾改放說明，見 RemittanceNotice。
  */
 
 const toStoryBlock = (s: AboutSection): StoryBlock => ({
@@ -143,102 +142,50 @@ const PlanTable: React.FC<{ plan: RelocationPlan }> = ({ plan }) => {
 };
 
 /**
- * 遷址募資的專屬匯款帳號（行動呼籲）
+ * 頁尾收束：正式匯款資訊暫不提供（廟方 2026-09-12 要求）
  *
- * 這是整頁的收尾：前面講完為什麼要遷址、有哪些方案，這裡是「怎麼捐」。
- * 原本看完沒有下一步，只能自己想辦法問——轉換就斷在這裡。
+ * 遷址專款要等協會成立、專款帳戶設好才有正式帳號。這裡原本放第一銀行的帳號
+ * 與複製鈕，先整個撤下——**舊帳號留在 git 歷史，之後的專款帳戶不一定是同一個，
+ * 別直接拿回來用**，要放回來時跟廟方重新確認。
  *
- * **與網站其他地方的匯款資訊不同**：那是中國信託的一般帳戶，這是遷址專款專用的
- * 第一銀行帳號，兩者不可混用，改動前先跟廟方確認是哪一個。
- *
- * 帳號給一顆複製鈕：手機上要一邊看畫面一邊在銀行 App 輸入 12 位數字，
- * 抄錯一碼錢就進不來。桌機瀏覽器不支援 clipboard API 時退回什麼都不做，
- * 數字本身仍然選得起來。
+ * 這一段不是行動呼籲，是交代「為什麼還沒有帳號、之後怎麼通知」，所以不做
+ * 標題色帶、語氣放輕。文案是廟方給的，逐字照放；每行各自一個 <p> 而不是用 <br>
+ * 硬斷，手機上塞不下的那行才能自然折行、不會斷在奇怪的地方。
  */
-const REMITTANCE = {
-  bank: '第一銀行',
-  bankCode: '007',
-  branch: '古亭分行',
-  account: '171-68-143732',
-  holder: '王順文',
-};
+const NOTICE_LINES = [
+  '待協會成立、專款帳戶完成設立後',
+  '和聖壇將依您留下的聯絡資料主動通知',
+  '再提供正式匯款資訊',
+];
+const THANKS_LINES = [
+  '感恩您的耐心與護持',
+  '每一份願意同行的心意',
+  '都是陪伴和聖壇走向新家的重要力量',
+];
 
-const RemittanceCard: React.FC = () => {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(REMITTANCE.account.replace(/-/g, ''));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch { /* 不支援就算了，數字還是看得到、選得起來 */ }
-  };
-
-  return (
-    <section className="mt-16 sr sr-up">
-      <div className="rounded-2xl border-2 border-temple-gold bg-temple-gold/10 overflow-hidden">
-        <div className="bg-temple-gold px-6 py-4 text-center">
-          <h3 className="font-serif text-xl sm:text-2xl font-bold text-white">
-            遷址募資專屬匯款帳號
-          </h3>
-        </div>
-
-        <div className="px-6 py-7 sm:px-10">
-          <dl className="max-w-md mx-auto space-y-4">
-            <div className="flex items-baseline gap-4">
-              <dt className="w-20 shrink-0 text-sm text-gray-500">銀行</dt>
-              <dd className="font-serif text-lg font-bold text-temple-dark">
-                {REMITTANCE.bank}
-                <span className="ml-2 text-sm font-normal text-gray-500">代碼 {REMITTANCE.bankCode}</span>
-              </dd>
-            </div>
-            <div className="flex items-baseline gap-4">
-              <dt className="w-20 shrink-0 text-sm text-gray-500">分行</dt>
-              <dd className="font-serif text-lg font-bold text-temple-dark">{REMITTANCE.branch}</dd>
-            </div>
-            <div className="flex items-baseline gap-4">
-              <dt className="w-20 shrink-0 text-sm text-gray-500">帳號</dt>
-              <dd className="flex items-center gap-3 flex-wrap">
-                {/* 數字用等寬字：對帳時一位一位比對才不會看錯 */}
-                <span className="font-mono text-xl sm:text-2xl font-bold text-temple-red tracking-wider">
-                  {REMITTANCE.account}
-                </span>
-                {/*
-                  手機上排不下（內容區 195px，數字＋按鈕要 246px），與其把字縮到
-                  難讀，不如讓按鈕整條攤開——手指本來就比較好按 44px 高的橫條，
-                  勝過 64px 寬的小藥丸。桌機空間夠，維持行內的小按鈕。
-                */}
-                <button
-                  type="button"
-                  onClick={copy}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-sm sm:text-xs px-3 py-2 sm:py-1 rounded-lg sm:rounded-full border border-temple-gold text-temple-dark hover:bg-temple-gold/20 transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> : <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
-                  {copied ? '已複製' : '複製帳號'}
-                </button>
-              </dd>
-            </div>
-            <div className="flex items-baseline gap-4">
-              <dt className="w-20 shrink-0 text-sm text-gray-500">戶名</dt>
-              <dd className="font-serif text-lg font-bold text-temple-dark">{REMITTANCE.holder}</dd>
-            </div>
-          </dl>
-
-          <div className="flex items-center justify-center gap-3 mt-7">
-            <span className="w-12 h-px bg-temple-gold/70" />
-            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-            <span className="w-12 h-px bg-temple-gold/70" />
-          </div>
-
-          <p className="text-center text-sm text-gray-600 leading-loose mt-5">
-            匯款後請透過官方 LINE 或電話告知<strong>姓名、金額與帳號後五碼</strong>，
-            以便廟方核對並登錄功德芳名。
-          </p>
-        </div>
+const RemittanceNotice: React.FC = () => (
+  <section className="mt-16 sr sr-up">
+    <div className="rounded-2xl border-2 border-temple-gold bg-temple-gold/10 px-5 py-9 sm:px-10 sm:py-11 text-center">
+      <div className="space-y-1">
+        {NOTICE_LINES.map(line => (
+          <p key={line} className="font-serif text-lg sm:text-xl font-bold text-temple-dark leading-relaxed [text-wrap:balance]">{line}</p>
+        ))}
       </div>
-    </section>
-  );
-};
+
+      <div className="flex items-center justify-center gap-3 my-7" aria-hidden="true">
+        <span className="w-12 h-px bg-temple-gold/70" />
+        <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+        <span className="w-12 h-px bg-temple-gold/70" />
+      </div>
+
+      <div className="space-y-1">
+        {THANKS_LINES.map(line => (
+          <p key={line} className="font-serif text-base sm:text-lg text-gray-700 leading-relaxed [text-wrap:balance]">{line}</p>
+        ))}
+      </div>
+    </div>
+  </section>
+);
 
 const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [blocks, setBlocks] = useState<StoryBlock[]>([]);
@@ -258,7 +205,7 @@ const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <StoryPage eyebrow="護持遷址" title="遷址捐款" blocks={blocks} onBack={onBack} medallion="dragon">
       {plans.map(p => <PlanTable key={p.id} plan={p} />)}
-      <RemittanceCard />
+      <RemittanceNotice />
     </StoryPage>
   );
 };
