@@ -118,5 +118,41 @@ async function cutout(src, out, opt) {
   console.log(`${out} ${x1-x0+1}x${y1-y0+1} 前景 ${(fg.reduce((s,v)=>s+v,0)/(W*H)*100).toFixed(1)}%`);
 }
 
+/**
+ * 砍掉底座下方那一條檯面與影子。
+ *
+ * 神尊放在白色檯面上拍，底座正下方那一圈檯面被影子與木雕的暖光染色
+ * （實測 h 175–220、s 0.20–0.25、v 0.55–0.90），不符合「灰背板」的 pred
+ * （s<0.18），會跟著底座一起留下來，成品最底下多一條淺灰薄片，疊在金底上很明顯。
+ * 放寬 pred 會傷到扇子的銀絲與白色卷軸（同樣是低飽和高亮度），所以改成事後只看底部。
+ *
+ * 底座本身是有顏色的木雕（實測 s 0.34–0.40、v 0.24–0.29），從最底列往上找到第一列
+ * 「整列寬度夠、飽和度夠、夠暗」的地方當底座的底邊，那一列以下全部透明。
+ * 只在最後 8% 的高度裡找，找不到就原樣不動（不是每尊都有這個問題）。
+ */
+async function trimFloor(pngPath) {
+  const { data, info } = await sharp(pngPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const W = info.width, H = info.height;
+  const from = Math.floor(H * 0.92);
+  const rows = [];
+  for (let y = from; y < H; y++) {
+    let n = 0, S = 0, V = 0;
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (data[i + 3] > 128) { n++; const [, s, v] = hsv(data[i], data[i + 1], data[i + 2]); S += s; V += v; }
+    }
+    rows.push({ y, n, s: n ? S / n : 0, v: n ? V / n : 0 });
+  }
+  const maxN = Math.max(...rows.map(r => r.n));
+  let cut = -1;
+  for (let k = rows.length - 1; k >= 0; k--) {
+    const r = rows[k];
+    if (r.n >= maxN * 0.85 && r.s > 0.30 && r.v < 0.40) { cut = r.y + 1; break; }
+  }
+  if (cut < 0 || cut >= H) { console.log(`${pngPath} 底部沒有檯面要砍`); return; }
+  await sharp(data, { raw: { width: W, height: H, channels: 4 } })
+    .extract({ left: 0, top: 0, width: W, height: cut }).png().toFile(pngPath);
+  console.log(`${pngPath} 砍掉底部 ${H - cut} 列檯面／影子 → ${W}x${cut}`);
+}
 
-module.exports = { cutout, hsv };
+module.exports = { cutout, trimFloor, hsv };

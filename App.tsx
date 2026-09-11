@@ -542,10 +542,17 @@ const HERO_DEITIES: Array<{ src: string; fallback: string; name: string; size: s
   // 中後：天上聖母三媽，本壇主神。最高最大，但**疊在最底層**——廟方要的構圖是
   // 「二媽與濟公在三媽面前」，她的身體被前面兩尊擋住，只露出頭與冠帽。
   // 優先權與 index.html 的 preload 都給她（兩邊不一致等於預載了不是主角的那張）
+  //
+  // 手機的 gap 從 24vw 加到 36vw（2026-09-12 換濟公照片）：新照片是坐姿帶椅背，
+  // 寬高比 1045:1600，比舊的 789:1600 寬 32%。高度不變的話手機上多出 11.8vw，
+  // 三尊那一排本來剛好貼齊兩邊（總寬只比螢幕寬 12px），多出來的寬度會讓
+  // 濟公的底座與二媽的袖子各被切掉 28px。把多出來的寬度全數吃進濟公與三媽的
+  // 重疊，兩尊的頭仍不相碰（濟公帽頂在三媽肩線以下），只是他更靠她身前。
+  // 桌機（land:）那排置中、螢幕夠寬，不用跟著改。
   { src: heroSrc('hero-sanma.webp'), fallback: heroSrc('hero-sanma.png'), name: '天上聖母三媽',
     size: 'h-[min(128vw,67.70vh)] max-w-[88vw] land:h-[min(98vh,107.8vw)] land:max-w-none',
     drop: 'mb-[calc(min(15vw,7.93vh)*-1)] land:mb-[calc(min(12vh,13.2vw)*-1)]',
-    gap: 'ml-[calc(min(24vw,12.69vh)*-1)] land:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
+    gap: 'ml-[calc(min(36vw,19.04vh)*-1)] land:ml-[calc(min(18vh,19.8vw)*-1)]', layer: 'z-[1]', priority: true },
   // 右前：天上聖母二媽（黃袍金冠）。臉與濟公大致齊高，兩尊一起框住後面的主神
   { src: heroSrc('hero-erma.webp'), fallback: heroSrc('hero-erma.png'), name: '天上聖母二媽',
     size: 'h-[min(99vw,52.36vh)] max-w-[76vw] land:h-[min(76vh,83.6vw)] land:max-w-none',
