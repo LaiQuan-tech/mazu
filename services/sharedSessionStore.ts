@@ -16,7 +16,51 @@
  * ── 清單只增不減會爆 ──
  * 送出後移除、超過保留上限時砍最舊的。過期的（連結 7 天到期）在讀取時濾掉。
  */
-import { SharedServiceType } from '../types';
+import { SharedServiceType, SharedSessionRecord } from '../types';
+import { deleteSharedSession } from './supabase';
+
+/** 各服務的獨立頁路徑。回到某張表時要帶著走（三種服務各自獨立成頁） */
+export const SERVICE_PATH: Record<SharedServiceType, string> = {
+  lamp: '/lamps', blessing: '/blessing', booking: '/booking',
+};
+
+export const SHARED_LABEL: Record<SharedServiceType, string> = {
+  lamp: '點燈', blessing: '祈福活動', booking: '問事',
+};
+
+/**
+ * 主揪主動刪除一張共享報名表——先警示，再刪，回傳是否真的刪了。
+ *
+ * 集中在這裡是因為兩個入口都要用（服務頁的面板、會員中心的紀錄），警示文字
+ * 只能有一份。警示要寫明兩件無法復原的事：名單會跟著沒、分享出去的連結會失效。
+ * 用 confirm() 與通訊錄刪聯絡人同一個做法。
+ *
+ * RLS 擋下的 DELETE 是靜默 0 列不會報錯（不是本人、或沒有擁有者的舊場次），
+ * deleteSharedSession 會讀回列數，這裡依情況分兩種說明。
+ */
+export const confirmAndDeleteSharedSession = async (session: SharedSessionRecord): Promise<boolean> => {
+  const n = session.entries.length;
+  const ok = window.confirm(
+    '確定要刪除這張揪團報名表嗎？\n\n' +
+    (n > 0 ? `已加入的 ${n} 位親友資料會一起刪除，無法復原。\n` : '') +
+    '分享出去的連結會失效，親友再點會看到「找不到這張報名表」。',
+  );
+  if (!ok) return false;
+  try {
+    const deleted = await deleteSharedSession(session.id);
+    if (!deleted) {
+      alert(session.createdBy
+        ? '只有建立這張報名表的人可以刪除。'
+        : '這張是舊版建立的報名表，沒有紀錄建立者，無法手動刪除，會在到期後自動失效。');
+      return false;
+    }
+    forgetMyShared(session.id);
+    return true;
+  } catch {
+    alert('刪除失敗，請稍後再試。');
+    return false;
+  }
+};
 
 const KEY = 'shared_sessions_mine';
 /** 一個人不會同時開很多張；留 20 筆足夠，也避免 localStorage 無限長大 */

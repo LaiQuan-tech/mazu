@@ -1439,6 +1439,16 @@ export const getMySharedSessions = async (): Promise<SharedSessionRecord[]> => {
 };
 
 /**
+ * 我開過的每一張共享報名表——不分狀態、不管過期，給會員中心的揪團紀錄用。
+ * 與 getMySharedSessions（只回還能動的）分工不同，見 shared_sessions_history.sql。
+ */
+export const getMySharedHistory = async (): Promise<SharedSessionRecord[]> => {
+  const { data, error } = await supabase.rpc('get_my_shared_history');
+  if (error || !Array.isArray(data)) return [];
+  return (data as any[]).map(mapSharedSession);
+};
+
+/**
  * 主揪刪掉自己的共享報名表。名單靠 ON DELETE CASCADE 一起清。
  * RLS 只放行 created_by = auth.uid()：被揪的人拿著連結刪不掉；
  * 舊場次（created_by 為 NULL）也刪不掉，只能等到期——放寬會讓任何人能刪別人的表。

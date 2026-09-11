@@ -41,10 +41,10 @@ const LineIcon = ({ className }: { className?: string }) => (
 );
 
 import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign } from './types';
-import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession } from './services/sharedSessionStore';
+import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, deleteSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
@@ -308,14 +308,6 @@ const DeityCard: React.FC<{ deity: DeityRecord; index: number }> = ({ deity, ind
 
 const DEITY_PAGE = 4;
 
-/** 各服務的獨立頁路徑。回到某張未送出的表時要帶著走 */
-const SERVICE_PATH: Record<SharedServiceType, string> = {
-  lamp: '/lamps', blessing: '/blessing', booking: '/booking',
-};
-
-const SHARED_LABEL: Record<SharedServiceType, string> = {
-  lamp: '點燈', blessing: '祈福活動', booking: '問事',
-};
 
 /**
  * 「您有未送出的揪團報名表」提示卡
@@ -1710,29 +1702,16 @@ const App: React.FC = () => {
    * 手動把 sharedSession／isCreator／網址／清單一項項清掉太容易漏。
    */
   const handleDeleteSharedSession = async (session: SharedSessionRecord): Promise<void> => {
-    const n = session.entries.length;
-    const ok = window.confirm(
-      `確定要刪除這張揪團報名表嗎？\n\n` +
-      (n > 0 ? `已加入的 ${n} 位親友資料會一起刪除，無法復原。\n` : '') +
-      `分享出去的連結會失效，親友再點會看到「找不到這張報名表」。`
-    );
-    if (!ok) return;
-    try {
-      const deleted = await deleteSharedSession(session.id);
-      if (!deleted) {
-        // RLS 擋下（不是本人、或是沒有擁有者的舊場次）：DELETE 靜默 0 列，不會報錯
-        alert(session.createdBy
-          ? '只有建立這張報名表的人可以刪除。'
-          : '這張是舊版建立的報名表，沒有紀錄建立者，無法手動刪除，會在到期後自動失效。');
-        return;
-      }
-      forgetMyShared(session.id);
-      setMyPending(prev => prev.filter(x => x.session.id !== session.id));
-      if (sharedSession?.id === session.id) {
-        window.location.href = withKeptParams(window.location.pathname, ['share']);
-      }
-    } catch {
-      alert('刪除失敗，請稍後再試。');
+    // 警示與刪除集中在 confirmAndDeleteSharedSession（會員中心的紀錄也用同一支）
+    const deleted = await confirmAndDeleteSharedSession(session);
+    if (deleted) handleSharedSessionRemoved(session.id);
+  };
+
+  /** 某張表已經不在了（這裡刪的、或會員中心刪的）：提示卡拿掉；正在看的就是它就重載 */
+  const handleSharedSessionRemoved = (id: string): void => {
+    setMyPending(prev => prev.filter(x => x.session.id !== id));
+    if (sharedSession?.id === id) {
+      window.location.href = withKeptParams(window.location.pathname, ['share']);
     }
   };
 
@@ -4394,6 +4373,7 @@ const App: React.FC = () => {
         <Suspense fallback={<PageLoading />}>
           <MemberPortal
             pendingPhone={memberPortalPendingPhone}
+            onSharedSessionDeleted={handleSharedSessionRemoved}
             onClose={() => {
               setShowMemberPortal(false);
               setMemberPortalPendingPhone('');

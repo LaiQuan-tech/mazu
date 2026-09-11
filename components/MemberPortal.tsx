@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser, RefreshCw, ClipboardList, Flame, Calendar, HeartHandshake } from 'lucide-react';
+import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser, RefreshCw, ClipboardList, Flame, Calendar, HeartHandshake, Users } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents } from '../services/supabase';
+import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents, getMySharedHistory } from '../services/supabase';
+import { SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from '../services/sharedSessionStore';
+import { SharedSessionRecord } from '../types';
 import { MemberContact, MemberContactData, ProfileData, ZodiacSign, LampRegistrationStatus, BookingStatus, BlessingStatus } from '../types';
 import BirthDatePicker from './BirthDatePicker';
 
@@ -10,6 +12,23 @@ type PortalRecord =
   | { kind: 'lamp';     id: string; name: string; zodiac?: string; serviceName: string; status: LampRegistrationStatus; createdAt: string; }
   | { kind: 'booking';  id: string; name: string; zodiac?: string; consultType: string;  bookingDate: string; status: BookingStatus; divineMessage?: string; createdAt: string; }
   | { kind: 'blessing'; id: string; name: string; zodiac?: string; eventTitle: string;  packageName?: string; packageFee?: number; status: BlessingStatus; createdAt: string; };
+
+/** 揪團紀錄的一列：場次本身（刪除要用）＋算好的顯示文字 */
+interface SharedRow {
+  session: SharedSessionRecord;
+  /** 服務種類以外的補充：祈福是活動名稱、問事是日期時段；點燈沒有 */
+  detail?: string;
+  /** 每位親友一行：姓名＋選的項目（燈種／方案／問事類型），對不到就只有姓名 */
+  people: string[];
+  /** 送出了、還在進行、或連結到期沒送出（那一團沒成，主揪要知道） */
+  state: 'submitted' | 'open' | 'expired';
+}
+
+/** 揪團場次的顯示狀態。到期與否看 expires_at，資料庫不會主動改 status */
+const sharedState = (s: SharedSessionRecord): SharedRow['state'] =>
+  s.status === 'submitted' ? 'submitted'
+  : new Date(s.expiresAt).getTime() < Date.now() ? 'expired'
+  : 'open';
 
 // 簡繁對映（lunar-javascript 部分生肖用簡體）
 /*
@@ -24,6 +43,8 @@ type PortalRecord =
 interface MemberPortalProps {
   onClose: () => void;
   pendingPhone?: string; // 訪客預約電話，用於自動預填個人資料
+  /** 在會員中心刪了一張揪團報名表。服務頁的「還沒送出」提示卡拿的是同一批資料，要跟著拿掉 */
+  onSharedSessionDeleted?: (id: string) => void;
 }
 
 const ZODIAC_OPTIONS = Object.values(ZodiacSign);
@@ -348,7 +369,7 @@ const ProfileFormInline = ({
 };
 
 // ── MemberPortal 主元件 ───────────────────────────────────────────────────────
-const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) => {
+const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSharedSessionDeleted }) => {
   // ── auth state ──
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -362,6 +383,12 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
 
   // ── portal tab ──
   const [portalTab, setPortalTab] = useState<'profile' | 'contacts' | 'records'>('profile');
+  /**
+   * 這個帳號開過的每一張揪團報名表（不分狀態、含過期）。
+   * 報名紀錄是拿電話比對 lamp_registrations 等表撈的；揪團送出時親友填了自己的
+   * 電話那筆就掛親友的，主揪那邊看不到——所以揪團要另外列，直接顯示場次＋名單。
+   */
+  const [sharedRows, setSharedRows] = useState<SharedRow[] | null>(null);
 
   // ── profile state ──
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -393,17 +420,42 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
   const loadRecords = async () => {
     setRecordsLoading(true);
     try {
-      const prof = await getProfile();
-      if (!prof?.phone) { setAllRecords([]); return; }
-      const [lamps, bookings, blessings, lampCfgs, events] = await Promise.all([
-        getMyLampRegistrations(prof.phone),
-        getMyBookings(prof.phone),
-        getMyBlessingRegistrations(prof.phone),
+      const [prof, lampCfgs, events, shared] = await Promise.all([
+        getProfile(),
         getLampServiceConfigs(),
         getBlessingEvents(),
+        getMySharedHistory().catch(() => [] as SharedSessionRecord[]),
       ]);
       const lampMap  = new Map(lampCfgs.map(c => [c.id, c.name]));
       const eventMap = new Map(events.map(e => [e.id, e.title]));
+
+      // 揪團不看電話，沒填電話的會員也看得到自己開的表
+      setSharedRows(shared.map(s => {
+        const c = s.config;
+        const when = c.bookingDate
+          ? `${new Date(c.bookingDate).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}${c.bookingTime ? ` ${c.bookingTime}` : ''}`
+          : '';
+        const extra = s.serviceType === 'blessing' ? (c.eventTitle ?? eventMap.get(c.eventId ?? '')) : s.serviceType === 'booking' ? when : '';
+        const packages = s.serviceType === 'blessing' ? events.find(e => e.id === c.eventId)?.packages : undefined;
+        return {
+          session: s,
+          state: sharedState(s),
+          detail: extra || undefined,
+          people: s.entries.map(e => {
+            const pick = s.serviceType === 'lamp' ? lampMap.get(e.serviceId ?? '')
+              : s.serviceType === 'blessing' ? packages?.find(p => p.id === e.packageId)?.name
+              : e.bookingType;
+            return pick ? `${e.name}・${pick}` : e.name;
+          }),
+        };
+      }));
+
+      if (!prof?.phone) { setAllRecords([]); return; }
+      const [lamps, bookings, blessings] = await Promise.all([
+        getMyLampRegistrations(prof.phone),
+        getMyBookings(prof.phone),
+        getMyBlessingRegistrations(prof.phone),
+      ]);
       const all: PortalRecord[] = [
         ...lamps.map(r => ({ kind: 'lamp'     as const, id: r.id, name: r.name, zodiac: r.zodiac, serviceName: lampMap.get(r.serviceId) ?? r.serviceId, status: r.status, createdAt: r.createdAt })),
         ...bookings.map(r => ({ kind: 'booking' as const, id: r.id, name: r.name, zodiac: r.zodiac, consultType: r.type, bookingDate: (r as any).bookingDate, status: r.status as any, divineMessage: r.divineMessage, createdAt: (r as any).createdAt })),
@@ -413,6 +465,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
       setAllRecords(all);
     } catch { setAllRecords([]); }
     finally { setRecordsLoading(false); }
+  };
+
+  /** 從紀錄裡刪掉一張還沒送出的揪團報名表。警示與刪除跟服務頁共用同一支 */
+  const handleDeleteShared = async (session: SharedSessionRecord) => {
+    const deleted = await confirmAndDeleteSharedSession(session);
+    if (!deleted) return;
+    setSharedRows(prev => prev ? prev.filter(r => r.session.id !== session.id) : prev);
+    onSharedSessionDeleted?.(session.id);
   };
 
   // 切換到報名紀錄 tab 時懶加載
@@ -811,13 +871,96 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
 
                     {recordsLoading ? (
                       <div className="text-center py-10 text-gray-400 text-sm">載入中…</div>
-                    ) : !allRecords || allRecords.length === 0 ? (
-                      <div className="text-center py-10">
-                        <ClipboardList className="w-10 h-10 mx-auto text-gray-200 mb-3" />
-                        <p className="text-gray-400 text-sm">尚無報名紀錄</p>
-                        <p className="text-gray-300 text-xs mt-1">完成點燈、問事或祈福報名後會顯示於此</p>
-                      </div>
                     ) : (
+                      <>
+                        {/* ── 揪團報名表：整張表為一筆，名單列在裡面 ──
+                            個別報名是用電話撈的，親友填了自己電話的那幾筆主揪看不到；
+                            這裡才是主揪看得到「整團」的地方。已送出的只能看，不給刪（紀錄要留） */}
+                        {sharedRows && sharedRows.length > 0 && (
+                          <div className="mb-6">
+                            <p className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5" />揪團報名表
+                            </p>
+                            <div className="space-y-2.5">
+                              {sharedRows.map(({ session, detail, people, state }) => {
+                                const t = session.serviceType;
+                                const kindLabel = SHARED_LABEL[t];
+                                const kindColor = t === 'lamp' ? 'bg-orange-100 text-orange-700' : t === 'booking' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+                                const kindIcon  = t === 'lamp' ? <Flame className="w-3 h-3" /> : t === 'booking' ? <Calendar className="w-3 h-3" /> : <HeartHandshake className="w-3 h-3" />;
+                                const stateLabel = state === 'open' ? '進行中' : state === 'submitted' ? '已送出' : '已過期';
+                                const stateColor =
+                                  state === 'open'      ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                                  state === 'submitted' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                  'bg-gray-50 text-gray-500 border border-gray-200';
+                                const n = people.length;
+                                const summary =
+                                  state === 'submitted' ? `已送出 ${n} 人的報名` :
+                                  state === 'expired'   ? (n > 0 ? `連結已過期，這 ${n} 人的報名沒有送出` : '連結已過期，沒有人填寫') :
+                                  (n > 0 ? `已有 ${n} 人加入，等您送出` : '還沒有人填寫');
+                                const dateStr = new Date(session.createdAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                                return (
+                                  <div key={session.id} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="flex items-center gap-1.5">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${kindColor}`}>
+                                          {kindIcon}{kindLabel}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-temple-gold/15 text-temple-dark">
+                                          <Users className="w-3 h-3" />揪團
+                                        </span>
+                                      </span>
+                                      <span className="text-xs text-gray-400">{dateStr}</span>
+                                    </div>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                        {detail && <p className="text-xs text-gray-500 mt-0.5">{detail}</p>}
+                                      </div>
+                                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${stateColor}`}>{stateLabel}</span>
+                                    </div>
+                                    {n > 0 && (
+                                      <ul className="text-xs text-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
+                                        {people.map((who, i) => <li key={i} className="truncate">{who}</li>)}
+                                      </ul>
+                                    )}
+                                    {state !== 'submitted' && (
+                                      // 刪除做小、做淡並與「繼續」拉開，破壞性動作不能挨著主要動作（同服務頁的提示卡）
+                                      <div className="flex items-center justify-end gap-3 pt-1">
+                                        {state === 'open' && (
+                                          // 整頁導向而不是關掉視窗改狀態：?share= 的載入流程只在進站時跑一次
+                                          <a href={`${SERVICE_PATH[t]}?share=${session.id}`} className="text-sm font-medium text-temple-red hover:underline">
+                                            繼續 →
+                                          </a>
+                                        )}
+                                        <button type="button" onClick={() => handleDeleteShared(session)}
+                                          className="flex items-center gap-1 p-2 text-xs text-gray-400 hover:text-red-600 transition-colors">
+                                          <Trash2 className="w-4 h-4" />刪除
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {!allRecords || allRecords.length === 0 ? (
+                          // 有揪團紀錄時不再說「尚無紀錄」——上面明明列了東西
+                          sharedRows && sharedRows.length > 0 ? null : (
+                            <div className="text-center py-10">
+                              <ClipboardList className="w-10 h-10 mx-auto text-gray-200 mb-3" />
+                              <p className="text-gray-400 text-sm">尚無報名紀錄</p>
+                              <p className="text-gray-300 text-xs mt-1">完成點燈、問事或祈福報名後會顯示於此</p>
+                            </div>
+                          )
+                        ) : (
+                          <>
+                            {sharedRows && sharedRows.length > 0 && (
+                              <p className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1.5">
+                                <ClipboardList className="w-3.5 h-3.5" />各筆報名
+                              </p>
+                            )}
                       <div className="space-y-2.5">
                         {allRecords.map(rec => {
                           const kindLabel  = rec.kind === 'lamp' ? '點燈' : rec.kind === 'booking' ? '問事' : '祈福';
@@ -865,6 +1008,9 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone }) =>
                           );
                         })}
                       </div>
+                          </>
+                        )}
+                      </>
                     )}
                   </>
                 )}
