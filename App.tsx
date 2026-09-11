@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
-  Calendar, ClipboardList,
+  Calendar, ClipboardList, Trash2,
   Clock,
   MapPin,
   Phone,
@@ -44,7 +44,7 @@ import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, Bl
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, deleteSharedSession, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
@@ -331,10 +331,25 @@ const SHARED_LABEL: Record<SharedServiceType, string> = {
  * 醒目的邊框，而不是一行淡淡的文字連結。人數也寫出來——「已有 3 人加入」
  * 比「有一張未完成的表」更能讓人想起這件事還沒做完。
  */
+/**
+ * 親友點到已失效的揪團連結時的提示。
+ * 沒有這個的話，?share= 指到不存在的表只會靜靜顯示一般頁面，親友會以為網站壞了
+ * 或自己按錯，然後打電話問主揪。講清楚「這張表已經不在了」比什麼都不說好。
+ */
+const SharedMissingNotice: React.FC = () => (
+  <div role="alert" className="mb-6 rounded-2xl border-2 border-amber-300 bg-amber-50 px-5 py-4">
+    <p className="font-serif text-lg font-bold text-temple-dark mb-1">找不到這張揪團報名表</p>
+    <p className="text-sm text-gray-700 leading-relaxed">
+      可能是發起人已經刪除，或是連結超過七天已失效。請向邀請您的親友確認，或直接在下方自行登記。
+    </p>
+  </div>
+);
+
 const PendingSharedCard: React.FC<{
   rows: { meta: MySharedSession; session: SharedSessionRecord }[];
   onOpen: (meta: MySharedSession) => void;
-}> = ({ rows, onOpen }) => (
+  onDelete: (session: SharedSessionRecord) => void;
+}> = ({ rows, onOpen, onDelete }) => (
   <div className="mb-6 rounded-2xl border-2 border-temple-gold bg-temple-gold/10 p-5">
     <p className="font-serif text-lg font-bold text-temple-dark mb-1">
       您有 {rows.length} 張還沒送出的揪團報名表
@@ -344,14 +359,13 @@ const PendingSharedCard: React.FC<{
     </p>
     <div className="space-y-2">
       {rows.map(({ meta, session }) => (
-        <button
+        // 整列原本是一顆按鈕；要放第二個動作（刪除）就得拆成 div，否則 button 不能包 button
+        <div
           key={meta.id}
-          type="button"
-          onClick={() => onOpen(meta)}
-          className="w-full text-left rounded-xl bg-white border border-temple-gold/40 px-4 py-3 hover:border-temple-red transition-colors flex items-center justify-between gap-3"
+          className="w-full rounded-xl bg-white border border-temple-gold/40 px-4 py-3 flex items-center justify-between gap-3"
         >
-          <span className="min-w-0">
-            <span className="block font-medium text-temple-dark">
+          <button type="button" onClick={() => onOpen(meta)} className="min-w-0 flex-1 text-left group">
+            <span className="block font-medium text-temple-dark group-hover:text-temple-red transition-colors">
               {SHARED_LABEL[session.serviceType]}
               {session.config.eventTitle ? `・${session.config.eventTitle}` : ''}
             </span>
@@ -359,9 +373,14 @@ const PendingSharedCard: React.FC<{
               {session.entries.length > 0 ? `已有 ${session.entries.length} 人加入` : '還沒有人填寫'}
               　建立於 {session.createdAt.slice(0, 10)}
             </span>
-          </span>
-          <span className="shrink-0 text-sm font-medium text-temple-red">繼續 →</span>
-        </button>
+          </button>
+          <button type="button" onClick={() => onOpen(meta)} className="shrink-0 text-sm font-medium text-temple-red">繼續 →</button>
+          {/* 刪除做小、做淡，跟「繼續」拉開距離——長輩的手指按不準，破壞性動作不能挨著主要動作 */}
+          <button type="button" onClick={() => onDelete(session)} aria-label="刪除這張揪團報名表"
+            className="shrink-0 ml-2 p-2 text-gray-300 hover:text-red-600 transition-colors">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       ))}
     </div>
   </div>
@@ -855,6 +874,8 @@ const App: React.FC = () => {
 
   // ── 共享報名表 ──
   const [sharedSession,      setSharedSession]      = useState<SharedSessionRecord | null>(null);
+  /** 網址帶 ?share= 但那張表已不存在（主揪刪了或已到期），要提示親友而不是靜靜顯示一般頁面 */
+  const [sharedMissing,      setSharedMissing]      = useState(false);
   const [isCreator,          setIsCreator]           = useState(false);
   /**
    * 這台瀏覽器開過、但**還沒送出**的共享報名表。
@@ -1082,7 +1103,12 @@ const App: React.FC = () => {
     const shareId = new URLSearchParams(window.location.search).get('share');
     if (shareId) {
       getSharedSession(shareId).then(async session => {
-        if (!session) return;
+        if (!session) {
+          // 連結指到的表已不存在（主揪刪了、或 7 天到期被清）。原本這裡靜靜 return，
+          // 親友點連結看到的是一般頁面，會以為網站壞了或自己按錯。要講清楚。
+          setSharedMissing(true);
+          return;
+        }
         setSharedSession(session);
         // 主揪身分優先看帳號。這裡直接問 auth 而不是讀 member 狀態：
         // 這支 effect 與 getSession() 是兩個各自進行的非同步流程，
@@ -1671,6 +1697,43 @@ const App: React.FC = () => {
       手動同步狀態容易漏掉某一項（例如 isCreator、頁面切換），重載最不會錯 */
   const openMyShared = (meta: MySharedSession): void => {
     window.location.href = `${meta.path}?share=${meta.id}`;
+  };
+
+  /**
+   * 主揪主動刪除一張共享報名表（廟方 2026-09-12 要求，原本只能等 7 天到期）。
+   *
+   * 一定要先警示：名單會跟著沒（ON DELETE CASCADE），而且分享出去的連結會失效——
+   * 親友再點會看到「找不到這張報名表」。這兩件事都無法復原，要讓主揪看清楚再按。
+   * 用 confirm() 與通訊錄刪聯絡人同一個做法，不另做一個彈窗。
+   *
+   * 刪完若正在看的就是這一張，整頁重載回沒有 ?share= 的網址——理由同 openMyShared，
+   * 手動把 sharedSession／isCreator／網址／清單一項項清掉太容易漏。
+   */
+  const handleDeleteSharedSession = async (session: SharedSessionRecord): Promise<void> => {
+    const n = session.entries.length;
+    const ok = window.confirm(
+      `確定要刪除這張揪團報名表嗎？\n\n` +
+      (n > 0 ? `已加入的 ${n} 位親友資料會一起刪除，無法復原。\n` : '') +
+      `分享出去的連結會失效，親友再點會看到「找不到這張報名表」。`
+    );
+    if (!ok) return;
+    try {
+      const deleted = await deleteSharedSession(session.id);
+      if (!deleted) {
+        // RLS 擋下（不是本人、或是沒有擁有者的舊場次）：DELETE 靜默 0 列，不會報錯
+        alert(session.createdBy
+          ? '只有建立這張報名表的人可以刪除。'
+          : '這張是舊版建立的報名表，沒有紀錄建立者，無法手動刪除，會在到期後自動失效。');
+        return;
+      }
+      forgetMyShared(session.id);
+      setMyPending(prev => prev.filter(x => x.session.id !== session.id));
+      if (sharedSession?.id === session.id) {
+        window.location.href = withKeptParams(window.location.pathname, ['share']);
+      }
+    } catch {
+      alert('刪除失敗，請稍後再試。');
+    }
   };
 
   const isSharedGuest = (type: SharedServiceType): boolean =>
@@ -2579,9 +2642,10 @@ const App: React.FC = () => {
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#D4854A 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {sharedMissing && page === 'booking' && <SharedMissingNotice />}
           {pendingSharedFor('booking').length > 0 && (
             <div className="max-w-2xl mx-auto">
-              <PendingSharedCard rows={pendingSharedFor('booking')} onOpen={openMyShared} />
+              <PendingSharedCard rows={pendingSharedFor('booking')} onOpen={openMyShared} onDelete={handleDeleteSharedSession} />
             </div>
           )}
           <div className="text-center mb-12">
@@ -2632,6 +2696,7 @@ const App: React.FC = () => {
               memberProfile={memberProfile}
               onAddEntries={handleAddSharedEntries}
               onSubmitAll={handleSubmitSharedSession}
+              onDelete={() => handleDeleteSharedSession(sharedSession)}
               onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
               submitStatus={sharedSubmitStatus}
             />
@@ -2861,9 +2926,10 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* 未送出的揪團提示放在**整個區塊最上面**。放在表單上方實測是 1238px，
               手機得先滑過四張行銷卡才看得到，等於沒提醒（廟方要求「要很明顯」）。 */}
+          {sharedMissing && page === 'lamps' && <SharedMissingNotice />}
           {pendingSharedFor('lamp').length > 0 && (
             <div className="max-w-2xl mx-auto">
-              <PendingSharedCard rows={pendingSharedFor('lamp')} onOpen={openMyShared} />
+              <PendingSharedCard rows={pendingSharedFor('lamp')} onOpen={openMyShared} onDelete={handleDeleteSharedSession} />
             </div>
           )}
           {/* Header。被邀請者用精簡版：他是被找來填一筆資料的，不需要整套服務介紹 */}
@@ -2928,6 +2994,7 @@ const App: React.FC = () => {
                 memberProfile={memberProfile}
                 onAddEntries={handleAddSharedEntries}
                 onSubmitAll={handleSubmitSharedSession}
+                onDelete={() => handleDeleteSharedSession(sharedSession)}
                 onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
                 submitStatus={sharedSubmitStatus}
               />
@@ -3121,9 +3188,10 @@ const App: React.FC = () => {
         {/* 左右邊界都空 7/10，取右側與 /lamps 一致 */}
         <PatternMedallion motif="phoenix" side="r" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {sharedMissing && page === 'blessing' && <SharedMissingNotice />}
           {pendingSharedFor('blessing').length > 0 && (
             <div className="max-w-2xl mx-auto">
-              <PendingSharedCard rows={pendingSharedFor('blessing')} onOpen={openMyShared} />
+              <PendingSharedCard rows={pendingSharedFor('blessing')} onOpen={openMyShared} onDelete={handleDeleteSharedSession} />
             </div>
           )}
           <div className="text-center mb-12">
@@ -3263,6 +3331,7 @@ const App: React.FC = () => {
               memberProfile={memberProfile}
               onAddEntries={handleAddSharedEntries}
               onSubmitAll={handleSubmitSharedSession}
+              onDelete={() => handleDeleteSharedSession(sharedSession)}
               onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
               submitStatus={sharedSubmitStatus}
             />

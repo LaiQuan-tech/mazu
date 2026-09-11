@@ -37,12 +37,14 @@ interface SharedFormPanelProps {
   onAddEntries:  (entries: Omit<SharedEntryData, 'sessionId'>[]) => Promise<void>;
   onSubmitAll:   () => Promise<void>;
   onRefresh:     () => Promise<void>;
+  /** 主揪刪掉整張表（含名單）。警示在呼叫端做，這裡只放按鈕 */
+  onDelete?:     () => Promise<void>;
   submitStatus:  'idle' | 'loading' | 'success' | 'error';
 }
 
 const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
   session, isCreator, lampConfigs, blessingEvent, memberProfile,
-  onAddEntries, onSubmitAll, onRefresh, submitStatus,
+  onAddEntries, onSubmitAll, onRefresh, onDelete, submitStatus,
 }) => {
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>([emptyEntry()]);
   const [addStatus, setAddStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -318,6 +320,14 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
               disabled={submitStatus === 'loading' || submitStatus === 'success'}
               className="w-full py-2.5 border-2 border-temple-red text-temple-red rounded-xl text-sm font-semibold hover:bg-temple-red/5 transition-colors disabled:opacity-60">
               {submitStatus === 'loading' ? '送出中…' : `確認送出全部（共 ${session.entries.length} 人）`}
+            </button>
+          )}
+          {/* 刪除放最下面、做成文字連結而不是按鈕：它是破壞性動作，不該跟「加入」「送出」
+              長得一樣、擺在一起被誤按。只有主揪看得到；被揪的人本來就刪不掉（RLS）。 */}
+          {isCreator && onDelete && (
+            <button type="button" onClick={onDelete}
+              className="w-full pt-2 text-xs text-gray-400 hover:text-red-600 underline underline-offset-2 transition-colors">
+              刪除這張揪團報名表
             </button>
           )}
         </div>

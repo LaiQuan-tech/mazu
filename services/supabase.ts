@@ -1438,6 +1438,20 @@ export const getMySharedSessions = async (): Promise<SharedSessionRecord[]> => {
   return (data as any[]).map(mapSharedSession);
 };
 
+/**
+ * 主揪刪掉自己的共享報名表。名單靠 ON DELETE CASCADE 一起清。
+ * RLS 只放行 created_by = auth.uid()：被揪的人拿著連結刪不掉；
+ * 舊場次（created_by 為 NULL）也刪不掉，只能等到期——放寬會讓任何人能刪別人的表。
+ *
+ * **不要相信回傳沒 error 就代表刪了**：RLS 擋下的 DELETE 是靜默的 0 列，不會報錯
+ * （與 anon INSERT 被擋回 200 [] 是同一件事）。用 select('id') 讀回實際刪掉的列數。
+ */
+export const deleteSharedSession = async (id: string): Promise<boolean> => {
+  const { data, error } = await supabase.from('shared_sessions').delete().eq('id', id).select('id');
+  if (error) { console.error(error); throw error; }
+  return Array.isArray(data) && data.length > 0;
+};
+
 export const getSharedSession = async (id: string): Promise<SharedSessionRecord | null> => {
   const { data, error } = await supabase.rpc('get_shared_session', { p_id: id });
   if (error || !data) return null;
