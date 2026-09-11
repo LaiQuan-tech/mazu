@@ -2104,14 +2104,22 @@ const App: React.FC = () => {
         {/* 宮壇名：左上角直式書寫，直接穿過導覽列的高度。
             導覽列左側已清空（無 logo 與全名），首頁頂端又是透明底，所以疊得上去。
             z-20 必須低於導覽列的 z-50：往下捲時導覽列轉成米色不透明，
-            標題會自然滑進去被蓋掉；若把標題疊在導覽列之上，捲動時會看到字壓在色塊上。 */}
-        <h1
-          className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 text-white font-serif font-bold
-                     text-4xl sm:text-6xl tracking-[0.25em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]
-                     [writing-mode:vertical-rl] [text-orientation:upright]"
-        >
-          和聖壇
-        </h1>
+            標題會自然滑進去被蓋掉；若把標題疊在導覽列之上，捲動時會看到字壓在色塊上。
+            「台北古亭」與那條短線是照分享卡的字標帶（scripts/assets/og-hero-wordmark.jpg）
+            補上的：卡片上一直有，網站上沒有，廟方 2026-09-12 要求兩邊一致。
+            地名不放進 h1——h1 是宮壇名，地名是說明；分頁標題與 og:title 已經帶著「台北古亭」。 */}
+        <div className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+          <h1
+            className="font-serif font-bold text-4xl sm:text-6xl tracking-[0.25em]
+                       [writing-mode:vertical-rl] [text-orientation:upright]"
+          >
+            和聖壇
+          </h1>
+          <div aria-hidden="true" className="mt-3 sm:mt-5 w-9 sm:w-14 border-t-2 border-white/75" />
+          {/* 地名落在上緣遮罩之外（遮罩到 36% 高就收乾淨），白字直接壓在亮金上；
+              補一圈貼著筆畫的暗影當底，不然 18px 的細字在金底上會發虛 */}
+          <p className="mt-2.5 sm:mt-4 font-serif text-sm sm:text-lg tracking-[0.45em] text-white whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">台北古亭</p>
+        </div>
 
         {/* Hero 前景：行動按鈕與三尊神明放在同一個 flex 容器裡，讓瀏覽器自己算避讓。
             神明的寬度是由 vh 高度推出來的，用 vw 寫死按鈕位置在平板尺寸會夾在
