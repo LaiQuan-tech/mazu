@@ -3385,10 +3385,13 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   </div>
                 </td>
                 <td data-label="圖片" className="px-6 py-4">
-                  {/* 整張縮小放進直式框，不裁切（廟方 2026-09-20 要求：後台看得到整張照片就好）。
-                      框維持 3:4 是為了列高一致；照片比例不同時上下或左右留白。 */}
+                  {/* 整張縮小、不裁切（廟方 2026-09-20 要求）。**不加底色框**：先前用灰底直式框
+                      裝縮小的照片，照片比例一不同就露出上下兩截灰邊，廟方說像藥丸。
+                      改成照片本身依比例縮到 64px 高以內，外層只固定列高讓各列對齊。 */}
                   {d.imagePath ? (
-                    <img src={getSiteImagePublicUrl(d.imagePath)} alt={d.name} className="w-12 h-16 rounded-lg object-contain bg-gray-100" />
+                    <div className="h-16 flex items-center">
+                      <img src={getSiteImagePublicUrl(d.imagePath)} alt={d.name} className="max-h-16 max-w-16 w-auto h-auto rounded-md" />
+                    </div>
                   ) : (
                     <div className="w-12 h-16 rounded-lg bg-gray-100 flex items-center justify-center"><Flame className="w-5 h-5 text-gray-300" /></div>
                   )}
@@ -3466,13 +3469,13 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                 <label className="block text-sm font-medium text-gray-700 mb-1">圖片</label>
                 {imagePreview ? (
                   <div className="flex items-start gap-3 mb-2">
-                    {/* 整張縮小預覽、不裁切（廟方 2026-09-20 要求）。
+                    {/* 整張縮小預覽、不裁切、不加底色框（廟方 2026-09-20 要求，理由同列表縮圖）。
                         這裡原本刻意模擬前台 3:4 的裁切結果；改成完整顯示後，前台會裁的事
                         改用文字說明，別讓廟方以為前台也是整張。 */}
-                    <div className="relative w-28 aspect-[3/4] shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                      <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
+                    <div className="relative shrink-0">
+                      <img src={imagePreview} alt="Preview" className="max-h-40 max-w-40 w-auto h-auto rounded-xl" />
                       <button onClick={() => { setImageFile(null); setImagePreview(null); setForm({ ...form, imagePath: null }); }}
-                        className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"><X className="w-3.5 h-3.5" /></button>
+                        className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 hover:bg-black/80" aria-label="移除圖片"><X className="w-3.5 h-3.5" /></button>
                     </div>
                     <p className="text-xs text-gray-400 leading-relaxed">
                       左側為整張照片縮小預覽。<br />
