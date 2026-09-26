@@ -116,20 +116,36 @@ const BREATH_HZ = [0.037, 0.061, 0.089];
 const BREATH_DEPTH = 0.42;
 
 /**
- * 香爐的位置：佔畫布寬度。左右各一爐。
+ * 香爐的位置：佔畫布寬度。**全站只有這一爐**（廟方 2026-09-26 確認：實際只有左邊
+ * 那一爐，神明後面沒有香）。曾經做過右邊再加一爐，已移除。
  *
- * **關鍵是「每一叢都要從自己那個爐口聚攏升起」**——廟裡是一個爐插很多支香，
- * 煙在爐口幾乎重疊、越往上才散開。做成各自獨立的平行煙柱就沒有共同的源頭，
- * 看起來像貼了好幾條線（第一版就是這樣，廟方指正了）。
+ * **關鍵是「所有的煙都從這個爐口聚攏升起」**——廟裡是一個爐插很多支香，煙在爐口
+ * 幾乎重疊、越往上才散開。做成各自獨立的平行煙柱就沒有共同的源頭，看起來像貼了
+ * 好幾條線（第一版就是這樣，廟方指正了）。
  *
- * 位置是量出來的：1280px 實測三尊神像橫跨 30.6%～69.4%，所以爐放在左右兩塊
- * 空白的中間。左爐 0.25 沿用原本那一柱的位置（再往左會被「和聖壇」直式標題壓到）。
+ * 桌機的 0.25 是量出來的：再往左會被「和聖壇」直式標題壓到（實測標題佔 5.1%～15.4%），
+ * 再往右就進神尊區（1280px 實測三尊橫跨 30.6%～69.4%）。手機另有一組值，見下。
  */
-const CENSER_X = [0.25, 0.76];
+const CENSER_X_WIDE = 0.25;
+/**
+ * 窄螢幕的爐口要往右挪。
+ *
+ * 擺幅是以**畫布高度**為基準（`SWAY * h`），手機又高又窄，同樣的像素擺幅換算成
+ * 寬度百分比就大得多——桌機（1009×768）量到煙佔 17.2%～30.9%，同一組參數在手機
+ * （390×844）卻散到 3.1%～40.5%，左邊直接壓到直式標題（實測佔 5.1%～15.4%）。
+ * 手機上神尊橫跨 −1.6%～101.6%（整個寬度），煙本來就是從神尊背後經過（z-10 對
+ * z-20），所以往右挪不會有新問題，只是讓開標題。
+ */
+const CENSER_X_NARROW = 0.34;
 
 /**
- * 煙往外散開的速率。越高散得越開，`u^1.25` 讓它在爐口幾乎不散、越往上越開，
- * 這是真的香爐的樣子——不是從底部就呈扇形。
+ * 煙往外散開的速率。`u^1.25` 讓它在爐口幾乎不散、越往上越開，這是真的香爐的
+ * 樣子——不是從底部就呈扇形。
+ *
+ * **散開的幅度要收住，而且要把擺幅一起算進去**：煙的橫向範圍 = `spread` ＋ 擺幅，
+ * 而擺幅（`SWAY`，以畫布高度為基準）本身就佔約 ±5% 的畫布寬度。只看 spread 會低估，
+ * 第一版開到 ±0.07 就量出 14.1%～34.9%，兩邊都越界。改動後要用讀畫布像素的方式
+ * 實測左右緣，不要用眼睛估。
  */
 const fanOut = (u: number): number => Math.pow(u, 1.25);
 
@@ -145,8 +161,6 @@ const fanOut = (u: number): number => Math.pow(u, 1.25);
  * 神尊的範圍也是從背後掠過，不會糊到臉——那反而像真的廟裡的樣子。
  */
 interface Strand {
-  /** 屬於哪一爐（CENSER_X 的索引） */
-  censer: number;
   /** 在爐內的位置偏移（佔畫布寬度）。香是一支支插著的，不是全部疊在同一點 */
   base: number;
   /** 升到頂端時往外散開多少（佔畫布寬度），正右負左 */
@@ -172,15 +186,14 @@ interface Strand {
 }
 
 const STRANDS: Strand[] = [
-  // ── 左爐（0.25）。主柱位置與原本那一柱完全一致，散開為 0 ──
-  { censer: 0, base:  0.000, spread:  0.00, from: 0.00, phase: 0.0, sway: 1.00, width: 1.00, alpha: 1.00, height: 1.00, speed: 1.00, freq: 1.00, mobile: true },
-  { censer: 0, base:  0.004, spread:  0.05, from: 0.42, phase: 2.7, sway: 1.35, width: 0.62, alpha: 0.50, height: 1.00, speed: 1.00, freq: 1.09, mobile: true },  // 主柱的分岔
-  { censer: 0, base: -0.011, spread: -0.08, from: 0.04, phase: 4.1, sway: 0.85, width: 0.72, alpha: 0.46, height: 0.90, speed: 1.13, freq: 0.78, mobile: true },
-  { censer: 0, base:  0.013, spread:  0.10, from: 0.06, phase: 1.9, sway: 1.10, width: 0.60, alpha: 0.32, height: 0.78, speed: 0.87, freq: 1.31, mobile: false },
-  // ── 右爐（0.76）。整體比左爐淡一階，像是站得比較遠的一爐 ──
-  { censer: 1, base:  0.000, spread:  0.00, from: 0.00, phase: 1.4, sway: 0.95, width: 0.88, alpha: 0.72, height: 0.94, speed: 0.90, freq: 0.86, mobile: false },
-  { censer: 1, base:  0.005, spread:  0.07, from: 0.48, phase: 5.0, sway: 1.40, width: 0.55, alpha: 0.34, height: 0.94, speed: 0.90, freq: 1.22, mobile: false },  // 右柱的分岔
-  { censer: 1, base: -0.012, spread: -0.09, from: 0.05, phase: 3.3, sway: 0.80, width: 0.58, alpha: 0.27, height: 0.76, speed: 1.22, freq: 0.71, mobile: false },
+  // 一爐五支香。散開幅度刻意壓得比直覺小：**煙的橫向範圍 = spread + 擺幅**，
+  // 而擺幅（SWAY，以畫布高度為基準）本身就佔約 ±5% 的寬度。第一版把 spread 開到
+  // ±0.07，量出來的實際範圍是 14.1%～34.9%——左邊壓到直式標題、右邊進了神尊區。
+  { base:  0.000, spread:  0.000, from: 0.00, phase: 0.0, sway: 1.00, width: 1.00, alpha: 1.00, height: 1.00, speed: 1.00, freq: 1.00, mobile: true },
+  { base:  0.003, spread:  0.018, from: 0.42, phase: 2.7, sway: 1.15, width: 0.62, alpha: 0.50, height: 1.00, speed: 1.00, freq: 1.09, mobile: true },  // 主柱的分岔
+  { base: -0.007, spread: -0.030, from: 0.04, phase: 4.1, sway: 0.75, width: 0.72, alpha: 0.46, height: 0.90, speed: 1.13, freq: 0.78, mobile: true },
+  { base:  0.008, spread:  0.028, from: 0.06, phase: 1.9, sway: 0.80, width: 0.60, alpha: 0.34, height: 0.80, speed: 0.87, freq: 1.31, mobile: true },
+  { base: -0.004, spread: -0.016, from: 0.24, phase: 5.4, sway: 1.00, width: 0.52, alpha: 0.30, height: 0.94, speed: 0.94, freq: 1.44, mobile: false },
 ];
 
 const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
@@ -200,6 +213,8 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
     let w = 0, h = 0;
     /** 這次要畫哪幾縷（窄螢幕只留 mobile 那幾條），resize 時重算 */
     let active: Strand[] = STRANDS;
+    /** 爐口位置，窄螢幕會往右挪讓開直式標題 */
+    let censerX = CENSER_X_WIDE;
 
     // 中心線、半寬、法線的暫存。每幀重算，先算好再讓四道共用，省掉重複的三角函式
     const N = SAMPLES;
@@ -223,7 +238,9 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
       canvas.style.width = '100%';
       canvas.style.height = '100%';
       // 以 CSS 像素判斷，不要用 w（w 已經乘過 dpr，高解析手機會被誤判成桌機）
-      active = r.width >= 640 ? STRANDS : STRANDS.filter(st => st.mobile);
+      const wide = r.width >= 640;
+      active = wide ? STRANDS : STRANDS.filter(st => st.mobile);
+      censerX = wide ? CENSER_X_WIDE : CENSER_X_NARROW;
       // 形狀往上跑的速度 = 煙速（1/RISE_SECONDS 個畫面高度／秒）
       omega = K.map((k, i) => (k / RISE_SECONDS) * DRIFT[i]);
       buildGradients();
@@ -272,7 +289,7 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
       const r = turb * SWAY * h * s.height * s.sway;
       return {
         // 從爐口同一處升起，越往上越往外散
-        x: (CENSER_X[s.censer] + s.base) * w + s.spread * fanOut(u) * w + sx * r,
+        x: (censerX + s.base) * w + s.spread * fanOut(u) * w + sx * r,
         // u 由下往上、畫布 y 由上往下；height < 1 的縷只升到畫布的一部分高度
         y: h - u * h * s.height + sy * r * COIL,
       };
