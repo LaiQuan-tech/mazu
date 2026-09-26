@@ -5,6 +5,7 @@ import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonati
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
+import AdminVouchersTab from './AdminVouchersTab';
 import AdminFeastsTab from './AdminFeastsTab';
 import AdminDonationTypesTab from './AdminDonationTypesTab';
 import AdminSiteInfoTab from './AdminSiteInfoTab';
@@ -20,10 +21,10 @@ import {
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, Menu, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser, Settings, Share2,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby,
-  Eye, EyeOff, ShoppingBag, Wrench
+  Eye, EyeOff, ShoppingBag, Wrench, Receipt
 } from 'lucide-react';
 
-type Tab = 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
+type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -5924,6 +5925,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'repairs',   label: '修復專案',   icon: <Wrench className="w-4 h-4" /> },
     { key: 'donations',    label: '捐獻管理',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'receivables', label: '應收管理',   icon: <Banknote className="w-4 h-4" /> },
+    { key: 'vouchers',    label: '財務憑證',   icon: <Receipt className="w-4 h-4" /> },
     { key: 'traffic',     label: '流量來源',   icon: <TrendingUp className="w-4 h-4" /> },
     { key: 'about',       label: '關於我們',   icon: <FileText className="w-4 h-4" /> },
     { key: 'relocation',  label: '遷址捐款',   icon: <HeartHandshake className="w-4 h-4" /> },
@@ -5964,7 +5966,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
    */
   const NAV_GROUPS: { title: string; keys: Tab[] }[] = [
     { title: '常用',       keys: ['overview', 'fahui', 'volunteer', 'bookings', 'lamps', 'blessings', 'donations'] },
-    { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'repairs', 'traffic'] },
+    { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'vouchers', 'repairs', 'traffic'] },
     { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'feasts', 'photos', 'scripture'] },
     { title: '系統設定',   keys: ['siteinfo', 'analytics', 'social'] },
   ];
@@ -6126,6 +6128,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
+              {tab === 'vouchers'    && <AdminVouchersTab />}
               {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}
               {tab === 'receivables' && <ReceivablesTab lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} donations={donations} memberProfiles={memberProfiles} />}
             </>

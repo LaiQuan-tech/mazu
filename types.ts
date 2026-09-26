@@ -10,9 +10,9 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['traffic', 'analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture', 'feasts'],
+  admin:   ['vouchers', 'traffic', 'analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture', 'feasts'],
   staff:   ['traffic', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'feasts'],
-  finance: ['overview', 'fahui', 'donations', 'receivables'],
+  finance: ['vouchers', 'overview', 'fahui', 'donations', 'receivables'],
 };
 
 // ─── 法會報名 ──────────────────────────────────────────────
@@ -712,3 +712,94 @@ export interface DeityFeastData {
 export interface DeityFeast extends DeityFeastData {
   id: string;
 }
+
+// ─── 財務憑證（支出／收入）─────────────────────────────────────
+/**
+ * 設計說明見 docs/finance-voucher-plan.md 與 supabase/migrations/finance_vouchers.sql。
+ *
+ * 兩件事在型別上就要守住：
+ * 1. **金額是一個整數，不是七個格子。** 紙本傳票把金額拆成「佰萬／拾萬／萬／仟／
+ *    佰／拾／元」是防竄改用的；資料只存數字，要印成傳票時才排進格子。
+ * 2. **憑證沒有 total 欄位。** 合計一律由明細加總——存下來就會有「單頭與明細
+ *    對不起來時該信哪個」的問題，而那無解。
+ */
+
+export type VoucherDirection = 'expense' | 'income';
+/** draft 打到一半、confirmed 財務確認、void 作廢（財務資料不刪，只作廢） */
+export type VoucherStatus = 'draft' | 'confirmed' | 'void';
+export type AttachmentKind = '支出傳票' | '發票' | '收據' | '其他';
+
+/** 收入憑證可以引用的業務紀錄來源。與 migration 的 CHECK 一致，改動要兩邊一起 */
+export type VoucherSourceTable =
+  | 'donations' | 'lamp_registrations' | 'blessing_registrations'
+  | 'bookings' | 'fahui_registrations';
+
+export const VOUCHER_SOURCE_LABEL: Record<VoucherSourceTable, string> = {
+  donations: '捐獻',
+  lamp_registrations: '點燈',
+  blessing_registrations: '祈福',
+  bookings: '問事',
+  fahui_registrations: '法會',
+};
+
+export interface AccountingAccountData {
+  code: string;
+  name: string;
+  direction: VoucherDirection | 'both';
+  sortOrder: number;
+  isActive: boolean;
+  note: string;
+}
+export interface AccountingAccount extends AccountingAccountData {
+  id: string;
+}
+
+export interface VoucherItemData {
+  seq: number;
+  accountId: string | null;
+  summary: string;
+  /** 元，整數。不拆格子 */
+  amount: number;
+  applicant: string;
+  /** 收入憑證才有：指向產生這筆錢的業務紀錄。兩個欄位必須同時有或同時無 */
+  sourceTable: VoucherSourceTable | null;
+  sourceId: string | null;
+}
+export interface VoucherItem extends VoucherItemData {
+  id: string;
+}
+
+export interface VoucherAttachment {
+  id: string;
+  itemId: string | null;
+  kind: AttachmentKind;
+  /** 私有 bucket 內的路徑，不是可直接開的網址。要看檔案得換簽名網址 */
+  storagePath: string;
+  fileName: string;
+  mime: string | null;
+  sizeBytes: number | null;
+  uploadedAt: string;
+}
+
+export interface VoucherData {
+  direction: VoucherDirection;
+  /** 單號。UNIQUE，但可自己填——擋重號而不是強迫格式 */
+  voucherNo: string;
+  /** 傳票日期 YYYY-MM-DD */
+  voucherDate: string;
+  summary: string;
+  status: VoucherStatus;
+  note: string;
+}
+
+export interface VoucherRecord extends VoucherData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  items: VoucherItem[];
+  attachments: VoucherAttachment[];
+}
+
+/** 合計一律算出來，不從資料庫讀 */
+export const voucherTotal = (items: { amount: number }[]): number =>
+  items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
