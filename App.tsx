@@ -753,8 +753,10 @@ const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
     <div className="space-y-5">
       {blocks.map((block, bi) => {
         if (block.kind === 'items') {
+          // overflow-hidden 讓清單自成一個 BFC：碰到浮動的圖時會讓開而不是疊上去，
+          // 否則金色左框會停在欄位最左邊、文字卻被圖推到右邊
           return (
-            <ul key={bi} className="space-y-2.5 border-l-2 border-temple-gold/30 pl-5 py-0.5">
+            <ul key={bi} className="overflow-hidden space-y-2.5 border-l-2 border-temple-gold/30 pl-5 py-0.5">
               {block.items.map((it, i) => (
                 <li key={i} className="flex gap-3">
                   <BulletDiamond />
@@ -771,7 +773,7 @@ const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
         }
         if (block.kind === 'ordered') {
           return (
-            <ol key={bi} className="space-y-2 pl-1">
+            <ol key={bi} className="overflow-hidden space-y-2 pl-1">
               {block.items.map((it, i) => (
                 <li key={i} className="flex gap-3">
                   <span className="font-serif font-bold text-temple-gold shrink-0 w-5 text-right leading-relaxed">{i + 1}</span>
@@ -2444,16 +2446,25 @@ const App: React.FC = () => {
                           直式照片的高度就遠超過 384px，object-cover 再從中間裁掉上下。
                           廟方的遷址募資海報實測只看得到中間 36%——標題與 QR code 全被切掉。
                           改成只給上限、不給固定值，瀏覽器自己維持長寬比：
-                          橫式照片受 max-w 限制、直式照片受 max-h 限制，兩種都完整顯示。 */}
+                          橫式照片受 max-w 限制、直式照片受 max-h 限制，兩種都完整顯示。
+
+                          桌機再讓文字繞著圖排（float-right）。**浮右不是浮左**：廟方的內文是
+                          每行 8-12 字的刻意斷行（實測文字實際只佔 160-240px，而欄寬有 844px），
+                          浮左會讓每一行都被推進去、左邊界參差；浮右則讓文字維持從左邊界起，
+                          多出來的空白剛好成為圖文之間的間距。
+                          手機不浮動——欄寬只有 306px，圖文並排兩邊都太窄。 */}
                       {bulletin.imageUrl && (
                         <img
                           src={bulletin.imageUrl}
                           alt={bulletin.title}
                           loading="lazy"
-                          className="block mx-auto max-w-full max-h-[32rem] rounded-xl border border-temple-gold/20 mb-4"
+                          className="block mx-auto mb-4 max-w-full max-h-[32rem] rounded-xl border border-temple-gold/20
+                                     sm:float-right sm:mx-0 sm:ml-6 sm:mb-3 sm:max-w-[40%]"
                         />
                       )}
                       <BulletinBody content={bulletin.content} />
+                      {/* 收掉浮動，否則下面那顆「前往登記」按鈕會擠到圖片旁邊 */}
+                      <div className="clear-both" />
                       {bulletin.linkedService && (() => {
                         const svcLabel: Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
                         // 點燈／祈福／問事已各自獨立成頁，捐獻仍是首頁上的區塊
