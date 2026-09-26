@@ -2288,12 +2288,15 @@ const App: React.FC = () => {
                     </div>
                     {/* 收合時右側放小縮圖，讓有照片的活動一眼看得出來；沒照片就只有箭頭 */}
                     <div className="ml-4 flex items-center gap-3 flex-shrink-0">
+                      {/* 照片本身決定尺寸，不要框也不要底色——與後台神明管理同一個寫法
+                          （見 e127c7d：先做成 object-contain + 灰底，再拿掉框只留照片）。
+                          父層已經是 flex items-center，直式與橫式縮圖都會垂直置中對齊。 */}
                       {bulletin.imageUrl && expandedBulletin !== bulletin.id && (
                         <img
                           src={bulletin.imageUrl}
                           alt=""
                           loading="lazy"
-                          className="w-16 h-12 object-cover rounded-lg border border-temple-gold/20"
+                          className="max-h-12 max-w-16 w-auto h-auto rounded-lg"
                         />
                       )}
                       <div className="text-gray-400">
@@ -2307,12 +2310,18 @@ const App: React.FC = () => {
                   </button>
                   {expandedBulletin === bulletin.id && (
                     <div id={`bulletin-${bulletin.id}`} className="mt-4 pt-4 border-t border-gray-200">
+                      {/* 照片依自己的比例決定尺寸，不要塞進固定的框。
+                          原本是 `w-full max-h-96 object-cover`：寬度先撐滿欄位，
+                          直式照片的高度就遠超過 384px，object-cover 再從中間裁掉上下。
+                          廟方的遷址募資海報實測只看得到中間 36%——標題與 QR code 全被切掉。
+                          改成只給上限、不給固定值，瀏覽器自己維持長寬比：
+                          橫式照片受 max-w 限制、直式照片受 max-h 限制，兩種都完整顯示。 */}
                       {bulletin.imageUrl && (
                         <img
                           src={bulletin.imageUrl}
                           alt={bulletin.title}
                           loading="lazy"
-                          className="w-full max-h-96 object-cover rounded-xl border border-temple-gold/20 mb-4"
+                          className="block mx-auto max-w-full max-h-[32rem] rounded-xl border border-temple-gold/20 mb-4"
                         />
                       )}
                       <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>

@@ -3015,7 +3015,9 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 <td data-label="標題" className="px-5 py-4 font-medium text-gray-800">
                   <div className="flex items-center gap-3">
                     {b.imageUrl && (
-                      <img src={b.imageUrl} alt="" className="w-12 h-9 object-cover rounded-md border border-gray-200 shrink-0" />
+                      <div className="h-9 flex items-center shrink-0">
+                        <img src={b.imageUrl} alt="" className="max-h-9 max-w-12 w-auto h-auto rounded-md" />
+                      </div>
                     )}
                     <span>{b.title}</span>
                   </div>
@@ -3092,7 +3094,9 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 </label>
                 {form.imageUrl ? (
                   <div className="flex items-start gap-3">
-                    <img src={form.imageUrl} alt="活動照片" className="w-32 h-24 object-cover rounded-xl border border-gray-200" />
+                    {/* 廟方就是在這裡確認照片，裁切的話等於看不到自己傳了什麼。
+                        給上限不給固定值，直式與橫式都完整呈現。 */}
+                    <img src={form.imageUrl} alt="活動照片" className="max-h-40 max-w-40 w-auto h-auto rounded-xl" />
                     <div className="flex flex-col gap-2">
                       <label className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer text-center">
                         更換照片

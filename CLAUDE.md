@@ -129,6 +129,15 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **`ENABLE_CALENDAR` 開關要三個地方一起改**：本旗標、`scripts/prerender.js` 裡 `/calendar` 那筆的 `enabled`（sitemap 也由它產生）、`vercel.json` 的 rewrite 要排在萬用規則之前。**關閉時刻意不擋網址**——廟方要一邊在後台建資料一邊開前台核對，照 ENABLE_REPAIR 讓網址跳回首頁就沒法預覽；沒有連結指過去也不在 sitemap，信眾走不到。
   **預渲染只產生靜態殼**（meta 與 noscript 說明，見 `dist/calendar.html`），聖誕列表是執行期才向 Supabase 抓的。所以資料庫改 `is_visible` 之後前台立刻反映，不必重新建置；反過來說，開旗標前要先確認有 `is_visible = true` 的資料，否則信眾看到的是「行事曆尚未建立」。
   `prerender.js` 的 `ACTIVE_ROUTES = ROUTES.filter(r => r.enabled !== false)` 是這次加的，未開放的頁不預渲染、不進 sitemap、也不出現在各頁 noscript 的站內連結。
+- **公佈欄的照片依自己的比例顯示，不要塞進固定的框**（2026-09-26，廟方反映）：展開的大圖原本是 `w-full max-h-96 object-cover`——寬度先撐滿欄位，直式照片的高度就遠超過 384px，`object-cover` 再從中間裁掉上下。廟方的遷址募資海報（854×1280）實測**只看得到中間 36%，標題與 QR code 全被切掉**。
+  正解是**只給上限、不給固定值**：`block mx-auto max-w-full max-h-[32rem]`，不需要 `object-fit`——`<img>` 沒有被指定成固定尺寸時本來就維持長寬比，橫式受 `max-w` 限制、直式受 `max-h` 限制。實測直式 342×512、橫式 844×444、手機 306×458，三種都與原圖比例一致且不溢出。
+  **縮圖照「後台神明管理」既有的模式**（2026-09-2x 的 f086041 → e127c7d）：那邊先做成 `object-contain + bg-gray-100`，**第二步又把框與底色整個拿掉**，只留 `max-h-N max-w-N w-auto h-auto`，靠父層 `flex items-center` 對齊。公佈欄沿用同一套——前台收合縮圖 `max-h-12 max-w-16`、後台列表 `max-h-9 max-w-12`（外包一層 `h-9 flex items-center`）、後台表單預覽 `max-h-40 max-w-40`，**與神明管理那支是同一串 class**。加底色框那一版是已經被否決過的中間狀態，不要再走回去。
+  後台表單預覽特別重要：**廟方就是在那裡確認照片，裁切等於看不到自己傳了什麼**。
+  **已知的小代價**：拿掉固定框之後，`loading="lazy"` 的縮圖在載入前是 0×0，載入時會把後面的元素推一下。神明管理那邊也是同樣情況（只用 `h-9 flex` 保住高度、寬度沒保）。用固定高＋自動寬會在極寬的圖上被 `max-w` 夾成變形，所以維持現狀。
+  **其他照片區塊刻意沒動**：神尊（`aspect-[3/4]`）、修復專案（`aspect-[3/4]`）、點燈（`w-20 h-20`）、祈福都是**格狀排列**，固定比例是刻意的設計（神尊那條註解寫明 3:4 是為了直式立像才改的），格子不等高反而亂。公佈欄是單欄條列，沒有這個顧慮。
+- **EXIF 方向（`shrinkImage`，`services/supabase.ts`）**：`createImageBitmap(file)` 沒有傳 `{ imageOrientation: 'from-image' }`，方向完全交給瀏覽器預設值。2026-09-26 拿一張 `Orientation=6` 的手機直拍照（儲存 3088×2316、應顯示 2316×3088）實測，現行 Chromium **三種寫法都回 2316×3088**（連 `'none'` 都無效），`uploadBulletinImage` 輸出 1200×1600 是正的——所以**現代瀏覽器上沒有壞**。但這是靠瀏覽器預設值，不是靠程式；真要保險就把那個參數補上。
+  另外注意 `shrinkImage` 有四條早退路徑會**原檔直傳、EXIF 原封不動**（GIF、`createImageBitmap` 失敗、縮放比為 1 且 ≤800KB、壓完比原檔大），那些檔案的方向是靠瀏覽器渲染 `<img>` 時處理的。
+  **還有五支上傳完全沒走 `shrinkImage`**（`uploadSiteImage`／`uploadHeroSlide`／`uploadScriptureImage`／`uploadBlessingImage`／`uploadLampImage`），改 `shrinkImage` 只會影響公佈欄、神尊、修復專案、關於我們這四支。
 - **前台區塊要暫時隱藏就加旗標**，不要註解掉整段：照 `ENABLE_REPAIR`／`ENABLE_BULLETIN` 的模式，同時處理導覽列項目、區塊本身、捲動高亮，以及**其他頁面指向它的連結**（漏掉最後一項會變成「按了沒反應」）。
 - **不透明度修飾詞的數字必須落在 Tailwind 的級距上，否則整條規則靜默消失**：`bg-[#F0E9CE]/98` 產不出任何東西（級距沒有 98），元素變成完全沒有背景。手機選單就是這樣變成「沒有底色的純毛玻璃」——只剩 `backdrop-blur`，疊在 Hero 的金箔上文字幾乎看不見（廟方回報「玻璃霧面透明、看不清楚 menu 的內容」）。**它不會報錯**，class 明明寫著顏色卻毫無作用，只能靠量 `getComputedStyle(...).backgroundColor` 是不是 `rgba(0, 0, 0, 0)` 抓出來。要用 98 這種數字得寫 `/[0.98]`，或直接給 inline style。查的時候注意 `hover:` 前綴的 class 沒 hover 本來就沒值，那是誤判。
 - **導覽列的底色、文字色、品牌淡入共用 `navSolid`**（`!navOverHero || isMenuOpen`），不要各自去看 `navOverHero`。各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 `navOverHero`，結果米色底配白色 X、對比只有 1.24:1，按鈕等於消失。
