@@ -482,9 +482,10 @@
         position: absolute;
         z-index: 10;
         pointer-events: none;
-        /* 滿版：多柱的橫向位置改由元件的 STRANDS.at 決定（佔畫布寬度的比例），
+        /* 滿版：煙的橫向位置改由元件的 CENSER_X（爐口）＋ 每縷的 base／spread 決定，
            不再靠這裡裁窄畫布。這樣同一份座標在手機與桌機都對得上同一個位置，
-           也才有辦法把柱子放到神尊右側那塊空白。 */
+           也才有辦法把右邊那一爐放到神尊右側的空白。
+           煙是 z-10、神尊那一層在 z-20，所以滿版也不會糊到神尊的臉。 */
         inset: 0;
       }
       .incense-stage canvas { display: block; width: 100%; height: 100%; }
