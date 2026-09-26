@@ -669,6 +669,135 @@ interface BlessingPersonEntry {
 
 // 水墨筆刷分隔線元件
 
+/**
+ * 公佈欄內文的排版。
+ *
+ * 廟方是照 LINE 貼文的習慣在寫：短句斷行、空行分段，並且自己用符號標出重點
+ * （🔸 條列、🗓️💰 標籤、`1、2、3、` 編號）。原本整段丟給 `whitespace-pre-wrap`，
+ * 那些結構完全沒被表現出來——一整片等寬等色的灰字，廟方回報「很僵化」。
+ *
+ * 這裡只做一件事：**把廟方已經寫在文字裡的結構認出來，換成站上的視覺語彙**。
+ * 不自己加內容、不猜語意，認不出來的就照原樣當段落排（含他們刻意的斷行）。
+ *
+ * 順帶解決一個矛盾：全站不用 emoji 是廟方自己訂的慣例，但後台打的內文裡有
+ * 🔸🗓️💰。與其要求他們改打字習慣，不如把行首的符號換成站上的金色菱形——
+ * 他們照舊打，前台看到的是一致的樣式。
+ *
+ * 行內標記（**粗體**、[文字](網址)）沿用 StoryPage 那支 `renderInline`，
+ * 不另立一套，也維持「永遠不碰 dangerouslySetInnerHTML」的原則。
+ */
+
+/** 行首的圖形符號：emoji、項目符號、注意符號。後面的變異選擇子（️）一起吃掉 */
+const BULLETIN_MARKER = /^(?:[\p{Extended_Pictographic}•●○・‧※◆▪▸]️?)+\s*/u;
+/** `1、` `2.` `3)` 這類編號 */
+const BULLETIN_ORDERED = /^(\d{1,2})\s*[、.．)）]\s*/;
+/** 短且以冒號結尾的行＝標籤，下一行起是它的值。限制長度才不會把一般句子誤判成標籤 */
+const BULLETIN_LABEL = /^.{1,14}[：:]$/;
+
+type BulletinBlock =
+  | { kind: 'text'; lines: string[] }
+  | { kind: 'items'; items: { label: string; body: string[] }[] }
+  | { kind: 'ordered'; items: string[] };
+
+const parseBulletinBody = (body: string): BulletinBlock[] => {
+  const blocks: BulletinBlock[] = [];
+  let text: string[] = [];
+  let items: { label: string; body: string[] }[] = [];
+  let ordered: string[] = [];
+
+  const flushText = () => { if (text.length) { blocks.push({ kind: 'text', lines: text }); text = []; } };
+  const flushItems = () => { if (items.length) { blocks.push({ kind: 'items', items }); items = []; } };
+  const flushOrdered = () => { if (ordered.length) { blocks.push({ kind: 'ordered', items: ordered }); ordered = []; } };
+  const flushAll = () => { flushText(); flushItems(); flushOrdered(); };
+
+  for (const raw of body.replace(/\r\n?/g, '\n').split('\n')) {
+    const line = raw.trim();
+    if (!line) { flushAll(); continue; }           // 空行＝一段結束
+
+    if (BULLETIN_MARKER.test(line)) {              // 符號開頭 → 項目
+      flushText(); flushOrdered();
+      items.push({ label: line.replace(BULLETIN_MARKER, ''), body: [] });
+      continue;
+    }
+    const num = BULLETIN_ORDERED.exec(line);
+    if (num) {                                     // 編號 → 有序清單
+      flushText(); flushItems();
+      ordered.push(line.slice(num[0].length));
+      continue;
+    }
+    if (BULLETIN_LABEL.test(line)) {               // 短句＋冒號 → 也是項目
+      flushText(); flushOrdered();
+      items.push({ label: line, body: [] });
+      continue;
+    }
+    // 純文字：若正接在一個「以冒號結尾的項目」下面，當成那一項的值
+    const last = items[items.length - 1];
+    if (last && /[：:]$/.test(last.label)) { last.body.push(line); continue; }
+    flushItems(); flushOrdered();
+    text.push(line);
+  }
+  flushAll();
+  return blocks;
+};
+
+/** 金色菱形，與全站分隔飾同一個形狀（全站不用 emoji） */
+const BulletDiamond: React.FC = () => (
+  <span className="w-2 h-2 rotate-45 bg-temple-gold shrink-0 mt-[0.55rem]" aria-hidden="true" />
+);
+
+const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
+  const blocks = React.useMemo(() => parseBulletinBody(content), [content]);
+  let textSeen = 0;
+
+  return (
+    <div className="space-y-5">
+      {blocks.map((block, bi) => {
+        if (block.kind === 'items') {
+          return (
+            <ul key={bi} className="space-y-2.5 border-l-2 border-temple-gold/30 pl-5 py-0.5">
+              {block.items.map((it, i) => (
+                <li key={i} className="flex gap-3">
+                  <BulletDiamond />
+                  <div className="min-w-0">
+                    <span className="text-temple-red font-medium">{renderInline(it.label)}</span>
+                    {it.body.map((line, j) => (
+                      <p key={j} className="text-gray-700 leading-relaxed">{renderInline(line)}</p>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.kind === 'ordered') {
+          return (
+            <ol key={bi} className="space-y-2 pl-1">
+              {block.items.map((it, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="font-serif font-bold text-temple-gold shrink-0 w-5 text-right leading-relaxed">{i + 1}</span>
+                  <span className="text-gray-700 leading-relaxed">{renderInline(it)}</span>
+                </li>
+              ))}
+            </ol>
+          );
+        }
+        // 第一段當作前言：字大一點、色深一點，讓整篇有個開頭而不是一片平的灰字
+        const lead = textSeen++ === 0;
+        return (
+          <p
+            key={bi}
+            className={lead
+              ? 'text-temple-dark text-lg leading-loose whitespace-pre-line'
+              : 'text-gray-700 leading-loose whitespace-pre-line'}
+          >
+            {renderInline(block.lines.join('\n'))}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   // ?admin=1 → 顯示正常首頁並自動跳出管理員登入（上線前報名表蓋住首頁時的後台入口）
   const adminEntry = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
@@ -2324,7 +2453,7 @@ const App: React.FC = () => {
                           className="block mx-auto max-w-full max-h-[32rem] rounded-xl border border-temple-gold/20 mb-4"
                         />
                       )}
-                      <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{bulletin.content}</div>
+                      <BulletinBody content={bulletin.content} />
                       {bulletin.linkedService && (() => {
                         const svcLabel: Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
                         // 點燈／祈福／問事已各自獨立成頁，捐獻仍是首頁上的區塊
