@@ -2270,14 +2270,18 @@ const App: React.FC = () => {
                           標題的 left-10），形成「左上宮壇名 → 左下按鈕 → 右側神明」的三角。
                           橫排時 items-* 變成垂直對齊，改回 items-end 讓神明貼齊底部。
                           LINE 浮動鈕在 Hero 期間收起，所以按鈕可以直接沉到底部，不必再上抬。 */}
-        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-end items-center land:flex-row land:items-end">
+        {/* 這一層刻意**不給 z-index**。原本是 z-20，等於把「按鈕」與「神尊」關進同一個
+            堆疊脈絡——手機版要讓煙插到神尊前面、又要留在按鈕後面時就辦不到（脈絡內的
+            z 值出不去）。拆成子元素各自宣告：神尊 z-10、按鈕 z-30，煙在 index.html 是
+            桌機 z-10、手機 z-25，剛好夾在中間。 */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-end items-center land:flex-row land:items-end">
           {/* 直排原本是為了讓「傾斜提示」疊在報名鈕正上方。那顆提示鈕已移除
               （陀螺儀效果 2026-09-02 下架），版面保持不變：只有一個子元素時
               flex-col 的呈現與原本相同，之後要再加東西也還有位置。 */}
           {/* 收件結束時整欄不渲染，而不是渲染一個空的 div——空的 div 仍然吃掉
               sm:flex-1 的那一半寬度，神明會被擠到只剩右半邊。 */}
           {FAHUI_SIGNUP_OPEN && (
-            <div className="hero-actions order-2 land:order-none w-full land:w-auto land:flex-1 flex flex-col items-center gap-3 land:items-start pb-8 land:pb-0 land:pl-10 land:mb-16">
+            <div className="hero-actions relative z-30 order-2 land:order-none w-full land:w-auto land:flex-1 flex flex-col items-center gap-3 land:items-start pb-8 land:pb-0 land:pl-10 land:mb-16">
               <button
                 onClick={openFahui}
                 // 配色見 index.html 的 .btn-sutra：龍藏經的磁青底＋泥金字＋雙金界欄。
@@ -2299,7 +2303,7 @@ const App: React.FC = () => {
                桌機沉出去的部分由 Hero 的 overflow-hidden 裁掉；
                手機的神明上方還有按鈕在下面，所以這一層自己 overflow-hidden＋固定高度，
                否則沉下去的部分會壓到報名鈕。 */
-            <div className="hero-deity-stage order-1 land:order-none shrink-0 w-full h-[121vw] max-h-[64vh] overflow-hidden land:w-auto land:h-auto land:max-h-none land:overflow-visible flex items-end justify-center land:justify-start land:pr-6 mb-4 land:mb-0">
+            <div className="hero-deity-stage relative z-10 order-1 land:order-none shrink-0 w-full h-[121vw] max-h-[64vh] overflow-hidden land:w-auto land:h-auto land:max-h-none land:overflow-visible flex items-end justify-center land:justify-start land:pr-6 mb-4 land:mb-0">
               <div className="hero-aura" aria-hidden="true" />
               {HERO_DEITIES.slice(0, 3).map((d, i) => (
                 // 以「高」為主、「寬」只是防呆上限：神像是直式，高度決定氣勢。
