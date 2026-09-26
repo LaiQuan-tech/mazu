@@ -115,25 +115,72 @@ const DRIFT = [1.0, 0.83, 1.19];
 const BREATH_HZ = [0.037, 0.061, 0.089];
 const BREATH_DEPTH = 0.42;
 
-/** 每一縷煙。第二縷從中段才淡入，模擬煙柱分岔——照片裡也是這樣 */
+/**
+ * 香爐的位置：佔畫布寬度。左右各一爐。
+ *
+ * **關鍵是「每一叢都要從自己那個爐口聚攏升起」**——廟裡是一個爐插很多支香，
+ * 煙在爐口幾乎重疊、越往上才散開。做成各自獨立的平行煙柱就沒有共同的源頭，
+ * 看起來像貼了好幾條線（第一版就是這樣，廟方指正了）。
+ *
+ * 位置是量出來的：1280px 實測三尊神像橫跨 30.6%～69.4%，所以爐放在左右兩塊
+ * 空白的中間。左爐 0.25 沿用原本那一柱的位置（再往左會被「和聖壇」直式標題壓到）。
+ */
+const CENSER_X = [0.25, 0.76];
+
+/**
+ * 煙往外散開的速率。越高散得越開，`u^1.25` 讓它在爐口幾乎不散、越往上越開，
+ * 這是真的香爐的樣子——不是從底部就呈扇形。
+ */
+const fanOut = (u: number): number => Math.pow(u, 1.25);
+
+/**
+ * 每一縷煙。
+ *
+ * 廟方要「香火鼎盛」，所以從兩縷（一柱＋分岔）擴成多縷。**多縷不是把同一條複製幾份**
+ * ——同形同速的複本一眼就看得出是貼上去的。每一縷都要在幾個維度上錯開：
+ * 爐內位置、散開方向、相位、擺幅、粗細濃度（＝遠近）、上升速度、捲曲頻率。
+ * 速度與頻率尤其關鍵：兩者都一樣的話，花紋會永遠保持同步，像同一段影片播兩次。
+ *
+ * **煙可以從神尊後面經過**：煙是 z-10、神尊那一層是 z-20，所以散開後即使越過
+ * 神尊的範圍也是從背後掠過，不會糊到臉——那反而像真的廟裡的樣子。
+ */
 interface Strand {
+  /** 屬於哪一爐（CENSER_X 的索引） */
+  censer: number;
+  /** 在爐內的位置偏移（佔畫布寬度）。香是一支支插著的，不是全部疊在同一點 */
+  base: number;
+  /** 升到頂端時往外散開多少（佔畫布寬度），正右負左 */
+  spread: number;
   /** 從哪個高度開始出現 */
   from: number;
-  /** 相位偏移，讓兩縷不同步 */
+  /** 相位偏移，讓各縷不同步 */
   phase: number;
   /** 擺幅倍率 */
   sway: number;
   /** 線寬倍率 */
   width: number;
-  /** 濃度倍率 */
+  /** 濃度倍率。越小＝看起來越遠 */
   alpha: number;
-  /** 起點的橫向偏移（佔畫布寬度） */
-  offset: number;
+  /** 高度倍率。越小＝升得越矮，是「遠近」的第二個線索 */
+  height: number;
+  /** 上升速度倍率 */
+  speed: number;
+  /** 捲曲頻率倍率。有的捲得緊、有的幾乎是直的，這一維最能拆散「像複製品」的感覺 */
+  freq: number;
+  /** 窄螢幕要不要畫。手機畫太多既擠又費電 */
+  mobile: boolean;
 }
 
 const STRANDS: Strand[] = [
-  { from: 0.00, phase: 0.0, sway: 1.00, width: 1.00, alpha: 1.00, offset: 0 },
-  { from: 0.42, phase: 2.7, sway: 1.35, width: 0.62, alpha: 0.50, offset: 0.01 },
+  // ── 左爐（0.25）。主柱位置與原本那一柱完全一致，散開為 0 ──
+  { censer: 0, base:  0.000, spread:  0.00, from: 0.00, phase: 0.0, sway: 1.00, width: 1.00, alpha: 1.00, height: 1.00, speed: 1.00, freq: 1.00, mobile: true },
+  { censer: 0, base:  0.004, spread:  0.05, from: 0.42, phase: 2.7, sway: 1.35, width: 0.62, alpha: 0.50, height: 1.00, speed: 1.00, freq: 1.09, mobile: true },  // 主柱的分岔
+  { censer: 0, base: -0.011, spread: -0.08, from: 0.04, phase: 4.1, sway: 0.85, width: 0.72, alpha: 0.46, height: 0.90, speed: 1.13, freq: 0.78, mobile: true },
+  { censer: 0, base:  0.013, spread:  0.10, from: 0.06, phase: 1.9, sway: 1.10, width: 0.60, alpha: 0.32, height: 0.78, speed: 0.87, freq: 1.31, mobile: false },
+  // ── 右爐（0.76）。整體比左爐淡一階，像是站得比較遠的一爐 ──
+  { censer: 1, base:  0.000, spread:  0.00, from: 0.00, phase: 1.4, sway: 0.95, width: 0.88, alpha: 0.72, height: 0.94, speed: 0.90, freq: 0.86, mobile: false },
+  { censer: 1, base:  0.005, spread:  0.07, from: 0.48, phase: 5.0, sway: 1.40, width: 0.55, alpha: 0.34, height: 0.94, speed: 0.90, freq: 1.22, mobile: false },  // 右柱的分岔
+  { censer: 1, base: -0.012, spread: -0.09, from: 0.05, phase: 3.3, sway: 0.80, width: 0.58, alpha: 0.27, height: 0.76, speed: 1.22, freq: 0.71, mobile: false },
 ];
 
 const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
@@ -150,7 +197,9 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
     // 線很細，用一半解析度會糊成一團灰。這裡照實際像素畫（上限 2 倍，再高沒意義只是耗電）
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    let w = 0, h = 0, emitX = 0;
+    let w = 0, h = 0;
+    /** 這次要畫哪幾縷（窄螢幕只留 mobile 那幾條），resize 時重算 */
+    let active: Strand[] = STRANDS;
 
     // 中心線、半寬、法線的暫存。每幀重算，先算好再讓四道共用，省掉重複的三角函式
     const N = SAMPLES;
@@ -173,7 +222,8 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
       canvas.height = h;
       canvas.style.width = '100%';
       canvas.style.height = '100%';
-      emitX = w * 0.5;
+      // 以 CSS 像素判斷，不要用 w（w 已經乘過 dpr，高解析手機會被誤判成桌機）
+      active = r.width >= 640 ? STRANDS : STRANDS.filter(st => st.mobile);
       // 形狀往上跑的速度 = 煙速（1/RISE_SECONDS 個畫面高度／秒）
       omega = K.map((k, i) => (k / RISE_SECONDS) * DRIFT[i]);
       buildGradients();
@@ -188,8 +238,11 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
       gradients = STRANDS.map(s => PASSES.map(pass => {
         const g = ctx.createLinearGradient(0, 0, 0, h);
         for (let i = 0; i <= GRADIENT_STOPS; i++) {
-          const t = i / GRADIENT_STOPS;      // t=0 是畫布頂端，對應 u=1
-          const a = alphaAt(1 - t, s) * pass.a;
+          const t = i / GRADIENT_STOPS;      // t=0 是畫布頂端
+          // 矮的那幾縷只佔畫布下半部，所以畫布座標要先換回它自己的 u：
+          // y = h − u·h·height ⇒ u = (1−t)/height。超過 1 表示已經在這縷的頂端之上，不畫。
+          const u = (1 - t) / s.height;
+          const a = u > 1 ? 0 : alphaAt(u, s) * pass.a;
           g.addColorStop(t, `rgba(255,253,248,${a.toFixed(4)})`);
         }
         return g;
@@ -210,16 +263,18 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
         // **相位要減去 t，不是加。** u 是「由下往上」的座標：
         // 固定相位的那一點滿足 uu*K − t*ω = 定值，t 增加時 uu 跟著增加，
         // 形狀才會往上跑。寫成加號的話整條煙的花紋是往下掉的（曾經寫錯過）。
-        const ph = uu * K[i] - t * omega[i] + s.phase;
+        const ph = uu * K[i] * s.freq - t * omega[i] * s.speed + s.phase;
         const breath = 1 + BREATH_DEPTH * Math.sin(t * BREATH_HZ[i] * Math.PI * 2 + s.phase * 1.7);
         sx += Math.sin(ph) * AMP[i] * breath;
         sy += Math.cos(ph) * AMP[i] * breath;
       }
-      const r = turb * SWAY * h * s.sway;
+      // 擺幅跟著各縷自己的高度縮，矮的那幾縷才不會擺得跟主柱一樣大
+      const r = turb * SWAY * h * s.height * s.sway;
       return {
-        x: emitX + s.offset * w + sx * r,
-        // u 由下往上、畫布 y 由上往下，所以主軸是 h*(1-u)
-        y: h * (1 - u) + sy * r * COIL,
+        // 從爐口同一處升起，越往上越往外散
+        x: (CENSER_X[s.censer] + s.base) * w + s.spread * fanOut(u) * w + sx * r,
+        // u 由下往上、畫布 y 由上往下；height < 1 的縷只升到畫布的一部分高度
+        y: h - u * h * s.height + sy * r * COIL,
       };
     };
 
@@ -229,7 +284,7 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
       const grow = 0.25 + 2.9 * smoothstep(0.08, 0.9, u);
       // 用同一組相位調變粗細：緞帶正面朝你時寬、側面時窄，這是立體感的來源
       const uu = Math.pow(u, 1.5);
-      const twist = 0.6 + 0.4 * Math.abs(Math.cos(uu * K[0] * 0.5 - t * omega[0] * 0.5 + s.phase));
+      const twist = 0.6 + 0.4 * Math.abs(Math.cos(uu * K[0] * 0.5 * s.freq - t * omega[0] * 0.5 * s.speed + s.phase));
       return W_BASE * h * grow * twist * s.width;
     };
 
@@ -243,20 +298,23 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
 
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
-      for (let si = 0; si < STRANDS.length; si++) {
-        const s = STRANDS[si];
+      for (const s of active) {
+        const si = STRANDS.indexOf(s);
+        // 遠處那幾縷又細又淡，取樣點減半也看不出差別，但省下一半的三角函式。
+        // 縷數從 2 條增到 7 條，這一刀是讓總成本只增加約 2.5 倍而不是 3.5 倍的原因。
+        const M = s.alpha >= 0.6 ? N : (N >> 1);
 
         // 中心線與粗細：四道共用，只算一次
-        for (let i = 0; i <= N; i++) {
-          const u = i / N;
+        for (let i = 0; i <= M; i++) {
+          const u = i / M;
           const p = centerAt(u, clock, s);
           cx[i] = p.x; cy[i] = p.y;
           cw[i] = widthAt(u, clock, s);
         }
         // 法線＝切線轉 90 度。端點用單邊差分，中間用前後鄰點的中央差分
-        for (let i = 0; i <= N; i++) {
+        for (let i = 0; i <= M; i++) {
           const a = i > 0 ? i - 1 : 0;
-          const b = i < N ? i + 1 : N;
+          const b = i < M ? i + 1 : M;
           const tx = cx[b] - cx[a];
           const ty = cy[b] - cy[a];
           const len = Math.hypot(tx, ty) || 1;
@@ -268,13 +326,13 @@ const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
           // 去程走一側、回程走另一側，收成一個封閉多邊形。
           // 整條一次 fill()：沒有接縫，nonzero 規則讓自我交疊也只填一次
           ctx.beginPath();
-          for (let i = 0; i <= N; i++) {
+          for (let i = 0; i <= M; i++) {
             const r = Math.max(MIN_HALF_PX * dpr, cw[i] * mul * 0.5);
             const x = cx[i] + nx[i] * r;
             const y = cy[i] + ny[i] * r;
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
           }
-          for (let i = N; i >= 0; i--) {
+          for (let i = M; i >= 0; i--) {
             const r = Math.max(MIN_HALF_PX * dpr, cw[i] * mul * 0.5);
             ctx.lineTo(cx[i] - nx[i] * r, cy[i] - ny[i] * r);
           }

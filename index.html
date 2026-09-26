@@ -482,15 +482,10 @@
         position: absolute;
         z-index: 10;
         pointer-events: none;
-        left: 2%;
-        /* 滿版高度：煙要一路飄到 Hero 頂端，不是升到一半就沒了 */
-        top: 0;
-        bottom: 0;
-        width: 52%;
-      }
-      @media (min-width: 640px) {
-        /* 桌機把煙柱收窄、往右挪一點：太靠邊會被「和聖壇」直式標題壓到 */
-        .incense-stage { left: 10%; width: 30%; }
+        /* 滿版：多柱的橫向位置改由元件的 STRANDS.at 決定（佔畫布寬度的比例），
+           不再靠這裡裁窄畫布。這樣同一份座標在手機與桌機都對得上同一個位置，
+           也才有辦法把柱子放到神尊右側那塊空白。 */
+        inset: 0;
       }
       .incense-stage canvas { display: block; width: 100%; height: 100%; }
 
