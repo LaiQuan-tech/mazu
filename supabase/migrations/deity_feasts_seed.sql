@@ -1,4 +1,4 @@
--- 歲時祭曆：神明聖誕的初始資料（deity_feasts）
+-- 歲時節令：神明聖誕的初始資料（deity_feasts）
 -- 請在 Supabase Dashboard > SQL Editor 執行（可重複執行，已存在的不會重複插入）
 -- 前置：必須先跑過 deity_feasts.sql 建表。
 --

@@ -1,5 +1,5 @@
 /**
- * 後台「歲時祭曆」——神明聖誕與每年重複的節日（deity_feasts）
+ * 後台「歲時節令」——神明聖誕與每年重複的節日（deity_feasts）
  *
  * 單次活動不在這裡，在「祈福管理」的 blessing_events：那邊存確定的國曆起訖日，
  * 這裡存「每年都會到的規則」。分工見 supabase/migrations/deity_feasts.sql 檔頭。
@@ -107,7 +107,7 @@ const AdminFeastsTab: React.FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-1">歲時祭曆</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">歲時節令</h2>
         <p className="text-sm text-gray-500 leading-relaxed">
           神明聖誕與每年重複的節日，顯示在前台的
           <span className="font-medium text-gray-700"> /calendar </span>

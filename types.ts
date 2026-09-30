@@ -684,7 +684,7 @@ export interface SharedSessionRecord extends SharedSessionData {
   expiresAt: string;
 }
 
-// ─── 歲時祭曆（deity_feasts）────────────────────────────────────────────────
+// ─── 歲時節令（deity_feasts）────────────────────────────────────────────────
 // 每年重複的日子：神明聖誕與節日。單次活動放 blessing_events，兩張表分工見
 // supabase/migrations/deity_feasts.sql 的檔頭。
 

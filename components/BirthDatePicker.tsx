@@ -37,7 +37,7 @@ const SOLAR_MONTH_OPTIONS = [
   ...Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` })),
 ];
 
-// 農曆字表已抽到 services/lunarCalendar.ts 共用（歲時祭曆也要用同一份）。
+// 農曆字表已抽到 services/lunarCalendar.ts 共用（歲時節令也要用同一份）。
 // 兩份平行維護正是會員中心當初長出兩種生日格式的原因，見 CLAUDE.md。
 
 const SHICHEN_OPTIONS = [

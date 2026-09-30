@@ -5930,7 +5930,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'about',       label: '關於我們',   icon: <FileText className="w-4 h-4" /> },
     { key: 'relocation',  label: '遷址捐款',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'faq',         label: '常見問題',   icon: <BookOpenCheck className="w-4 h-4" /> },
-    { key: 'feasts',      label: '歲時祭曆', icon: <CalendarClock className="w-4 h-4" /> },
+    { key: 'feasts',      label: '歲時節令', icon: <CalendarClock className="w-4 h-4" /> },
     { key: 'photos',      label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'siteinfo',   label: '基本資料',   icon: <MapPin className="w-4 h-4" /> },

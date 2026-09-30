@@ -1,4 +1,4 @@
--- 歲時祭曆：神明聖誕與每年重複的節日
+-- 歲時節令：神明聖誕與每年重複的節日
 -- 請在 Supabase Dashboard > SQL Editor 執行此檔案（可重複執行）
 --
 -- ── 為什麼不放進 blessing_events ──

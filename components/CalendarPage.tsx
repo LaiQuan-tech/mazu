@@ -1,5 +1,5 @@
 /**
- * 歲時祭曆 /calendar
+ * 歲時節令 /calendar
  *
  * 把兩種來源合成一份依日期排序的年度清單：
  *   deity_feasts     每年重複的日子（神明聖誕、節日），存農曆／國曆／節氣規則
@@ -130,7 +130,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {/* 標題：小標 h2 → 大標 h1 → 分隔飾 → 說明（全站統一寫法，見 CLAUDE.md） */}
           <header className="text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
-              <span className="w-8 h-1 bg-temple-gold" />歲時祭曆<span className="w-8 h-1 bg-temple-gold" />
+              <span className="w-8 h-1 bg-temple-gold" />歲時節令<span className="w-8 h-1 bg-temple-gold" />
             </h2>
             <h1 className="text-3xl sm:text-4xl font-serif font-bold text-temple-dark">神明聖誕與壇務活動</h1>
             <div className="flex items-center justify-center gap-3 mt-3">
@@ -163,11 +163,11 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
           ) : failed ? (
             <p role="alert" className="text-center text-gray-500 py-16">
-              歲時祭曆暫時無法載入，請稍後再試。
+              歲時節令暫時無法載入，請稍後再試。
             </p>
           ) : entries.length === 0 ? (
             <p className="text-center text-gray-500 py-16">
-              {year} 年的歲時祭曆尚未建立，請洽本壇。
+              {year} 年的歲時節令尚未建立，請洽本壇。
             </p>
           ) : (
             <>

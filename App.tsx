@@ -134,7 +134,7 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   // 舊版是在首頁一次展開四尊、再四尊，尊數一多整個首頁被神尊灌爆，
   // 而且捲很久也回不到別的區塊。導覽列的「祀奉神尊」仍然捲到首頁區塊，不換頁。
   deitiesAll: '/deities',
-  // 歲時祭曆：神明聖誕（deity_feasts，每年重複的農曆日）＋壇務活動（blessing_events）
+  // 歲時節令：神明聖誕（deity_feasts，每年重複的農曆日）＋壇務活動（blessing_events）
   calendar: '/calendar',
 };
 
@@ -193,7 +193,7 @@ const TAG_PINNED = 'bg-temple-red text-white';
 const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
 
 /**
- * 歲時祭曆（/calendar）。2026-09-09 上線，廟方確認完 28 筆聖誕日期後開啟。
+ * 歲時節令（/calendar）。2026-09-09 上線，廟方確認完 28 筆聖誕日期後開啟。
  *
  * 這個旗標要與另外兩個地方一起開關，少一個就會不一致：
  *   1. `scripts/prerender.js` 的 ROUTES 裡 /calendar 那筆的 enabled  ← sitemap 也由它產生
@@ -205,7 +205,7 @@ const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gol
  * 跳回首頁就沒辦法預覽了。沒有連結指過去、也不在 sitemap 裡，信眾不會走到。
  *
  * **開啟前先確認資料庫有 is_visible = true 的資料**，否則信眾會看到
- * 「歲時祭曆尚未建立」。這與預渲染無關：prerender 只產生 meta 與 noscript 說明的
+ * 「歲時節令尚未建立」。這與預渲染無關：prerender 只產生 meta 與 noscript 說明的
  * 靜態殼（見 dist/calendar.html），列表是執行期才向 Supabase 抓的，所以資料開啟
  * 後前台立刻就有，不必重新建置。
  */
@@ -611,7 +611,7 @@ const NAV_MORE: NavItem[] = [
   // 行事曆放最上面：它是「常看的參考資料」，性質與其他幾項不同。
   // 桌機頂層那一列已經沒有空間（1024px 時用掉 949px、可用 945px），只能放下拉。
   // 由 ENABLE_CALENDAR 控制；關閉時整個項目不出現（桌機下拉與手機選單共用這份資料）
-  ...(ENABLE_CALENDAR ? [{ id: 'calendar', label: '歲時祭曆', kind: 'page' } as NavItem] : []),
+  ...(ENABLE_CALENDAR ? [{ id: 'calendar', label: '歲時節令', kind: 'page' } as NavItem] : []),
   { id: 'blessing', label: '祈福活動', kind: 'page' },
   // 神尊修復由 ENABLE_REPAIR 控制；關閉時整個項目不出現在導覽列（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_REPAIR ? [{ id: 'repair', label: '神尊修復', kind: 'page' } as NavItem] : []),
@@ -856,7 +856,7 @@ const App: React.FC = () => {
       relocation: '遷址捐款｜護持和聖壇道場遷址',
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
-      calendar:   '歲時祭曆｜神明聖誕與壇務活動｜台北古亭和聖壇',
+      calendar:   '歲時節令｜神明聖誕與壇務活動｜台北古亭和聖壇',
     };
     // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
     // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
@@ -3813,7 +3813,7 @@ const App: React.FC = () => {
           入口是首頁「關於我們」區塊的「更多」按鈕；導覽列的「關於我們」仍捲到首頁區塊 */}
       {page === 'about' && <AboutPage onBack={() => goToPage('home')} />}
 
-      {/* ── 歲時祭曆（獨立分頁 /calendar）──
+      {/* ── 歲時節令（獨立分頁 /calendar）──
           入口在導覽列的「更多」下拉最上方。聖誕來自 deity_feasts（存農曆規則，
           每年換算），壇務活動來自 blessing_events（存確定的國曆日） */}
       {page === 'calendar' && (

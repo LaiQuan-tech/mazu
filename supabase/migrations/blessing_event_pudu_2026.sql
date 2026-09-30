@@ -1,4 +1,4 @@
--- 把 2026 普渡法會補建成一筆 blessing_events，讓它出現在歲時祭曆上
+-- 把 2026 普渡法會補建成一筆 blessing_events，讓它出現在歲時節令上
 -- 請在 Supabase Dashboard > SQL Editor 執行（可重複執行）
 --
 -- ── 為什麼要補這一筆 ──
