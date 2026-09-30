@@ -5,17 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#7C5C1E" />
     <meta name="color-scheme" content="light" />
-    <!-- 法會收件期間：標題與分享預覽改成報名版；收件結束後換回下方註解的官網版。
-         這一組與 App.tsx 的 FAHUI_LANDING 是同一件事的兩半，改旗標時記得一起改。
-         官網版：台北古亭和聖壇｜問事、祈福點燈與法會服務 -->
     <!-- title／description 是給搜尋引擎看的「這個網址是什麼」，
-         og:* 是給 LINE／Facebook 分享卡片看的「點下去會看到什麼」。兩者刻意不同：
+         og:* 是給 LINE／Facebook 分享卡片看的「點下去會看到什麼」。
          這一份 index.html 同時服務官網首頁（heshengtan.tw/）與法會報名頁，
          而 **canonical 指的是官網首頁**，所以 title 必須是官網的，不能是報名的——
          否則 Google 收錄的官網首頁標題會變成「和聖壇法會線上報名」，
          信眾搜「古亭 媽祖廟」看到的是一場法會的報名頁（2026-09-02 發現並修正）。
-         分享卡片不受影響：LINE／FB 讀的是 og:title，那邊仍是報名版。
-         收件結束、FAHUI_LANDING 改 false 之後，og:* 也一併換回官網版。 -->
+
+         ── 2026-10-01：og:* 也換回官網版 ──
+         普渡法會 9/13 已經辦完，og:* 卻還停在報名版：任何人分享 heshengtan.tw，
+         LINE／FB 卡片都寫著「法會線上報名⋯國曆9/13舉行」，點下去還落到 /fahui
+         的「報名已截止」。**下一次辦法會要再改成報名版時，四個標籤要一起改**：
+         og:title、og:description、og:url、以及下面 Twitter Card 那兩個
+         （只改 og:* 會讓 X 顯示另一套文案）。 -->
     <title>台北古亭和聖壇｜問事、祈福點燈與法會服務</title>
     <meta name="description" content="台北市中正區古亭的和聖壇，創立於民國 73 年，主祀天上聖母。提供問事、祈福點燈、法會超薦與神尊參拜，每日開放。捷運古亭站 2 號出口步行約 5 分鐘。" />
     <!-- 網站圖示。全部由 public/logo.png 產生（scripts/build-icons.js），換 logo 時重跑那支就好。
@@ -33,8 +35,8 @@
     <!-- Open Graph（LINE／Facebook 分享預覽） -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="台北古亭和聖壇" />
-    <meta property="og:title" content="和聖壇法會線上報名｜太上慈悲普渡禮懺法會" />
-    <meta property="og:description" content="太上慈悲普渡禮懺法會，國曆9/13（農曆8/03）舉行。線上填表報名、自動結算金額，超薦拔渡歷代祖先、冤親債主、地基主、嬰靈及動物靈，廣結善緣、消災解厄。" />
+    <meta property="og:title" content="台北古亭和聖壇｜問事、祈福點燈與法會服務" />
+    <meta property="og:description" content="台北市中正區古亭的和聖壇，創立於民國 73 年，主祀天上聖母。提供問事、祈福點燈、法會超薦與神尊參拜，每日開放。捷運古亭站 2 號出口步行約 5 分鐘。" />
     <!-- 分享卡的縮圖：1200×630（LINE／FB 的標準 1.91:1）。
          舊的 fahui-banner.jpg 是 3200×800 的 4:1 橫幅，在 LINE 的卡片裡會被裁掉兩側或留黑邊，
          檔案仍留在 public/ 給報名表頁面內用。這張由 scripts 之外的合成產生，來源是
@@ -43,18 +45,16 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="台北古亭和聖壇" />
-    <!-- og:url 刻意跟 canonical 不同：canonical 是給搜尋引擎的正版網址＝官網根路徑；
-         og:url 是分享卡片點下去要到的地方。這份靜態 HTML 的 title／description／image
-         都是法會報名版，所以卡片就該落在報名表 /fahui（見 App.tsx 的 FAHUI_PATH）。
-         收件結束、FAHUI_LANDING 改 false 之後，這裡要換回 https://heshengtan.tw/。
+    <!-- og:url 是分享卡片點下去要到的地方。法會收件期間這裡是 /fahui（卡片文案也是
+         報名版，落在報名表才對）；2026-10-01 法會結束後與 canonical 一致，都回官網首頁。
          （完整緣由寫在 App.tsx 的 OFFICIAL_HOSTS 註解，那份不會送到瀏覽器。） -->
-    <meta property="og:url" content="https://heshengtan.tw/fahui" />
+    <meta property="og:url" content="https://heshengtan.tw/" />
     <meta property="og:locale" content="zh_TW" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="和聖壇法會線上報名｜太上慈悲普渡禮懺法會" />
-    <meta name="twitter:description" content="太上慈悲普渡禮懺法會，國曆9/13舉行。線上填表報名、自動結算金額。" />
+    <meta name="twitter:title" content="台北古亭和聖壇｜問事、祈福點燈與法會服務" />
+    <meta name="twitter:description" content="創立於民國 73 年、主祀天上聖母的古亭宮壇。問事、祈福點燈、法會超薦與神尊參拜，每日開放。" />
     <meta name="twitter:image" content="https://heshengtan.tw/og-hero.jpg" />
 
     <!-- ── 結構化資料（JSON-LD）────────────────────────────────────────────
