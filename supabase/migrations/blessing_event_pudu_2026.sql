@@ -1,6 +1,11 @@
 -- 把 2026 普渡法會補建成一筆 blessing_events，讓它出現在歲時節令上
 -- 請在 Supabase Dashboard > SQL Editor 執行（可重複執行）
 --
+-- ⚠ 2026-10-01：這一筆被刪掉過（廟方在後台按了刪除，見下方「為什麼 is_active 要 false」——
+--   它本來就不在 /blessing 上，刪掉只是讓行事曆 9/13 空掉）。
+--   **要補回來請改跑 blessing_event_pudu_restore.sql**，那支一併設好 external_form
+--   （標記報名走法會表單，後台才不會顯示假的「0 筆報名」）。本檔留著當原始紀錄。
+--
 -- ── 為什麼要補這一筆 ──
 -- 行事曆不只是神明聖誕，壇務活動也該在上面。普渡法會（9/13）走的是
 -- fahui_registrations 那套獨立流程，不在 blessing_events 裡，所以行事曆看不到它，
