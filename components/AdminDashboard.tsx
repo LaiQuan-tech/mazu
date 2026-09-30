@@ -4811,19 +4811,22 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
             <div className="space-y-4">
               {/* 圖片上傳 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">活動圖片</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">活動海報</label>
+                {/* 整張顯示、不裁切（廟方 2026-10-01：海報是直式的，後台看不出上傳了什麼）。
+                    原本 `w-full h-36 object-cover` 把直式海報壓成一條 144px 高的中段。
+                    寫法與神明管理、公佈欄一致：只給上限，長寬交給圖自己。 */}
                 {form.imageUrl && (
-                  <div className="relative mb-2">
-                    <img src={form.imageUrl} alt="預覽" className="w-full h-36 object-cover rounded-lg border border-gray-200" />
-                    <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))}
-                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
+                  <div className="relative mb-2 inline-block">
+                    <img src={form.imageUrl} alt="海報預覽" className="max-h-64 max-w-full w-auto h-auto rounded-lg" />
+                    <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))} aria-label="移除海報"
+                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
                 <label className={`flex items-center gap-2 px-3 py-2 border border-dashed rounded-lg text-sm cursor-pointer transition-colors ${uploadingBlessingImg ? 'opacity-50 cursor-not-allowed' : 'border-gray-300 hover:border-temple-red hover:text-temple-red text-gray-500'}`}>
                   <Upload className="w-4 h-4" />
-                  {uploadingBlessingImg ? '上傳中…' : form.imageUrl ? '更換圖片' : '上傳圖片'}
+                  {uploadingBlessingImg ? '上傳中…' : form.imageUrl ? '更換海報' : '上傳海報'}
                   <input type="file" accept="image/*" className="hidden" disabled={uploadingBlessingImg} onChange={handleBlessingImageUpload} />
                 </label>
               </div>

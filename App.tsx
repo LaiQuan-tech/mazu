@@ -1003,6 +1003,22 @@ const App: React.FC = () => {
   // ── 祈福活動 ──
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingModal, setBlessingModal] = useState<BlessingEventRecord | null>(null);
+  /**
+   * 正在看大圖的海報網址（null＝沒開）。
+   *
+   * 活動海報是直式、上面印著日期費用這些小字，縮圖一定讀不到，所以要能點開看原圖。
+   * 燈箱**不把整張縮進一個螢幕**：那樣在手機上等於把海報縮得更小。改成滿版寬度、
+   * 高度自然，超出的部分用捲的——讀海報本來就是由上往下讀。
+   */
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+
+  // Esc 關掉海報大圖。只在開著時掛監聽，不要整頁常駐一個鍵盤監聽
+  useEffect(() => {
+    if (!posterUrl) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPosterUrl(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [posterUrl]);
   const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
   const [blessingNotes, setBlessingNotes] = useState('');
   const [blessingStatus, setBlessingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -3417,10 +3433,20 @@ const App: React.FC = () => {
                   <div key={ev.id} className="bg-white rounded-2xl border border-temple-gold/30 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                     <div className="p-6">
                       <div className="flex flex-wrap items-start gap-4">
+                        {/* 活動圖多半是**直式海報**（廟方 2026-10-01 回報）。原本寫死
+                            `w-16 h-16 object-cover`，直式海報被裁成 64px 見方的中段——
+                            標題、日期、費用全被切掉，等於放了一張認不出來的小方塊。
+                            改成只給上限、讓圖自己決定長寬（同公佈欄海報的處理，見 2426 行），
+                            並且可以點開看原圖：海報上的字就是活動資訊，縮圖一定讀不到。 */}
                         {ev.imageUrl
-                          ? <img src={ev.imageUrl} alt={ev.title} className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0 shadow-sm" />
+                          ? <button type="button" onClick={() => setPosterUrl(ev.imageUrl!)}
+                              className="shrink-0 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-temple-red/40"
+                              aria-label={`看 ${ev.title} 的海報大圖`}>
+                              <img src={ev.imageUrl} alt={`${ev.title} 海報`} loading="lazy"
+                                className="max-h-32 max-w-24 sm:max-h-40 sm:max-w-28 w-auto h-auto rounded-xl hover:opacity-90 transition-opacity" />
+                            </button>
                           : <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                              <span className="text-2xl">🙏</span>
+                              <HeartHandshake className="w-6 h-6 text-temple-red" aria-hidden="true" />
                             </div>
                         }
                         <div className="flex-1 min-w-0">
@@ -3456,10 +3482,12 @@ const App: React.FC = () => {
                           </div>
                           {ev.description && <p className="text-sm text-gray-500 leading-relaxed">{ev.description}</p>}
                         </div>
+                        {/* 手機上整條攤開、自己一列：375px 扣掉海報與內距只剩約 170px 給文字，
+                            報名鈕再擠進同一列會把活動名稱壓成兩三行。桌機空間夠，維持在右側 */}
                         <button
                           onClick={() => openBlessingModal(ev)}
                           disabled={deadlinePassed}
-                          className="shrink-0 px-5 py-2.5 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                          className="w-full sm:w-auto shrink-0 px-5 py-2.5 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
                           {deadlinePassed ? '已截止' : '我要報名'}
                         </button>
@@ -3491,6 +3519,21 @@ const App: React.FC = () => {
         )}
 
         {/* ── 祈福報名 Modal ── */}
+        {/* 海報大圖。z-[60] 壓在報名視窗（z-50）之上——從報名視窗裡點開的圖
+            若疊在它下面，等於點了沒反應。Esc 與點背景都關得掉。 */}
+        {posterUrl && (
+          <div className="fixed inset-0 z-[60] bg-black/85 overflow-auto overscroll-contain p-4 sm:p-8"
+            role="dialog" aria-modal="true" aria-label="活動海報"
+            onClick={() => setPosterUrl(null)}>
+            <button type="button" onClick={() => setPosterUrl(null)} aria-label="關閉"
+              className="fixed top-4 right-4 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80">
+              <X className="w-6 h-6" />
+            </button>
+            <img src={posterUrl} alt="活動海報"
+              className="block mx-auto w-full max-w-2xl h-auto rounded-lg" onClick={e => e.stopPropagation()} />
+          </div>
+        )}
+
         {blessingModal && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setBlessingModal(null)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -3503,6 +3546,18 @@ const App: React.FC = () => {
               </div>
 
               <div className="px-6 py-5">
+                {/* 海報放在報名表最上面：信眾是看完海報才決定要不要報名的，
+                    把它留在上一頁等於要他關掉視窗再回去看。送出成功後不再顯示——
+                    那一頁要講的是「報名好了」，海報已經沒有作用。 */}
+                {blessingModal.imageUrl && blessingStatus !== 'success' && (
+                  <button type="button" onClick={() => setPosterUrl(blessingModal.imageUrl!)}
+                    className="block w-full mb-5 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-temple-red/40"
+                    aria-label="看海報大圖">
+                    <img src={blessingModal.imageUrl} alt={`${blessingModal.title} 海報`}
+                      className="block mx-auto w-auto h-auto max-w-full max-h-[22rem] rounded-xl border border-temple-gold/20" />
+                    <span className="block mt-1.5 text-xs text-gray-400">點圖看大圖</span>
+                  </button>
+                )}
                 {blessingStatus === 'success' ? (
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
