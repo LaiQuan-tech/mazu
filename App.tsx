@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef, useMemo} from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   Calendar, ClipboardList, Trash2,
@@ -40,11 +40,11 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign } from './types';
+import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
@@ -55,6 +55,7 @@ import { renderInline, splitParagraphs } from './components/StoryPage';
 import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
+import { deriveBulletins } from './services/derivedBulletins';
 import { withKeptParams } from './services/attribution';
 import faqContent from './content/faq.json';
 import { useScrollMotion } from './hooks/useScrollMotion';
@@ -1097,6 +1098,8 @@ const App: React.FC = () => {
   const [bookingPersons, setBookingPersons] = useState<BookingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, address: '', type: ConsultationType.CAREER, contactLabel: '本人' }]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [bookingSessions, setBookingSessions] = useState<BookingSessionRecord[]>([]);
+  /** 誦經祈福場次。只用來衍生公佈欄那則（歲時節令自己會再抓一次） */
+  const [regularSessions, setRegularSessions] = useState<RegularSession[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
 
   // ── 捐獻多人 ──
@@ -1493,11 +1496,28 @@ const App: React.FC = () => {
   useEffect(() => {
     getBookingSessions(true).then(setBookingSessions).catch(() => {});
     getBookingCountsBySession().then(setSessionCounts).catch(() => {});
+    getRegularSessions().then(setRegularSessions).catch(() => {});
   }, []);
 
+  /**
+   * 公佈欄＝廟方手寫的公告 ＋ 由服務資料衍生的卡（見 services/derivedBulletins.ts）。
+   * 廟方 2026-10-01：「要在祈福管理上架一次，又要在公佈欄上架一次」——衍生的卡
+   * 不寫進資料庫，服務那邊一改這裡立刻跟著變，不會有兩份資料對不起來。
+   *
+   * 排序與後端一致：置頂的在前，其餘依時間新到舊。衍生的卡一律不置頂，
+   * 不然會把廟方特意置頂的那則擠掉。
+   */
+  const feedBulletins = useMemo(() => {
+    const derived = deriveBulletins({
+      blessingEvents, bookingSessions, regularSessions, lampConfigs, bulletins,
+    });
+    return [...bulletins, ...derived].sort((a, b) =>
+      Number(b.isPinned) - Number(a.isPinned) || b.createdAt.localeCompare(a.createdAt));
+  }, [bulletins, blessingEvents, bookingSessions, regularSessions, lampConfigs]);
+
   const filteredBulletins = bulletinFilter === 'all'
-    ? bulletins
-    : bulletins.filter(b => b.category === bulletinFilter);
+    ? feedBulletins
+    : feedBulletins.filter(b => b.category === bulletinFilter);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 

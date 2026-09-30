@@ -737,6 +737,8 @@ export interface RegularSessionData {
 
 export interface RegularSession extends RegularSessionData {
   id: string;
+  /** 建立時間。公佈欄那則衍生卡用它排序——用場次日期會讓未來的場次排到最上面 */
+  createdAt: string;
 }
 
 // ─── 財務憑證（支出／收入）─────────────────────────────────────

@@ -2404,6 +2404,7 @@ const mapRegularSession = (r: Record<string, unknown>): RegularSession => ({
   sessionTime: String(r.session_time ?? ''),
   note:        String(r.note ?? ''),
   isVisible:   Boolean(r.is_visible),
+  createdAt:   String(r.created_at ?? ''),
 });
 
 /**
