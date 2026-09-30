@@ -713,6 +713,24 @@ export interface DeityFeast extends DeityFeastData {
   id: string;
 }
 
+// ─── 定期共修場次（regular_sessions）────────────────────────────────────────
+// 誦經祈福這類每月都辦、但日期時間由廟方當月決定的活動。為什麼不併進 deity_feasts
+// 或 blessing_events，見 supabase/migrations/regular_sessions.sql 的檔頭。
+// 辦事日不在這裡：那是既有的 booking_sessions（後台「問事管理」維護），
+// 歲時節令直接讀那張表，不另外複製一份。
+
+export interface RegularSessionData {
+  title: string;            // 預設「誦經祈福」
+  sessionDate: string;      // YYYY-MM-DD
+  sessionTime: string;      // 自由文字，例「上午 09:00–11:00」。可留空
+  note: string;
+  isVisible: boolean;
+}
+
+export interface RegularSession extends RegularSessionData {
+  id: string;
+}
+
 // ─── 財務憑證（支出／收入）─────────────────────────────────────
 /**
  * 設計說明見 docs/finance-voucher-plan.md 與 supabase/migrations/finance_vouchers.sql。

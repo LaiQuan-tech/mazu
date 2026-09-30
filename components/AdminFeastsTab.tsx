@@ -1,8 +1,14 @@
 /**
- * 後台「歲時節令」——神明聖誕與每年重複的節日（deity_feasts）
+ * 後台「歲時節令」——這一頁管兩塊，都是行事曆上的內容：
+ *   上半：神明聖誕與每年重複的節令（deity_feasts），存的是「每年都會到的規則」
+ *   下半：定期共修（regular_sessions），誦經祈福這類每月都辦、日期由當月決定的
  *
- * 單次活動不在這裡，在「祈福管理」的 blessing_events：那邊存確定的國曆起訖日，
- * 這裡存「每年都會到的規則」。分工見 supabase/migrations/deity_feasts.sql 檔頭。
+ * 不在這一頁的另外兩種：
+ *   單次活動 → 「祈福管理」的 blessing_events，那邊才有報名方案與費用
+ *   辦事日   → 「問事管理」的場次，**行事曆直接讀那張表**（廟方 2026-10-01：
+ *              「辦事日就是問事」）。這裡刻意不給第二個入口——同一件事有兩個
+ *              地方可改，兩邊遲早對不起來。
+ * 分工見 deity_feasts.sql 與 regular_sessions.sql 的檔頭。
  *
  * ── 為什麼每一列都要把換算後的日期算給廟方看 ──
  * 廟方填的是「農曆三月廿三」，但真正要對的是「今年到底是哪一天」。
@@ -14,11 +20,12 @@
  * 顯示兩年的換算結果，硬塞表格在手機上會很擠，直接用卡片列比較實在。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2, Eye, EyeOff, RefreshCw, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, RefreshCw, CalendarDays, CalendarClock } from 'lucide-react';
 import {
   getDeityFeasts, createDeityFeast, updateDeityFeast, deleteDeityFeast,
+  getRegularSessions, createRegularSession, updateRegularSession, deleteRegularSession,
 } from '../services/supabase';
-import { DeityFeast, DeityFeastData, FeastCalendarType } from '../types';
+import { DeityFeast, DeityFeastData, FeastCalendarType, RegularSession, RegularSessionData } from '../types';
 import {
   LUNAR_MONTH_LABELS_BASE, LUNAR_DAYS, JIEQI_NAMES, resolveFeastDate, feastRuleLabel, weekdayLabel,
   ResolvedFeastDate,
@@ -53,6 +60,171 @@ const TYPE_LABEL: Record<FeastCalendarType, string> = {
   lunar: '農曆固定日',
   solar: '國曆固定日',
   jieqi: '節氣',
+};
+
+/** 今天起算的 YYYY-MM-DD。新增場次的預設日期，省掉每次都要挑月份 */
+const todayYmd = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const weekdayOf = (ymd: string): string => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return '日一二三四五六'[new Date(y, m - 1, d).getDay()];
+};
+
+/**
+ * 定期共修（regular_sessions）——誦經祈福這類每月都辦、日期由當月決定的活動。
+ *
+ * 逐場建立是廟方 2026-10-01 選的：日期不固定，沒有規則可以讓程式自己排。
+ * 所以這一區做成「一列一場、新增在最上面」，重點是**開得快**：
+ * 按新增就給一筆今天的空白場次，填日期與時段即可，不必開視窗。
+ *
+ * 過去的場次不自動刪：行事曆切到往年時要看得到當年辦過哪些。
+ */
+const RegularSessions: React.FC = () => {
+  const [rows, setRows] = useState<RegularSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    // getRegularSessions 讀失敗時回空陣列（表還沒建），所以另外用旗標判斷
+    try { setRows(await getRegularSessions()); setError(''); }
+    catch { setError('讀取失敗，請重新整理。'); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const patch = async (id: string, next: Partial<RegularSessionData>) => {
+    setRows(prev => prev.map(x => (x.id === id ? { ...x, ...next } : x)));  // 先動畫面，操作才跟手
+    setBusy(true);
+    try { await updateRegularSession(id, next); }
+    catch { alert('儲存失敗，請重新整理後再試'); await load(); }
+    finally { setBusy(false); }
+  };
+
+  const add = async () => {
+    setBusy(true);
+    try {
+      // 預設未顯示：日期時段都還沒填就跑到前台，信眾會看到「誦經祈福 今天」
+      const draft: RegularSessionData = {
+        title: '誦經祈福', sessionDate: todayYmd(), sessionTime: '', note: '', isVisible: false,
+      };
+      const created = await createRegularSession(draft);
+      setRows(prev => [created, ...prev]);
+    } catch {
+      alert('新增失敗。若尚未執行 regular_sessions.sql，請先到 Supabase 的 SQL Editor 執行該檔。');
+    } finally { setBusy(false); }
+  };
+
+  const remove = async (r: RegularSession) => {
+    if (!window.confirm(`確定刪除「${r.title}　${r.sessionDate}」？刪除後無法復原。`)) return;
+    setBusy(true);
+    try { await deleteRegularSession(r.id); setRows(prev => prev.filter(x => x.id !== r.id)); }
+    catch { alert('刪除失敗'); }
+    finally { setBusy(false); }
+  };
+
+  const today = todayYmd();
+
+  return (
+    <div className="mt-12 pt-10 border-t border-gray-200">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
+          <CalendarClock className="w-5 h-5 text-temple-red" aria-hidden="true" />定期共修
+        </h2>
+        <p className="text-sm text-gray-500 leading-relaxed">
+          誦經祈福這類每月舉行、日期由當月決定的活動，一場一列，會顯示在前台的
+          <span className="font-medium text-gray-700"> /calendar </span>分頁。
+          新增的場次預設為「未顯示」，填好日期與時段再打開。
+        </p>
+      </div>
+
+      {error && <p role="alert" className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</p>}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-gray-400">
+          <RefreshCw className="w-5 h-5 animate-spin mr-2" aria-hidden="true" />載入中…
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {rows.map(r => (
+              <div key={r.id}
+                className={`rounded-xl border p-4 ${r.isVisible ? 'border-gray-200 bg-white' : 'border-gray-200 bg-gray-50'} ${r.sessionDate < today ? 'opacity-70' : ''}`}>
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-start">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="block">
+                      <span className="text-xs text-gray-500">名稱</span>
+                      <input
+                        value={r.title}
+                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, title: e.target.value } : x))}
+                        onBlur={e => patch(r.id, { title: e.target.value })}
+                        placeholder="誦經祈福"
+                        className={`${inputClass} font-medium`}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-gray-500">
+                        日期{r.sessionDate && <span className="text-gray-400">（週{weekdayOf(r.sessionDate)}）</span>}
+                      </span>
+                      <input type="date" value={r.sessionDate} className={inputClass}
+                        onChange={e => patch(r.id, { sessionDate: e.target.value })} />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-gray-500">時段（選填）</span>
+                      <input
+                        value={r.sessionTime}
+                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, sessionTime: e.target.value } : x))}
+                        onBlur={e => patch(r.id, { sessionTime: e.target.value })}
+                        placeholder="上午 09:00–11:00"
+                        className={inputClass}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-1 sm:pt-5">
+                    <button type="button" disabled={busy}
+                      title={r.isVisible ? '點一下隱藏（前台看不到，資料還在）' : '點一下顯示'}
+                      onClick={() => patch(r.id, { isVisible: !r.isVisible })}
+                      className="p-2 rounded-lg text-gray-400 hover:text-temple-red hover:bg-gray-100 disabled:opacity-50">
+                      {r.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => remove(r)} aria-label="刪除"
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <label className="block mt-3">
+                  <span className="text-xs text-gray-500">說明（選填，會顯示在前台）</span>
+                  <input
+                    value={r.note}
+                    onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, note: e.target.value } : x))}
+                    onBlur={e => patch(r.id, { note: e.target.value })}
+                    className={inputClass}
+                  />
+                </label>
+              </div>
+            ))}
+
+            {rows.length === 0 && (
+              <p className="text-gray-400 text-sm py-10 text-center border border-dashed border-gray-300 rounded-lg">
+                還沒有任何場次，按下方「新增場次」建立這個月的誦經祈福。
+              </p>
+            )}
+          </div>
+
+          <button type="button" onClick={add} disabled={busy}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50">
+            <Plus className="w-4 h-4" aria-hidden="true" />新增場次
+          </button>
+        </>
+      )}
+    </div>
+  );
 };
 
 const AdminFeastsTab: React.FC = () => {
@@ -109,11 +281,22 @@ const AdminFeastsTab: React.FC = () => {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-800 mb-1">歲時節令</h2>
         <p className="text-sm text-gray-500 leading-relaxed">
-          神明聖誕與每年重複的節日，顯示在前台的
+          神明聖誕與每年重複的節令，顯示在前台的
           <span className="font-medium text-gray-700"> /calendar </span>
-          分頁。<strong>單次活動請到「祈福管理」建立</strong>，那邊才有報名與費用。
+          分頁。填的是農曆／國曆／節氣的規則，每年的國曆日期由系統換算。
           新增的項目預設為「未顯示」，確認日期無誤再打開。
         </p>
+        {/* 行事曆上有四種東西、分在三個地方維護，不講清楚廟方會在這裡找辦事日 */}
+        <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600 leading-relaxed">
+          <p className="font-medium text-gray-700 mb-1">行事曆上的另外兩種在別的地方</p>
+          <p>
+            <strong>辦事日</strong>就是問事，直接取自「問事管理」的場次——在那裡開一場，
+            行事曆就多一天，不必也不能在這裡另外建。
+          </p>
+          <p className="mt-1">
+            <strong>單次的祈福活動</strong>（法會這類有報名與費用的）請到「祈福管理」建立。
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -286,6 +469,8 @@ const AdminFeastsTab: React.FC = () => {
           </button>
         </>
       )}
+
+      <RegularSessions />
     </div>
   );
 };

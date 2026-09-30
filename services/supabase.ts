@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import { getSource } from './attribution';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -2390,4 +2390,61 @@ export const updateDeityFeast = async (id: string, data: DeityFeastData): Promis
 export const deleteDeityFeast = async (id: string): Promise<void> => {
   const { error } = await supabase.from('deity_feasts').delete().eq('id', id);
   if (error) { console.error('Error deleting deity feast:', error); throw error; }
+};
+
+// ─── 定期共修場次（regular_sessions）────────────────────────────────────────
+// 誦經祈福這類每月都辦、日期由廟方當月決定的活動。見 regular_sessions.sql 檔頭。
+
+const mapRegularSession = (r: Record<string, unknown>): RegularSession => ({
+  id:          String(r.id),
+  title:       String(r.title ?? ''),
+  sessionDate: String(r.session_date ?? ''),
+  sessionTime: String(r.session_time ?? ''),
+  note:        String(r.note ?? ''),
+  isVisible:   Boolean(r.is_visible),
+});
+
+/**
+ * 定期共修場次。RLS 讓訪客只讀得到 is_visible 的，所以前台不必自己濾。
+ * **表不存在（migration 沒跑）時回空陣列而不是丟例外**：歲時節令上這是配角，
+ * 讓整頁因為它掛掉不值得。聖誕讀不到才算整頁失敗，見 CalendarPage。
+ */
+export const getRegularSessions = async (): Promise<RegularSession[]> => {
+  const { data, error } = await supabase
+    .from('regular_sessions')
+    .select('*')
+    .order('session_date', { ascending: true });
+  if (error) { console.error('Error fetching regular sessions:', error); return []; }
+  return (data || []).map(mapRegularSession);
+};
+
+const regularRow = (d: RegularSessionData) => ({
+  title:        d.title.trim() || '誦經祈福',
+  session_date: d.sessionDate,
+  session_time: d.sessionTime.trim() || null,
+  note:         d.note.trim() || null,
+  is_visible:   d.isVisible,
+});
+
+export const createRegularSession = async (d: RegularSessionData): Promise<RegularSession> => {
+  const { data, error } = await supabase.from('regular_sessions').insert([regularRow(d)]).select().single();
+  if (error) { console.error('Error creating regular session:', error); throw error; }
+  return mapRegularSession(data);
+};
+
+export const updateRegularSession = async (id: string, d: Partial<RegularSessionData>): Promise<void> => {
+  const row: Record<string, unknown> = {};
+  if (d.title       !== undefined) row.title        = d.title.trim() || '誦經祈福';
+  if (d.sessionDate !== undefined) row.session_date = d.sessionDate;
+  if (d.sessionTime !== undefined) row.session_time = d.sessionTime.trim() || null;
+  if (d.note        !== undefined) row.note         = d.note.trim() || null;
+  if (d.isVisible   !== undefined) row.is_visible   = d.isVisible;
+  row.updated_at = new Date().toISOString();
+  const { error } = await supabase.from('regular_sessions').update(row).eq('id', id);
+  if (error) { console.error('Error updating regular session:', error); throw error; }
+};
+
+export const deleteRegularSession = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('regular_sessions').delete().eq('id', id);
+  if (error) { console.error('Error deleting regular session:', error); throw error; }
 };

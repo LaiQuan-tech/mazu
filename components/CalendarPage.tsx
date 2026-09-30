@@ -1,10 +1,17 @@
 /**
  * 歲時節令 /calendar
  *
- * 把兩種來源合成一份依日期排序的年度清單：
- *   deity_feasts     每年重複的日子（神明聖誕、節日），存農曆／國曆／節氣規則
- *   blessing_events  今年實際要辦的活動，存確定的國曆起訖日
- * 兩張表刻意分開，理由見 supabase/migrations/deity_feasts.sql 的檔頭。
+ * 把四種來源合成一份依日期排序的年度清單：
+ *   deity_feasts      每年重複的日子（神明聖誕、節令），存農曆／國曆／節氣規則
+ *   blessing_events   今年實際要辦的活動，存確定的國曆起訖日
+ *   booking_sessions  辦事日＝問事場次（廟方 2026-10-01：「辦事日就是問事」）
+ *   regular_sessions  誦經祈福這類每月都辦、日期由廟方當月決定的定期共修
+ * 各表刻意分開，理由見 deity_feasts.sql 與 regular_sessions.sql 的檔頭。
+ *
+ * ── 辦事日不另外建一份資料 ──
+ * 直接讀「問事管理」在維護的 booking_sessions。廟方在那裡開一場、關一場，
+ * 行事曆就跟著動——**要是另外建一張辦事日的表，兩邊遲早會對不起來**，
+ * 而信眾看的是行事曆、實際能不能預約看的是問事頁，不一致等於叫人白跑。
  *
  * ── 為什麼是條列不是月曆格 ──
  * 信眾以長者居多。375px 手機上月曆格每格只剩約 50px，寫不下「天上聖母聖誕」，
@@ -14,19 +21,37 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import PatternMedallion from './PatternMedallion';
-import { getDeityFeasts, getBlessingEvents } from '../services/supabase';
-import { DeityFeast, BlessingEventRecord } from '../types';
+import { getDeityFeasts, getBlessingEvents, getBookingSessions, getRegularSessions } from '../services/supabase';
+import { DeityFeast, BlessingEventRecord, BookingSessionRecord, RegularSession } from '../types';
 import { resolveFeastDate, feastRuleLabel, solarToLunarLabel, weekdayLabel } from '../services/lunarCalendar';
+
+/** 四種來源在版面上要分得出來，顏色與標籤見 KIND_LABEL／KIND_CLASS */
+type EntryKind = 'feast' | 'event' | 'booking' | 'regular';
+
+// 標籤是「這是哪一類」，不是把名稱再抄一次：辦事日那一列的名稱就叫「辦事日」，
+// 標籤若也寫辦事日，畫面上會變成「辦事日 辦事日」。標籤給它的類別＝問事。
+const KIND_LABEL: Record<EntryKind, string> = {
+  feast: '聖誕節令', event: '壇務活動', booking: '問事', regular: '定期共修',
+};
+/** 顏色分兩組：每年固定的日子用金、廟方排的活動用紅／藍／綠，一眼分得出哪些是「會辦的事」 */
+const KIND_CLASS: Record<EntryKind, string> = {
+  feast:   'bg-temple-gold/20 text-[#5C4310]',
+  event:   'bg-temple-red/10 text-temple-red',
+  booking: 'bg-sky-100 text-sky-800',
+  regular: 'bg-emerald-100 text-emerald-800',
+};
 
 interface CalendarEntry {
   key: string;
   date: string;                 // YYYY-MM-DD
   endDate?: string;
   title: string;
-  kind: 'feast' | 'event';
+  kind: EntryKind;
   ruleLabel: string;            // 「農曆三月廿三」「節氣・冬至」
   adjusted?: boolean;           // 農曆三十遇小月，已改列廿九
   note?: string;
+  /** 辦事日：還能不能線上預約。false 只是不收報名，那天照樣辦事，所以仍要列 */
+  bookingOpen?: boolean;
 }
 
 const todayYmd = (): string => {
@@ -40,6 +65,8 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [year, setYear] = useState(thisYear);
   const [feasts, setFeasts] = useState<DeityFeast[]>([]);
   const [events, setEvents] = useState<BlessingEventRecord[]>([]);
+  const [sessions, setSessions] = useState<BookingSessionRecord[]>([]);
+  const [regulars, setRegulars] = useState<RegularSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   /**
@@ -56,10 +83,15 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     let alive = true;
     (async () => {
       setLoading(true);
-      // 兩者各自獨立：其中一個掛掉不該讓整頁空白，所以用 allSettled 各自處理
-      const [f, e] = await Promise.allSettled([getDeityFeasts(), getBlessingEvents()]);
+      // 四者各自獨立：其中一個掛掉不該讓整頁空白，所以用 allSettled 各自處理
+      // getBookingSessions(false)＝連過去與已關閉的場次一起拿，理由見下面組資料處
+      const [f, e, b, r] = await Promise.allSettled([
+        getDeityFeasts(), getBlessingEvents(), getBookingSessions(false), getRegularSessions(),
+      ]);
       if (!alive) return;
       setFeasts(f.status === 'fulfilled' ? f.value : []);
+      setSessions(b.status === 'fulfilled' ? b.value : []);
+      setRegulars(r.status === 'fulfilled' ? r.value : []);
       // **刻意不濾 isActive**：那個旗標管的是「在祈福活動頁上架、還能報名」，
       // 行事曆記的是「今年有這件事」。報名截止不代表活動沒發生——普渡法會
       // 9/06 截止、9/13 舉行，濾掉的話 9/13 那天就只剩神明聖誕。
@@ -98,9 +130,31 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       });
     });
 
+    // 辦事日＝問事場次。**刻意不濾 is_active**（同 blessing_events 的處理）：
+    // 那個旗標管的是「還收不收線上預約」，行事曆記的是「那天有沒有辦事」。
+    // 額滿或截止不代表沒辦，濾掉會讓已經額滿的場次從行事曆上消失。
+    // 已關閉的改用文字標示，讓信眾知道那天有辦事但線上預約已經關了。
+    sessions.forEach(s => {
+      if (!s.sessionDate?.startsWith(String(year))) return;
+      list.push({
+        key: `b-${s.id}`, date: s.sessionDate, title: '辦事日', kind: 'booking',
+        ruleLabel: [solarToLunarLabel(s.sessionDate), s.sessionTime].filter(Boolean).join('　'),
+        bookingOpen: s.isActive,
+      });
+    });
+
+    regulars.forEach(rs => {
+      if (!rs.sessionDate?.startsWith(String(year))) return;
+      list.push({
+        key: `r-${rs.id}`, date: rs.sessionDate, title: rs.title, kind: 'regular',
+        ruleLabel: [solarToLunarLabel(rs.sessionDate), rs.sessionTime].filter(Boolean).join('　'),
+        note: rs.note || undefined,
+      });
+    });
+
     list.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
     return [list, skipped];
-  }, [feasts, events, year]);
+  }, [feasts, events, sessions, regulars, year]);
 
   const today = todayYmd();
   /** 今年才需要區分過去與未來；明年整年都還沒到 */
@@ -132,7 +186,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />歲時節令<span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h1 className="text-3xl sm:text-4xl font-serif font-bold text-temple-dark">神明聖誕與壇務活動</h1>
+            <h1 className="text-3xl sm:text-4xl font-serif font-bold text-temple-dark">聖誕、節令與壇務活動</h1>
             <div className="flex items-center justify-center gap-3 mt-3">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -204,12 +258,8 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline gap-2 flex-wrap">
                                 <p className="font-serif text-lg text-temple-dark">{x.title}</p>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                  x.kind === 'event'
-                                    ? 'bg-temple-red/10 text-temple-red'
-                                    : 'bg-temple-gold/20 text-[#5C4310]'
-                                }`}>
-                                  {x.kind === 'event' ? '壇務活動' : '聖誕節日'}
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${KIND_CLASS[x.kind]}`}>
+                                  {KIND_LABEL[x.kind]}
                                 </span>
                               </div>
                               <p className="text-sm text-gray-500 mt-1">
@@ -218,6 +268,14 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 {x.endDate && `　至 ${x.endDate.slice(5).replace('-', ' / ')}`}
                               </p>
                               {x.note && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{x.note}</p>}
+                              {/* 辦事日直接給預約的入口：看到「10/5 有辦事」的下一個念頭就是要預約，
+                                  讓他再自己從導覽列找一次問事頁是多餘的。已過去或已關閉的不給連結——
+                                  點進去只會看到那一場不在清單上，那是把人帶去撞牆 */}
+                              {x.kind === 'booking' && !past && (
+                                x.bookingOpen
+                                  ? <a href="/booking" className="inline-block mt-2 text-sm font-medium text-sky-700 hover:underline">線上預約問事 →</a>
+                                  : <p className="mt-2 text-sm text-gray-500">這一場的線上預約已關閉，請洽本壇。</p>
+                              )}
                             </div>
                           </li>
                         );
