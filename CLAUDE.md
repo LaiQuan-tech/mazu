@@ -151,6 +151,10 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **`ENABLE_CALENDAR` 開關要三個地方一起改**：本旗標、`scripts/prerender.js` 裡 `/calendar` 那筆的 `enabled`（sitemap 也由它產生）、`vercel.json` 的 rewrite 要排在萬用規則之前。**關閉時刻意不擋網址**——廟方要一邊在後台建資料一邊開前台核對，照 ENABLE_REPAIR 讓網址跳回首頁就沒法預覽；沒有連結指過去也不在 sitemap，信眾走不到。
   **預渲染只產生靜態殼**（meta 與 noscript 說明，見 `dist/calendar.html`），聖誕列表是執行期才向 Supabase 抓的。所以資料庫改 `is_visible` 之後前台立刻反映，不必重新建置；反過來說，開旗標前要先確認有 `is_visible = true` 的資料，否則信眾看到的是「行事曆尚未建立」。
   `prerender.js` 的 `ACTIVE_ROUTES = ROUTES.filter(r => r.enabled !== false)` 是這次加的，未開放的頁不預渲染、不進 sitemap、也不出現在各頁 noscript 的站內連結。
+- **法會的報名不在 `blessing_registrations`，後台會顯示「0 筆報名」**（2026-10-01 廟方當成 bug 回報）：普渡法會那一筆 `blessing_events` 是為了讓它出現在歲時節令上補建的，報名其實走 `fahui_registrations`（後台「法會報名」分頁，四十幾筆）。數字沒錯，但它在說謊。
+  解法是 `blessing_events.external_form`（見 `blessing_events_external_form.sql`）：值為 `'fahui'` 時，後台列表顯示「N 筆報名在『法會報名』分頁 →」並可點過去，前台則**不給「我要報名」**——那顆開的是一般祈福報名流程，跟該活動無關，信眾填了會變成對不到場次的孤兒訂單。
+  **刪掉那一筆的副作用是行事曆上 9/13 空了**（2026-10-01 已被刪）。那一筆的用途就是當歲時節令的紀錄，要補回來重跑 `blessing_event_pudu_2026.sql`。
+  **`/blessing` 上寫死的普渡橫幅 2026-10-01 移除**。以後的法會一律在「祈福管理」建一筆、辦完在後台下架，不要再把活動寫進程式碼。
 - **活動海報是直式的，不要用 `object-cover` 裁**（2026-10-01 廟方回報）：`blessing_events.image_url` 存的是整張直式海報，上面印著日期、費用這些活動資訊。前台原本 `w-16 h-16 object-cover`（裁成 64px 見方的中段）、後台預覽 `w-full h-36 object-cover`（壓成一條橫帶），兩邊都把海報切到認不出來。
   規則與公佈欄、神明管理一致：**只給上限（`max-h-* max-w-*`）、長寬交給圖自己**，不要框也不要底色。
   **海報要能點開看原圖**：縮圖一定讀不到海報上的小字。燈箱（`posterUrl` state，z-[60] 壓在報名視窗 z-50 之上）**不把整張縮進一個螢幕**——那在手機上等於把海報縮得更小；改成滿版寬度、高度自然、超出用捲的。報名視窗最上面也放一份，信眾是看完海報才決定要不要報名的。

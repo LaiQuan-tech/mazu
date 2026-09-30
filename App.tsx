@@ -3365,35 +3365,15 @@ const App: React.FC = () => {
             </>)}
           </div>
 
-          {/* 普渡橫幅與活動列表。被邀請者不顯示：主揪已經替他選好要參加哪一場，
-              共享面板裡就寫著場次名稱，這一整段只會把面板推到很下面 */}
-          {!isSharedGuest('blessing') && (<>
-          {/* 中元普渡法會報名 Banner */}
-          <div className="mb-8 bg-gradient-to-br from-amber-800 to-amber-950 rounded-2xl overflow-hidden shadow-lg">
-            <div className="px-6 py-6 sm:flex sm:items-center sm:justify-between gap-4">
-              <div className="text-white mb-4 sm:mb-0">
-                <p className="text-amber-300 text-xs tracking-widest mb-1">丙午年度・護國佑民</p>
-                <h4 className="text-2xl font-bold font-serif mb-1">太上慈悲普渡禮懺法會</h4>
-                <p className="text-amber-200 text-sm">國曆 9/13（日）｜截止報名：9/06</p>
-                <p className="text-amber-300 text-xs mt-1">超渡祖先・解冤親債・贊普・地基主等 7 種項目</p>
-              </div>
-              {/* 收件結束後不留按鈕：點下去只會看到「本次法會報名已截止」。
-                  改成一行狀態文字，橫幅本身保留——法會還沒辦，日期對信眾仍然有用。 */}
-              {FAHUI_SIGNUP_OPEN ? (
-                <button
-                  onClick={openFahui}
-                  className="w-full sm:w-auto shrink-0 px-7 py-3.5 bg-white text-amber-800 font-bold rounded-xl hover:bg-amber-50 active:scale-95 transition-all shadow-md text-sm"
-                >
-                  立即線上報名 →
-                </button>
-              ) : (
-                <p className="w-full sm:w-auto shrink-0 px-7 py-3.5 rounded-xl bg-white/10 border border-white/25 text-amber-100 text-sm text-center">
-                  線上報名已截止
-                </p>
-              )}
-            </div>
-          </div>
+          {/* 活動列表。被邀請者不顯示：主揪已經替他選好要參加哪一場，
+              共享面板裡就寫著場次名稱，這一整段只會把面板推到很下面
 
+              **2026-10-01 移除了寫死的普渡法會橫幅**（廟方：法會辦完了要移除）。
+              那個橫幅是寫在程式裡的，不是後台建的活動——以後的法會一律在
+              「祈福管理」建一筆，辦完在後台下架即可，不必再改程式。
+              法會辦過的紀錄留在歲時節令上（blessing_events 那一筆，見
+              blessing_event_pudu_2026.sql），刪掉那一筆行事曆上 9/13 就空了。 */}
+          {!isSharedGuest('blessing') && (<>
           {blessingEvents.length === 0 ? (
             <div className="text-center text-gray-400 py-12 text-sm space-y-2">
               <p>目前暫無其他祈福活動</p>
@@ -3467,13 +3447,18 @@ const App: React.FC = () => {
                           {ev.description && <p className="text-sm text-gray-500 leading-relaxed">{ev.description}</p>}
                         </div>
                         {/* 手機上整條攤開、自己一列：375px 扣掉海報與內距只剩約 170px 給文字，
-                            報名鈕再擠進同一列會把活動名稱壓成兩三行。桌機空間夠，維持在右側 */}
+                            報名鈕再擠進同一列會把活動名稱壓成兩三行。桌機空間夠，維持在右側
+
+                            **報名走外部表單的活動不給這顆鈕**（externalForm，目前只有普渡）：
+                            它開的是一般祈福報名流程，跟那個活動無關，信眾填了會變成一筆
+                            對不到任何場次的孤兒訂單。這種活動平常靠 is_active 擋在列表外，
+                            這裡是第二道——只靠一個旗標擋，誰手滑打開就出事。 */}
                         <button
                           onClick={() => openBlessingModal(ev)}
-                          disabled={deadlinePassed}
+                          disabled={deadlinePassed || !!ev.externalForm}
                           className="w-full sm:w-auto shrink-0 px-5 py-2.5 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
-                          {deadlinePassed ? '已截止' : '我要報名'}
+                          {ev.externalForm ? '本活動另有報名表' : deadlinePassed ? '已截止' : '我要報名'}
                         </button>
                       </div>
                     </div>

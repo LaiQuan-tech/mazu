@@ -575,6 +575,14 @@ export interface BlessingEventData {
   imageUrl?: string;
   isActive: boolean;
   sortOrder: number;
+  /**
+   * 報名走哪一套外部表單。目前只有 'fahui'（法會報名表 fahui_registrations）。
+   * undefined＝走一般祈福報名（blessing_registrations）。
+   *
+   * 普渡法會那一筆是為了讓它出現在歲時節令上補建的，報名其實在法會那套；
+   * 沒有這個欄位的話，後台會顯示「0 筆報名」（見 blessing_events_external_form.sql）。
+   */
+  externalForm?: string;
 }
 
 export interface BlessingEventRecord extends BlessingEventData {

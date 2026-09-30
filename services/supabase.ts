@@ -1164,6 +1164,8 @@ const mapBlessingEvent = (row: any): BlessingEventRecord => ({
   imageUrl: row.image_url || undefined,
   isActive: row.is_active,
   sortOrder: row.sort_order,
+  // 欄位還沒建（migration 沒跑）時 row.external_form 是 undefined，等同「走一般報名」
+  externalForm: row.external_form || undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });

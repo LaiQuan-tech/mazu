@@ -4550,11 +4550,14 @@ const toLocalDatetimeInput = (iso: string): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
+const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiCount, onGoFahui }: {
   events: BlessingEventRecord[];
   registrations: BlessingRegistrationRecord[];
   onRefresh: () => void;
   memberProfiles: MemberProfileRecord[];
+  /** 法會報名表的筆數。給 external_form = 'fahui' 的活動顯示用，見下方 */
+  fahuiCount: number;
+  onGoFahui: () => void;
 }) => {
   const [view, setView] = useState<'list' | 'regs'>('list');
   const [selectedEvent, setSelectedEvent] = useState<BlessingEventRecord | null>(null);
@@ -5082,6 +5085,10 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
           {localEvents.map((e, idx) => {
             const count = registrations.filter(r => r.eventId === e.id).length;
             const closed = isDeadlinePassed(e.registrationDeadline);
+            // 報名走法會那套獨立表單的活動（目前只有普渡）：這裡數 blessing_registrations
+            // 一定是 0，直接寫 0 筆等於告訴廟方「沒有人報名」。改成指去正確的分頁。
+            // 見 supabase/migrations/blessing_events_external_form.sql
+            const external = e.externalForm === 'fahui';
             return (
               <div key={e.id}
                 draggable
@@ -5119,11 +5126,18 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles }: {
                       ? <span>{e.packages.length} 個方案・起 NT${Math.min(...e.packages.map(p => p.fee)).toLocaleString()}</span>
                       : e.fee > 0 && <span>費用 NT${e.fee.toLocaleString()}</span>}
                     {e.registrationDeadline && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />截止 {fmtDate(e.registrationDeadline)}</span>}
-                    <span className="text-temple-red font-medium">{count} 筆報名</span>
+                    {external ? (
+                      <button type="button" onClick={onGoFahui}
+                        className="text-temple-red font-medium underline underline-offset-2 hover:text-[#5C1A04]">
+                        {fahuiCount} 筆報名在「法會報名」分頁 →
+                      </button>
+                    ) : (
+                      <span className="text-temple-red font-medium">{count} 筆報名</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                  <button onClick={() => external ? onGoFahui() : viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
                     <List className="w-3.5 h-3.5" /> 報名名單
                   </button>
                   <button onClick={() => openEdit(e)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
@@ -6129,7 +6143,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'analytics' && <AnalyticsTab />}
               {tab === 'social' && <SocialTab />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
-              {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
+              {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles}
+                fahuiCount={fahuiRegistrations.length} onGoFahui={() => setTab('fahui')} />}
               {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
               {tab === 'vouchers'    && <AdminVouchersTab />}
               {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}
