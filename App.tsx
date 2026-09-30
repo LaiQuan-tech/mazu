@@ -948,6 +948,15 @@ const App: React.FC = () => {
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [bulletinFilter, setBulletinFilter] = useState<string>('all');
   const [expandedBulletin, setExpandedBulletin] = useState<string | null>(null);
+  /**
+   * 祈福活動卡片上，哪一筆的活動說明展開了（null＝都收著）。
+   *
+   * 廟方寫的說明是整篇 LINE 貼文（實測天赦日那筆 269 字、35 行刻意斷行），
+   * 原本整篇直接印在卡片上，一張卡就佔掉一個半螢幕，活動列表變成一面字牆
+   * （廟方 2026-10-01：「活動都是字，太多」）。
+   * 收起來只留兩行當引子，要看的人再展開——內容一個字都沒少，只是不強迫每個人讀完。
+   */
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const HERO_FALLBACK = 'https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop';
   const [heroSlides, setHeroSlides] = useState<HeroSlideRecord[]>([]);
   const [heroSlideIndex, setHeroSlideIndex] = useState(0);
@@ -3444,7 +3453,32 @@ const App: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          {ev.description && <p className="text-sm text-gray-500 leading-relaxed">{ev.description}</p>}
+                          {/* 收起時不套 whitespace-pre-line：廟方每行只有 8–12 字，
+                              照原樣斷行的話兩行只剩二十幾個字，引子等於沒寫。
+                              展開後才還原他們的斷行（同公佈欄的處理）。 */}
+                          {ev.description && (() => {
+                            const open = expandedEvent === ev.id;
+                            // 短說明不需要開關。70 字約是手機上兩行的量，再多才會被截
+                            const long = ev.description.trim().length > 70;
+                            return (
+                              <>
+                                <p className={`text-sm text-gray-500 leading-relaxed ${
+                                  open ? 'whitespace-pre-line' : long ? 'line-clamp-2' : ''
+                                }`}>
+                                  {ev.description}
+                                </p>
+                                {long && (
+                                  <button type="button"
+                                    onClick={() => setExpandedEvent(open ? null : ev.id)}
+                                    aria-expanded={open}
+                                    className="mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-temple-red hover:underline py-1">
+                                    {open ? '收合說明' : '看完整說明'}
+                                    <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                         {/* 手機上整條攤開、自己一列：375px 扣掉海報與內距只剩約 170px 給文字，
                             報名鈕再擠進同一列會把活動名稱壓成兩三行。桌機空間夠，維持在右側
