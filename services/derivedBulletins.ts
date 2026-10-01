@@ -161,6 +161,11 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
   // ── 點燈項目：合併成一則常設服務 ──
   // 這是年年都在的服務，不是「最新消息」。時間戳刻意給最舊的一筆，讓它沉在底下，
   // 不要把真正的新消息擠下去（廟方 2026-10-01 仍希望它出現在公佈欄）。
+  //
+  // 標題用頁面的名字「點燈服務」（2026-10-01 從「祈福點燈」改名），跟祈福活動頁那種
+  // 單場次的點燈分開（廟方 2026-10-01 說明：
+  // 天赦日、神明聖誕的祈福點燈目的在祈福、是單場的，太歲燈這幾種目的就是點燈、一年一期）。
+  // 兩邊的名字本來就交錯著「祈福」與「點燈」，標題不講清楚信眾會以為是同一件事。
   const lamps = src.lampConfigs.filter(c => c.isActive);
   if (lamps.length > 0) {
     const lines = lamps
@@ -169,8 +174,8 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
       .map(c => `${c.name}　${fmtMoney(c.fee)} / 年`);
     out.push(card(
       'lamp',
-      '祈福點燈服務',
-      ['本壇全年開放線上登記點燈：', ...lines, '', '歡迎為本人或家人點燈，祈求諸事順遂、光明護佑。'].join('\n'),
+      '點燈服務',
+      ['本壇全年開放線上登記，一年一期：', ...lines, '', '歡迎為本人或家人點燈，祈求諸事順遂、光明護佑。'].join('\n'),
       BulletinCategory.LAMP,
       lamps.reduce((min, c) => (c.createdAt < min ? c.createdAt : min), lamps[0].createdAt),
       'lamp',

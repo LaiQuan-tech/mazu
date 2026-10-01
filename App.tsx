@@ -268,7 +268,7 @@ const NAV_PRIMARY: NavItem[] = [
   { id: 'deities', label: '祀奉神尊', kind: 'section' },
   { id: 'relocation', label: '遷址捐款', kind: 'page' },
   { id: 'booking', label: '預約問事', kind: 'page' },
-  { id: 'lamps', label: '祈福點燈', kind: 'page' },
+  { id: 'lamps', label: '點燈服務', kind: 'page' },
 ];
 
 // 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列
@@ -849,10 +849,10 @@ const App: React.FC = () => {
   // 注意：這只影響瀏覽器分頁。分享預覽是爬蟲讀靜態 HTML、不跑 JS，由 og:title 決定。
   useEffect(() => {
     const titles: Record<SitePage, string> = {
-      home:       '台北古亭和聖壇｜問事、祈福點燈與法會服務',
+      home:       '台北古亭和聖壇｜問事、點燈與法會服務',
       about:      '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
       booking:    '預約問事｜台北古亭和聖壇',
-      lamps:      '祈福點燈｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
+      lamps:      '點燈服務｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
       blessing:   '祈福法會報名｜台北古亭和聖壇',
       relocation: '遷址捐款｜護持和聖壇道場遷址',
       repair:     '神尊修復｜台北古亭和聖壇',
@@ -1699,7 +1699,7 @@ const App: React.FC = () => {
     el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  /** 切換到獨立分頁（預約問事／祈福點燈／祈福活動／神尊修復），或回首頁 */
+  /** 切換到獨立分頁（預約問事／點燈服務／祈福活動／神尊修復），或回首頁 */
   const goToPage = (target: SitePage) => {
     setPage(target);
     setActiveSection(target === 'home' ? 'home' : target);
@@ -2267,7 +2267,7 @@ const App: React.FC = () => {
             所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓——
             按鈕是深藍底金字，本來就是深壓淺，不需要遮罩幫忙。
             這道遮罩兩個底圖共用。藍金版實測 1440×900：最暗 17.6:1，壓在右上白金
-            大理石那片的「祈福點燈／更多／登入」5.75:1（AA 要求 4.5:1）。
+            大理石那片的「點燈服務／更多／登入」5.75:1（AA 要求 4.5:1）。
             換底圖時要重量導覽列最右邊那幾項，別只看整體亮不亮。 */}
         <div
           className="absolute inset-0 z-0"
@@ -3098,7 +3098,7 @@ const App: React.FC = () => {
       </div>
       )}
 
-      {/* ── 祈福點燈（獨立分頁 /lamps）── */}
+      {/* ── 點燈服務（獨立分頁 /lamps）── */}
       {page === 'lamps' && (
       <div className="pt-20">
       <section id="lamps" className="py-20 bg-temple-bg relative overflow-hidden">
@@ -3122,8 +3122,12 @@ const App: React.FC = () => {
             </h2>
             {!isSharedGuest('lamp') && (
               <>
+                {/* 名稱 2026-10-01 從「祈福點燈」改為「點燈服務」（廟方提議）：
+                    與「祈福活動」都掛著「祈福」，選單上並排分不出來。改名之後分法很清楚——
+                    目的在祈福的（天赦日、神明聖誕的祈福點燈）在祈福活動，目的就是點燈的在這裡。
+                    h1 的「年度」是這一頁與那些單場次點燈最大的差別，一年一期。 */}
                 <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
-                  祈福點燈，光明護佑
+                  年度點燈，光明護佑
                 </h1>
                 <div className="flex items-center justify-center gap-3 mt-3 mb-4">
                   <span className="w-12 h-px bg-temple-gold/70" />
@@ -3132,6 +3136,14 @@ const App: React.FC = () => {
                 </div>
                 <p className="text-gray-500 max-w-xl mx-auto">
                   為本人或家人點燃平安燈，祈求諸事順遂、光明護佑。歡迎線上登記，廟方人員將與您確認細節。
+                </p>
+                {/* 改名解決了選單上的混淆，但「我要找天赦日點燈」的人仍可能先點進這一頁，
+                    所以兩頁互相指路（另一半在 /blessing 的同位置）。 */}
+                <p className="text-gray-400 text-sm max-w-xl mx-auto mt-3">
+                  本頁為一年一期的點燈。天赦日、神明聖誕等
+                  <button type="button" onClick={() => goToPage('blessing')}
+                    className="text-temple-red font-medium hover:underline">單場次的祈福點燈</button>
+                  請至祈福活動頁。
                 </p>
               </>
             )}
@@ -3390,6 +3402,13 @@ const App: React.FC = () => {
             </div>
             <p className="text-gray-500 max-w-xl mx-auto">
               法會、進香、祭典等各式祈福活動，誠摯邀請善男信女共同參與，祈求神明護佑平安吉祥。
+            </p>
+            {/* 與 /lamps 那段互相指路，理由見該處註解 */}
+            <p className="text-gray-400 text-sm max-w-xl mx-auto mt-3">
+              天赦日、神明聖誕等單場次的祈福點燈也在本頁。太歲祈安燈、光明燈這類
+              <button type="button" onClick={() => goToPage('lamps')}
+                className="text-temple-red font-medium hover:underline">一年一期的點燈</button>
+              請至點燈服務頁。
             </p>
             </>)}
           </div>
