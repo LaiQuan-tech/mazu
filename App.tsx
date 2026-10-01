@@ -56,6 +56,7 @@ import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
 import { deriveBulletins } from './services/derivedBulletins';
+import { currentLunarMonth } from './services/lunarCalendar';
 import { withKeptParams } from './services/attribution';
 import faqContent from './content/faq.json';
 import { useScrollMotion } from './hooks/useScrollMotion';
@@ -259,6 +260,25 @@ function fillEmptyFields<T extends Record<string, unknown>>(entry: T, defaults: 
   return changed ? (next as T) : entry;
 }
 
+/**
+ * 點燈服務與祈福活動在導覽列上換位置——**依農曆月份自動切換**（廟方 2026-10-01 要求）。
+ *
+ * 點燈是年度服務，信眾集中在農曆年底與年初來點（安太歲、光明燈都是為新的一年點的）；
+ * 年中擺在導覽列前段只是佔著位置。所以**農曆十一月、臘月、正月這三個月**它排在前面，
+ * 其餘月份退到「更多」，由祈福活動遞補——那是整年都在辦的。
+ *
+ * 兩者**互換而不是各加一個**：桌機頂層那一列已經沒有空間（1024px 時用掉 949px、
+ * 可用 945px，見 CLAUDE.md），多一項就會擠出去。兩個標籤都是四個字，換了寬度不變。
+ *
+ * **每次載入頁面時算一次就好**，不做即時更新：月份一天只會變一次，而為了跨月的那一刻
+ * 去掛計時器，等於替一個沒有人會遇到的情況多一條會忘記清掉的訂閱。
+ */
+const LAMP_NAV: NavItem = { id: 'lamps', label: '點燈服務', kind: 'page' };
+const BLESSING_NAV: NavItem = { id: 'blessing', label: '祈福活動', kind: 'page' };
+/** 農曆十一月（冬月）、十二月（臘月）、正月 */
+const LAMP_SEASON_MONTHS = [11, 12, 1];
+const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMonth());
+
 const NAV_PRIMARY: NavItem[] = [
   { id: 'home', label: '首頁', kind: 'section' },
   // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
@@ -268,7 +288,7 @@ const NAV_PRIMARY: NavItem[] = [
   { id: 'deities', label: '祀奉神尊', kind: 'section' },
   { id: 'relocation', label: '遷址捐款', kind: 'page' },
   { id: 'booking', label: '預約問事', kind: 'page' },
-  { id: 'lamps', label: '點燈服務', kind: 'page' },
+  isLampSeason() ? LAMP_NAV : BLESSING_NAV,
 ];
 
 // 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列
@@ -613,7 +633,8 @@ const NAV_MORE: NavItem[] = [
   // 桌機頂層那一列已經沒有空間（1024px 時用掉 949px、可用 945px），只能放下拉。
   // 由 ENABLE_CALENDAR 控制；關閉時整個項目不出現（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_CALENDAR ? [{ id: 'calendar', label: '歲時節令', kind: 'page' } as NavItem] : []),
-  { id: 'blessing', label: '祈福活動', kind: 'page' },
+  // 上面那一列放不下的那一個落在這裡，見 isLampSeason 的說明
+  isLampSeason() ? BLESSING_NAV : LAMP_NAV,
   // 神尊修復由 ENABLE_REPAIR 控制；關閉時整個項目不出現在導覽列（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_REPAIR ? [{ id: 'repair', label: '神尊修復', kind: 'page' } as NavItem] : []),
   { id: 'donation', label: '隨喜捐獻', kind: 'section' },

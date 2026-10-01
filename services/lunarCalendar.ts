@@ -86,6 +86,19 @@ export function solarToLunarLabel(ymd: string): string {
   return `農曆${formatLunarMonthDay(Math.abs(lunar.getMonth()), lunar.getDay(), lunar.getMonth() < 0)}`;
 }
 
+/**
+ * 今天是農曆幾月（1–12）。
+ *
+ * **閏月回傳同一個數字**：lunar-javascript 用負數表示閏月（閏十一月是 -11），
+ * 但「現在是不是點燈季」看的是節氣節奏，閏十一月與十一月是同一段時間。
+ *
+ * 可傳日期進來測試——不給就是今天。
+ */
+export function currentLunarMonth(date: Date = new Date()): number {
+  const l = Solar.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate()).getLunar();
+  return Math.abs(l.getMonth());
+}
+
 /** 'YYYY-MM-DD' → 「日一二三四五六」中的一個字 */
 export function weekdayLabel(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number);
