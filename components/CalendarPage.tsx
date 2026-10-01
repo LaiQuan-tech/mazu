@@ -21,6 +21,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import PatternMedallion from './PatternMedallion';
+import { TAG_GOLD, TAG_BROWN, TAG_GOLD_OUTLINE, TAG_SOLID } from './tagStyles';
 import { getDeityFeasts, getBlessingEvents, getBookingSessions, getRegularSessions } from '../services/supabase';
 import { DeityFeast, BlessingEventRecord, BookingSessionRecord, RegularSession } from '../types';
 import { resolveFeastDate, feastRuleLabel, solarToLunarLabel, weekdayLabel } from '../services/lunarCalendar';
@@ -33,12 +34,18 @@ type EntryKind = 'feast' | 'event' | 'booking' | 'regular';
 const KIND_LABEL: Record<EntryKind, string> = {
   feast: '聖誕節令', event: '壇務活動', booking: '問事', regular: '定期共修',
 };
-/** 顏色分兩組：每年固定的日子用金、廟方排的活動用紅／藍／綠，一眼分得出哪些是「會辦的事」 */
+/**
+ * 四種類別的配色全部取自全站那組（見 components/tagStyles.ts）——
+ * 這裡原本用了 sky／emerald，在廟紅＋金的版面上像是別的網站
+ * （廟方 2026-10-01：「標籤顏色，還是要維持一致風格」）。
+ * 只有兩個色相可用，所以靠「色相 × 填法」分開：
+ *   聖誕節令 金填（最多筆）／壇務活動 褐填／問事 金填描邊／定期共修 褐實心（最少筆）
+ */
 const KIND_CLASS: Record<EntryKind, string> = {
-  feast:   'bg-temple-gold/20 text-[#5C4310]',
-  event:   'bg-temple-red/10 text-temple-red',
-  booking: 'bg-sky-100 text-sky-800',
-  regular: 'bg-emerald-100 text-emerald-800',
+  feast:   TAG_GOLD,
+  event:   TAG_BROWN,
+  booking: TAG_GOLD_OUTLINE,
+  regular: TAG_SOLID,
 };
 
 interface CalendarEntry {
@@ -273,7 +280,7 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                   點進去只會看到那一場不在清單上，那是把人帶去撞牆 */}
                               {x.kind === 'booking' && !past && (
                                 x.bookingOpen
-                                  ? <a href="/booking" className="inline-block mt-2 text-sm font-medium text-sky-700 hover:underline">線上預約問事 →</a>
+                                  ? <a href="/booking" className="inline-block mt-2 text-sm font-medium text-temple-red hover:underline">線上預約問事 →</a>
                                   : <p className="mt-2 text-sm text-gray-500">這一場的線上預約已關閉，請洽本壇。</p>
                               )}
                             </div>

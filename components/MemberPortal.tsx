@@ -3,7 +3,8 @@ import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, 
 import { supabase } from '../services/supabase';
 import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents, getMySharedHistory } from '../services/supabase';
 import { SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from '../services/sharedSessionStore';
-import { SharedSessionRecord } from '../types';
+import { SharedSessionRecord, SharedServiceType } from '../types';
+import { TAG_GOLD, TAG_BROWN, TAG_GOLD_OUTLINE, TAG_STATE_OPEN, TAG_STATE_DONE, TAG_STATE_OVER } from './tagStyles';
 import { MemberContact, MemberContactData, ProfileData, ZodiacSign, LampRegistrationStatus, BookingStatus, BlessingStatus } from '../types';
 import BirthDatePicker from './BirthDatePicker';
 
@@ -25,6 +26,15 @@ interface SharedRow {
 }
 
 /** 揪團場次的顯示狀態。到期與否看 expires_at，資料庫不會主動改 status */
+/**
+ * 三種服務的標籤色。全站同一組（見 components/tagStyles.ts）——
+ * 這裡原本是 orange／blue／purple，在廟紅＋金的版面上是外來色
+ * （廟方 2026-10-01：「標籤顏色，還是要維持一致風格」）。
+ */
+const SERVICE_TAG: Record<SharedServiceType, string> = {
+  lamp: TAG_GOLD, booking: TAG_GOLD_OUTLINE, blessing: TAG_BROWN,
+};
+
 const sharedState = (s: SharedSessionRecord): SharedRow['state'] =>
   s.status === 'submitted' ? 'submitted'
   : new Date(s.expiresAt).getTime() < Date.now() ? 'expired'
@@ -885,13 +895,13 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                               {sharedRows.map(({ session, detail, people, state }) => {
                                 const t = session.serviceType;
                                 const kindLabel = SHARED_LABEL[t];
-                                const kindColor = t === 'lamp' ? 'bg-orange-100 text-orange-700' : t === 'booking' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+                                const kindColor = SERVICE_TAG[t];
                                 const kindIcon  = t === 'lamp' ? <Flame className="w-3 h-3" /> : t === 'booking' ? <Calendar className="w-3 h-3" /> : <HeartHandshake className="w-3 h-3" />;
                                 const stateLabel = state === 'open' ? '進行中' : state === 'submitted' ? '已送出' : '已過期';
                                 const stateColor =
-                                  state === 'open'      ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-                                  state === 'submitted' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                  'bg-gray-50 text-gray-500 border border-gray-200';
+                                  state === 'open'      ? TAG_STATE_OPEN :
+                                  state === 'submitted' ? TAG_STATE_DONE :
+                                  TAG_STATE_OVER;
                                 const n = people.length;
                                 const summary =
                                   state === 'submitted' ? `已送出 ${n} 人的報名` :
@@ -964,14 +974,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                       <div className="space-y-2.5">
                         {allRecords.map(rec => {
                           const kindLabel  = rec.kind === 'lamp' ? '點燈' : rec.kind === 'booking' ? '問事' : '祈福';
-                          const kindColor  = rec.kind === 'lamp' ? 'bg-orange-100 text-orange-700' : rec.kind === 'booking' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+                          const kindColor  = SERVICE_TAG[rec.kind];
                           const kindIcon   = rec.kind === 'lamp' ? <Flame className="w-3 h-3" /> : rec.kind === 'booking' ? <Calendar className="w-3 h-3" /> : <HeartHandshake className="w-3 h-3" />;
                           const statusStr = String(rec.status ?? '');   // status 可能為 null（後台手動建資料時），避免整頁白屏
+                          // 待處理／已確認都還在進行中，用同一個；完成與取消各有自己的
                           const statusColor =
-                            statusStr.includes('待') ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-                            statusStr.includes('確認') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                            statusStr.includes('完成') ? 'bg-green-50 text-green-700 border border-green-200' :
-                            'bg-gray-50 text-gray-500 border border-gray-200';
+                            statusStr.includes('待') || statusStr.includes('確認') ? TAG_STATE_OPEN :
+                            statusStr.includes('完成') ? TAG_STATE_DONE :
+                            TAG_STATE_OVER;
                           const dateStr = new Date(rec.createdAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
                           return (
                             <div key={rec.id} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl space-y-2">

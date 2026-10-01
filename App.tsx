@@ -57,6 +57,7 @@ import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
 import { deriveBulletins } from './services/derivedBulletins';
 import { currentLunarMonth } from './services/lunarCalendar';
+import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
 import { withKeptParams } from './services/attribution';
 import faqContent from './content/faq.json';
 import { useScrollMotion } from './hooks/useScrollMotion';
@@ -191,7 +192,8 @@ const HERO_FADE_RGB = ENABLE_BULLETIN
   ? '255 255 255'   // #bulletin 的 bg-white
   : '245 240 232';  // #about 的 bg-temple-bg
 
-const TAG_PINNED = 'bg-temple-red text-white';
+// 公佈欄的兩個標籤。配色與全站那組同源，見 components/tagStyles.ts
+const TAG_PINNED = TAG_SOLID;
 const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
 
 /**
@@ -3485,10 +3487,13 @@ const App: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h4 className="text-xl font-bold text-temple-dark font-serif">{ev.title}</h4>
-                            <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium">{ev.eventType}</span>
-                            {deadlinePassed && <span className="text-xs bg-gray-100 text-gray-400 px-2.5 py-1 rounded-full">報名已截止</span>}
+                            {/* 配色取自全站那組（components/tagStyles.ts）。
+                                「剩 N 天」原本是 orange-100，在廟紅＋金的版面上是外來色；
+                                改用褐實心——它本來就要是這一排裡最醒目的那一個。 */}
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${TAG_BROWN}`}>{ev.eventType}</span>
+                            {deadlinePassed && <span className={`text-xs px-2.5 py-1 rounded-full ${TAG_STATE_OVER}`}>報名已截止</span>}
                             {!deadlinePassed && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
-                              <span className="text-xs bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full">剩 {daysLeft} 天截止</span>
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${TAG_SOLID}`}>剩 {daysLeft} 天截止</span>
                             )}
                           </div>
                           <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-500 mb-3">
@@ -4081,8 +4086,11 @@ const App: React.FC = () => {
                             : <div className="w-full h-full flex items-center justify-center">
                                 <Flame className="w-12 h-12 text-amber-200" />
                               </div>}
+                          {/* 「已達標」壓在照片上，所以用實心的那一個（白字才讀得到）。
+                              原本是 bg-green-500——綠色在本站只留給「送出成功」的勾勾
+                              與進度條，標籤一律走 components/tagStyles.ts 那組 */}
                           {reached && (
-                            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-green-500 text-white text-[11px] font-bold shadow">
+                            <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[11px] font-bold shadow ${TAG_SOLID}`}>
                               已達標
                             </span>
                           )}
