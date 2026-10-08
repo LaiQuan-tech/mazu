@@ -760,11 +760,14 @@ export interface ShowerTruckLocation {
   checkedAt?: string;
 }
 
-/** 後台管理用。只有管理員讀得到，所以這個型別帶 checkinKey */
+/**
+ * 後台管理用。
+ * 2026-10-08 拿掉 checkinKey：打卡改成一條共用網址、進去選車，
+ * 不再每台車一把鑰匙（廟方：「太複雜了」）。見 shower_checkin_simplify.sql。
+ */
 export interface ShowerTruckAdmin {
   id: string;
   name: string;
-  checkinKey: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;

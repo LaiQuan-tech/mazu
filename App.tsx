@@ -616,7 +616,8 @@ const isScriptureUrl = (): boolean =>
 /**
  * 進香洗澡車（白沙屯媽祖進香，2026-10-08）。兩個網址：
  *   /shower          香客查位置
- *   /shower/checkin  現場志工打卡，鑰匙放 ?k=
+ *   /shower/checkin  現場志工打卡。**不帶參數、沒有密碼**——志工進去選一次車就好
+ *                    （廟方 2026-10-08：鑰匙版「太複雜了」，見 ShowerCheckinPage 檔頭）
  * 與 /scripture、/volunteer 同一套模式：初始值看網址、popstate 同步。
  * **刻意不進導覽列**：進香一年才九天，平時掛著只是佔位置（桌機那一列早就滿了）。
  * 入口是 LINE 與現場海報的 QR code。
@@ -627,9 +628,6 @@ const isShowerUrl = (): boolean =>
   typeof window !== 'undefined' && stripSlash(window.location.pathname) === SHOWER_PATH;
 const isShowerCheckinUrl = (): boolean =>
   typeof window !== 'undefined' && stripSlash(window.location.pathname) === SHOWER_CHECKIN_PATH;
-/** 打卡用的鑰匙。沒帶就是沒有憑證，打卡頁會直接顯示連結失效 */
-const showerKeyFromUrl = (): string =>
-  typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('k') ?? '');
 
 /**
  * 志工報名是否還收件。普渡法會（9/13）的志工已募足，廟方 2026-09-02 決定停止收件。
@@ -1990,7 +1988,7 @@ const App: React.FC = () => {
   // 追蹤用的「目前頁面」。報名表與聖母經現在各有網址（/fahui、/scripture），
   // 但它們是 state 不是 PAGE_PATHS 的一員，所以仍要在這裡明確對應。
   const analyticsPath =
-    showShowerCheckin ? '/shower/checkin'   // 鑰匙不送進追蹤：那是憑證不是流量維度
+    showShowerCheckin ? '/shower/checkin'
     : showShower ? '/shower'
     : showScripture ? '/scripture'
     : showVolunteer ? '/volunteer'
@@ -2002,7 +2000,7 @@ const App: React.FC = () => {
   if (showShowerCheckin) {
     return (<>
       <Analytics path={analyticsPath} />
-      <Suspense fallback={<PageLoading />}><ShowerCheckinPage checkinKey={showerKeyFromUrl()} /></Suspense>
+      <Suspense fallback={<PageLoading />}><ShowerCheckinPage /></Suspense>
     </>);
   }
 

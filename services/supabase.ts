@@ -2476,17 +2476,17 @@ export const getShowerLocations = async (): Promise<ShowerTruckLocation[]> => {
 };
 
 /**
- * 志工打卡。成功回車名、鑰匙錯或車已停用回 null。
+ * 志工打卡。成功回車名；車不存在或已隱藏回 null。
  *
- * **錯誤要分得出「鑰匙不對」與「網路不通」**：志工站在田邊，前者要叫他找廟方換連結、
- * 後者要叫他再按一次。所以鑰匙錯是回 null 不是丟例外，例外一律代表連線或伺服器問題。
+ * **回 null 與丟例外要分得開**：志工站在田邊，前者代表「這台車被停用了，去問廟方」、
+ * 後者代表「訊號不穩，再按一次」。給錯指示會讓人在原地反覆按一個不會成功的按鈕。
  */
 export const showerCheckin = async (
-  key: string,
+  truckId: string,
   loc: { lat?: number; lng?: number; place?: string; note?: string },
 ): Promise<string | null> => {
   const { data, error } = await supabase.rpc('shower_checkin', {
-    p_key:   key,
+    p_truck_id: truckId,
     p_lat:   loc.lat ?? null,
     p_lng:   loc.lng ?? null,
     p_place: loc.place ?? null,
@@ -2498,12 +2498,11 @@ export const showerCheckin = async (
 
 // ── 後台：洗澡車管理（只有管理員，走一般的表存取） ──
 const mapShowerTruck = (r: Record<string, unknown>): ShowerTruckAdmin => ({
-  id:         String(r.id),
-  name:       String(r.name ?? ''),
-  checkinKey: String(r.checkin_key ?? ''),
-  isActive:   Boolean(r.is_active),
-  sortOrder:  Number(r.sort_order ?? 0),
-  createdAt:  String(r.created_at ?? ''),
+  id:        String(r.id),
+  name:      String(r.name ?? ''),
+  isActive:  Boolean(r.is_active),
+  sortOrder: Number(r.sort_order ?? 0),
+  createdAt: String(r.created_at ?? ''),
 });
 
 export const getShowerTrucks = async (): Promise<ShowerTruckAdmin[]> => {
@@ -2514,8 +2513,6 @@ export const getShowerTrucks = async (): Promise<ShowerTruckAdmin[]> => {
 };
 
 export const createShowerTruck = async (name: string, sortOrder: number): Promise<ShowerTruckAdmin> => {
-  // checkin_key 不在這裡產：交給資料庫的 DEFAULT（gen_random_bytes），
-  // 瀏覽器端產的話等於把鑰匙的強度綁在前端程式上
   const { data, error } = await supabase
     .from('shower_trucks').insert([{ name, sort_order: sortOrder }]).select().single();
   if (error) { console.error('Error creating shower truck:', error); throw error; }
@@ -2531,16 +2528,6 @@ export const updateShowerTruck = async (
   if (d.sortOrder !== undefined) row.sort_order = d.sortOrder;
   const { error } = await supabase.from('shower_trucks').update(row).eq('id', id);
   if (error) { console.error('Error updating shower truck:', error); throw error; }
-};
-
-/** 重發鑰匙＝舊連結立刻失效。外洩或志工換人時用 */
-export const regenerateShowerKey = async (id: string): Promise<string> => {
-  const key = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-  const { error } = await supabase.from('shower_trucks')
-    .update({ checkin_key: key, updated_at: new Date().toISOString() }).eq('id', id);
-  if (error) { console.error('Error regenerating shower key:', error); throw error; }
-  return key;
 };
 
 export const deleteShowerTruck = async (id: string): Promise<void> => {

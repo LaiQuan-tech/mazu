@@ -15,25 +15,29 @@
  * 重發之後舊連結立刻失效，這點要在確認視窗裡講明白。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2, Eye, EyeOff, RefreshCw, Copy, Check, KeyRound, ShowerHead, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, RefreshCw, Copy, Check, ShowerHead, ExternalLink, Lock } from 'lucide-react';
 import {
-  getShowerTrucks, createShowerTruck, updateShowerTruck, regenerateShowerKey, deleteShowerTruck,
+  getShowerTrucks, createShowerTruck, updateShowerTruck, deleteShowerTruck,
 } from '../services/supabase';
 import { ShowerTruckAdmin } from '../types';
 
 const inputClass =
   'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:border-temple-red';
 
-/** 完整網址。複製出去要能直接點，所以帶上網域而不是只有路徑 */
-const checkinUrl = (key: string): string =>
-  `${typeof window === 'undefined' ? 'https://heshengtan.tw' : window.location.origin}/shower/checkin?k=${key}`;
+/**
+ * 志工打卡網址。**全部的車共用這一條**（2026-10-08 簡化，原本是每台車一把鑰匙）：
+ * 志工進去選一次是哪一台，之後手機記住。
+ * 帶上網域是因為這串要貼到 LINE，只有路徑點不開。
+ */
+const CHECKIN_URL = (): string =>
+  `${typeof window === 'undefined' ? 'https://heshengtan.tw' : window.location.origin}/shower/checkin`;
 
 const AdminShowerTab: React.FC = () => {
   const [trucks, setTrucks] = useState<ShowerTruckAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,31 +66,18 @@ const AdminShowerTab: React.FC = () => {
     } finally { setBusy(false); }
   };
 
-  const copy = async (t: ShowerTruckAdmin) => {
+  const copy = async () => {
     try {
-      await navigator.clipboard.writeText(checkinUrl(t.checkinKey));
-      setCopiedId(t.id);
-      window.setTimeout(() => setCopiedId(c => (c === t.id ? null : c)), 2000);
+      await navigator.clipboard.writeText(CHECKIN_URL());
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
     } catch { alert('複製失敗，請手動選取網址複製。'); }
-  };
-
-  const regen = async (t: ShowerTruckAdmin) => {
-    if (!window.confirm(
-      `確定要重發「${t.name}」的打卡連結嗎？\n\n` +
-      '舊連結會立刻失效，已經拿到舊連結的志工將無法打卡，要重新把新連結發給他們。',
-    )) return;
-    setBusy(true);
-    try {
-      const key = await regenerateShowerKey(t.id);
-      setTrucks(prev => prev.map(x => (x.id === t.id ? { ...x, checkinKey: key } : x)));
-    } catch { alert('重發失敗，請稍後再試'); }
-    finally { setBusy(false); }
   };
 
   const remove = async (t: ShowerTruckAdmin) => {
     if (!window.confirm(
       `確定要刪除「${t.name}」嗎？\n\n它的所有打卡紀錄也會一起刪除，無法復原。\n` +
-      '若只是這次進香結束，建議改用「隱藏」——資料留著，明年可以直接重發連結。',
+      '若只是這次進香結束，建議改用「隱藏」——資料留著，明年再打開就好。',
     )) return;
     setBusy(true);
     try { await deleteShowerTruck(t.id); setTrucks(prev => prev.filter(x => x.id !== t.id)); }
@@ -110,14 +101,33 @@ const AdminShowerTab: React.FC = () => {
           </a>
           查目前位置並導航。
         </p>
-        <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600 leading-relaxed">
-          <p className="font-medium text-gray-700 mb-1">打卡連結怎麼用</p>
-          <p>
-            每台車一條專屬連結，用 LINE 傳給該車的志工。志工點開按一下「我在這裡」就會回報位置，
-            <strong>不必註冊也不必登入</strong>。
+        {/* 連結只出現在這裡一次：全部的車共用同一條，印在每一列上只會讓人以為各自不同 */}
+        <div className="mt-4 rounded-xl border-2 border-temple-gold/40 bg-temple-gold/5 px-4 py-4">
+          <p className="font-medium text-gray-800 mb-1">志工打卡連結</p>
+          <p className="text-sm text-gray-600 leading-relaxed mb-3">
+            用 LINE 傳給現場志工，或請他們加入手機書籤。點開選一次是哪一台車、按「我在這裡」就完成，
+            <strong>不必註冊也不必登入</strong>；之後再開啟會記住上次選的車。
           </p>
-          <p className="mt-1">
-            連結等同鑰匙，<strong>請不要公開張貼</strong>；若外流或志工換人，按「重發連結」即可讓舊的失效。
+          <input
+            readOnly
+            value={CHECKIN_URL()}
+            onFocus={e => e.currentTarget.select()}
+            aria-label="志工打卡連結"
+            className={`${inputClass} font-mono text-xs bg-white`}
+          />
+          <button type="button" onClick={copy}
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-temple-red text-white rounded-lg hover:bg-[#5C4310] transition-colors">
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? '已複製' : '複製連結'}
+          </button>
+          {/* 這條連結沒有密碼保護，是為了讓志工能快速打卡而做的取捨（廟方 2026-10-08 決定）。
+              風險要講在廟方發連結的地方，不能只寫在志工那一頁 */}
+          <p className="mt-3 flex items-start gap-2 text-sm text-[#5C4310] leading-relaxed">
+            <Lock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              <strong>請勿公開張貼</strong>（網站、臉書、公開群組）。
+              這條網址沒有密碼，任何拿到的人都能更改洗澡車的位置。只私訊給現場同工。
+            </span>
           </p>
         </div>
       </div>
@@ -144,7 +154,7 @@ const AdminShowerTab: React.FC = () => {
                     className={`${inputClass} font-medium`}
                   />
                   <button type="button" disabled={busy}
-                    title={t.isActive ? '點一下隱藏（香客頁看不到、打卡連結也會失效）' : '點一下啟用'}
+                    title={t.isActive ? '點一下隱藏（香客頁看不到，志工也選不到這一台）' : '點一下啟用'}
                     onClick={() => patch(t.id, { isActive: !t.isActive })}
                     className="p-2 rounded-lg text-gray-400 hover:text-temple-red hover:bg-gray-100 disabled:opacity-50 shrink-0">
                     {t.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -155,29 +165,9 @@ const AdminShowerTab: React.FC = () => {
                   </button>
                 </div>
 
-                <label className="block">
-                  <span className="text-xs text-gray-500">志工打卡連結</span>
-                  {/* 唯讀＋等寬：這串是給人複製的不是給人改的，改了也不會生效 */}
-                  <input
-                    readOnly
-                    value={checkinUrl(t.checkinKey)}
-                    onFocus={e => e.currentTarget.select()}
-                    aria-label="志工打卡連結"
-                    className={`${inputClass} font-mono text-xs bg-gray-50 mt-1`}
-                  />
-                </label>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <button type="button" onClick={() => copy(t)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-temple-red text-white rounded-lg hover:bg-[#5C4310] transition-colors">
-                    {copiedId === t.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedId === t.id ? '已複製' : '複製連結'}
-                  </button>
-                  <button type="button" disabled={busy} onClick={() => regen(t)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50">
-                    <KeyRound className="w-3.5 h-3.5" />重發連結
-                  </button>
-                  {!t.isActive && <span className="text-xs text-gray-400">已隱藏，連結目前無法打卡</span>}
-                </div>
+                {!t.isActive && (
+                  <p className="text-xs text-gray-400">已隱藏：香客頁看不到，志工也選不到這一台。</p>
+                )}
               </div>
             ))}
 
