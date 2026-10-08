@@ -33,6 +33,10 @@
       "destination": "/calendar.html"
     },
     {
+      "source": "/shower",
+      "destination": "/shower.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

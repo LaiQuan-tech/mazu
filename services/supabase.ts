@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import { getSource } from './attribution';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -2450,4 +2450,100 @@ export const updateRegularSession = async (id: string, d: Partial<RegularSession
 export const deleteRegularSession = async (id: string): Promise<void> => {
   const { error } = await supabase.from('regular_sessions').delete().eq('id', id);
   if (error) { console.error('Error deleting regular session:', error); throw error; }
+};
+
+// ─── 進香洗澡車（白沙屯媽祖進香）───────────────────────────────────────────
+// 香客查位置、志工打卡都走 SECURITY DEFINER RPC：shower_trucks 裡有 checkin_key，
+// 那是志工的憑證，anon 對兩張表都沒有直接權限。見 shower_trucks.sql 的檔頭。
+
+/**
+ * 香客頁的資料。**回傳不含 checkin_key**。
+ * 表或 RPC 不存在（migration 沒跑）時回空陣列——這一頁空著比白屏好。
+ */
+export const getShowerLocations = async (): Promise<ShowerTruckLocation[]> => {
+  const { data, error } = await supabase.rpc('get_shower_locations');
+  if (error || !Array.isArray(data)) return [];
+  return (data as any[]).map(r => ({
+    id:        String(r.id),
+    name:      String(r.name ?? ''),
+    // 座標可能是 null（志工只填了地標）。轉成 undefined 讓前台一個 if 就判斷得出來
+    lat:       r.lat === null || r.lat === undefined ? undefined : Number(r.lat),
+    lng:       r.lng === null || r.lng === undefined ? undefined : Number(r.lng),
+    place:     r.place ?? undefined,
+    note:      r.note ?? undefined,
+    checkedAt: r.checked_at ?? undefined,
+  }));
+};
+
+/**
+ * 志工打卡。成功回車名、鑰匙錯或車已停用回 null。
+ *
+ * **錯誤要分得出「鑰匙不對」與「網路不通」**：志工站在田邊，前者要叫他找廟方換連結、
+ * 後者要叫他再按一次。所以鑰匙錯是回 null 不是丟例外，例外一律代表連線或伺服器問題。
+ */
+export const showerCheckin = async (
+  key: string,
+  loc: { lat?: number; lng?: number; place?: string; note?: string },
+): Promise<string | null> => {
+  const { data, error } = await supabase.rpc('shower_checkin', {
+    p_key:   key,
+    p_lat:   loc.lat ?? null,
+    p_lng:   loc.lng ?? null,
+    p_place: loc.place ?? null,
+    p_note:  loc.note ?? null,
+  });
+  if (error) { console.error('Error shower checkin:', error); throw error; }
+  return (data as string | null) ?? null;
+};
+
+// ── 後台：洗澡車管理（只有管理員，走一般的表存取） ──
+const mapShowerTruck = (r: Record<string, unknown>): ShowerTruckAdmin => ({
+  id:         String(r.id),
+  name:       String(r.name ?? ''),
+  checkinKey: String(r.checkin_key ?? ''),
+  isActive:   Boolean(r.is_active),
+  sortOrder:  Number(r.sort_order ?? 0),
+  createdAt:  String(r.created_at ?? ''),
+});
+
+export const getShowerTrucks = async (): Promise<ShowerTruckAdmin[]> => {
+  const { data, error } = await supabase
+    .from('shower_trucks').select('*').order('sort_order').order('created_at');
+  if (error) { console.error('Error fetching shower trucks:', error); throw error; }
+  return (data || []).map(mapShowerTruck);
+};
+
+export const createShowerTruck = async (name: string, sortOrder: number): Promise<ShowerTruckAdmin> => {
+  // checkin_key 不在這裡產：交給資料庫的 DEFAULT（gen_random_bytes），
+  // 瀏覽器端產的話等於把鑰匙的強度綁在前端程式上
+  const { data, error } = await supabase
+    .from('shower_trucks').insert([{ name, sort_order: sortOrder }]).select().single();
+  if (error) { console.error('Error creating shower truck:', error); throw error; }
+  return mapShowerTruck(data);
+};
+
+export const updateShowerTruck = async (
+  id: string, d: Partial<{ name: string; isActive: boolean; sortOrder: number }>,
+): Promise<void> => {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (d.name      !== undefined) row.name       = d.name;
+  if (d.isActive  !== undefined) row.is_active  = d.isActive;
+  if (d.sortOrder !== undefined) row.sort_order = d.sortOrder;
+  const { error } = await supabase.from('shower_trucks').update(row).eq('id', id);
+  if (error) { console.error('Error updating shower truck:', error); throw error; }
+};
+
+/** 重發鑰匙＝舊連結立刻失效。外洩或志工換人時用 */
+export const regenerateShowerKey = async (id: string): Promise<string> => {
+  const key = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  const { error } = await supabase.from('shower_trucks')
+    .update({ checkin_key: key, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { console.error('Error regenerating shower key:', error); throw error; }
+  return key;
+};
+
+export const deleteShowerTruck = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('shower_trucks').delete().eq('id', id);
+  if (error) { console.error('Error deleting shower truck:', error); throw error; }
 };

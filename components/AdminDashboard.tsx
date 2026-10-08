@@ -7,6 +7,7 @@ import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminVouchersTab from './AdminVouchersTab';
 import AdminFeastsTab from './AdminFeastsTab';
+import AdminShowerTab from './AdminShowerTab';
 import AdminDonationTypesTab from './AdminDonationTypesTab';
 import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
@@ -20,11 +21,11 @@ import {
   TrendingUp, Users, Banknote, AlertCircle, LogOut,
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, Menu, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser, Settings, Share2,
-  ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby,
+  ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby, ShowerHead,
   Eye, EyeOff, ShoppingBag, Wrench, Receipt
 } from 'lucide-react';
 
-type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables';
+type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables' | 'shower';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -5948,6 +5949,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'relocation',  label: '遷址捐款',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'faq',         label: '常見問題',   icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'feasts',      label: '歲時節令', icon: <CalendarClock className="w-4 h-4" /> },
+    { key: 'shower',      label: '洗澡車',   icon: <ShowerHead className="w-4 h-4" /> },
     { key: 'photos',      label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'siteinfo',   label: '基本資料',   icon: <MapPin className="w-4 h-4" /> },
@@ -5984,7 +5986,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const NAV_GROUPS: { title: string; keys: Tab[] }[] = [
     { title: '常用',       keys: ['overview', 'fahui', 'volunteer', 'bookings', 'lamps', 'blessings', 'donations'] },
     { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'vouchers', 'repairs', 'traffic'] },
-    { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'feasts', 'photos', 'scripture'] },
+    { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'feasts', 'photos', 'scripture', 'shower'] },
     { title: '系統設定',   keys: ['siteinfo', 'analytics', 'social'] },
   ];
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -6139,6 +6141,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'relocation' && <AdminRelocationTab />}
               {tab === 'faq' && <AdminFaqTab />}
               {tab === 'feasts' && <AdminFeastsTab />}
+              {tab === 'shower' && <AdminShowerTab />}
               {tab === 'siteinfo' && <AdminSiteInfoTab />}
               {tab === 'analytics' && <AnalyticsTab />}
               {tab === 'social' && <SocialTab />}

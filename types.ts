@@ -10,8 +10,9 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['vouchers', 'traffic', 'analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture', 'feasts'],
-  staff:   ['traffic', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'feasts'],
+  admin:   ['vouchers', 'traffic', 'analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture', 'feasts', 'shower'],
+  // 洗澡車給 staff：進香期間是現場同工在發打卡連結，不該每次都找管理員
+  staff:   ['traffic', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'feasts', 'shower'],
   finance: ['vouchers', 'overview', 'fahui', 'donations', 'receivables'],
 };
 
@@ -738,6 +739,34 @@ export interface RegularSessionData {
 export interface RegularSession extends RegularSessionData {
   id: string;
   /** 建立時間。公佈欄那則衍生卡用它排序——用場次日期會讓未來的場次排到最上面 */
+  createdAt: string;
+}
+
+// ─── 進香洗澡車（shower_trucks / shower_checkins）──────────────────────────
+// 白沙屯媽祖進香沒有固定路線，洗澡車停在哪只有現場的人知道。
+// 志工用專屬連結打卡、香客在 /shower 查詢並導航。
+// 設計與權限見 supabase/migrations/shower_trucks.sql 的檔頭。
+
+/** 香客頁看到的一台車。**不含 checkin_key**——那是志工的憑證，不可以送到前台 */
+export interface ShowerTruckLocation {
+  id: string;
+  name: string;
+  /** 最新一次打卡的座標。沒有座標只有地標時為 undefined（導航改用地名搜尋） */
+  lat?: number;
+  lng?: number;
+  place?: string;
+  note?: string;
+  /** 最新一次打卡的時間。從來沒打過卡時為 undefined */
+  checkedAt?: string;
+}
+
+/** 後台管理用。只有管理員讀得到，所以這個型別帶 checkinKey */
+export interface ShowerTruckAdmin {
+  id: string;
+  name: string;
+  checkinKey: string;
+  isActive: boolean;
+  sortOrder: number;
   createdAt: string;
 }
 

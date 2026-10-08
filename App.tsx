@@ -69,6 +69,9 @@ const MemberPortal = lazy(() => import('./components/MemberPortal'));
 const FahuiRegistration = lazy(() => import('./components/FahuiRegistration'));
 const VolunteerRegistration = lazy(() => import('./components/VolunteerRegistration'));
 const CalendarPage = lazy(() => import('./components/CalendarPage'));
+// 進香洗澡車。一年只用九天，拆成自己的 chunk，平常的訪客不必下載
+const ShowerPage = lazy(() => import('./components/ShowerPage'));
+const ShowerCheckinPage = lazy(() => import('./components/ShowerCheckinPage'));
 
 const PageLoading = () => (
   <div className="min-h-[100svh] bg-[#F5F0E8] flex items-center justify-center" role="status" aria-live="polite">
@@ -611,6 +614,24 @@ const isScriptureUrl = (): boolean =>
   typeof window !== 'undefined' && stripSlash(window.location.pathname) === SCRIPTURE_PATH;
 
 /**
+ * 進香洗澡車（白沙屯媽祖進香，2026-10-08）。兩個網址：
+ *   /shower          香客查位置
+ *   /shower/checkin  現場志工打卡，鑰匙放 ?k=
+ * 與 /scripture、/volunteer 同一套模式：初始值看網址、popstate 同步。
+ * **刻意不進導覽列**：進香一年才九天，平時掛著只是佔位置（桌機那一列早就滿了）。
+ * 入口是 LINE 與現場海報的 QR code。
+ */
+const SHOWER_PATH = '/shower';
+const SHOWER_CHECKIN_PATH = '/shower/checkin';
+const isShowerUrl = (): boolean =>
+  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SHOWER_PATH;
+const isShowerCheckinUrl = (): boolean =>
+  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SHOWER_CHECKIN_PATH;
+/** 打卡用的鑰匙。沒帶就是沒有憑證，打卡頁會直接顯示連結失效 */
+const showerKeyFromUrl = (): string =>
+  typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('k') ?? '');
+
+/**
  * 志工報名是否還收件。普渡法會（9/13）的志工已募足，廟方 2026-09-02 決定停止收件。
  *
  * 關掉時會同時處理兩個地方，缺一不可：
@@ -834,6 +855,8 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showScripture, setShowScripture] = useState(isScriptureUrl);
+  const [showShower, setShowShower] = useState(isShowerUrl);
+  const [showShowerCheckin, setShowShowerCheckin] = useState(isShowerCheckinUrl);
   const [page, setPage] = useState<SitePage>(pageFromPath);
   // 全站的進場與視差引擎（掛一次，掃全document）。元素只要掛 .sr / .sr-figure / .sr-counter
   useScrollMotion();
@@ -858,7 +881,10 @@ const App: React.FC = () => {
   // 正式官網網域（heshengtan.tw）的**根路徑**一律顯示官網首頁，見 OFFICIAL_HOSTS。
   // 初始值與 popstate 共用這一個函式；分開寫過會導致按上一頁被報名表吃掉。
   const shouldShowFahui = (): boolean =>
+    // 新增這類「有自己的網址但不在 PAGE_PATHS 裡」的頁面時都要加進這串排除，
+    // 否則非官方網域上會被判成根路徑、被報名表蓋掉（見 CLAUDE.md）
     FAHUI_LANDING && !adminEntry && !isVolunteerUrl() && !isScriptureUrl()
+    && !isShowerUrl() && !isShowerCheckinUrl()
     && (isFahuiUrl() || (!isOfficialHost() && pageFromPath() === 'home'));
   const [showFahui, setShowFahui] = useState(shouldShowFahui);
   const [showVolunteer, setShowVolunteer] = useState(volunteerEntry);
@@ -884,14 +910,18 @@ const App: React.FC = () => {
     };
     // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
     // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
-    document.title = showScripture
+    document.title = showShowerCheckin
+      ? '洗澡車打卡｜台北古亭和聖壇'
+      : showShower
+      ? '進香洗澡車位置查詢｜白沙屯媽祖進香｜台北古亭和聖壇'
+      : showScripture
       ? '天上聖母經｜經文、註解與故事｜台北古亭和聖壇'
       : showVolunteer
       ? '志工報名｜台北古亭和聖壇'
       : showFahui
       ? '和聖壇法會線上報名｜太上慈悲普渡禮懺法會'
       : titles[page];
-  }, [showScripture, showVolunteer, showFahui, page]);
+  }, [showScripture, showVolunteer, showFahui, showShower, showShowerCheckin, page]);
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(adminEntry);
@@ -959,6 +989,8 @@ const App: React.FC = () => {
       const vol = isVolunteerUrl();
       setShowVolunteer(vol);
       setShowScripture(isScriptureUrl());
+      setShowShower(isShowerUrl());
+      setShowShowerCheckin(isShowerCheckinUrl());
       setShowFahui(shouldShowFahui());
     };
     window.addEventListener('popstate', onPop);
@@ -1958,11 +1990,28 @@ const App: React.FC = () => {
   // 追蹤用的「目前頁面」。報名表與聖母經現在各有網址（/fahui、/scripture），
   // 但它們是 state 不是 PAGE_PATHS 的一員，所以仍要在這裡明確對應。
   const analyticsPath =
-    showScripture ? '/scripture'
+    showShowerCheckin ? '/shower/checkin'   // 鑰匙不送進追蹤：那是憑證不是流量維度
+    : showShower ? '/shower'
+    : showScripture ? '/scripture'
     : showVolunteer ? '/volunteer'
     : showFahui ? '/fahui'
     : page === 'home' ? '/'
     : PAGE_PATHS[page];
+
+  // 洗澡車兩頁排在最前面：它們是給現場用的，不該被任何著陸頁規則蓋掉
+  if (showShowerCheckin) {
+    return (<>
+      <Analytics path={analyticsPath} />
+      <Suspense fallback={<PageLoading />}><ShowerCheckinPage checkinKey={showerKeyFromUrl()} /></Suspense>
+    </>);
+  }
+
+  if (showShower) {
+    return (<>
+      <Analytics path={analyticsPath} />
+      <Suspense fallback={<PageLoading />}><ShowerPage /></Suspense>
+    </>);
+  }
 
   if (showScripture) {
     return (<>
