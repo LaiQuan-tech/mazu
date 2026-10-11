@@ -91,6 +91,24 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
      * 回傳的都是本來就該公開的 DNS 記錄與狀態，沒有金鑰也沒有信箱。
      * 另外做成要帶參數才查，一般的自我檢查就不必每次都打 Resend 一次。
      */
+    /**
+     * `?email=<id>` ＝查某一封信的投遞結果。id 由寄送成功時的回應給。
+     * 收件者遮掉——這支是公開端點。
+     */
+    let 投遞 : unknown;
+    const mid = /[?&]email=([0-9a-f-]{36})/i.exec(String((req as { url?: string }).url ?? ''))?.[1];
+    if (apiKey && mid) {
+      try {
+        const e = await fetch(`https://api.resend.com/emails/${mid}`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        const j = await e.json() as { last_event?: string; created_at?: string; subject?: string; to?: string[] };
+        投遞 = e.ok
+          ? { 狀態: j.last_event, 主旨: j.subject, 寄出時間: j.created_at, 收件者數: (j.to ?? []).length }
+          : { error: `Resend 回 ${e.status}` };
+      } catch { 投遞 = { error: '查詢失敗' }; }
+    }
+
     let 網域 : unknown;
     if (apiKey && /(?:^|[?&])domains=1(?:&|$)/.test(String((req as { url?: string }).url ?? ''))) {
       try {
@@ -126,6 +144,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     }
     res.status(200).json({
       ok: true,
+      ...(投遞 ? { 投遞 } : {}),
       ...(網域 ? { 網域 } : {}),
       設定狀態: {
         VITE_SUPABASE_URL: !!supabaseUrl,
@@ -210,7 +229,10 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       res.status(502).json({ ok: false, error: '寄送失敗', 原因: resendReason(detail) });
       return;
     }
-    res.status(200).json({ ok: true });
+    // 回傳 Resend 的信件 id：**「Resend 收下了」不等於「Gmail 收到了」**。
+    // 拿這個 id 去 `?email=<id>` 才看得到真正的投遞結果（delivered／bounced／complained）。
+    const sent = await send.json().catch(() => ({})) as { id?: string };
+    res.status(200).json({ ok: true, id: sent.id });
   } catch (e) {
     console.error('notify error', e);
     res.status(500).json({ ok: false, error: '通知失敗' });
