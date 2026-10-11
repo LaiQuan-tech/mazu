@@ -81,6 +81,19 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **環境變數都不加 `VITE_` 前綴**（`RESEND_API_KEY`／`NOTIFY_TO`／`NOTIFY_FROM`／`SUPABASE_SERVICE_ROLE_KEY`）——加了會被 Vite 內嵌進前端 JS，等於公開金鑰（同 `VERCEL_DEPLOY_HOOK_URL` 的理由）。
   **本機看不到效果**：`vite dev` 不跑 `api/`，那支呼叫一定 404，是正常的。
   **揪團送出是一人一封**：那邊是迴圈呼叫 `submitBooking` 等函式，五個人就五封。目前接受。
+  **寄信網域要在 Resend 後台按「Verify DNS Records」才會生效**（2026-10-11 卡在這）：
+  DNS 三筆全部填對、值逐字元一致，Resend 仍然退件 `The heshengtan.tw domain is not verified`——
+  因為它的 `status` 是 `not_started`，**Resend 不會自己去檢查**，要人按那顆鈕。
+  查法：`curl 'https://heshengtan.tw/api/notify-registration?domains=1'`，會列出每個網域的狀態
+  與 Resend 自己要求的每一筆記錄（含完整的 DKIM 值）。沒有這支就只能在
+  「沒按驗證」與「記錄填錯」之間猜，而兩者的症狀都是「信沒來」。
+  **不要拿同帳號其他已驗證的網域反推該填什麼**：heshengtan.tw 用的是較新的 CNAME 式
+  （`send`→`send.forge.rmta.net`、`rsend`→`rsend-apne1.forge.rmta.net`），而 laiquan.co／pikt.ag
+  是舊的 SES 式（`send` 的 MX→`feedback-smtp.ap-northeast-1.amazonses.com`＋SPF TXT）。
+  我照舊的那套反推，結論是「`send` 被設成 CNAME 是錯的」——完全相反，那筆正是對的。
+  要知道該填什麼只有一個可靠來源：問 Resend 這個網域自己的 `records`。
+  **寄送失敗會把 Resend 說的原因回傳**（信箱遮成 `***@***`，那支是公開端點）。
+  原本只 `console.error` 進 Vercel 的函式 log，而廟方不會去翻那裡。
 - **id 一律用 `newUuid()` 不要用 `crypto.randomUUID()`**（`services/supabase.ts`，2026-10-11）：後者要 Safari 15.4（2022-03）以上，而本站信眾以長者居多、舊手機比例不低。2026-10-11 把六個報名表的 id 改成客戶端先產之後，這個呼叫就落在**必經路徑**上——沒有退路的話舊機子按下送出會丟 TypeError，整筆報名失敗而且畫面只顯示「送不出去」。`newUuid()` 退到 `getRandomValues` 照 RFC 4122 v4 組字串（實測 2000 組格式全合法、無重複）。檔案裡 13 處都已換掉。
   **為什麼 id 要客戶端先產**：anon 只有 INSERT 權限、不能 `.select()` 讀回（見 Supabase 陷阱那張表），而要通知廟方「是哪一筆」就得先知道 id。實測帶著 id 寫入 `bookings` 回 201，RLS 不擋。
 - **localStorage 草稿**（`fahui_registration_draft_v1`）：改報名表欄位結構時，還原邏輯已有正規化（依 SERVICE_CONFIGS 重建），維持這個模式；新欄位要能吃舊草稿。這裡曾造成正式站白屏。
