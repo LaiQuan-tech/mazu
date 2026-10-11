@@ -60,16 +60,37 @@ const FIELDS: { key: string; label: string }[] = [
 const esc = (v: unknown): string => String(v ?? '').slice(0, 200);
 
 export default async function handler(req: ReqLike, res: ResLike): Promise<void> {
-  if ((req.method || 'GET').toUpperCase() !== 'POST') {
-    res.status(405).json({ ok: false, error: '只接受 POST' });
-    return;
-  }
-
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const apiKey      = process.env.RESEND_API_KEY;
   const to          = process.env.NOTIFY_TO;
   const from        = process.env.NOTIFY_FROM || '和聖壇網站 <noreply@heshengtan.tw>';
+
+  /**
+   * GET ＝自我檢查：**只回「設了沒」的布林值，不回任何內容**。
+   * 設定這支要跨 Vercel 與 Supabase 兩個後台、四個變數，漏一個的症狀都是
+   * 「信沒來」，從外面完全看不出是漏哪一個（2026-10-11 第一次設定就卡在這）。
+   * 布林值本身沒有洩漏風險，但省掉的是一來一回的猜測。
+   */
+  if ((req.method || 'GET').toUpperCase() === 'GET') {
+    res.status(200).json({
+      ok: true,
+      設定狀態: {
+        VITE_SUPABASE_URL: !!supabaseUrl,
+        SUPABASE_SERVICE_ROLE_KEY: !!serviceKey,
+        RESEND_API_KEY: !!apiKey,
+        NOTIFY_TO: !!to,
+        NOTIFY_FROM: process.env.NOTIFY_FROM ? '自訂' : `預設（${from}）`,
+      },
+      就緒: !!(supabaseUrl && serviceKey && apiKey && to),
+    });
+    return;
+  }
+
+  if ((req.method || 'GET').toUpperCase() !== 'POST') {
+    res.status(405).json({ ok: false, error: '只接受 GET（檢查）或 POST（寄送）' });
+    return;
+  }
 
   // 還沒設定好就安靜跳過。報名已經寫進資料庫了，通知寄不出去不是信眾的問題
   if (!supabaseUrl || !serviceKey || !apiKey || !to) {
