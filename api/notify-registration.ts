@@ -10,6 +10,10 @@
 // 資料庫撈**——撈不到就不寄，所以寄出去的一定是真的存在的報名。
 // 撈取要用 service role key：報名表的 RLS 不讓 anon 讀回自己剛寫的那筆（見 CLAUDE.md）。
 //
+// ── 一筆訂單只寄一封 ──
+// 一次報好幾個人（家人一起點燈、揪團）在廟方眼中是**同一筆訂單**（廟方 2026-10-12）。
+// 所以 `id` 收得下一整批：前端多人路徑先不寄，收齊之後一次送過來，這裡合成一封信。
+//
 // ── 防重送 ──
 // 就算有人猜到某筆報名的 UUID，也只能讓廟方收到那一筆的重複通知。再加一道
 // 「建立超過 NOTIFY_WINDOW_MIN 分鐘就不寄」：正常流程是寫入後幾秒內呼叫，
@@ -44,6 +48,9 @@ const TABLES: Record<string, { label: string; title: (r: Record<string, any>) =>
 
 /** 超過這麼久的紀錄不再寄通知。擋重送，也擋「拿舊 id 一直打」 */
 const NOTIFY_WINDOW_MIN = 10;
+
+/** 一封信最多帶幾筆。同一團再多也不會到這個數，這是防灌不是業務限制 */
+const MAX_IDS = 50;
 
 /** 信裡要列出來的欄位。刻意不是整列傾倒——地址生日這些在後台看就好 */
 const FIELDS: { key: string; label: string }[] = [
@@ -170,43 +177,57 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
   }
 
   const body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body) as
-    { table?: string; id?: string } | undefined;
+    { table?: string; id?: string | string[] } | undefined;
   const table = body?.table ?? '';
-  const id    = body?.id ?? '';
   const spec  = TABLES[table];
-  if (!spec || !/^[0-9a-f-]{36}$/i.test(id)) {
+  // 上限擋的是「一次塞一千個 id 進來」，不是正常的報名——實際最多就是一團的人數
+  const ids = (Array.isArray(body?.id) ? body!.id as string[] : [body?.id ?? ''])
+    .filter(x => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x))
+    .slice(0, MAX_IDS);
+  if (!spec || ids.length === 0) {
     res.status(400).json({ ok: false, error: '參數不正確' });
     return;
   }
 
   try {
-    // service role 繞過 RLS；只取這一筆
-    const r = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${id}&limit=1`, {
-      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    // service role 繞過 RLS。一次把整團撈回來，依報名順序排（名單順序＝填表順序）
+    const r = await fetch(
+      `${supabaseUrl}/rest/v1/${table}?id=in.(${ids.join(',')})&order=created_at.asc&limit=${MAX_IDS}`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+    );
+    const fetched = r.ok ? await r.json() : [];
+    const all: Record<string, any>[] = Array.isArray(fetched) ? fetched : [];
+    // 太舊的不寄。整批裡混進舊 id 時只丟掉那幾筆，不要讓整團都收不到通知
+    const rows = all.filter(x => {
+      const t = Date.parse(x.created_at ?? '');
+      return Number.isNaN(t) || Date.now() - t <= NOTIFY_WINDOW_MIN * 60000;
     });
-    const rows = r.ok ? await r.json() : [];
-    const row = Array.isArray(rows) ? rows[0] : null;
-    if (!row) {
+    if (all.length === 0) {
       // 查無此筆＝不是真的報名，不寄
       res.status(404).json({ ok: false, error: '查無此筆' });
       return;
     }
-
-    const createdAt = Date.parse(row.created_at ?? '');
-    if (!Number.isNaN(createdAt) && Date.now() - createdAt > NOTIFY_WINDOW_MIN * 60000) {
+    if (rows.length === 0) {
       res.status(409).json({ ok: false, error: '這筆太舊了，不再通知' });
       return;
     }
 
-    const lines = FIELDS
-      .filter(f => row[f.key] !== null && row[f.key] !== undefined && String(row[f.key]).trim() !== '')
-      .map(f => `${f.label}：${esc(row[f.key])}`);
-    const when = new Date(createdAt || Date.now()).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+    const row = rows[0];
+    const fieldLines = (x: Record<string, any>): string[] => FIELDS
+      .filter(f => x[f.key] !== null && x[f.key] !== undefined && String(x[f.key]).trim() !== '')
+      .map(f => `${f.label}：${esc(x[f.key])}`);
+    const when = new Date(Date.parse(row.created_at ?? '') || Date.now())
+      .toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
 
+    // 一個人就照原樣；多人是同一筆訂單，列成一張名單而不是把信拆成好幾封
+    const 多人 = rows.length > 1;
+    const 標題 = 多人 ? `${esc(row.name)} 等 ${rows.length} 人` : esc(spec.title(row));
     const text = [
-      `【${spec.label}】${esc(spec.title(row))}`,
+      `【${spec.label}】${標題}`,
       '',
-      ...lines,
+      ...(多人
+        ? rows.flatMap((x, i) => [`${i + 1}. ${esc(x.name)}`, ...fieldLines(x).map(l => `   ${l}`), ''])
+        : fieldLines(row)),
       `報名時間：${when}`,
       '',
       '— 完整資料請到後台查看 —',
@@ -217,7 +238,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       // 主旨要讓人在手機通知列上就看得懂是哪一種、誰報的
-      body: JSON.stringify({ from, to: to.split(',').map(s => s.trim()), subject: `[和聖壇] ${spec.label}　${esc(row.name)}`, text }),
+      body: JSON.stringify({ from, to: to.split(',').map(s => s.trim()), subject: `[和聖壇] ${spec.label}　${標題}`, text }),
     });
     if (!send.ok) {
       const detail = await send.text();

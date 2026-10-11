@@ -5,6 +5,11 @@
  * 他們本來就會看的 Gmail。真正寄信的是 `api/notify-registration.ts`，
  * 這裡只負責「報名寫進去了，去看一下第 N 筆」。
  *
+ * ── 一筆訂單只寄一封 ──
+ * 一次報好幾個人（家人一起點燈、揪團）在本站是常態，那在廟方眼中是**同一筆訂單**
+ * （廟方 2026-10-12）。一人一封會讓一團五個人變成五封信，重點反而被自己洗掉。
+ * 所以 id 收 **單一 id 或一整批**：多人的送出路徑先不寄，收齊之後整批寄一封。
+ *
  * ── 三條規則，違反任何一條都會讓報名流程變差 ──
  * 1. **不 await**：信眾按下送出之後等的是「報名成功」畫面，不是等一封信寄完。
  * 2. **不丟例外**：通知失敗絕對不可以讓報名看起來失敗。所有錯誤吞掉只留 console。
@@ -24,13 +29,14 @@ export type NotifyTable =
   | 'volunteer_registrations'
   | 'donations';
 
-export const notifyRegistration = (table: NotifyTable, id: string): void => {
-  if (!id || typeof fetch !== 'function') return;
+export const notifyRegistration = (table: NotifyTable, id: string | string[]): void => {
+  const ids = (Array.isArray(id) ? id : [id]).filter(Boolean);
+  if (ids.length === 0 || typeof fetch !== 'function') return;
   // keepalive：信眾送出後常常立刻關掉分頁或跳走，沒有這個旗標請求會被瀏覽器取消
   fetch('/api/notify-registration', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ table, id }),
+    body: JSON.stringify({ table, id: ids.length === 1 ? ids[0] : ids }),
     keepalive: true,
   }).catch(() => { /* 見檔頭規則 2 */ });
 };

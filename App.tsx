@@ -45,6 +45,7 @@ import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, Bl
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
+import { notifyRegistration } from './services/notifyRegistration';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
@@ -107,14 +108,20 @@ const BankInfoBox: React.FC<{ tip?: string }> = ({ tip }) => (
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
 const newId = () => Math.random().toString(36).slice(2, 10);
 
-/** 依序送出多筆，回傳成功筆數；中途失敗即停止（避免 Promise.all 部分成功後重送造成重複報名） */
-async function submitSequentially<T>(items: T[], send: (item: T) => Promise<unknown>): Promise<number> {
-  let ok = 0;
+/**
+ * 依序送出多筆，**回傳成功那幾筆的 id**；中途失敗即停止
+ * （避免 Promise.all 部分成功後重送造成重複報名）。
+ *
+ * 回傳 id 而不是筆數，是為了讓呼叫端能「整批寄一封信」——一次報好幾個人是同一筆訂單，
+ * 一人一封會把重點洗掉（廟方 2026-10-12）。筆數用 `.length` 取。
+ */
+async function submitSequentially<T>(items: T[], send: (item: T) => Promise<string>): Promise<string[]> {
+  const ids: string[] = [];
   for (const item of items) {
-    try { await send(item); ok += 1; }
+    try { ids.push(await send(item)); }
     catch (err) { console.error(err); break; }
   }
-  return ok;
+  return ids;
 }
 const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
 // 揪團（共享報名場次）：建立場次 → 拿 ?share=<id> 連結 → 親友各自填 → 一起送出。
@@ -1498,9 +1505,13 @@ const App: React.FC = () => {
     if (invalid) { alert('請填寫所有人員的服務項目與姓名。'); return; }
     if (!requireMemberPhone()) return;
     setLampStatus('loading');
-    const ok = await submitSequentially(lampPersons, (p: LampPersonEntry) => submitLampRegistration({
+    // notify:false ＝整批送完才寄一封信。一次報好幾個人是同一筆訂單（廟方 2026-10-12）
+    const ids = await submitSequentially(lampPersons, (p: LampPersonEntry) => submitLampRegistration({
       serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
-    }));
+    }, { notify: false }));
+    // 部分成功也要通知：那幾筆已經在資料庫裡了，廟方該知道。剩下的重送時再寄一封
+    notifyRegistration('lamp_registrations', ids);
+    const ok = ids.length;
     if (ok < lampPersons.length) {
       if (ok > 0) { setLampPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setLampStatus('error');
@@ -1528,10 +1539,12 @@ const App: React.FC = () => {
     const sessionRemaining = selectedSession.maxSlots - (freshCounts[selectedSessionId] || 0);
     if (bookingPersons.length > sessionRemaining) { alert(`此場次剩餘 ${Math.max(0, sessionRemaining)} 位，您共填寫 ${bookingPersons.length} 人，請減少人數或選擇其他場次。`); return; }
     setBookingStatus('loading');
-    const ok = await submitSequentially(bookingPersons, (p: BookingPersonEntry) => submitBooking({
+    const ids = await submitSequentially(bookingPersons, (p: BookingPersonEntry) => submitBooking({
       name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
       bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: p.notes || undefined,
-    }));
+    }, { notify: false }));
+    notifyRegistration('bookings', ids);
+    const ok = ids.length;
     // 無論成敗都刷新名額顯示
     getBookingCountsBySession().then(setSessionCounts).catch(() => {});
     if (ok < bookingPersons.length) {
@@ -1554,7 +1567,7 @@ const App: React.FC = () => {
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
     if (!requireMemberPhone()) return;
     setDonationStatus('loading');
-    const ok = await submitSequentially(donationPersons, (p: DonationPersonEntry) => {
+    const ids = await submitSequentially(donationPersons, (p: DonationPersonEntry) => {
       const proj = repairProjects.find(r => r.id === p.repairProjectId);
       return submitDonation({
         name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone,
@@ -1562,8 +1575,10 @@ const App: React.FC = () => {
         contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
         repairProjectId:   proj?.id,
         repairProjectName: proj?.name,
-      });
+      }, { notify: false });
     });
+    notifyRegistration('donations', ids);
+    const ok = ids.length;
     if (ok < donationPersons.length) {
       if (ok > 0) { setDonationPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setDonationStatus('error');
@@ -1589,7 +1604,7 @@ const App: React.FC = () => {
     setBlessingStatus('loading');
     // 加購金額已包含在報名記錄的 selected_addons 內，後台應收管理會直接計算；
     // 不再另寫一筆捐獻記錄，避免同一筆金額重複入帳。
-    const ok = await submitSequentially(blessingPersons, (p: BlessingPersonEntry) => {
+    const ids = await submitSequentially(blessingPersons, (p: BlessingPersonEntry) => {
       const pkg = hasPackages ? blessingModal.packages.find(pk => pk.id === p.packageId) : undefined;
       const eventAddons = blessingModal.addons || [];
       const selectedAddons: BlessingAddon[] = [
@@ -1616,8 +1631,10 @@ const App: React.FC = () => {
         packageFee:  pkg?.fee,
         selectedAddons:   selectedAddons.length   > 0 ? selectedAddons   : undefined,
         claimedOfferings: claimedOfferings.length > 0 ? claimedOfferings : undefined,
-      } as BlessingRegistrationData);
+      } as BlessingRegistrationData, { notify: false });
     });
+    notifyRegistration('blessing_registrations', ids);
+    const ok = ids.length;
     if (ok < blessingPersons.length) {
       if (ok > 0) { setBlessingPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
       setBlessingStatus('error');
@@ -1762,8 +1779,13 @@ const App: React.FC = () => {
     setSharedSubmitStatus('loading');
     try {
       const entries = sharedSession.entries;
+      // 揪團在廟方眼中就是一筆訂單，整團只寄一封信（廟方 2026-10-12）。
+      // 所以每一筆都 notify:false，id 收齊之後在下面一次送出通知。
+      let notifyTable: 'lamp_registrations' | 'blessing_registrations' | 'bookings' | '' = '';
+      let ids: string[] = [];
       if (sharedSession.serviceType === 'lamp') {
-        await Promise.all(entries.map(e => submitLampRegistration({
+        notifyTable = 'lamp_registrations';
+        ids = await Promise.all(entries.map(e => submitLampRegistration({
           serviceId:    e.serviceId ?? '',
           name:         e.name,
           phone:        e.phone ?? memberProfile?.phone ?? '',
@@ -1772,10 +1794,11 @@ const App: React.FC = () => {
           address:      e.address,
           contactLabel: e.contactLabel,
           notes:        e.notes,
-        })));
+        }, { notify: false })));
       } else if (sharedSession.serviceType === 'blessing' && sharedSession.config.eventId) {
+        notifyTable = 'blessing_registrations';
         const evt = blessingEvents.find(ev => ev.id === sharedSession.config.eventId);
-        await Promise.all(entries.map(e => {
+        ids = await Promise.all(entries.map(e => {
           const pkg = evt?.packages.find(p => p.id === e.packageId);
           return createBlessingRegistration({
             eventId:     sharedSession.config.eventId!,
@@ -1788,10 +1811,11 @@ const App: React.FC = () => {
             notes:       e.notes,
             packageName: pkg?.name,
             packageFee:  pkg?.fee,
-          });
+          }, { notify: false });
         }));
       } else if (sharedSession.serviceType === 'booking') {
-        await Promise.all(entries.map(e => submitBooking({
+        notifyTable = 'bookings';
+        ids = await Promise.all(entries.map(e => submitBooking({
           name:        e.name,
           phone:       e.phone ?? memberProfile?.phone ?? '',
           birthDate:   e.birthDate ?? '',
@@ -1802,8 +1826,9 @@ const App: React.FC = () => {
           bookingTime: sharedSession.config.bookingTime ?? '',
           type:        (e.bookingType as any) ?? '',
           notes:       e.notes,
-        } as BookingData)));
+        } as BookingData, { notify: false })));
       }
+      if (notifyTable) notifyRegistration(notifyTable, ids);
       await markSharedSessionSubmitted(sharedSession.id);
       forgetMyShared(sharedSession.id);
       setMyPending(prev => prev.filter(x => x.session.id !== sharedSession.id));

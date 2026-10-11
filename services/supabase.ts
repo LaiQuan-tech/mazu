@@ -31,7 +31,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ─── Bookings ────────────────────────────────────────────────────────────────
 
-export const submitBooking = async (data: BookingData): Promise<boolean> => {
+/**
+ * 多人送出時用的選項。
+ * `notify: false` ＝這一筆屬於某張訂單的一部分，**先不要寄信**；
+ * 呼叫端收齊全部的 id 之後整批寄一封（見 services/notifyRegistration.ts 檔頭）。
+ */
+export interface SubmitOptions { notify?: boolean }
+
+export const submitBooking = async (data: BookingData, opts?: SubmitOptions): Promise<string> => {
   // id 客戶端先產：anon 只有 INSERT 權限、不能 .select() 讀回，
   // 而報名成功要通知廟方信箱就得知道是哪一筆（見 services/notifyRegistration.ts）
   const id = newUuid();
@@ -57,8 +64,8 @@ export const submitBooking = async (data: BookingData): Promise<boolean> => {
     console.error('Error submitting booking:', error);
     throw error;
   }
-  notifyRegistration('bookings', id);
-  return true;
+  if (opts?.notify !== false) notifyRegistration('bookings', id);
+  return id;
 };
 
 export const getBookings = async (): Promise<BookingRecord[]> => {
@@ -178,7 +185,7 @@ export const deleteBookingSession = async (id: string): Promise<boolean> => {
 
 // ─── Donations ───────────────────────────────────────────────────────────────
 
-export const submitDonation = async (data: DonationData): Promise<boolean> => {
+export const submitDonation = async (data: DonationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();
   const { error } = await supabase.from('donations').insert([{
     id,
@@ -199,8 +206,8 @@ export const submitDonation = async (data: DonationData): Promise<boolean> => {
     console.error('Error submitting donation:', error);
     throw error;
   }
-  notifyRegistration('donations', id);
-  return true;
+  if (opts?.notify !== false) notifyRegistration('donations', id);
+  return id;
 };
 
 export const getDonations = async (): Promise<DonationRecord[]> => {
@@ -850,7 +857,7 @@ export const deleteLampServiceConfig = async (id: string): Promise<boolean> => {
 
 // ─── Lamp Registrations (點燈報名) ───────────────────────────────────────────
 
-export const submitLampRegistration = async (data: LampRegistrationData): Promise<boolean> => {
+export const submitLampRegistration = async (data: LampRegistrationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();
   const { error } = await supabase.from('lamp_registrations').insert([{
     id,
@@ -871,8 +878,8 @@ export const submitLampRegistration = async (data: LampRegistrationData): Promis
     console.error('Error submitting lamp registration:', error);
     throw error;
   }
-  notifyRegistration('lamp_registrations', id);
-  return true;
+  if (opts?.notify !== false) notifyRegistration('lamp_registrations', id);
+  return id;
 };
 
 export const getLampRegistrations = async (): Promise<LampRegistrationRecord[]> => {
@@ -1302,7 +1309,7 @@ export const getBlessingRegistrations = async (eventId?: string): Promise<Blessi
   return data.map(mapBlessingReg);
 };
 
-export const createBlessingRegistration = async (d: BlessingRegistrationData): Promise<boolean> => {
+export const createBlessingRegistration = async (d: BlessingRegistrationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();
   const { error } = await supabase.from('blessing_registrations').insert({
     id,
@@ -1321,8 +1328,8 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData): P
     source: getSource(),
   });
   if (error) { console.error(error); throw error; }
-  notifyRegistration('blessing_registrations', id);
-  return true;
+  if (opts?.notify !== false) notifyRegistration('blessing_registrations', id);
+  return id;
 };
 
 export const updateBlessingRegistrationStatus = async (id: string, status: BlessingStatus): Promise<boolean> => {
