@@ -59,6 +59,16 @@ const FIELDS: { key: string; label: string }[] = [
 
 const esc = (v: unknown): string => String(v ?? '').slice(0, 200);
 
+/** Resend 的錯誤訊息，遮掉信箱後截短。用途見下方 502 那段的註解 */
+const resendReason = (detail: string): string => {
+  let msg = detail;
+  try {
+    const j = JSON.parse(detail) as { message?: string; name?: string };
+    msg = String(j.message || j.name || detail);
+  } catch { /* 不是 JSON 就用原文 */ }
+  return msg.replace(/[\w.+-]+@[\w.-]+\.[\w.-]+/g, '***@***').slice(0, 300);
+};
+
 export default async function handler(req: ReqLike, res: ResLike): Promise<void> {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -151,7 +161,11 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     if (!send.ok) {
       const detail = await send.text();
       console.error('notify send failed', send.status, detail.slice(0, 300));
-      res.status(502).json({ ok: false, error: '寄送失敗' });
+      // 把 Resend 說的原因帶回來。**不這樣做就只剩「信沒來」三個字**：
+      // 真正的訊息只進 Vercel 的函式 log，而廟方不會去翻那裡，我也未必有權限看
+      // （2026-10-11 第一次設定就卡在這，前後猜了兩輪）。
+      // 信箱一律遮掉——這支是公開端點，Resend 的沙盒錯誤會把帳號信箱寫在訊息裡。
+      res.status(502).json({ ok: false, error: '寄送失敗', 原因: resendReason(detail) });
       return;
     }
     res.status(200).json({ ok: true });
