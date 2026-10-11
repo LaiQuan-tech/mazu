@@ -94,6 +94,13 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   要知道該填什麼只有一個可靠來源：問 Resend 這個網域自己的 `records`。
   **寄送失敗會把 Resend 說的原因回傳**（信箱遮成 `***@***`，那支是公開端點）。
   原本只 `console.error` 進 Vercel 的函式 log，而廟方不會去翻那裡。
+  **「Resend 回 200」不等於「Gmail 收到」**：退信與進垃圾桶也都是 200。寄送成功會回傳
+  Resend 的信件 id，拿去 `?email=<id>` 才看得到 `last_event`（delivered／bounced／complained）。
+  這個功能存在的理由就是「工作人員不會去看後台」，信靜靜地沒送達等於整個功能死掉而沒人知道。
+  **2026-10-11 實測通過**：問事報名→信件 `delivered`。其餘五種是同一條路徑，
+  差別只在 `TABLES` 的那一行；六張表都實測過「anon 帶著自己產的 id 寫得進去」
+  （只送 id 探測，五張表都回 `23502 null value in column "name"` 而不是 `42501`，
+  證明權限沒擋、而且不會真的建立資料——這招用來驗權限不留垃圾資料）。
 - **id 一律用 `newUuid()` 不要用 `crypto.randomUUID()`**（`services/supabase.ts`，2026-10-11）：後者要 Safari 15.4（2022-03）以上，而本站信眾以長者居多、舊手機比例不低。2026-10-11 把六個報名表的 id 改成客戶端先產之後，這個呼叫就落在**必經路徑**上——沒有退路的話舊機子按下送出會丟 TypeError，整筆報名失敗而且畫面只顯示「送不出去」。`newUuid()` 退到 `getRandomValues` 照 RFC 4122 v4 組字串（實測 2000 組格式全合法、無重複）。檔案裡 13 處都已換掉。
   **為什麼 id 要客戶端先產**：anon 只有 INSERT 權限、不能 `.select()` 讀回（見 Supabase 陷阱那張表），而要通知廟方「是哪一筆」就得先知道 id。實測帶著 id 寫入 `bookings` 回 201，RLS 不擋。
 - **localStorage 草稿**（`fahui_registration_draft_v1`）：改報名表欄位結構時，還原邏輯已有正規化（依 SERVICE_CONFIGS 重建），維持這個模式；新欄位要能吃舊草稿。這裡曾造成正式站白屏。
