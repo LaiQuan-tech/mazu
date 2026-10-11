@@ -97,16 +97,31 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         const d = await fetch('https://api.resend.com/domains', {
           headers: { Authorization: `Bearer ${apiKey}` },
         });
-        const j = await d.json() as { data?: { name?: string; status?: string; region?: string;
-          records?: { record?: string; type?: string; name?: string; value?: string; status?: string }[] }[] };
-        網域 = d.ok
-          ? (j.data ?? []).map(x => ({
-              name: x.name, status: x.status, region: x.region,
-              records: (x.records ?? []).map(r => ({
-                type: r.type, name: r.name, status: r.status, value: String(r.value ?? '').slice(0, 120),
-              })),
-            }))
-          : { error: `Resend 回 ${d.status}` };
+        type Rec = { type?: string; name?: string; value?: string; status?: string; priority?: number };
+        type Dom = { id?: string; name?: string; status?: string; region?: string; records?: Rec[] };
+        const j = await d.json() as { data?: Dom[] };
+        const slim = (x: Dom) => ({
+          name: x.name, status: x.status, region: x.region,
+          // 值要完整才貼得進 GoDaddy（DKIM 那串兩百多字）。都是本來就要公開的 DNS 記錄
+          records: (x.records ?? []).map(r => ({
+            type: r.type, name: r.name, priority: r.priority, status: r.status,
+            value: String(r.value ?? '').slice(0, 500),
+          })),
+        });
+        if (!d.ok) {
+          網域 = { error: `Resend 回 ${d.status}` };
+        } else {
+          // 清單不含 records，要逐一再問。只問還沒過的那個——已驗證的不需要對 DNS
+          網域 = await Promise.all((j.data ?? []).map(async x => {
+            if (x.status === 'verified' || !x.id) return slim(x);
+            try {
+              const one = await fetch(`https://api.resend.com/domains/${x.id}`, {
+                headers: { Authorization: `Bearer ${apiKey}` },
+              });
+              return slim(one.ok ? await one.json() as Dom : x);
+            } catch { return slim(x); }
+          }));
+        }
       } catch { 網域 = { error: '查詢失敗' }; }
     }
     res.status(200).json({
