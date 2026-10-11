@@ -39,14 +39,20 @@ interface SharedFormPanelProps {
   onRefresh:     () => Promise<void>;
   /** 主揪刪掉整張表（含名單）。警示在呼叫端做，這裡只放按鈕 */
   onDelete?:     () => Promise<void>;
-  /** 點海報放大。燈箱在 App 層（posterUrl），這裡只負責把網址丟回去 */
+  /**
+   * 這張表對應的海報。
+   * **刻意不從 blessingEvent 自己挖**：點燈與問事之後也會有海報（廟方 2026-10-12），
+   * 而它們的圖不在 blessingEvent 裡。由呼叫端決定圖從哪來，這支只管怎麼顯示。
+   */
+  posterUrl?:    string;
+  /** 點海報放大。燈箱在 App 層（posterUrl state），這裡只負責把網址丟回去 */
   onPoster?:     (url: string) => void;
   submitStatus:  'idle' | 'loading' | 'success' | 'error';
 }
 
 const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
   session, isCreator, lampConfigs, blessingEvent, memberProfile,
-  onAddEntries, onSubmitAll, onRefresh, onDelete, onPoster, submitStatus,
+  onAddEntries, onSubmitAll, onRefresh, onDelete, posterUrl, onPoster, submitStatus,
 }) => {
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>([emptyEntry()]);
   const [addStatus, setAddStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -112,16 +118,26 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
   return (
     <div className="mb-6 rounded-2xl border-2 border-temple-red/30 bg-white overflow-hidden shadow-sm">
       {/* 頂部 Banner */}
-      <div className="bg-temple-red px-5 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-white">
-          <Users className="w-4 h-4" />
-          {/* 「共享報名表」是那張列出所有人的單，只有主揪看得到整張；
-              被揪的人看到的是「加入」的入口，標題跟著換，免得以為自己在看整張單 */}
-          <span className="font-semibold text-sm">{isCreator ? '共享報名表' : '揪團報名'}</span>
-          <span className="text-white/70 text-xs ml-1">{serviceLabel}</span>
+      {/* 頂部 Banner：標題與活動名稱**分兩行**（廟方 2026-10-12：「比較舒服」）。
+          擠在同一行時活動名稱只分到不到一半的寬度，長一點的名稱會把「揪團報名」四個字
+          也擠到折行，變成兩段都在折。分行之後名稱獨佔整列。
+          `min-w-0` 不能省：沒有它，長名稱會把重新整理鈕擠出圓角之外。
+          活動名稱用 white/80 不是 /70——它現在是獨立一行的主要資訊，
+          /70 在這個底色上量到 3.92:1，小字不達 WCAG 的 4.5:1。 */}
+      <div className="bg-temple-red px-5 py-3 flex items-start justify-between gap-3">
+        <div className="min-w-0 text-white">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 shrink-0" />
+            {/* 「共享報名表」是那張列出所有人的單，只有主揪看得到整張；
+                被揪的人看到的是「加入」的入口，標題跟著換，免得以為自己在看整張單 */}
+            <span className="font-semibold text-sm">{isCreator ? '共享報名表' : '揪團報名'}</span>
+          </div>
+          {serviceLabel.trim() && (
+            <p className="text-white/80 text-xs mt-1 leading-relaxed">{serviceLabel}</p>
+          )}
         </div>
-        <button onClick={handleRefresh} disabled={refreshing}
-          className="text-white/80 hover:text-white transition-colors disabled:opacity-50">
+        <button onClick={handleRefresh} disabled={refreshing} aria-label="重新整理名單"
+          className="shrink-0 text-white/80 hover:text-white transition-colors disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -135,11 +151,11 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
             **主揪不顯示**：他看得到完整的活動頁，同一張海報就在下面，再印一次是同一件事講兩次。
             尺寸只給上限、長寬交給圖自己——直式海報用 w-full 會被壓扁（見 CLAUDE.md）。
             不 lazy：它就在首屏，延後載入只是讓人盯著一塊空白。 */}
-        {!isCreator && blessingEvent?.imageUrl && (
+        {!isCreator && posterUrl && (
           <div>
-            <button type="button" onClick={() => onPoster?.(blessingEvent.imageUrl!)}
+            <button type="button" onClick={() => onPoster?.(posterUrl)}
               className="block w-full cursor-zoom-in" aria-label="放大活動海報">
-              <img src={blessingEvent.imageUrl} alt={blessingEvent.title}
+              <img src={posterUrl} alt={blessingEvent?.title ?? serviceLabel}
                 className="block mx-auto w-auto h-auto max-w-full max-h-[24rem] rounded-xl" />
             </button>
             {onPoster && <p className="mt-2 text-center text-xs text-gray-400">點海報可放大看細節</p>}

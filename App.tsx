@@ -3465,6 +3465,7 @@ const App: React.FC = () => {
               memberProfile={memberProfile}
               onAddEntries={handleAddSharedEntries}
               onSubmitAll={handleSubmitSharedSession}
+              posterUrl={blessingEvents.find(ev => ev.id === sharedSession.config.eventId)?.imageUrl}
               onPoster={setPosterUrl}
               onDelete={() => handleDeleteSharedSession(sharedSession)}
               onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}
