@@ -1,4 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
+import { notifyRegistration } from './notifyRegistration';
+
+/**
+ * 產生一個 UUID。
+ *
+ * **不要直接用 `crypto.randomUUID()`**：它要 Safari 15.4（2022-03）以上才有，
+ * 而本站的信眾以長者居多、舊手機比例不低。2026-10-11 把 id 改成客戶端先產之後，
+ * 這個函式落在**六個報名表的必經路徑**上——沒有退路的話，舊機子會在按下送出時
+ * 丟 TypeError，整筆報名失敗而且畫面上看起來只是「送不出去」。
+ * 退路用 `getRandomValues`（支援度遠高於 randomUUID）照 RFC 4122 v4 組字串。
+ */
+const newUuid = (): string => {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  const b = new Uint8Array(16);
+  c.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40;   // 版本 4
+  b[8] = (b[8] & 0x3f) | 0x80;   // variant 10xx
+  const h = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+};
 import type { DevoteeOverride } from './devoteeRoster';
 import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import { getSource } from './attribution';
@@ -11,7 +32,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // ─── Bookings ────────────────────────────────────────────────────────────────
 
 export const submitBooking = async (data: BookingData): Promise<boolean> => {
+  // id 客戶端先產：anon 只有 INSERT 權限、不能 .select() 讀回，
+  // 而報名成功要通知廟方信箱就得知道是哪一筆（見 services/notifyRegistration.ts）
+  const id = newUuid();
   const { error } = await supabase.from('bookings').insert([{
+    id,
     name: data.name,
     phone: data.phone,
     gender: data.gender || null,
@@ -32,6 +57,7 @@ export const submitBooking = async (data: BookingData): Promise<boolean> => {
     console.error('Error submitting booking:', error);
     throw error;
   }
+  notifyRegistration('bookings', id);
   return true;
 };
 
@@ -153,7 +179,9 @@ export const deleteBookingSession = async (id: string): Promise<boolean> => {
 // ─── Donations ───────────────────────────────────────────────────────────────
 
 export const submitDonation = async (data: DonationData): Promise<boolean> => {
+  const id = newUuid();
   const { error } = await supabase.from('donations').insert([{
+    id,
     name: data.name,
     phone: data.phone,
     gender: data.gender || null,
@@ -171,6 +199,7 @@ export const submitDonation = async (data: DonationData): Promise<boolean> => {
     console.error('Error submitting donation:', error);
     throw error;
   }
+  notifyRegistration('donations', id);
   return true;
 };
 
@@ -822,7 +851,9 @@ export const deleteLampServiceConfig = async (id: string): Promise<boolean> => {
 // ─── Lamp Registrations (點燈報名) ───────────────────────────────────────────
 
 export const submitLampRegistration = async (data: LampRegistrationData): Promise<boolean> => {
+  const id = newUuid();
   const { error } = await supabase.from('lamp_registrations').insert([{
+    id,
     service_id: data.serviceId,
     name: data.name,
     phone: data.phone,
@@ -840,6 +871,7 @@ export const submitLampRegistration = async (data: LampRegistrationData): Promis
     console.error('Error submitting lamp registration:', error);
     throw error;
   }
+  notifyRegistration('lamp_registrations', id);
   return true;
 };
 
@@ -1271,7 +1303,9 @@ export const getBlessingRegistrations = async (eventId?: string): Promise<Blessi
 };
 
 export const createBlessingRegistration = async (d: BlessingRegistrationData): Promise<boolean> => {
+  const id = newUuid();
   const { error } = await supabase.from('blessing_registrations').insert({
+    id,
     event_id: d.eventId,
     name: d.name,
     phone: d.phone,
@@ -1287,6 +1321,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData): P
     source: getSource(),
   });
   if (error) { console.error(error); throw error; }
+  notifyRegistration('blessing_registrations', id);
   return true;
 };
 
@@ -1417,7 +1452,7 @@ const mapSharedSession = (row: any): SharedSessionRecord => ({
 export const createSharedSession = async (d: SharedSessionData): Promise<SharedSessionRecord> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('請先登入會員才能建立揪團報名表');
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const { error } = await supabase
     .from('shared_sessions')
     .insert({ id, service_type: d.serviceType, config: d.config, notes: d.notes || null, created_by: user.id });
@@ -1473,7 +1508,7 @@ export const getSharedSession = async (id: string): Promise<SharedSessionRecord 
 };
 
 export const addSharedEntry = async (d: SharedEntryData): Promise<SharedEntryRecord> => {
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const payload = {
     id,
     session_id:    d.sessionId,
@@ -1732,10 +1767,12 @@ export interface FahuiRegistrationData {
 
 export const submitFahuiRegistration = async (data: FahuiRegistrationData): Promise<void> => {
   // 不使用 .select() 讀回：anon 角色僅有 INSERT 權限、無 SELECT 權限，
-  // 讀回會觸發 RLS 阻擋。送出成功即可，無需回傳資料。
+  // 讀回會觸發 RLS 阻擋。要通知廟方信箱就得知道是哪一筆，所以 id 客戶端先產。
+  const id = newUuid();
   const { error } = await supabase
     .from('fahui_registrations')
     .insert([{
+      id,
       name: data.contact.name,
       contact_gender: data.contact.gender || null,
       phone: data.contact.phone,
@@ -1757,6 +1794,7 @@ export const submitFahuiRegistration = async (data: FahuiRegistrationData): Prom
     console.error('Error submitting fahui registration:', error);
     throw error;
   }
+  notifyRegistration('fahui_registrations', id);
 };
 
 export const getFahuiRegistrations = async (): Promise<FahuiRegistrationRecord[]> => {
@@ -1867,9 +1905,11 @@ export interface VolunteerRegistrationData {
 
 export const submitVolunteerRegistration = async (data: VolunteerRegistrationData): Promise<void> => {
   // 同法會：anon 僅有 INSERT 權限，不做 .select() 讀回
+  const id = newUuid();
   const { error } = await supabase
     .from('volunteer_registrations')
     .insert([{
+      id,
       name: data.name,
       phone: data.phone,
       address: data.address,
@@ -1882,6 +1922,7 @@ export const submitVolunteerRegistration = async (data: VolunteerRegistrationDat
       source: getSource(),
     }]);
   if (error) { console.error('Error submitting volunteer registration:', error); throw error; }
+  notifyRegistration('volunteer_registrations', id);
 };
 
 export const getVolunteerRegistrations = async (): Promise<VolunteerRegistrationRecord[]> => {
@@ -1960,7 +2001,7 @@ export const getAboutSections = async (includeHidden = false, page: SectionPage 
 
 /** 新增一個段落，回傳新的 id。id 由客戶端產：anon 不可 select 讀回（RLS） */
 export const createAboutSection = async (data: AboutSectionData): Promise<string> => {
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const { error } = await supabase.from('about_sections').insert({
     id,
     page: data.page,
@@ -2085,7 +2126,7 @@ export const getDonationTypes = async (includeHidden = false): Promise<DonationT
 };
 
 export const createDonationType = async (data: DonationTypeData): Promise<string> => {
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const { error } = await supabase.from('donation_types').insert({
     id, sort_order: data.sortOrder, name: data.name, is_visible: data.isVisible,
   });
@@ -2148,7 +2189,7 @@ export const getFaqItems = async (includeHidden = false): Promise<FaqItem[]> => 
 
 /** 新增一題，回傳新的 id。id 由客戶端產：anon 不可 select 讀回（RLS） */
 export const createFaqItem = async (data: FaqItemData): Promise<string> => {
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const { error } = await supabase.from('faq_items').insert({
     id,
     sort_order: data.sortOrder,
@@ -2254,7 +2295,7 @@ export const getRelocationPlans = async (includeHidden = false): Promise<Relocat
 };
 
 export const createRelocationPlan = async (data: RelocationPlanData): Promise<string> => {
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const { error } = await supabase.from('relocation_plans').insert({
     id,
     sort_order: data.sortOrder,
@@ -2373,7 +2414,7 @@ export const getDeityFeasts = async (includeHidden = false): Promise<DeityFeast[
 
 /** 新增一筆，回傳新的 id。id 由客戶端產：anon 不可 select 讀回（RLS） */
 export const createDeityFeast = async (data: DeityFeastData): Promise<string> => {
-  const id = crypto.randomUUID();
+  const id = newUuid();
   const { error } = await supabase.from('deity_feasts').insert({ id, ...feastRow(data) });
   if (error) { console.error('Error creating deity feast:', error); throw error; }
   return id;

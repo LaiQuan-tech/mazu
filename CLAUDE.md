@@ -74,6 +74,15 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 
 ## 程式陷阱
 
+- **報名成功會寄一封信到廟方信箱**（2026-10-11：「工作人員還不習慣開啟後台，可以有人報名後，也同步 email 嗎？」）。`services/notifyRegistration.ts`（前端）→ `api/notify-registration.ts`（後端寄信）。六種報名都接了：問事／點燈／祈福／法會／志工／捐獻。
+  **前端只送 `{ table, id }`，信的內容由後端自己回資料庫撈。** 讓前端送內容等於把那支端點變成「誰都能叫它寄任意文字」的垃圾信發射器。撈不到就不寄，所以寄出去的一定是真的存在的報名。撈取用 `SUPABASE_SERVICE_ROLE_KEY`（報名表的 RLS 不讓 anon 讀回自己剛寫的那筆）。
+  **三條不可違反的規則**：不 `await`（信眾等的是「報名成功」畫面，不是等信寄完）、不丟例外（通知失敗不可以讓報名看起來失敗）、沒設定環境變數時回 204 安靜跳過。
+  **防重送**：建立超過 10 分鐘的紀錄不再通知。就算有人猜到某筆的 UUID，也只能在那十分鐘內讓廟方收到重複通知。
+  **環境變數都不加 `VITE_` 前綴**（`RESEND_API_KEY`／`NOTIFY_TO`／`NOTIFY_FROM`／`SUPABASE_SERVICE_ROLE_KEY`）——加了會被 Vite 內嵌進前端 JS，等於公開金鑰（同 `VERCEL_DEPLOY_HOOK_URL` 的理由）。
+  **本機看不到效果**：`vite dev` 不跑 `api/`，那支呼叫一定 404，是正常的。
+  **揪團送出是一人一封**：那邊是迴圈呼叫 `submitBooking` 等函式，五個人就五封。目前接受。
+- **id 一律用 `newUuid()` 不要用 `crypto.randomUUID()`**（`services/supabase.ts`，2026-10-11）：後者要 Safari 15.4（2022-03）以上，而本站信眾以長者居多、舊手機比例不低。2026-10-11 把六個報名表的 id 改成客戶端先產之後，這個呼叫就落在**必經路徑**上——沒有退路的話舊機子按下送出會丟 TypeError，整筆報名失敗而且畫面只顯示「送不出去」。`newUuid()` 退到 `getRandomValues` 照 RFC 4122 v4 組字串（實測 2000 組格式全合法、無重複）。檔案裡 13 處都已換掉。
+  **為什麼 id 要客戶端先產**：anon 只有 INSERT 權限、不能 `.select()` 讀回（見 Supabase 陷阱那張表），而要通知廟方「是哪一筆」就得先知道 id。實測帶著 id 寫入 `bookings` 回 201，RLS 不擋。
 - **localStorage 草稿**（`fahui_registration_draft_v1`）：改報名表欄位結構時，還原邏輯已有正規化（依 SERVICE_CONFIGS 重建），維持這個模式；新欄位要能吃舊草稿。這裡曾造成正式站白屏。
 - **TSX 泛型**：泛型箭頭函式在本專案推導失敗（參數變 unknown）。泛型 helper 放模組層級 `function` 宣告＋呼叫端明確標參數型別。
 - **狀態欄位可能為 null**：渲染前 `String(x ?? '')`。
