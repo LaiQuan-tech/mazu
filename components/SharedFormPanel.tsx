@@ -39,12 +39,14 @@ interface SharedFormPanelProps {
   onRefresh:     () => Promise<void>;
   /** 主揪刪掉整張表（含名單）。警示在呼叫端做，這裡只放按鈕 */
   onDelete?:     () => Promise<void>;
+  /** 點海報放大。燈箱在 App 層（posterUrl），這裡只負責把網址丟回去 */
+  onPoster?:     (url: string) => void;
   submitStatus:  'idle' | 'loading' | 'success' | 'error';
 }
 
 const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
   session, isCreator, lampConfigs, blessingEvent, memberProfile,
-  onAddEntries, onSubmitAll, onRefresh, onDelete, submitStatus,
+  onAddEntries, onSubmitAll, onRefresh, onDelete, onPoster, submitStatus,
 }) => {
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>([emptyEntry()]);
   const [addStatus, setAddStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -125,6 +127,25 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
       </div>
 
       <div className="p-5 space-y-5">
+        {/* ── 活動海報 ──
+            被揪的人看到的頁面是刻意剝光的：服務介紹、方案行銷卡、主揪自己的表單全部遮掉
+            （見 App.tsx 的 isSharedGuest），所以他手上只有標題那一行小字，
+            根本不知道自己在報什麼（廟方 2026-10-12）。海報上本來就印著日期、費用、祈願文，
+            補這一張就補齊了。
+            **主揪不顯示**：他看得到完整的活動頁，同一張海報就在下面，再印一次是同一件事講兩次。
+            尺寸只給上限、長寬交給圖自己——直式海報用 w-full 會被壓扁（見 CLAUDE.md）。
+            不 lazy：它就在首屏，延後載入只是讓人盯著一塊空白。 */}
+        {!isCreator && blessingEvent?.imageUrl && (
+          <div>
+            <button type="button" onClick={() => onPoster?.(blessingEvent.imageUrl!)}
+              className="block w-full cursor-zoom-in" aria-label="放大活動海報">
+              <img src={blessingEvent.imageUrl} alt={blessingEvent.title}
+                className="block mx-auto w-auto h-auto max-w-full max-h-[24rem] rounded-xl" />
+            </button>
+            {onPoster && <p className="mt-2 text-center text-xs text-gray-400">點海報可放大看細節</p>}
+          </div>
+        )}
+
         {/* ── 已加入名單 ──
             **只有主揪看得到名字**（廟方 2026-09-12 定調）。被揪的人只看到人數：
             分享連結會被轉傳，任何拿到連結的人都不該看到別人的姓名、生肖、選了什麼。
