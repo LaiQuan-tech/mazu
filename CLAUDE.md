@@ -80,7 +80,19 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **防重送**：建立超過 10 分鐘的紀錄不再通知。就算有人猜到某筆的 UUID，也只能在那十分鐘內讓廟方收到重複通知。
   **環境變數都不加 `VITE_` 前綴**（`RESEND_API_KEY`／`NOTIFY_TO`／`NOTIFY_FROM`／`SUPABASE_SERVICE_ROLE_KEY`）——加了會被 Vite 內嵌進前端 JS，等於公開金鑰（同 `VERCEL_DEPLOY_HOOK_URL` 的理由）。
   **本機看不到效果**：`vite dev` 不跑 `api/`，那支呼叫一定 404，是正常的。
-  **揪團送出是一人一封**：那邊是迴圈呼叫 `submitBooking` 等函式，五個人就五封。目前接受。
+  **一筆訂單只寄一封，不是一個人一封**（2026-10-12 廟方：「揪團是像同一筆訂單。只要最後通知一次即可。」）。
+  同一個理由也適用一般表單的多人報名——一次替全家點燈是一筆訂單，一人一封會讓五個人變成五封信，
+  真正的重點反而被自己洗掉。
+  作法：`submitBooking`／`submitLampRegistration`／`createBlessingRegistration`／`submitDonation`
+  **回傳自己的 id**，並接受 `{ notify: false }`；多人路徑先不寄，收齊 id 之後
+  `notifyRegistration(table, ids)` 整批送一次。後端的 `id` 收得下陣列（上限 `MAX_IDS = 50`，
+  防灌不是業務限制），一個人照原樣、多人合成一張名單，主旨是「王小明 等 5 人」。
+  **七條多人路徑都要接**：一般表單的點燈／問事／捐獻／祈福，揪團的點燈／祈福／問事。
+  法會（一列帶 `entries` jsonb）與志工本來就是單筆，不受影響；神尊修復那支單筆捐款也維持原樣。
+  **部分成功也要通知**：那幾筆已經在資料庫裡了，廟方該知道；剩下的重送時再寄一封。
+  **整批裡混到過期的 id 只丟掉那幾筆**，不要讓整團都收不到通知。
+  `submitSequentially()`（App.tsx）因此改成回傳成功那幾筆的 id 而不是筆數，筆數用 `.length` 取。
+  實測：三筆問事一次送出→收到一封「預約問事　測試－王大明 等 3 人」，`delivered`。
   **寄信網域要在 Resend 後台按「Verify DNS Records」才會生效**（2026-10-11 卡在這）：
   DNS 三筆全部填對、值逐字元一致，Resend 仍然退件 `The heshengtan.tw domain is not verified`——
   因為它的 `status` 是 `not_started`，**Resend 不會自己去檢查**，要人按那顆鈕。
