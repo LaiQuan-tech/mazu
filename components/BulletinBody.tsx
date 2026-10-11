@@ -155,10 +155,19 @@ export const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
  * 標題與 QR code 全不見）。只給上限、長寬交給圖自己：橫式受 max-w 限制、
  * 直式受 max-h 限制。縮圖同理，不要框也不要底色。
  *
- * ── 桌機文繞圖要浮右不要浮左 ──
- * 廟方的內文是每行 8–12 字的刻意斷行，實測只佔 160–240px 而欄寬有 844px。
- * 浮左會讓每一行都被推進去、左邊界參差；浮右則讓文字維持從左邊界起，
- * 多出來的空白剛好成為圖文之間的間距。手機欄寬只有 306px，並排兩邊都太窄，不浮動。
+ * ── 不做文繞圖，圖在上、文字在下 ──
+ * 桌機原本是 `sm:float-right sm:max-w-[40%]`，海報縮在右上角一小塊、文字繞著它排。
+ * 廟方 2026-10-11 要求改掉：「直接就把圖在欄位內大大的展開，下面再接文字即可，
+ * 這樣比較大氣」。海報本身就是公告的主角（上面印著日期、費用、祈願文），
+ * 縮成 40% 等於把主角擠到配角的位置。
+ * **這推翻了 2026-09-26 那次「浮右不浮左」的決定**——那一輪比的是「浮左 vs 浮右」，
+ * 沒有比過「不浮動」。不要再改回去。
+ *
+ * **只給上限，不要寫死寬度。** `w-full` ＋ `max-h` 會把直式海報壓扁：寬度被釘成
+ * 欄寬、高度又被上限夾住，比例就沒了（實測 854×1280 的遷址海報變成 780×576）。
+ * 正解是 `max-w-full max-h-[36rem]` 搭 `w-auto h-auto`——寬高都是 auto 時瀏覽器
+ * 才會自己維持長寬比：橫式海報受寬度上限、填滿整欄（這就是「大大的展開」），
+ * 直式受高度上限、寬度依比例縮並置中。這與公佈欄、神明管理那幾處是同一條規則。
  */
 export const BulletinCard: React.FC<{
   bulletin: BulletinRecord;
@@ -212,14 +221,12 @@ export const BulletinCard: React.FC<{
           <img
             src={bulletin.imageUrl}
             alt={bulletin.title}
-            loading="lazy"
-            className="block mx-auto mb-4 max-w-full max-h-[32rem] rounded-xl border border-temple-gold/20
-                       sm:float-right sm:mx-0 sm:ml-6 sm:mb-3 sm:max-w-[40%]"
+            // 展開的大圖不要 lazy：它只在使用者點開那一則時才渲染，
+            // 那一刻它必然要被看到，延後載入只是讓人盯著一塊空白等
+            className="block mx-auto mb-5 w-auto h-auto max-w-full max-h-[36rem] rounded-xl border border-temple-gold/20"
           />
         )}
         <BulletinBody content={bulletin.content} />
-        {/* 收掉浮動，否則下面那顆「前往登記」按鈕會擠到圖片旁邊 */}
-        <div className="clear-both" />
         {bulletin.linkedService && (
           <button
             onClick={e => { e.stopPropagation(); onService(bulletin.linkedService!); }}
