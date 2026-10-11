@@ -28,6 +28,8 @@ interface ResLike {
 interface ReqLike {
   method?: string;
   body?: unknown;
+  /** `?domains=1` 的判斷要用。Vercel 的 Node 函式給的是含 query 的路徑 */
+  url?: string;
 }
 
 /** 允許通知的表。白名單而不是黑名單——日後多一張表要明確加進來才會寄 */
@@ -83,8 +85,33 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
    * 布林值本身沒有洩漏風險，但省掉的是一來一回的猜測。
    */
   if ((req.method || 'GET').toUpperCase() === 'GET') {
+    /**
+     * `?domains=1` ＝再往下問一層：**Resend 自己認為哪一筆 DNS 還沒過**。
+     * 「網域沒驗證」這句話對廟方沒有可執行性——要知道的是「少哪一筆、要填什麼」。
+     * 回傳的都是本來就該公開的 DNS 記錄與狀態，沒有金鑰也沒有信箱。
+     * 另外做成要帶參數才查，一般的自我檢查就不必每次都打 Resend 一次。
+     */
+    let 網域 : unknown;
+    if (apiKey && /(?:^|[?&])domains=1(?:&|$)/.test(String((req as { url?: string }).url ?? ''))) {
+      try {
+        const d = await fetch('https://api.resend.com/domains', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        const j = await d.json() as { data?: { name?: string; status?: string; region?: string;
+          records?: { record?: string; type?: string; name?: string; value?: string; status?: string }[] }[] };
+        網域 = d.ok
+          ? (j.data ?? []).map(x => ({
+              name: x.name, status: x.status, region: x.region,
+              records: (x.records ?? []).map(r => ({
+                type: r.type, name: r.name, status: r.status, value: String(r.value ?? '').slice(0, 120),
+              })),
+            }))
+          : { error: `Resend 回 ${d.status}` };
+      } catch { 網域 = { error: '查詢失敗' }; }
+    }
     res.status(200).json({
       ok: true,
+      ...(網域 ? { 網域 } : {}),
       設定狀態: {
         VITE_SUPABASE_URL: !!supabaseUrl,
         SUPABASE_SERVICE_ROLE_KEY: !!serviceKey,
