@@ -33,7 +33,8 @@ import {
   Wrench,
   BookOpen,
   Landmark,
-  LoaderCircle
+  LoaderCircle,
+  ArrowRight,
 } from 'lucide-react';
 
 const LineIcon = ({ className }: { className?: string }) => (
@@ -56,6 +57,7 @@ import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
 import { deriveBulletins } from './services/derivedBulletins';
+import { BulletinCard } from './components/BulletinBody';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
 import { withKeptParams } from './services/attribution';
@@ -69,6 +71,7 @@ const MemberPortal = lazy(() => import('./components/MemberPortal'));
 const FahuiRegistration = lazy(() => import('./components/FahuiRegistration'));
 const VolunteerRegistration = lazy(() => import('./components/VolunteerRegistration'));
 const CalendarPage = lazy(() => import('./components/CalendarPage'));
+const BulletinsPage = lazy(() => import('./components/BulletinsPage'));
 // 進香洗澡車。一年只用九天，拆成自己的 chunk，平常的訪客不必下載
 const ShowerPage = lazy(() => import('./components/ShowerPage'));
 const ShowerCheckinPage = lazy(() => import('./components/ShowerCheckinPage'));
@@ -125,7 +128,7 @@ const ENABLE_GROUP_BOOKING = true;
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
 // 其餘內容仍是首頁上的區塊，靠捲動抵達。
-type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar';
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins';
 
 const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   booking: '/booking',
@@ -142,6 +145,13 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   deitiesAll: '/deities',
   // 歲時節令：神明聖誕（deity_feasts，每年重複的農曆日）＋壇務活動（blessing_events）
   calendar: '/calendar',
+  /**
+   * 公佈欄完整清單。首頁 #bulletin 只放置頂＋最新 5 則，其餘在這裡。
+   * **刻意不進導覽列**：它是首頁那個區塊的「更多」，不是一個獨立的服務；
+   * 導覽列已經有「最新活動」捲到首頁區塊，再放一個會變成兩個長得很像的入口。
+   * 單則公告的網址是 /bulletins/<id>，廟方可以直接把某一則分享到 LINE。
+   */
+  bulletins: '/bulletins',
 };
 
 /**
@@ -195,9 +205,17 @@ const HERO_FADE_RGB = ENABLE_BULLETIN
   ? '255 255 255'   // #bulletin 的 bg-white
   : '245 240 232';  // #about 的 bg-temple-bg
 
-// 公佈欄的兩個標籤。配色與全站那組同源，見 components/tagStyles.ts
-const TAG_PINNED = TAG_SOLID;
-const TAG_CATEGORY = 'bg-temple-gold/15 text-temple-red border border-temple-gold/30';
+/** 點燈／祈福／問事各自獨立成頁，捐獻仍是首頁上的區塊 */
+const SERVICE_PAGE: Record<string, SitePage> = {
+  lamp: 'lamps', blessing: 'blessing', booking: 'booking',
+};
+
+/**
+ * 首頁公佈欄最多列幾則（置頂的不算在內，一律全列）。
+ * 廟方 2026-10-11 指定 5 則。手機上每張卡 106px，5 則約 530px——
+ * 剛好一個螢幕內看得完，不會讓信眾滑過整面公告才走得到「關於我們」。
+ */
+const HOME_BULLETIN_LIMIT = 5;
 
 /**
  * 歲時節令（/calendar）。2026-09-09 上線，廟方確認完 28 筆聖誕日期後開啟。
@@ -220,8 +238,17 @@ const ENABLE_CALENDAR = true;
 
 const stripSlash = (p: string): string => p.replace(/\/+$/, '') || '/';
 
+/** /bulletins/<id> 的 id。不是那條路徑就回空字串 */
+const bulletinIdFromPath = (): string => {
+  if (typeof window === 'undefined') return '';
+  const m = /^\/bulletins\/([^/]+)\/?$/.exec(window.location.pathname);
+  return m ? decodeURIComponent(m[1]) : '';
+};
+
 const pageFromPath = (): SitePage => {
   if (typeof window === 'undefined') return 'home';
+  // 單則公告的網址也算在公佈欄那一頁上——/bulletins/<id> 不是未知路徑
+  if (bulletinIdFromPath()) return 'bulletins';
   const path = stripSlash(window.location.pathname);
   if (!ENABLE_REPAIR && path === stripSlash(PAGE_PATHS.repair)) return 'home';
   const hit = (Object.keys(PAGE_PATHS) as Array<Exclude<SitePage, 'home'>>)
@@ -710,139 +737,6 @@ interface BlessingPersonEntry {
   claimedOfferingIds?: string[];   // 認領的供品 offering.id 清單
 }
 
-// 水墨筆刷分隔線元件
-
-/**
- * 公佈欄內文的排版。
- *
- * 廟方是照 LINE 貼文的習慣在寫：短句斷行、空行分段，並且自己用符號標出重點
- * （🔸 條列、🗓️💰 標籤、`1、2、3、` 編號）。原本整段丟給 `whitespace-pre-wrap`，
- * 那些結構完全沒被表現出來——一整片等寬等色的灰字，廟方回報「很僵化」。
- *
- * 這裡只做一件事：**把廟方已經寫在文字裡的結構認出來，換成站上的視覺語彙**。
- * 不自己加內容、不猜語意，認不出來的就照原樣當段落排（含他們刻意的斷行）。
- *
- * 順帶解決一個矛盾：全站不用 emoji 是廟方自己訂的慣例，但後台打的內文裡有
- * 🔸🗓️💰。與其要求他們改打字習慣，不如把行首的符號換成站上的金色菱形——
- * 他們照舊打，前台看到的是一致的樣式。
- *
- * 行內標記（**粗體**、[文字](網址)）沿用 StoryPage 那支 `renderInline`，
- * 不另立一套，也維持「永遠不碰 dangerouslySetInnerHTML」的原則。
- */
-
-/** 行首的圖形符號：emoji、項目符號、注意符號。後面的變異選擇子（️）一起吃掉 */
-const BULLETIN_MARKER = /^(?:[\p{Extended_Pictographic}•●○・‧※◆▪▸]️?)+\s*/u;
-/** `1、` `2.` `3)` 這類編號 */
-const BULLETIN_ORDERED = /^(\d{1,2})\s*[、.．)）]\s*/;
-/** 短且以冒號結尾的行＝標籤，下一行起是它的值。限制長度才不會把一般句子誤判成標籤 */
-const BULLETIN_LABEL = /^.{1,14}[：:]$/;
-
-type BulletinBlock =
-  | { kind: 'text'; lines: string[] }
-  | { kind: 'items'; items: { label: string; body: string[] }[] }
-  | { kind: 'ordered'; items: string[] };
-
-const parseBulletinBody = (body: string): BulletinBlock[] => {
-  const blocks: BulletinBlock[] = [];
-  let text: string[] = [];
-  let items: { label: string; body: string[] }[] = [];
-  let ordered: string[] = [];
-
-  const flushText = () => { if (text.length) { blocks.push({ kind: 'text', lines: text }); text = []; } };
-  const flushItems = () => { if (items.length) { blocks.push({ kind: 'items', items }); items = []; } };
-  const flushOrdered = () => { if (ordered.length) { blocks.push({ kind: 'ordered', items: ordered }); ordered = []; } };
-  const flushAll = () => { flushText(); flushItems(); flushOrdered(); };
-
-  for (const raw of body.replace(/\r\n?/g, '\n').split('\n')) {
-    const line = raw.trim();
-    if (!line) { flushAll(); continue; }           // 空行＝一段結束
-
-    if (BULLETIN_MARKER.test(line)) {              // 符號開頭 → 項目
-      flushText(); flushOrdered();
-      items.push({ label: line.replace(BULLETIN_MARKER, ''), body: [] });
-      continue;
-    }
-    const num = BULLETIN_ORDERED.exec(line);
-    if (num) {                                     // 編號 → 有序清單
-      flushText(); flushItems();
-      ordered.push(line.slice(num[0].length));
-      continue;
-    }
-    if (BULLETIN_LABEL.test(line)) {               // 短句＋冒號 → 也是項目
-      flushText(); flushOrdered();
-      items.push({ label: line, body: [] });
-      continue;
-    }
-    // 純文字：若正接在一個「以冒號結尾的項目」下面，當成那一項的值
-    const last = items[items.length - 1];
-    if (last && /[：:]$/.test(last.label)) { last.body.push(line); continue; }
-    flushItems(); flushOrdered();
-    text.push(line);
-  }
-  flushAll();
-  return blocks;
-};
-
-/** 金色菱形，與全站分隔飾同一個形狀（全站不用 emoji） */
-const BulletDiamond: React.FC = () => (
-  <span className="w-2 h-2 rotate-45 bg-temple-gold shrink-0 mt-[0.55rem]" aria-hidden="true" />
-);
-
-const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
-  const blocks = React.useMemo(() => parseBulletinBody(content), [content]);
-  let textSeen = 0;
-
-  return (
-    <div className="space-y-5">
-      {blocks.map((block, bi) => {
-        if (block.kind === 'items') {
-          // overflow-hidden 讓清單自成一個 BFC：碰到浮動的圖時會讓開而不是疊上去，
-          // 否則金色左框會停在欄位最左邊、文字卻被圖推到右邊
-          return (
-            <ul key={bi} className="overflow-hidden space-y-2.5 border-l-2 border-temple-gold/30 pl-5 py-0.5">
-              {block.items.map((it, i) => (
-                <li key={i} className="flex gap-3">
-                  <BulletDiamond />
-                  <div className="min-w-0">
-                    <span className="text-temple-red font-medium">{renderInline(it.label)}</span>
-                    {it.body.map((line, j) => (
-                      <p key={j} className="text-gray-700 leading-relaxed">{renderInline(line)}</p>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        if (block.kind === 'ordered') {
-          return (
-            <ol key={bi} className="overflow-hidden space-y-2 pl-1">
-              {block.items.map((it, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="font-serif font-bold text-temple-gold shrink-0 w-5 text-right leading-relaxed">{i + 1}</span>
-                  <span className="text-gray-700 leading-relaxed">{renderInline(it)}</span>
-                </li>
-              ))}
-            </ol>
-          );
-        }
-        // 第一段當作前言：字大一點、色深一點，讓整篇有個開頭而不是一片平的灰字
-        const lead = textSeen++ === 0;
-        return (
-          <p
-            key={bi}
-            className={lead
-              ? 'text-temple-dark text-lg leading-loose whitespace-pre-line'
-              : 'text-gray-700 leading-loose whitespace-pre-line'}
-          >
-            {renderInline(block.lines.join('\n'))}
-          </p>
-        );
-      })}
-    </div>
-  );
-};
-
 const App: React.FC = () => {
   // ?admin=1 → 顯示正常首頁並自動跳出管理員登入（上線前報名表蓋住首頁時的後台入口）
   const adminEntry = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
@@ -905,6 +799,7 @@ const App: React.FC = () => {
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
       calendar:   '歲時節令｜神明聖誕、辦事日與誦經祈福｜台北古亭和聖壇',
+      bulletins:  '最新活動與壇務公告｜台北古亭和聖壇',
     };
     // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
     // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
@@ -1568,9 +1463,16 @@ const App: React.FC = () => {
       Number(b.isPinned) - Number(a.isPinned) || b.createdAt.localeCompare(a.createdAt));
   }, [bulletins, blessingEvents, bookingSessions, regularSessions, lampConfigs]);
 
-  const filteredBulletins = bulletinFilter === 'all'
-    ? feedBulletins
-    : feedBulletins.filter(b => b.category === bulletinFilter);
+  /**
+   * 首頁要顯示的那幾則：置頂的全部列出（通常 0–1 則），其餘取最新 5 則。
+   * 置頂不佔名額——廟方把一則置頂就是要它一直在最上面，被「最新 5 則」擠掉
+   * 等於那個功能失效。
+   */
+  const homeBulletins = useMemo(() => {
+    const pinned = feedBulletins.filter(b => b.isPinned);
+    const rest = feedBulletins.filter(b => !b.isPinned).slice(0, HOME_BULLETIN_LIMIT);
+    return [...pinned, ...rest];
+  }, [feedBulletins]);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -2478,135 +2380,47 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Category Filter */}
-          <div className="flex flex-wrap justify-center gap-3 mb-10">
-            {['all', ...Object.values(BulletinCategory)].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setBulletinFilter(cat)}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                  bulletinFilter === cat
-                    ? 'bg-temple-red text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {cat === 'all' ? '全部' : cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Bulletin List */}
-          {filteredBulletins.length === 0 ? (
+          {/* 首頁只放精選：置頂的全列，其餘取最新 5 則。
+              **分類篩選移到 /bulletins**——首頁只有幾則，篩下去常常是空的，
+              那顆篩選鈕在這裡只是多一排要讀的東西（廟方 2026-10-11 要求精簡）。 */}
+          {homeBulletins.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
               <Megaphone className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg">目前沒有公告</p>
             </div>
           ) : (
             <div className="space-y-4 max-w-4xl mx-auto">
-              {filteredBulletins.map((bulletin, bi) => (
+              {homeBulletins.map((bulletin, bi) => (
                 // 進場包在外層：卡片本身有 transition-all（Tailwind CDN 排在自訂樣式之後），
                 // 直接把 .sr 掛在卡片上會被它的 150ms 覆蓋掉，變成快閃而不是緩緩浮起。
                 // 逐張錯開延遲，才有「一張一張進來」的節奏，而不是整列一起閃。
                 <div key={bulletin.id} className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][Math.min(bi, 3)]}`}>
-                <div
-                  className={`bg-temple-bg rounded-xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 ${
-                    bulletin.isPinned ? 'border-temple-gold' : 'border-temple-red/30'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    aria-expanded={expandedBulletin === bulletin.id}
-                    aria-controls={`bulletin-${bulletin.id}`}
-                    className="w-full flex items-start justify-between text-left cursor-pointer"
-                    onClick={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        {bulletin.isPinned && (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${TAG_PINNED}`}>
-                            <Pin className="w-3 h-3" aria-hidden="true" /> 置頂
-                          </span>
-                        )}
-                        <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${TAG_CATEGORY}`}>
-                          {bulletin.category}
-                        </span>
-                        <span className="text-gray-400 text-sm">
-                          {new Date(bulletin.createdAt).toLocaleDateString('zh-TW')}
-                        </span>
-                      </div>
-                      <h4 className="text-lg font-bold text-temple-dark font-serif">{bulletin.title}</h4>
-                    </div>
-                    {/* 收合時右側放小縮圖，讓有照片的活動一眼看得出來；沒照片就只有箭頭 */}
-                    <div className="ml-4 flex items-center gap-3 flex-shrink-0">
-                      {/* 照片本身決定尺寸，不要框也不要底色——與後台神明管理同一個寫法
-                          （見 e127c7d：先做成 object-contain + 灰底，再拿掉框只留照片）。
-                          父層已經是 flex items-center，直式與橫式縮圖都會垂直置中對齊。 */}
-                      {bulletin.imageUrl && expandedBulletin !== bulletin.id && (
-                        <img
-                          src={bulletin.imageUrl}
-                          alt=""
-                          loading="lazy"
-                          className="max-h-12 max-w-16 w-auto h-auto rounded-lg"
-                        />
-                      )}
-                      <div className="text-gray-400">
-                        {expandedBulletin === bulletin.id ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  {expandedBulletin === bulletin.id && (
-                    <div id={`bulletin-${bulletin.id}`} className="mt-4 pt-4 border-t border-gray-200">
-                      {/* 照片依自己的比例決定尺寸，不要塞進固定的框。
-                          原本是 `w-full max-h-96 object-cover`：寬度先撐滿欄位，
-                          直式照片的高度就遠超過 384px，object-cover 再從中間裁掉上下。
-                          廟方的遷址募資海報實測只看得到中間 36%——標題與 QR code 全被切掉。
-                          改成只給上限、不給固定值，瀏覽器自己維持長寬比：
-                          橫式照片受 max-w 限制、直式照片受 max-h 限制，兩種都完整顯示。
-
-                          桌機再讓文字繞著圖排（float-right）。**浮右不是浮左**：廟方的內文是
-                          每行 8-12 字的刻意斷行（實測文字實際只佔 160-240px，而欄寬有 844px），
-                          浮左會讓每一行都被推進去、左邊界參差；浮右則讓文字維持從左邊界起，
-                          多出來的空白剛好成為圖文之間的間距。
-                          手機不浮動——欄寬只有 306px，圖文並排兩邊都太窄。 */}
-                      {bulletin.imageUrl && (
-                        <img
-                          src={bulletin.imageUrl}
-                          alt={bulletin.title}
-                          loading="lazy"
-                          className="block mx-auto mb-4 max-w-full max-h-[32rem] rounded-xl border border-temple-gold/20
-                                     sm:float-right sm:mx-0 sm:ml-6 sm:mb-3 sm:max-w-[40%]"
-                        />
-                      )}
-                      <BulletinBody content={bulletin.content} />
-                      {/* 收掉浮動，否則下面那顆「前往登記」按鈕會擠到圖片旁邊 */}
-                      <div className="clear-both" />
-                      {bulletin.linkedService && (() => {
-                        const svcLabel: Record<string, string> = { lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻' };
-                        // 點燈／祈福／問事已各自獨立成頁，捐獻仍是首頁上的區塊
-                        const svcPage: Record<string, SitePage> = { lamp: 'lamps', blessing: 'blessing', booking: 'booking' };
-                        const target = svcPage[bulletin.linkedService!];
-                        return (
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              if (target) goToPage(target);
-                              else scrollToSection('donation');
-                            }}
-                            className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
-                          >
-                            前往{svcLabel[bulletin.linkedService!] ?? ''}登記 →
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
+                  <BulletinCard
+                    bulletin={bulletin}
+                    open={expandedBulletin === bulletin.id}
+                    onToggle={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
+                    onService={svc => {
+                      const target = SERVICE_PAGE[svc];
+                      if (target) goToPage(target); else scrollToSection('donation');
+                    }}
+                  />
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* 還有更多就給入口。**數字要講出來**——「查看全部公告」看不出值不值得點，
+              「還有 12 則」才有。少於等於上限時整顆不出現，不要給一個點進去沒有新東西的連結 */}
+          {feedBulletins.length > homeBulletins.length && (
+            <div className="text-center mt-10">
+              <button
+                type="button"
+                onClick={() => goToPage('bulletins')}
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full border border-temple-gold/60 text-temple-dark font-medium hover:bg-temple-gold/10 transition-colors"
+              >
+                查看全部公告（還有 {feedBulletins.length - homeBulletins.length} 則）
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </button>
             </div>
           )}
         </div>
@@ -3988,6 +3802,25 @@ const App: React.FC = () => {
           每年換算），壇務活動來自 blessing_events（存確定的國曆日） */}
       {page === 'calendar' && (
         <Suspense fallback={<PageLoading />}><CalendarPage onBack={() => goToPage('home')} /></Suspense>
+      )}
+
+      {/* ── 公佈欄完整清單（獨立分頁 /bulletins）──
+          入口是首頁 #bulletin 底下那顆「查看全部公告」，不進導覽列。
+          資料直接傳 feedBulletins：那份已經把真公告與衍生卡合併排序過了，
+          這一頁再抓一次只會出現「兩邊順序不一樣」的怪事。 */}
+      {page === 'bulletins' && (
+        <Suspense fallback={<PageLoading />}>
+          <BulletinsPage
+            bulletins={feedBulletins}
+            initialId={bulletinIdFromPath()}
+            onBack={() => goToPage('home')}
+            onService={svc => {
+              const target = SERVICE_PAGE[svc];
+              if (target) goToPage(target);
+              else { pendingScrollRef.current = 'donation'; goToPage('home'); }
+            }}
+          />
+        </Suspense>
       )}
 
       {/* ── 遷址捐款（獨立分頁 /relocation）──

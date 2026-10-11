@@ -37,6 +37,10 @@
       "destination": "/shower.html"
     },
     {
+      "source": "/bulletins",
+      "destination": "/bulletins.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
