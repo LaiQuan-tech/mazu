@@ -32,14 +32,14 @@ type EntryKind = 'feast' | 'event' | 'booking' | 'regular';
 // 標籤是「這是哪一類」，不是把名稱再抄一次：辦事日那一列的名稱就叫「辦事日」，
 // 標籤若也寫辦事日，畫面上會變成「辦事日 辦事日」。標籤給它的類別＝問事。
 const KIND_LABEL: Record<EntryKind, string> = {
-  feast: '聖誕節令', event: '壇務活動', booking: '問事', regular: '定期共修',
+  feast: '聖誕節慶', event: '壇務活動', booking: '問事', regular: '定期共修',
 };
 /**
  * 四種類別的配色全部取自全站那組（見 components/tagStyles.ts）——
  * 這裡原本用了 sky／emerald，在廟紅＋金的版面上像是別的網站
  * （廟方 2026-10-01：「標籤顏色，還是要維持一致風格」）。
  * 只有兩個色相可用，所以靠「色相 × 填法」分開：
- *   聖誕節令 金填（最多筆）／壇務活動 褐填／問事 金填描邊／定期共修 褐實心（最少筆）
+ *   聖誕節慶 金填（最多筆）／壇務活動 褐填／問事 金填描邊／定期共修 褐實心（最少筆）
  */
 const KIND_CLASS: Record<EntryKind, string> = {
   feast:   TAG_GOLD,

@@ -18,7 +18,7 @@
  * 而且在一排金褐標籤裡「褪色」的觀感正好對應它的語意。
  */
 
-/** 分類標籤：金填。最常見的那一類用它（聖誕節令、點燈） */
+/** 分類標籤：金填。最常見的那一類用它（聖誕節慶、點燈） */
 export const TAG_GOLD = 'bg-temple-gold/25 text-[#5C4310]';
 /** 分類標籤：褐填 */
 export const TAG_BROWN = 'bg-temple-red/10 text-temple-red';
