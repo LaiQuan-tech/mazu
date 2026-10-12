@@ -168,7 +168,7 @@ const BREATH_DEPTH = 0.42;
  * 散開後是從神尊背後掠過，本來就像廟裡的樣子。
  * 標題那條線是硬的，神尊那條不是。手機另有一組值，見下。
  */
-const CENSER_X_WIDE = 0.285;
+const CENSER_X_WIDE = 0.305;
 /**
  * 窄螢幕的爐口要往右挪。
  *
@@ -249,7 +249,7 @@ interface Strand {
  * 香粉是**一整片粉面在燒**，每一處都在冒煙，所以 `base` 要攤開到整個粉面的寬度；
  * 縷數也要夠多，彼此疊起來才會讀成「一團」而不是「幾條線」。
  *
- * **每一縷的 alpha 要比線香版低。** 縷數從 5 變 17、線寬又粗了三倍，
+ * **每一縷的 alpha 要比線香版低。** 縷數從 5 變 18、線寬又粗了三倍，
  * 沿用舊的濃度會疊成一塊白板。靠「多而淡」堆出厚度，不是靠「少而濃」。
  *
  * **要讀成「一團」而不是「一條條」，靠的是密度不是粗細**（2026-10-13 廟方第二次回饋）。
@@ -283,6 +283,9 @@ const STRANDS: Strand[] = [
   // 最外圍的薄霧，負責讓團的邊緣糊掉而不是切齊
   { base: -0.044, spread: -0.068, from: 0.12, phase: 1.6, sway: 0.68, width: 0.52, alpha: 0.18, height: 0.84, speed: 1.15, freq: 0.92, mobile: false },
   { base:  0.045, spread:  0.070, from: 0.13, phase: 5.1, sway: 0.70, width: 0.50, alpha: 0.17, height: 0.83, speed: 0.84, freq: 1.21, mobile: false },
+  // 第 18 縷（廟方 2026-10-13 指定縷數）。擺在正中偏上、速度與頻率都挑沒用過的值，
+  // 補中段最容易看出縫隙的那一帶；桌機才畫，手機已經夠擠了
+  { base: -0.002, spread:  0.010, from: 0.18, phase: 2.9, sway: 1.04, width: 0.74, alpha: 0.31, height: 0.98, speed: 1.02, freq: 1.04, mobile: false },
 ];
 
 const IncenseSmoke: React.FC<{ className?: string }> = ({ className = '' }) => {
