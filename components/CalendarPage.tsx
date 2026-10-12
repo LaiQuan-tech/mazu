@@ -126,8 +126,19 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       });
     });
 
+    /**
+     * 那一天已經有聖誕／節令了嗎。
+     * 廟方常在聖誕當天辦該尊的祈福活動（中壇元帥聖誕 10/18 就辦【太子威靈寶燈】），
+     * 兩列並排在信眾眼裡就是同一件事講兩次——廟方 2026-10-13 回報「看到兩個一樣的活動」。
+     * 聖誕那一列是年年都在的、也是信眾來查行事曆要看的，所以**讓活動讓位**。
+     * **不是整個不同步**：聖誕清單只有聖誕與飛昇日，沒有天赦日、沒有普渡，
+     * 活動全部拿掉的話那些單次活動會從行事曆上整個消失（廟方 2026-10-13 選了這個折衷）。
+     */
+    const feastDates = new Set(list.filter(e => e.kind === 'feast').map(e => e.date));
+
     events.forEach(ev => {
       if (!ev.startDate?.startsWith(String(year))) return;
+      if (feastDates.has(ev.startDate)) return;   // 當天已有聖誕，不重複列
       list.push({
         key: `e-${ev.id}`, date: ev.startDate,
         endDate: ev.endDate && ev.endDate !== ev.startDate ? ev.endDate : undefined,
