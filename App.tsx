@@ -1013,6 +1013,12 @@ const App: React.FC = () => {
    * 他其實已經登入了，只是看不到。
    * **參數用完要從網址上拿掉**：留著的話重新整理又會彈一次，而且會被連同網址分享出去。
    * 其餘 query 保留（`?share=` 這類功能性參數掉了，繞一趟登入回來那張揪團表就不見了）。
+   *
+   * **`window.location.hash` 一定要原樣帶回去**（2026-10-13 踩過，而且症狀很難查）：
+   * supabase-js 預設是 implicit flow，登入成功的 token 是放在 `#access_token=…` 裡的，
+   * 而這支 effect 跟 supabase-js 讀網址是在賽跑。第一版重組網址時只接了 pathname 與 query，
+   * **等於在 supabase-js 讀到之前就把整個 hash 砍掉**——結果是：沒有 session、
+   * 沒有任何錯誤訊息、網址乾乾淨淨停在首頁，看起來就像「按了 LINE 登入繞一圈回來什麼都沒發生」。
    */
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1021,7 +1027,7 @@ const App: React.FC = () => {
     setShowMemberPortal(true);
     params.delete('member');
     const q = params.toString();
-    window.history.replaceState({}, '', window.location.pathname + (q ? `?${q}` : ''));
+    window.history.replaceState({}, '', window.location.pathname + (q ? `?${q}` : '') + window.location.hash);
   }, []);
   const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
   const [blessingNotes, setBlessingNotes] = useState('');
