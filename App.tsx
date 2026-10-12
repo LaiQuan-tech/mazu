@@ -1006,6 +1006,23 @@ const App: React.FC = () => {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [posterUrl]);
+
+  /**
+   * LINE 登入繞一圈回來時帶著 `?member=1`（見 services/lineAuth.ts）。
+   * 不自己把會員中心打開的話，信眾會覺得「按了登入卻什麼都沒發生」——
+   * 他其實已經登入了，只是看不到。
+   * **參數用完要從網址上拿掉**：留著的話重新整理又會彈一次，而且會被連同網址分享出去。
+   * 其餘 query 保留（`?share=` 這類功能性參數掉了，繞一趟登入回來那張揪團表就不見了）。
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('member')) return;
+    setShowMemberPortal(true);
+    params.delete('member');
+    const q = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (q ? `?${q}` : ''));
+  }, []);
   const [blessingPersons, setBlessingPersons] = useState<BlessingPersonEntry[]>([{ id: newId(), name: '', birthDate: '', zodiac: undefined, gender: '', address: '', contactLabel: '本人' }]);
   const [blessingNotes, setBlessingNotes] = useState('');
   const [blessingStatus, setBlessingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');

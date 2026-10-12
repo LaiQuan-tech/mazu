@@ -3,10 +3,27 @@ import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, 
 import { supabase } from '../services/supabase';
 import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents, getMySharedHistory } from '../services/supabase';
 import { SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from '../services/sharedSessionStore';
+import { ENABLE_LINE_LOGIN, signInWithLine } from '../services/lineAuth';
+import { LineIcon } from './SocialLinks';
 import { SharedSessionRecord, SharedServiceType } from '../types';
 import { TAG_GOLD, TAG_BROWN, TAG_GOLD_OUTLINE, TAG_STATE_OPEN, TAG_STATE_DONE, TAG_STATE_OVER } from './tagStyles';
 import { MemberContact, MemberContactData, ProfileData, ZodiacSign, LampRegistrationStatus, BookingStatus, BlessingStatus } from '../types';
 import BirthDatePicker from './BirthDatePicker';
+
+/**
+ * Supabase 的 user 轉成畫面要顯示的身分。
+ *
+ * **email 可能是 null**：LINE 登入回給我們的只有 userId／暱稱／頭像（見 services/lineAuth.ts），
+ * 這裡原本三處都寫 `setCurrentUser({ email: user.email })`，LINE 帳號會整個登入不進來。
+ * 沒有 email 就退到 LINE 暱稱，再沒有就顯示「會員」——登入狀態不可以因為少一個欄位就壞掉。
+ */
+const pickName = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+const describeUser = (u: { email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined) => {
+  if (!u) return null;
+  const m = u.user_metadata ?? {};
+  return { email: u.email ?? null, name: pickName(m.name) ?? pickName(m.full_name) };
+};
+
 
 // ── 報名紀錄顯示用型別 ──────────────────────────────────────────────────────
 type PortalRecord =
@@ -389,7 +406,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
-  const [currentUser, setCurrentUser] = useState<{ email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email: string | null; name: string | null } | null>(null);
 
   // ── portal tab ──
   const [portalTab, setPortalTab] = useState<'profile' | 'contacts' | 'records'>('profile');
@@ -402,6 +419,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
 
   // ── profile state ──
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  /** 分辨「還沒載入」與「載入了但沒填電話」。沒有這個旗標，提示會在資料回來前先閃一下 */
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   // ── records state ──
   const [allRecords, setAllRecords] = useState<PortalRecord[] | null>(null);
@@ -419,8 +438,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
-      if (user?.email) {
-        setCurrentUser({ email: user.email });
+      if (user) {
+        setCurrentUser(describeUser(user));
         loadContacts();
         loadProfile();
       }
@@ -510,6 +529,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
       setProfile(data);
     } catch {
       // 靜默處理
+    } finally {
+      setProfileLoaded(true);
     }
   };
 
@@ -519,6 +540,17 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
   };
 
   // ── auth handlers ──
+  /**
+   * 用 LINE 登入。成功的話瀏覽器已經離開這一頁，**不要把 authLoading 關掉**——
+   * 關掉會讓按鈕在跳轉前一瞬間變回可按，長輩很容易連按兩次。
+   */
+  const handleLineLogin = async () => {
+    setAuthLoading(true);
+    setAuthError('');
+    const err = await signInWithLine();
+    if (err) { setAuthError(err); setAuthLoading(false); }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -533,8 +565,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
         }
         return;
       }
-      if (data.user?.email) {
-        setCurrentUser({ email: data.user.email });
+      if (data.user) {
+        setCurrentUser(describeUser(data.user));
         loadContacts();
         loadProfile();
       }
@@ -571,7 +603,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
       setConfirmPassword('');
       if (data.session) {
         // Supabase 已關閉 Email 確認要求，直接登入成功
-        setCurrentUser({ email: data.user!.email! });
+        setCurrentUser(describeUser(data.user));
         loadContacts();
         loadProfile();
         if (pendingPhone) setPortalTab('profile');
@@ -664,6 +696,36 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
             {/* ── 未登入：Auth View ── */}
             {!currentUser ? (
               <div className="p-6">
+                {/* ── LINE 登入 ──
+                    **放在信箱登入之前**：本站信眾以長者居多，記 email 與密碼是真實的門檻，
+                    而 LINE 在手機上會跳進 App、按一下「允許」就回來，不必打字也不必收驗證信。
+                    次要路徑才是信箱（廟方 2026-10-12 決定）。
+                    用 LINE 自己的綠（#06C755）不是站上的廟紅：這顆鈕代表的是別人的品牌，
+                    照他們的識別色才認得出來，與浮動的加入 LINE 鈕同一個色。
+                    設定完成前由 ENABLE_LINE_LOGIN 關著——Supabase 還沒建好供應商時
+                    按下去會回 Unsupported provider，那是一顆壞掉的鈕。 */}
+                {ENABLE_LINE_LOGIN && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleLineLogin}
+                      disabled={authLoading}
+                      className="w-full py-3.5 rounded-lg bg-[#06C755] text-white font-bold text-base flex items-center justify-center gap-2 hover:bg-[#05B34C] transition-colors disabled:opacity-60"
+                    >
+                      <LineIcon className="w-6 h-6" />
+                      用 LINE 帳號登入
+                    </button>
+                    <p className="mt-2 text-center text-xs text-gray-500 leading-relaxed">
+                      不必記密碼。手機會跳到 LINE，按一下「允許」就好。
+                    </p>
+                    <div className="flex items-center gap-3 my-5" aria-hidden="true">
+                      <span className="flex-1 h-px bg-gray-200" />
+                      <span className="text-xs text-gray-400">或用信箱</span>
+                      <span className="flex-1 h-px bg-gray-200" />
+                    </div>
+                  </>
+                )}
+
                 {/* Tab 切換 */}
                 <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-6">
                   {(['login', 'register'] as const).map(tab => (
@@ -799,7 +861,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">已登入</p>
-                    <p className="text-sm font-medium text-temple-dark">{currentUser.email}</p>
+                    {/* LINE 登入沒有 email，退到暱稱；兩個都沒有也要有東西可顯示 */}
+                    <p className="text-sm font-medium text-temple-dark">{currentUser.email ?? currentUser.name ?? '會員'}</p>
                   </div>
                   <button
                     onClick={handleLogout}
@@ -809,6 +872,23 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                     登出
                   </button>
                 </div>
+
+                {/* ── 還沒留電話 ──
+                    **報名紀錄是拿 `profile.phone` 去對三張表的，跟 email 無關**（loadRecords）。
+                    LINE 登入回給我們的沒有電話也沒有 email，不講的話信眾登進來看到空的
+                    「報名紀錄」，會以為紀錄不見了。信箱註冊的會員沒填電話也是同樣的空畫面，
+                    所以這個提示不分登入方式都給。
+                    等 profileLoaded 才判斷，否則資料回來前會先閃一下。
+                    配色沿用揪團鈕那組（深金框＋淡金底＋深褐字，量過 7.75:1）。 */}
+                {profileLoaded && !profile?.phone && (
+                  <div className="mb-5 rounded-xl border-2 border-[#A37D15] bg-temple-gold/20 px-4 py-3">
+                    <p className="text-sm font-semibold text-[#5C4310] mb-1">還差一步：留下您的手機號碼</p>
+                    <p className="text-xs text-[#5C4310] leading-relaxed">
+                      廟方是用手機號碼對應您的報名紀錄。請在下方「個人資料」填好並儲存，
+                      問事、點燈、祈福的紀錄就會出現在「報名紀錄」。
+                    </p>
+                  </div>
+                )}
 
                 {/* Tab 切換 */}
                 <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-5">
@@ -852,7 +932,7 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                   <>
                     {pendingPhone && !profile?.phone && (
                       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 flex items-start gap-2">
-                        <span className="mt-0.5 shrink-0">💡</span>
+                        <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rotate-45 bg-blue-400" aria-hidden="true" />
                         <span>已為您預填電話號碼。請確認後儲存，即可在「報名紀錄」查看您的問事預約。</span>
                       </div>
                     )}
