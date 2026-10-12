@@ -256,8 +256,12 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **`scrollToTop` 要跟著上鎖 `navLockRef`**（同 `smoothScrollToEl`）：CSS 有全域 `scroll-behavior: smooth`，這一路會掃過中間每個區塊，不鎖導覽高亮會一路亂跳。
   有全螢幕覆蓋層（會員中心／報名視窗／海報燈箱，`overlayOpen`）時收起來——那時捲的不是這一頁。
   **驗這種鈕時注意**：程式用 `window.scrollTo(..., 'instant')` 跳位**不一定會觸發 scroll 事件**，顯示條件就不會更新，看起來像壞掉；而平滑捲動有啟動延遲，等它停的輪詢若只比對兩次相同值會提早收手、誤判成「按了沒反應」。我這兩個都踩過。
-- **LINE 帳號登入（`services/lineAuth.ts`，2026-10-13 建置，`ENABLE_LINE_LOGIN` 關著等 Supabase 設定）**：信眾以長者居多，記 email 與密碼是真實的門檻；LINE 在手機上會跳進 App、按一下「允許」就回來。
+- **LINE 帳號登入（`services/lineAuth.ts`，2026-10-13 建置並上線實測成功）**：信眾以長者居多，記 email 與密碼是真實的門檻；LINE 在手機上會跳進 App、按一下「允許」就回來。
   **Supabase 沒有內建 LINE**——社群那個 PR（supabase/supabase#46920）2026-09-23 被關掉、沒有合併。走 2026-02 開放的**自訂 OAuth 供應商**，**型別要選 OAuth2 不是 OIDC**：LINE 網頁登入的 ID token 是 HS256 簽的，自訂 OIDC 拿 JWKS 驗章驗不過；OAuth2 型別不碰 ID token，改打 LINE 的 userinfo 端點。設定步驟寫在 `lineAuth.ts` 檔頭。
+  **實際設定（已完成，供日後重建參考）**：LINE Login channel 的 Channel ID `2011983641`（Channel secret 在 Supabase，不在 repo）；Supabase 自訂供應商 Provider Identifier 填 `line`，**SDK 要呼叫 `custom:line`**（`custom:` 是 Supabase 自己加的前綴）；Configuration Method 選 **Manual configuration**；Issuer `https://access.line.me`、Authorization `https://access.line.me/oauth2/v2.1/authorize`、Token `https://api.line.me/oauth2/v2.1/token`、Userinfo `https://api.line.me/oauth2/v2.1/userinfo`、**JWKS URI 留空**、Scopes `openid, profile`、**Allow users without email 打開**。
+  **Userinfo 不可以用 `/v2/profile`**：那支回 LINE 自己的 `userId`／`displayName`，Supabase 要的是標準的 `sub`／`name`／`picture`——這也是 scopes 必須帶 `openid` 的原因。
+  **`redirect_to` 帶 query string 時，Supabase 的 Redirect URLs 要有萬用字元**（`https://heshengtan.tw/**`，兩個星號），否則 `?member=1` 那個網址會被擋掉。
+  **最難查的一個坑：自己的程式把網址的 hash 砍掉**（2026-10-13，花了三輪才找到）。supabase-js 預設 implicit flow，登入成功的 token 放在 `#access_token=…` 裡；而 App.tsx 處理 `?member=1` 的那支 effect 重組網址時只接了 pathname 與 query，**等於在 supabase-js 讀到之前把整個 hash 砍掉**。症狀是「繞一圈回來沒登入、沒有任何錯誤訊息、網址乾乾淨淨」，看起來像迴圈——**因為不是錯誤，所以哪裡都查不到**。任何會 `history.replaceState` 的程式都要把 `window.location.hash` 原樣帶回去。
   **`ENABLE_LINE_LOGIN` 是唯一的防線不是保險**（實測）：供應商還沒建好時 `signInWithOAuth` **不回傳錯誤**，而是直接把瀏覽器轉去 Supabase、落在一頁英文 JSON（`Unsupported provider`），`signInWithLine` 裡的錯誤處理完全不會執行。Supabase 那邊確認可登入之前一定要維持 false。
   **LINE 只回 userId／暱稱／頭像，沒有 email 也沒有電話**，由此衍生三件事：
   (1) `currentUser` 不能假設有 email——原本三處寫 `setCurrentUser({ email: user.email })`，LINE 帳號會整個登入不進來；改走 `describeUser()`，退到暱稱再退到「會員」。
