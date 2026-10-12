@@ -58,6 +58,18 @@ const readEntryUtm = (): string => {
 const entryUtm = readEntryUtm();
 
 /**
+ * 進站那一刻的完整網址。
+ *
+ * 放在這個模組是因為它在 App 啟動時就載入，這一行跑得夠早——而「夠早」正是重點。
+ * **誰需要它**：OAuth 轉回來時 Supabase 把失敗原因放在 `error_description`，
+ * 而 supabase-js 的 `detectSessionInUrl` 初始化後會自己把那些參數從網址上清掉。
+ * 懶載入的元件（會員中心）掛載時再去讀 `window.location` 一定是空的
+ * ——2026-10-13 實測：函式單獨呼叫完全正常，放進真實流程卻永遠讀不到，
+ * 錯誤訊息整個不見。同一個理由，UTM 也是在這裡就收下來的（見檔頭）。
+ */
+export const ENTRY_URL = typeof window === 'undefined' ? '' : window.location.href;
+
+/**
  * 給 GA4 的 `page_location` 用：進站那一次要帶 UTM，GA4 才有東西可以歸因。
  * 回傳含「?」的片段或空字串，直接串在路徑後面即可。
  */

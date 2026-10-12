@@ -3,7 +3,7 @@ import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, 
 import { supabase } from '../services/supabase';
 import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents, getMySharedHistory } from '../services/supabase';
 import { SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from '../services/sharedSessionStore';
-import { ENABLE_LINE_LOGIN, signInWithLine } from '../services/lineAuth';
+import { ENABLE_LINE_LOGIN, signInWithLine, linkLineAccount, hasLineIdentity, takeAuthErrorFromUrl } from '../services/lineAuth';
 import { LineIcon } from './SocialLinks';
 import { SharedSessionRecord, SharedServiceType } from '../types';
 import { TAG_GOLD, TAG_BROWN, TAG_GOLD_OUTLINE, TAG_STATE_OPEN, TAG_STATE_DONE, TAG_STATE_OVER } from './tagStyles';
@@ -421,6 +421,11 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
   const [profile, setProfile] = useState<ProfileData | null>(null);
   /** 分辨「還沒載入」與「載入了但沒填電話」。沒有這個旗標，提示會在資料回來前先閃一下 */
   const [profileLoaded, setProfileLoaded] = useState(false);
+  /** 這個帳號綁了 LINE 沒有（綁了就能直接用 LINE 登入同一個帳號） */
+  const [lineLinked, setLineLinked] = useState(false);
+  const [linking, setLinking] = useState(false);
+  /** 綁定失敗的訊息是從轉回來的網址上讀的，不是 API 回傳值 */
+  const [linkError, setLinkError] = useState('');
 
   // ── records state ──
   const [allRecords, setAllRecords] = useState<PortalRecord[] | null>(null);
@@ -442,8 +447,17 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
         setCurrentUser(describeUser(user));
         loadContacts();
         loadProfile();
+        if (ENABLE_LINE_LOGIN) hasLineIdentity().then(setLineLinked);
       }
     });
+    // 綁定／登入失敗時 Supabase 把原因放在轉回來的網址上，讀完就清掉。
+    // **只有讀到東西才覆寫**：takeAuthErrorFromUrl 只回傳一次，而 StrictMode 在開發模式
+    // 會把 effect 跑兩次——無條件 set 的話第二次拿到空字串，剛讀到的訊息又被自己洗掉
+    // （2026-10-13 卡在這很久，正式站沒有 StrictMode 所以只有本機看得出來）。
+    if (ENABLE_LINE_LOGIN) {
+      const urlErr = takeAuthErrorFromUrl();
+      if (urlErr) setLinkError(urlErr);
+    }
   }, []);
 
   const loadRecords = async () => {
@@ -549,6 +563,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
     setAuthError('');
     const err = await signInWithLine();
     if (err) { setAuthError(err); setAuthLoading(false); }
+  };
+
+  /** 把 LINE 綁到目前這個帳號。成功的話瀏覽器會離開這一頁（同 handleLineLogin） */
+  const handleLinkLine = async () => {
+    setLinking(true);
+    setLinkError('');
+    const err = await linkLineAccount();
+    if (err) { setLinkError(err); setLinking(false); }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -743,6 +765,16 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                   ))}
                 </div>
 
+                {/* 轉回來的網址上帶著的錯誤。**未登入時也要顯示**：LINE「登入」失敗
+                    （不是綁定）的人回來就是未登入狀態，只畫在已登入區塊的話，
+                    他看到的是原本的登入表單，變成「按了沒反應」 */}
+                {linkError && (
+                  <div role="alert" className="flex items-start gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-4 text-sm">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{linkError}</span>
+                  </div>
+                )}
+
                 {/* 錯誤 / 成功提示 */}
                 {authError && (
                   <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-4 text-sm">
@@ -873,6 +905,42 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                   </button>
                 </div>
 
+                {/* ── 綁定 LINE ──
+                    **這就是「帳號合併」的正解**（廟方 2026-10-13 要求）。
+                    直覺的作法是「登入後比對手機號碼、相同就合併」，但手機是會員自己打的、
+                    沒有驗證，任何人填別人的號碼就能把對方的通訊錄（家人的姓名生日地址）
+                    與揪團名單併過來。改成「先用原本的帳號登入，再把 LINE 接上去」——
+                    身分由原帳號自己證明，接上之後用 LINE 登入就是同一個 user id，
+                    揪團表、通訊錄、個人資料原封不動。細節見 services/lineAuth.ts。 */}
+                {ENABLE_LINE_LOGIN && (
+                  <div className="mb-5">
+                    {linkError && (
+                      <div role="alert" className="mb-3 flex items-start gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-sm">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                        <span>{linkError}</span>
+                      </div>
+                    )}
+                    {lineLinked ? (
+                      <div className="flex items-center gap-2 rounded-xl border border-[#06C755]/40 bg-[#06C755]/10 px-4 py-2.5">
+                        <LineIcon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                        <p className="text-sm text-gray-700">已綁定 LINE，下次可以直接用 LINE 登入這個帳號。</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border-2 border-[#06C755] bg-[#06C755]/10 px-4 py-3">
+                        <p className="text-sm font-semibold text-gray-800 mb-1">綁定 LINE，下次不必輸入密碼</p>
+                        <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                          綁定之後用 LINE 登入就是這個帳號，您的報名紀錄、通訊錄與揪團報名表都還在。
+                        </p>
+                        <button type="button" onClick={handleLinkLine} disabled={linking}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#06C755] text-white text-sm font-bold hover:bg-[#05B34C] transition-colors disabled:opacity-60">
+                          <LineIcon className="w-5 h-5" aria-hidden="true" />
+                          {linking ? '前往 LINE…' : '綁定 LINE 帳號'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ── 還沒留電話 ──
                     **報名紀錄是拿 `profile.phone` 去對三張表的，跟 email 無關**（loadRecords）。
                     LINE 登入回給我們的沒有電話也沒有 email，不講的話信眾登進來看到空的
@@ -887,6 +955,14 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                       廟方是用手機號碼對應您的報名紀錄。請在下方「個人資料」填好並儲存，
                       問事、點燈、祈福的紀錄就會出現在「報名紀錄」。
                     </p>
+                    {/* 用 LINE 進來的人若以前有信箱帳號，通訊錄與揪團表都在那一邊
+                        （那兩者綁 user id，不是電話）。要指路，不然他會以為資料不見了 */}
+                    {!currentUser.email && (
+                      <p className="text-xs text-[#5C4310] leading-relaxed mt-2 pt-2 border-t border-[#A37D15]/30">
+                        以前用信箱註冊過嗎？請先用信箱登入，在這裡按「綁定 LINE 帳號」，
+                        兩邊的紀錄才會合在同一個帳號。
+                      </p>
+                    )}
                   </div>
                 )}
 

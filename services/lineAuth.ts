@@ -32,6 +32,7 @@
  * 4. 設定完成後把下面的 ENABLE_LINE_LOGIN 改成 true 再部署。
  */
 import { supabase } from './supabase';
+import { ENTRY_URL } from './attribution';
 
 /**
  * 設定完成前先關著。
@@ -91,4 +92,89 @@ export const signInWithLine = async (): Promise<string> => {
   } catch {
     return 'LINE 登入失敗，請檢查網路後再試。';
   }
+};
+
+/**
+ * 把 LINE 綁到「目前已登入的帳號」上。
+ *
+ * ── 為什麼合併帳號只能這樣做 ──
+ * 廟方要的是「同一個人用 LINE 登入之後，以前的紀錄還在」。直覺的作法是「登入後比對
+ * 手機號碼，相同就把兩個帳號併起來」——**這條路不能走**：手機號碼是會員自己在個人資料
+ * 打的，**沒有任何驗證**，任何人填別人的號碼就能把對方的帳號併過來，連同通訊錄裡
+ * 家人的姓名、生日、地址與揪團名單。
+ * （`member_profiles`／`member_contacts`／`shared_sessions` 現在都是 `user_id = auth.uid()`
+ * 嚴格隔離的，自動合併等於親手打開這個洞。報名紀錄本來就是以電話為鍵
+ * ——`my_phone()`——那是既有的弱點，但不該再擴大。）
+ *
+ * 正解是 Supabase 的 identity linking：**先證明你是這個帳號的人（用原本的信箱密碼登入），
+ * 再把 LINE 接上去。** 接上之後用 LINE 登入就是同一個 user id，揪團表、通訊錄、
+ * 個人資料全部原封不動。
+ *
+ * **要先在 Supabase 後台開「Allow manual linking」**（Authentication → Sign In / Up，
+ * 預設是關的），否則這支會失敗。
+ *
+ * 失敗的情況：那個 LINE 帳號已經綁在別人身上。錯誤是在轉回來的網址上
+ * （`?error_description=…`），不是這支的回傳值——由 MemberPortal 在載入時讀出來顯示。
+ */
+export const linkLineAccount = async (): Promise<string> => {
+  try {
+    const { error } = await supabase.auth.linkIdentity({
+      provider: LINE_PROVIDER as never,
+      options: { redirectTo: redirectTarget() },
+    });
+    if (!error) return '';
+    return /manual linking/i.test(error.message)
+      ? 'LINE 綁定功能尚未開放，請與廟方聯繫。'
+      : '綁定失敗，請稍後再試。';
+  } catch {
+    return '綁定失敗，請檢查網路後再試。';
+  }
+};
+
+/** 這個帳號綁了 LINE 沒有。讀不到就當作沒綁——這只影響要顯示哪一段文字，不影響安全 */
+export const hasLineIdentity = async (): Promise<boolean> => {
+  try {
+    const { data } = await supabase.auth.getUserIdentities();
+    return (data?.identities ?? []).some(i => i.provider === LINE_PROVIDER);
+  } catch { return false; }
+};
+
+/**
+ * 快照取自 `attribution.ts` 的 `ENTRY_URL`，**不要改成在這裡抓**：
+ * 這個模組是被懶載入的會員中心帶進來的，那時 supabase-js 早就把 OAuth 的
+ * 回呼參數（含 `error_description`）從網址上清掉了。第一版就是栽在這裡。
+ */
+let authErrorTaken = false;
+
+/**
+ * 轉回來的網址上帶的錯誤訊息，只回傳一次。
+ * 讀的是上面那份快照，不是當下的網址（理由見 ENTRY_URL）。
+ * 若參數還在當下的網址上就順手清掉——留著重新整理會一直跳同一個錯。
+ */
+export const takeAuthErrorFromUrl = (): string => {
+  if (typeof window === 'undefined' || authErrorTaken) return '';
+  authErrorTaken = true;
+  let raw = '';
+  try {
+    const u = new URL(ENTRY_URL);
+    const q = u.searchParams;
+    const h = new URLSearchParams(u.hash.replace(/^#/, ''));
+    raw = q.get('error_description') || h.get('error_description') || '';
+  } catch { return ''; }
+  if (!raw) return '';
+
+  // 參數若還在（supabase-js 還沒清或沒接手）就自己清掉
+  const q = new URLSearchParams(window.location.search);
+  const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  if (q.has('error_description') || h.has('error_description')) {
+    for (const k of ['error', 'error_code', 'error_description']) { q.delete(k); h.delete(k); }
+    const qs = q.toString();
+    const hs = h.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + (hs ? `#${hs}` : ''));
+  }
+
+  // Supabase 回的是英文，長輩看不懂；最常見的那一種翻成白話，其餘照原文（至少工作人員查得出來）
+  return /already.*linked|identity.*exist/i.test(raw)
+    ? '這個 LINE 帳號已經綁在另一個會員上了，請改用那個帳號登入，或與廟方聯繫。'
+    : `綁定未完成：${raw.slice(0, 120)}`;
 };
