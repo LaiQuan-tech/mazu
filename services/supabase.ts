@@ -2231,16 +2231,26 @@ export const reorderFaqItems = async (idsInOrder: string[]): Promise<void> => {
   ));
 };
 
+/**
+ * 首頁那兩張數字卡的保底值。實際顯示的是資料庫的值（後台「關於我們」可改），
+ * 這裡只在讀不到時頂替——但**兩邊的用語要一致**，不然 Supabase 一暫停，
+ * 首頁就換成另一套說法。
+ *
+ * 第二張原本是「10 萬+ 年度信眾」，2026-10-13 廟方改成「祀奉神尊」：
+ * 「年度信眾是無效資訊」，而神尊數是點得進去、數得出來的事實。
+ * **數字要跟「祀奉神尊」那一頁對得起來**——那一頁是一尊一筆列出來的，
+ * 信眾點進去就會數。改這個數字時順便看一下 deities 有幾筆。
+ */
 const ABOUT_FACT_KEYS: { field: keyof AboutFacts; dbKey: string; fallback: string }[] = [
   { field: 'fact1Value', dbKey: 'about_fact1_value', fallback: '1986' },
   { field: 'fact1Label', dbKey: 'about_fact1_label', fallback: '建壇年份' },
-  { field: 'fact2Value', dbKey: 'about_fact2_value', fallback: '10萬+' },
-  { field: 'fact2Label', dbKey: 'about_fact2_label', fallback: '年度信眾' },
+  { field: 'fact2Value', dbKey: 'about_fact2_value', fallback: '80+' },
+  { field: 'fact2Label', dbKey: 'about_fact2_label', fallback: '祀奉神尊' },
 ];
 
 export const DEFAULT_ABOUT_FACTS: AboutFacts = {
   fact1Value: '1986', fact1Label: '建壇年份',
-  fact2Value: '10萬+', fact2Label: '年度信眾',
+  fact2Value: '80+', fact2Label: '祀奉神尊',
 };
 
 /** 讀不到就退回預設值：Supabase 閒置暫停時首頁不該因此開天窗 */
