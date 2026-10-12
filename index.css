@@ -221,3 +221,31 @@
    同樣的 opacity 看起來會淡很多，所以要提高。0.28 讓實際亮度差回到 16 左右，
    與鳳在米底上的 16.2 相當。 */
 .pattern-medallion.pattern-on-dark { opacity: .28; }
+
+/* ── 下拉選單的箭頭 ───────────────────────────────────────────────────────
+   原生的箭頭是瀏覽器畫在邊框內緣的，**完全不吃 padding-right**——所以左邊文字
+   內縮 16px、右邊箭頭卻貼著框，看起來就是擠在邊上（廟方 2026-10-13 指出問事場次
+   那一個；它的 px-4 最大，不對稱也最明顯）。
+   關掉原生外觀自己畫一個，左右內縮才對得起來，順便讓 Safari 與 Chrome 長得一樣
+   （兩家的原生箭頭造型差很多）。
+
+   **選擇器刻意用 `select:not([multiple]):not([size])`**：Tailwind 是 CDN、排在這份
+   樣式之後，單純寫 `select` 會被 `.px-4` 的 padding 蓋掉。兩個 :not() 把權重墊到
+   (0,2,1)，才壓得過單一的工具類別——這是為了 padding-right 能保留給箭頭用。
+   多選與 size>1 的清單沒有箭頭，排除掉。
+
+   箭頭內縮 1rem，正好對上問事場次那欄的 px-4；小欄位的左內縮只有 8–12px，
+   箭頭看起來會稍微再進去一點，差距在箭頭本身的留白裡看不出來。
+   padding-right 給 2.25rem（箭頭佔 16–32px，再留 4px）：BirthDatePicker 那三個
+   「吉年／吉月／吉日」在手機上只有一百出頭寬，留太多會把字擠掉。
+   **原生箭頭本來也會佔掉約 16–20px**（量 padding 看不出來），所以可用寬度
+   其實跟改之前差不多，不是新的壓縮。 */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2.25rem;
+}
