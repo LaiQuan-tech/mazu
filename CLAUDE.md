@@ -256,6 +256,15 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **`scrollToTop` 要跟著上鎖 `navLockRef`**（同 `smoothScrollToEl`）：CSS 有全域 `scroll-behavior: smooth`，這一路會掃過中間每個區塊，不鎖導覽高亮會一路亂跳。
   有全螢幕覆蓋層（會員中心／報名視窗／海報燈箱，`overlayOpen`）時收起來——那時捲的不是這一頁。
   **驗這種鈕時注意**：程式用 `window.scrollTo(..., 'instant')` 跳位**不一定會觸發 scroll 事件**，顯示條件就不會更新，看起來像壞掉；而平滑捲動有啟動延遲，等它停的輪詢若只比對兩次相同值會提早收手、誤判成「按了沒反應」。我這兩個都踩過。
+- **LINE 帳號登入（`services/lineAuth.ts`，2026-10-13 建置，`ENABLE_LINE_LOGIN` 關著等 Supabase 設定）**：信眾以長者居多，記 email 與密碼是真實的門檻；LINE 在手機上會跳進 App、按一下「允許」就回來。
+  **Supabase 沒有內建 LINE**——社群那個 PR（supabase/supabase#46920）2026-09-23 被關掉、沒有合併。走 2026-02 開放的**自訂 OAuth 供應商**，**型別要選 OAuth2 不是 OIDC**：LINE 網頁登入的 ID token 是 HS256 簽的，自訂 OIDC 拿 JWKS 驗章驗不過；OAuth2 型別不碰 ID token，改打 LINE 的 userinfo 端點。設定步驟寫在 `lineAuth.ts` 檔頭。
+  **`ENABLE_LINE_LOGIN` 是唯一的防線不是保險**（實測）：供應商還沒建好時 `signInWithOAuth` **不回傳錯誤**，而是直接把瀏覽器轉去 Supabase、落在一頁英文 JSON（`Unsupported provider`），`signInWithLine` 裡的錯誤處理完全不會執行。Supabase 那邊確認可登入之前一定要維持 false。
+  **LINE 只回 userId／暱稱／頭像，沒有 email 也沒有電話**，由此衍生三件事：
+  (1) `currentUser` 不能假設有 email——原本三處寫 `setCurrentUser({ email: user.email })`，LINE 帳號會整個登入不進來；改走 `describeUser()`，退到暱稱再退到「會員」。
+  (2) **報名紀錄是拿 `profile.phone` 去對三張表的**（`loadRecords`），所以登入後沒電話要引導補；信箱註冊沒填電話也是同樣的空畫面，提示不分登入方式都給，且要等 `profileLoaded` 才判斷否則會先閃一下。
+  (3) 轉址回來帶 `?member=1` 讓會員中心自己打開，否則信眾覺得「按了登入什麼都沒發生」；參數用完要清掉，**其餘 query 要保留**（`?share=` 掉了那張揪團表就不見了）。
+  **`bot_prompt=normal` 實測傳得過去**（產生的網址帶著它），同意畫面可順便加官方帳號好友——要先在 LINE Developers 把官方帳號連到那個 Login channel。
+  **尚未處理：帳號合併。** 現有會員是 email＋密碼註冊的，同一個人改用 LINE 登入會拿到新的 user id，之前開的揪團表（`created_by`）就對不上。要做的話得用手機號碼比對後合併。
 - **前台區塊要暫時隱藏就加旗標**，不要註解掉整段：照 `ENABLE_REPAIR`／`ENABLE_BULLETIN` 的模式，同時處理導覽列項目、區塊本身、捲動高亮，以及**其他頁面指向它的連結**（漏掉最後一項會變成「按了沒反應」）。
 - **不透明度修飾詞的數字必須落在 Tailwind 的級距上，否則整條規則靜默消失**：`bg-[#F0E9CE]/98` 產不出任何東西（級距沒有 98），元素變成完全沒有背景。手機選單就是這樣變成「沒有底色的純毛玻璃」——只剩 `backdrop-blur`，疊在 Hero 的金箔上文字幾乎看不見（廟方回報「玻璃霧面透明、看不清楚 menu 的內容」）。**它不會報錯**，class 明明寫著顏色卻毫無作用，只能靠量 `getComputedStyle(...).backgroundColor` 是不是 `rgba(0, 0, 0, 0)` 抓出來。要用 98 這種數字得寫 `/[0.98]`，或直接給 inline style。查的時候注意 `hover:` 前綴的 class 沒 hover 本來就沒值，那是誤判。
 - **導覽列的底色、文字色、品牌淡入共用 `navSolid`**（`!navOverHero || isMenuOpen`），不要各自去看 `navOverHero`。各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 `navOverHero`，結果米色底配白色 X、對比只有 1.24:1，按鈕等於消失。
