@@ -2850,6 +2850,56 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* ── 場次選擇 ──
+                      **排在最前面**（廟方 2026-10-12）：先決定「哪一場」再填「誰要來」才是
+                      信眾腦中的順序。原本排在人員卡片與「新增人員」之後，等於要人先把
+                      全家的姓名生日填完，最後才發現那一場已經額滿、名額不夠。
+                      而底下的揪團鈕本來就要先選場次才點得下去，順序一致之後那段提示才不突兀。
+                      標題只留一個：這裡原本外層 label 與內層 span 都寫「選擇問事場次 *」，
+                      畫面上同一句話印了兩次。留有包住 select 的那一個（才有可及名稱），
+                      字級提到跟其他段落標題一樣。 */}
+                  <div>
+                    {bookingSessions.length === 0 ? (
+                      <>
+                        <span className="block text-sm font-medium text-gray-700 mb-1">選擇問事場次 *</span>
+                        <div className="w-full px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          目前無開放場次，請關注最新公告。
+                        </div>
+                      </>
+                    ) : (
+                      <label className="block">
+                        <span className="block text-sm font-medium text-gray-700 mb-1">選擇問事場次 *</span>
+                        <select required value={selectedSessionId} onChange={e => setSelectedSessionId(e.target.value)}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm">
+                        <option value="">請選擇場次...</option>
+                        {bookingSessions.map(s => {
+                          const remaining = s.maxSlots - (sessionCounts[s.id] || 0);
+                          const isFull = remaining <= 0;
+                          const d = new Date(s.sessionDate + 'T12:00:00');
+                          const days = ['日', '一', '二', '三', '四', '五', '六'];
+                          const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）${s.sessionTime}`;
+                          return (
+                            <option key={s.id} value={s.id} disabled={isFull}>
+                              {label}　{isFull ? '【已額滿】' : `剩餘 ${remaining} 位`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      </label>
+                    )}
+                    {selectedSessionId && (() => {
+                      const s = bookingSessions.find(x => x.id === selectedSessionId);
+                      if (!s) return null;
+                      const remaining = s.maxSlots - (sessionCounts[selectedSessionId] || 0);
+                      return (
+                        <p className={`text-xs mt-1 flex items-center gap-1 ${remaining <= 3 ? 'text-red-500' : 'text-green-600'}`}>
+                          <Clock className="w-3 h-3" /> 此場次尚餘 {remaining} 個名額
+                        </p>
+                      );
+                    })()}
+                  </div>
+
                   {/* 人員卡片列表 */}
                   {bookingPersons.map((p, idx) => (
                     <div key={p.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
@@ -2939,53 +2989,11 @@ const App: React.FC = () => {
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
 
-                  {/* 共用：場次選擇 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">選擇問事場次 *</label>
-                    {bookingSessions.length === 0 ? (
-                      <div className="w-full px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        目前無開放場次，請關注最新公告。
-                      </div>
-                    ) : (
-                      <label className="block">
-                        <span className="block text-xs font-medium text-gray-600 mb-1">選擇問事場次 *</span>
-                        <select required value={selectedSessionId} onChange={e => setSelectedSessionId(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm">
-                        <option value="">請選擇場次...</option>
-                        {bookingSessions.map(s => {
-                          const remaining = s.maxSlots - (sessionCounts[s.id] || 0);
-                          const isFull = remaining <= 0;
-                          const d = new Date(s.sessionDate + 'T12:00:00');
-                          const days = ['日', '一', '二', '三', '四', '五', '六'];
-                          const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）${s.sessionTime}`;
-                          return (
-                            <option key={s.id} value={s.id} disabled={isFull}>
-                              {label}　{isFull ? '【已額滿】' : `剩餘 ${remaining} 位`}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      </label>
-                    )}
-                    {selectedSessionId && (() => {
-                      const s = bookingSessions.find(x => x.id === selectedSessionId);
-                      if (!s) return null;
-                      const remaining = s.maxSlots - (sessionCounts[selectedSessionId] || 0);
-                      return (
-                        <p className={`text-xs mt-1 flex items-center gap-1 ${remaining <= 3 ? 'text-red-500' : 'text-green-600'}`}>
-                          <Clock className="w-3 h-3" /> 此場次尚餘 {remaining} 個名額
-                        </p>
-                      );
-                    })()}
-                  </div>
-
                   {/* 訪客電話（未登入才顯示） */}
                   {!member && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
                       <label className="block">
-                        <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                        <span className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</span>
                         <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
                         placeholder="請留下方便聯繫的電話"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
@@ -3256,9 +3264,8 @@ const App: React.FC = () => {
                     {/* 訪客電話（未登入才顯示） */}
                     {!member && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
                         <label className="block">
-                          <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                          <span className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</span>
                           <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
                           placeholder="請留下方便聯繫的電話"
                           className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
@@ -3798,9 +3805,8 @@ const App: React.FC = () => {
                     {/* 訪客電話（未登入才顯示） */}
                     {!member && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
                         <label className="block">
-                          <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                          <span className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</span>
                           <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
                           placeholder="請留下方便聯繫的電話"
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
@@ -4357,9 +4363,8 @@ const App: React.FC = () => {
                   {/* 訪客電話（未登入才顯示） */}
                   {!member && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</label>
                       <label className="block">
-                        <span className="block text-xs font-medium text-gray-600 mb-1">聯絡電話 *</span>
+                        <span className="block text-sm font-medium text-gray-700 mb-1">聯絡電話 *</span>
                         <input required type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
                         placeholder="請留下方便聯繫的電話"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
