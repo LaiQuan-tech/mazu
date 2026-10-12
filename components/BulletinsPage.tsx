@@ -89,7 +89,11 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
   };
 
   return (
-    <div className="relative pt-20 bg-temple-bg min-h-screen overflow-hidden">
+    /* 底色要**白的**，不是 bg-temple-bg（廟方 2026-10-12：「公布欄的顏色被背景吃掉了」）。
+       卡片自己就是 `bg-temple-bg` 的米色，整頁也用同一個色等於卡片直接消失在背景裡。
+       首頁的 #bulletin 區塊本來就是 bg-white，這一頁跟著白才會長得一樣——
+       同一則公告在兩邊必須一致，這正是當初把卡片抽成 BulletinCard 的理由。 */
+    <div className="relative pt-20 bg-white min-h-screen overflow-hidden">
       <PatternMedallion motif="phoenix" side="r" />
       <section className="page-content py-16 sm:py-20 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
