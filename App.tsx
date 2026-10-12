@@ -1771,6 +1771,26 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', onPopPage);
   }, []);
 
+  /**
+   * 祈福活動的顯示順序：**已經辦完的排到最後面**（廟方 2026-10-12：「過期了」）。
+   *
+   * 原本只照 `sort_order` 再 `start_date`，跟活動過沒過期無關——現在看起來對是運氣，
+   * 廟方新增一筆就會排到辦完的那筆後面。
+   *
+   * **判準是「活動辦完沒」不是「報名截止沒」**：報名截止但還沒辦的活動仍然是即將到來的事，
+   * 信眾該先看到；把它壓到最後面，會讓明天就要辦的沉在下個月的活動底下。
+   * 報名狀態另外由卡片上的「報名已截止」標籤表示，兩件事不要混在一起。
+   *
+   * 日期一律用本地時區組字串比對（見 CLAUDE.md：toISOString 在台灣早上 8 點前會差一天）。
+   * 排序用 stable sort，同一組內維持原本的 sort_order／start_date。
+   */
+  const blessingEventsSorted = useMemo(() => {
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const isOver = (ev: BlessingEventRecord) => (ev.endDate || ev.startDate || '') < today;
+    return [...blessingEvents].sort((a, b) => Number(isOver(a)) - Number(isOver(b)));
+  }, [blessingEvents]);
+
   /** 這種服務的揪團海報（帶內容版號）。沒設的服務回 undefined，面板就不顯示 */
   const sharedPoster = (t: SharedServiceType): string | undefined => {
     const f = SHARED_POSTERS[t];
@@ -3409,7 +3429,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-5">
-              {blessingEvents.map(ev => {
+              {blessingEventsSorted.map(ev => {
                 const now = new Date();
                 const deadlinePassed = ev.registrationDeadline ? new Date(ev.registrationDeadline) < now : false;
                 const daysLeft = ev.registrationDeadline
