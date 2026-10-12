@@ -183,8 +183,16 @@ export const takeAuthErrorFromUrl = (): string => {
     window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + (hs ? `#${hs}` : ''));
   }
 
-  // Supabase 回的是英文，長輩看不懂；最常見的那一種翻成白話，其餘照原文（至少工作人員查得出來）
-  return /already.*linked|identity.*exist/i.test(raw)
-    ? '這個 LINE 帳號已經綁在另一個會員上了，請改用那個帳號登入，或與廟方聯繫。'
-    : `綁定未完成：${raw.slice(0, 120)}`;
+  // Supabase 回的是英文，長輩看不懂。認得出來的翻成白話，其餘照原文附在後面
+  // （工作人員截圖給工程師時才查得出來——這個端點的錯誤只會出現在網址上，沒有別的紀錄）。
+  // **不要寫死「綁定未完成」**：同一條路徑也服務「用 LINE 登入」，
+  // 登入失敗的人看到「綁定未完成」會更困惑（2026-10-13 第一次實測就踩到）。
+  if (/already.*linked|identity.*exist/i.test(raw)) {
+    return '這個 LINE 帳號已經綁在另一個會員上了，請改用那個帳號登入，或與廟方聯繫。';
+  }
+  if (/exchange external code/i.test(raw)) {
+    // LINE 已經同意授權、但 Supabase 跟 LINE 換 token 被拒絕＝設定問題，不是信眾的問題
+    return 'LINE 登入未完成，是本站的設定問題，不是您的操作錯誤。請改用信箱登入，並告知廟方。';
+  }
+  return `LINE 登入未完成：${raw.slice(0, 120)}`;
 };
