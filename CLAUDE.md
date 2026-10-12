@@ -246,6 +246,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **EXIF 方向（`shrinkImage`，`services/supabase.ts`）**：`createImageBitmap(file)` 沒有傳 `{ imageOrientation: 'from-image' }`，方向完全交給瀏覽器預設值。2026-09-26 拿一張 `Orientation=6` 的手機直拍照（儲存 3088×2316、應顯示 2316×3088）實測，現行 Chromium **三種寫法都回 2316×3088**（連 `'none'` 都無效），`uploadBulletinImage` 輸出 1200×1600 是正的——所以**現代瀏覽器上沒有壞**。但這是靠瀏覽器預設值，不是靠程式；真要保險就把那個參數補上。
   另外注意 `shrinkImage` 有四條早退路徑會**原檔直傳、EXIF 原封不動**（GIF、`createImageBitmap` 失敗、縮放比為 1 且 ≤800KB、壓完比原檔大），那些檔案的方向是靠瀏覽器渲染 `<img>` 時處理的。
   **還有五支上傳完全沒走 `shrinkImage`**（`uploadSiteImage`／`uploadHeroSlide`／`uploadScriptureImage`／`uploadBlessingImage`／`uploadLampImage`），改 `shrinkImage` 只會影響公佈欄、神尊、修復專案、關於我們這四支。
+- **問事表單的場次選在最前面**（2026-10-12 廟方要求）：先決定「哪一場」再填「誰要來」才是信眾腦中的順序。原本排在人員卡片與「新增人員」之後，等於要人把全家的姓名生日填完，最後才發現那一場額滿或名額不夠；而底下的揪團鈕本來就要先選場次才點得下去（`disabled={!selectedSessionId}`），順序一致之後那段「※ 請先選擇場次」才不突兀。
+- **欄位標題不要印兩次**（2026-10-12 清掉）：本專案出現過一種寫法——外層一顆沒有 `htmlFor` 的孤兒 `<label>`，底下再用一個 `<label>` 包住欄位、裡面的 `<span>` 又寫同一句話。畫面上同樣的字上下各一行（實測問事頁「聯絡電話 *」出現 2 次）。**留包住欄位的那一個**（可及名稱靠它，見無障礙那節），把它的字級提到段落標題大小，刪掉外層。問事的場次、以及問事／點燈／祈福／捐獻四處的訪客電話都是這個寫法。
 - **前台區塊要暫時隱藏就加旗標**，不要註解掉整段：照 `ENABLE_REPAIR`／`ENABLE_BULLETIN` 的模式，同時處理導覽列項目、區塊本身、捲動高亮，以及**其他頁面指向它的連結**（漏掉最後一項會變成「按了沒反應」）。
 - **不透明度修飾詞的數字必須落在 Tailwind 的級距上，否則整條規則靜默消失**：`bg-[#F0E9CE]/98` 產不出任何東西（級距沒有 98），元素變成完全沒有背景。手機選單就是這樣變成「沒有底色的純毛玻璃」——只剩 `backdrop-blur`，疊在 Hero 的金箔上文字幾乎看不見（廟方回報「玻璃霧面透明、看不清楚 menu 的內容」）。**它不會報錯**，class 明明寫著顏色卻毫無作用，只能靠量 `getComputedStyle(...).backgroundColor` 是不是 `rgba(0, 0, 0, 0)` 抓出來。要用 98 這種數字得寫 `/[0.98]`，或直接給 inline style。查的時候注意 `hover:` 前綴的 class 沒 hover 本來就沒值，那是誤判。
 - **導覽列的底色、文字色、品牌淡入共用 `navSolid`**（`!navOverHero || isMenuOpen`），不要各自去看 `navOverHero`。各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 `navOverHero`，結果米色底配白色 X、對比只有 1.24:1，按鈕等於消失。
