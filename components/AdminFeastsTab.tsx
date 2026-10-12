@@ -1,5 +1,5 @@
 /**
- * 後台「歲時節令」——這一頁管兩塊，都是行事曆上的內容：
+ * 後台「歲時節慶」——這一頁管兩塊，都是行事曆上的內容：
  *   上半：神明聖誕與每年重複的節令（deity_feasts），存的是「每年都會到的規則」
  *   下半：定期共修（regular_sessions），誦經祈福這類每月都辦、日期由當月決定的
  *
@@ -279,7 +279,7 @@ const AdminFeastsTab: React.FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-1">歲時節令</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">歲時節慶</h2>
         <p className="text-sm text-gray-500 leading-relaxed">
           神明聖誕與每年重複的節令，顯示在前台的
           <span className="font-medium text-gray-700"> /calendar </span>

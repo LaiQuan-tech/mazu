@@ -2372,7 +2372,7 @@ export const saveRelocationHome = async (v: RelocationHome): Promise<void> => {
 };
 
 
-// ─── 歲時節令（deity_feasts）────────────────────────────────────────────────
+// ─── 歲時節慶（deity_feasts）────────────────────────────────────────────────
 // 每年重複的日子（聖誕、節日）。單次活動在 blessing_events，兩張表刻意分開，
 // 理由見 supabase/migrations/deity_feasts.sql 的檔頭。
 
@@ -2457,7 +2457,7 @@ const mapRegularSession = (r: Record<string, unknown>): RegularSession => ({
 
 /**
  * 定期共修場次。RLS 讓訪客只讀得到 is_visible 的，所以前台不必自己濾。
- * **表不存在（migration 沒跑）時回空陣列而不是丟例外**：歲時節令上這是配角，
+ * **表不存在（migration 沒跑）時回空陣列而不是丟例外**：歲時節慶上這是配角，
  * 讓整頁因為它掛掉不值得。聖誕讀不到才算整頁失敗，見 CalendarPage。
  */
 export const getRegularSessions = async (): Promise<RegularSession[]> => {

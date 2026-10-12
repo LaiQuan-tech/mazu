@@ -119,7 +119,7 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
     });
 
   // ── 辦事日：全部合併成一則 ──
-  // 最多列六場：再多就變成把整份場次表貼進公佈欄，而完整的清單在問事頁與歲時節令上。
+  // 最多列六場：再多就變成把整份場次表貼進公佈欄，而完整的清單在問事頁與歲時節慶上。
   const sessions = src.bookingSessions
     .filter(s => s.isActive && s.sessionDate >= today)
     .sort((a, b) => a.sessionDate.localeCompare(b.sessionDate) || a.sessionTime.localeCompare(b.sessionTime));
@@ -146,7 +146,7 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
   if (regulars.length > 0) {
     const shown = regulars.slice(0, 6);
     const lines = shown.map(r => [dayLabel(r.sessionDate), r.sessionTime].filter(Boolean).join('　'));
-    if (regulars.length > shown.length) lines.push(`（另有 ${regulars.length - shown.length} 場，請至歲時節令查看）`);
+    if (regulars.length > shown.length) lines.push(`（另有 ${regulars.length - shown.length} 場，請至歲時節慶查看）`);
     out.push(card(
       'regular',
       '近期誦經祈福',

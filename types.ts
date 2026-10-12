@@ -580,7 +580,7 @@ export interface BlessingEventData {
    * 報名走哪一套外部表單。目前只有 'fahui'（法會報名表 fahui_registrations）。
    * undefined＝走一般祈福報名（blessing_registrations）。
    *
-   * 普渡法會那一筆是為了讓它出現在歲時節令上補建的，報名其實在法會那套；
+   * 普渡法會那一筆是為了讓它出現在歲時節慶上補建的，報名其實在法會那套；
    * 沒有這個欄位的話，後台會顯示「0 筆報名」（見 blessing_events_external_form.sql）。
    */
   externalForm?: string;
@@ -693,7 +693,7 @@ export interface SharedSessionRecord extends SharedSessionData {
   expiresAt: string;
 }
 
-// ─── 歲時節令（deity_feasts）────────────────────────────────────────────────
+// ─── 歲時節慶（deity_feasts）────────────────────────────────────────────────
 // 每年重複的日子：神明聖誕與節日。單次活動放 blessing_events，兩張表分工見
 // supabase/migrations/deity_feasts.sql 的檔頭。
 
@@ -726,7 +726,7 @@ export interface DeityFeast extends DeityFeastData {
 // 誦經祈福這類每月都辦、但日期時間由廟方當月決定的活動。為什麼不併進 deity_feasts
 // 或 blessing_events，見 supabase/migrations/regular_sessions.sql 的檔頭。
 // 辦事日不在這裡：那是既有的 booking_sessions（後台「問事管理」維護），
-// 歲時節令直接讀那張表，不另外複製一份。
+// 歲時節慶直接讀那張表，不另外複製一份。
 
 export interface RegularSessionData {
   title: string;            // 預設「誦經祈福」

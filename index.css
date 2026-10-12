@@ -234,10 +234,14 @@
    (0,2,1)，才壓得過單一的工具類別——這是為了 padding-right 能保留給箭頭用。
    多選與 size>1 的清單沒有箭頭，排除掉。
 
-   箭頭內縮 1rem，正好對上問事場次那欄的 px-4；小欄位的左內縮只有 8–12px，
-   箭頭看起來會稍微再進去一點，差距在箭頭本身的留白裡看不出來。
-   padding-right 給 2.25rem（箭頭佔 16–32px，再留 4px）：BirthDatePicker 那三個
-   「吉年／吉月／吉日」在手機上只有一百出頭寬，留太多會把字擠掉。
+   內縮 1.25rem（2026-10-13 第二次調整，廟方說 1rem 還是太靠邊）。
+   **算的時候要看圖案本身不是圖框**：SVG 是 16px 見方，但折線只佔 viewBox 的
+   6→18（四分之三），所以 16px 的框裡左右各有 2.7px 空白。框放在距右 20px、
+   佔 20–36px，折線實際落在 24–33px——視覺上離邊框 24px，比左邊的 16px 還多一點，
+   這樣看起來才是「居中留白」而不是「貼邊」。
+   padding-right 給 2.5rem（40px）：圖框到 36px，再留 4px 不讓文字壓上去。
+   BirthDatePicker 那三個「吉年／吉月／吉日」在手機上只有一百出頭寬，
+   留太多會把字擠掉，所以不再加。
    **原生箭頭本來也會佔掉約 16–20px**（量 padding 看不出來），所以可用寬度
    其實跟改之前差不多，不是新的壓縮。 */
 select:not([multiple]):not([size]) {
@@ -245,7 +249,7 @@ select:not([multiple]):not([size]) {
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat;
-  background-position: right 1rem center;
+  background-position: right 1.25rem center;
   background-size: 1rem 1rem;
-  padding-right: 2.25rem;
+  padding-right: 2.5rem;
 }
