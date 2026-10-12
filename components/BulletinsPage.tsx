@@ -24,7 +24,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Megaphone } from 'lucide-react';
 import PatternMedallion from './PatternMedallion';
-import { BulletinCard } from './BulletinBody';
+import { BulletinCard, scrollCardToTop } from './BulletinBody';
 import { BulletinCategory, BulletinRecord } from '../types';
 import { isDerivedBulletin } from '../services/derivedBulletins';
 
@@ -70,8 +70,13 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
       const el = document.getElementById(`bulletin-card-${initialId}`);
       if (!el) return;
       const r = el.getBoundingClientRect();
-      if (r.top >= 0 && r.top < window.innerHeight * 0.75) return;  // 已經看得到就別動
-      el.scrollIntoView({ block: 'center' });
+      // 已經貼齊上方就別動（門檻跟著 block:'start' 收窄，不是「看得到就算數」）
+      if (r.top >= 0 && r.top < 160) return;
+      // **對齊卡片頂端，不要置中**（2026-10-13 廟方：「應該要從海報開始閱讀」）：
+      // 置中是把整張卡的中點對齊畫面中央，而海報最高 36rem、比手機一個螢幕還高，
+      // 置中之後標題與海報都被推到畫面上方，第一眼直接落在內文上。
+      // 與展開時共用 scrollCardToTop（`scrollIntoView` 的 smooth 在本專案無效，見該函式）。
+      scrollCardToTop(el);
     };
     jump();
     const timers = [200, 700].map(ms => window.setTimeout(jump, ms));

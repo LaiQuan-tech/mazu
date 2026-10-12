@@ -5,7 +5,7 @@
  * 同一張卡要在兩邊長得一模一樣——**留在 App.tsx 再讓另一頁反向 import，
  * 會變成循環相依**（App 懶載入那一頁、那一頁又回頭要 App 的東西）。
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
 import { renderInline } from './StoryPage';
 import { BulletinRecord } from '../types';
@@ -169,15 +169,63 @@ export const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
  * 才會自己維持長寬比：橫式海報受寬度上限、填滿整欄（這就是「大大的展開」），
  * 直式受高度上限、寬度依比例縮並置中。這與公佈欄、神明管理那幾處是同一條規則。
  */
+/** 固定導覽列的高度。捲到卡片頂端時要讓開它，不然標題會被蓋住 */
+const NAV_OFFSET = 96;
+
+/**
+ * 把卡片頂端捲到導覽列底下。
+ *
+ * **一律用 `instant`，不要用 `smooth`**（2026-10-13 實測踩到）：
+ * 在開了「減少動態效果」（`prefers-reduced-motion: reduce`）的裝置上，瀏覽器
+ * 不是把平滑捲動變成瞬間，而是**整個取消**——實測 `window.scrollTo({ top: 300,
+ * behavior: 'smooth' })` 的 scrollY 文風不動，換成 `'instant'` 立刻就捲。
+ * 這不是測試環境的怪癖才要管：長輩的手機不少是開著那個設定的，
+ * 他們點下去會完全沒反應，而那正是本站最主要的使用者。
+ *
+ * **也刻意不用 `element.scrollIntoView`**：同一個情況下它連 `'instant'` 以外
+ * 都不可靠；自己算位置還順便不必依賴 `scroll-margin-top`，
+ * 固定導覽列的高度看得見、改得到。
+ */
+export const scrollCardToTop = (el: HTMLElement): void => {
+  const y = window.scrollY + el.getBoundingClientRect().top - NAV_OFFSET;
+  window.scrollTo({ top: Math.max(0, y), behavior: 'instant' as ScrollBehavior });
+};
+
 export const BulletinCard: React.FC<{
   bulletin: BulletinRecord;
   open: boolean;
   onToggle: () => void;
   /** 「前往○○登記」要去哪。首頁是捲到區塊、獨立頁是換頁，所以交給呼叫端決定 */
   onService: (service: NonNullable<BulletinRecord['linkedService']>) => void;
-}> = ({ bulletin, open, onToggle, onService }) => (
+}> = ({ bulletin, open, onToggle, onService }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(open);
+
+  /**
+   * 展開時把卡片**頂端**捲到畫面上方，讓人從海報開始看（廟方 2026-10-13：
+   * 「應該要從海報開始閱讀，畢竟海報每次都做這麼漂亮」）。
+   *
+   * 不捲的話畫面會停在原處：海報最高到 36rem，手機上比一個螢幕還高，
+   * 展開後第一眼常常落在內文中間，等於整張海報被跳過。
+   *
+   * **只在「從收合變成展開」時捲**，不在掛載時捲——`/bulletins/<id>` 深連結
+   * 進來時那一頁自己會捲（而且要捲好幾次對抗瀏覽器的捲動還原），
+   * 兩邊同時捲會互相打架。
+   * 已經貼齊上方就不要再捲，免得使用者點了反而感覺畫面在抖。
+   */
+  useEffect(() => {
+    if (open && !wasOpen.current && cardRef.current) {
+      const top = cardRef.current.getBoundingClientRect().top;
+      if (top < 0 || top > 160) scrollCardToTop(cardRef.current);
+    }
+    wasOpen.current = open;
+  }, [open]);
+
+  return (
   <div
-    className={`bg-temple-bg rounded-xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 ${
+    ref={cardRef}
+    // scroll-mt：導覽列是固定的（約 80px），不留空的話卡片標題會被它蓋住
+    className={`bg-temple-bg rounded-xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 scroll-mt-24 ${
       bulletin.isPinned ? 'border-temple-gold' : 'border-temple-red/30'
     }`}
   >
@@ -238,7 +286,8 @@ export const BulletinCard: React.FC<{
       </div>
     )}
   </div>
-);
+  );
+};
 
 const SERVICE_LABEL: Record<string, string> = {
   lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻',
