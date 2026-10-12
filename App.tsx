@@ -789,6 +789,9 @@ const App: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   // 捲過 Hero 沒有？LINE 浮動鈕在 Hero 停留期間先收起來，不擋住三尊神明與宮壇名。
   const [pastHero, setPastHero] = useState(false);
+  // 捲超過一個螢幕沒有？「回到頁首」鈕的顯示條件。
+  // 刻意不沿用 pastHero：那個是「離開 Hero 了沒」、門檻 0.7 屏，日後調它不該連帶改這顆。
+  const [showToTop, setShowToTop] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
@@ -1269,6 +1272,9 @@ const App: React.FC = () => {
       setIsScrolled(window.scrollY > 30);
       // Hero 是滿版高度，捲過七成就算離開了——等捲滿一整屏才顯示會慢半拍。
       setPastHero(window.scrollY > window.innerHeight * 0.7);
+      // 捲滿一屏才給「回到頁首」：頁首還在視線內時這顆鈕是多餘的。
+      // 這行要在下面那個「只有首頁」的 early return 之前——每一頁都要有這顆鈕。
+      setShowToTop(window.scrollY > window.innerHeight);
       // 只有首頁需要捲動高亮；在獨立分頁時導覽亮的是該分頁本身，不該被捲動改掉
       if (pageFromPath() !== 'home') return;
       // 使用者剛點了導覽：平滑捲動還在飛，先不要讓捲動高亮插手（見 navLockRef）
@@ -1690,6 +1696,18 @@ const App: React.FC = () => {
     el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  /**
+   * 回到頁首。
+   * **要跟著上鎖 navLockRef**：CSS 有全域 `scroll-behavior: smooth`，這一路會掃過
+   * 中間每個區塊，不鎖的話導覽高亮會一路亂跳，最後才停在首頁（同 smoothScrollToEl）。
+   * 鎖的長度依距離算，捲得越遠飛越久。
+   */
+  const scrollToTop = () => {
+    navLockRef.current = performance.now() + Math.min(1400, 500 + window.scrollY * 0.25);
+    if (pageFromPath() === 'home') setActiveSection('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   /** 切換到獨立分頁（預約問事／點燈服務／祈福活動／神尊修復），或回首頁 */
   const goToPage = (target: SitePage) => {
     setPage(target);
@@ -1936,6 +1954,8 @@ const App: React.FC = () => {
 
   // LINE 浮動鈕只在首頁的 Hero 期間收起來；其他分頁沒有 Hero，一進來就顯示。
   const hideLineFloat = page === 'home' && !pastHero;
+  /** 有全螢幕覆蓋層時，浮動鈕要讓位——那時捲的不是底下這一頁 */
+  const overlayOpen = showMemberPortal || !!blessingModal || !!posterUrl;
 
   // 追蹤用的「目前頁面」。報名表與聖母經現在各有網址（/fahui、/scripture），
   // 但它們是 state 不是 PAGE_PATHS 的一員，所以仍要在這裡明確對應。
@@ -4608,6 +4628,33 @@ const App: React.FC = () => {
         </span>
       </button>
       )}
+
+      {/* ── 回到頁首 ──
+          **位置永遠在 LINE 浮動鈕的對角**：LINE 手機在右下、桌機在左下，這顆就反過來，
+          兩顆不會疊在一起。手機的 bottom 跟 LINE 一樣用 24（96px），避開 iOS Safari
+          底部工具列的範圍。
+          捲滿一個螢幕才淡入；跟 LINE 鈕一樣用 opacity＋pointer-events 隱藏而不是不渲染，
+          才有淡入淡出，同時關掉 aria 與 Tab 焦點。
+          有全螢幕覆蓋層（會員中心／報名視窗／海報燈箱）時收起來：那時捲的不是這一頁，
+          按了只會讓背景偷偷跑掉。
+          **深底實心＋淺色描邊**：這顆會飄過米色頁面與深色頁尾兩種底，單一顏色顧不了兩邊——
+          只給 temple-red 的話在頁尾量到 2.32:1，等於看不見。米色描邊在深底上拉開界線，
+          在米色頁面上則由深色的填滿負責，兩種底至少有一個邊界過得了 3:1。 */}
+      <button
+        type="button"
+        onClick={scrollToTop}
+        aria-label="回到頁首"
+        title="回到頁首"
+        aria-hidden={!showToTop || overlayOpen}
+        tabIndex={showToTop && !overlayOpen ? 0 : -1}
+        className={`fixed bottom-24 left-4 sm:bottom-8 sm:left-auto sm:right-8 z-[60]
+          w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-temple-red text-white shadow-2xl
+          ring-2 ring-[#F0E9CE]/70
+          flex items-center justify-center hover:bg-[#5C4310] hover:scale-110
+          transition-all duration-500 ${showToTop && !overlayOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
+      >
+        <ChevronUp className="w-6 h-6 sm:w-7 sm:h-7" aria-hidden="true" />
+      </button>
 
       {/* Member Portal */}
       {showMemberPortal && (
