@@ -3037,9 +3037,18 @@ const App: React.FC = () => {
                     <p className="text-center text-gray-500 text-sm mt-4">* 提交後即代表同意本宮隱私權政策</p>
                     {ENABLE_GROUP_BOOKING && !sharedSession && (
                       <>
+                        {/* 揪團鈕要看得出來是一顆可以按的鈕（廟方 2026-10-12：「揪團的按鈕可以強化」）。
+                            原本是虛線框＋text-temple-red/60 的淡字，看起來像被停用的次要連結，
+                            而那個淡字對白底只有 2.3:1，本來就低於 WCAG。
+                            改成實心金框＋淡金底＋深褐粗體（字對底 7.75:1），仍然比上面那顆
+                            廟紅的「確認送出」弱一階——送出才是主要動作，揪團不該搶它。
+                            **框要用加深的 #A37D15 不是 temple-gold**：鈕底只比頁面亮 1.20:1、
+                            幾乎看不出來，界線完全靠那圈框，而純金框對白底只有 2.67:1，
+                            低於 WCAG 對非文字界線的 3:1；加深後是 3.70:1。
+                            三頁（問事／點燈／祈福）同一組 class，改一處要三處一起改。 */}
                         <button type="button" onClick={() => handleCreateSharedSession('booking')}
                           disabled={creatingShare || !selectedSessionId}
-                          className="w-full py-2.5 mt-3 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
+                          className="w-full py-3 mt-3 rounded-lg text-sm font-semibold border-2 border-[#A37D15] bg-temple-gold/20 text-[#5C4310] hover:bg-temple-gold/35 hover:border-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-40">
                           <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                         </button>
                         {/* 主揪要有帳號才找得回未送出的表；被揪的人不必登入 */}
@@ -3322,7 +3331,7 @@ const App: React.FC = () => {
                     {ENABLE_GROUP_BOOKING && !sharedSession && (<>
                       <button type="button" onClick={() => handleCreateSharedSession('lamp')}
                         disabled={creatingShare}
-                        className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        className="w-full py-3 mt-2 rounded-lg text-sm font-semibold border-2 border-[#A37D15] bg-temple-gold/20 text-[#5C4310] hover:bg-temple-gold/35 hover:border-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                         <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                       </button>
                       {/* 主揪要有帳號才找得回未送出的表；被揪的人不必登入 */}
@@ -3860,7 +3869,7 @@ const App: React.FC = () => {
                     {ENABLE_GROUP_BOOKING && !sharedSession && (<>
                       <button type="button" onClick={() => handleCreateSharedSession('blessing')}
                         disabled={creatingShare}
-                        className="w-full py-2.5 mt-2 border-2 border-dashed border-temple-red/30 text-temple-red/60 rounded-lg text-sm hover:border-temple-red hover:text-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        className="w-full py-3 mt-2 rounded-lg text-sm font-semibold border-2 border-[#A37D15] bg-temple-gold/20 text-[#5C4310] hover:bg-temple-gold/35 hover:border-temple-red transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                         <Share2 className="w-4 h-4" /> 建立共享報名表（揪團）
                       </button>
                       {/* 主揪要有帳號才找得回未送出的表；被揪的人不必登入 */}
