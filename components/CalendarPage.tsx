@@ -204,7 +204,13 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />歲時節慶<span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h1 className="text-3xl sm:text-4xl font-serif font-bold text-temple-dark">聖誕、節令與壇務活動</h1>
+            {/* 這句要跟頁面上真的有的東西對得起來（2026-10-13 廟方問起時一併檢查）。
+                原本是「聖誕、節令與壇務活動」，兩個問題：
+                「節令」沒有任何資料——deity_feasts 32 筆全是聖誕／飛昇日／出家日／團拜，
+                一筆節氣都沒有（型別支援，廟方沒建），寫在標題上是承諾頁面上沒有的東西；
+                而 2026-10-01 加進來的「辦事日」反而一直沒被提到，那卻是信眾每個月真的會來查的。
+                廟方哪天開始建節氣，再把「節令」加回來。 */}
+            <h1 className="text-3xl sm:text-4xl font-serif font-bold text-temple-dark">神明聖誕、辦事日與壇務活動</h1>
             <div className="flex items-center justify-center gap-3 mt-3">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
