@@ -41,7 +41,7 @@ import { supabase } from './supabase';
 import { ENTRY_URL } from './attribution';
 
 /**
- * 設定完成前先關著。
+ * 2026-10-13 開啟：Supabase 的自訂供應商 `custom:line` 已建好並實測轉得到 LINE 登入頁。
  *
  * **這個旗標是唯一的防線，不是保險**（2026-10-13 實測）：供應商還沒建好時，
  * `signInWithOAuth` **不會回傳錯誤**——它直接把瀏覽器轉去 Supabase，由 Supabase 回一頁
@@ -49,7 +49,7 @@ import { ENTRY_URL } from './attribution';
  * 下面那段錯誤處理在這個情況完全不會執行，信眾會整個離開網站落在一頁英文 JSON 上。
  * 所以 Supabase 那邊確認可以登入之前，這裡一定要維持 false。
  */
-export const ENABLE_LINE_LOGIN = false;
+export const ENABLE_LINE_LOGIN = true;
 
 /**
  * 要與 Supabase 後台的 Provider Identifier 一字不差，不一致會回 Unsupported provider。
