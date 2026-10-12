@@ -23,12 +23,18 @@
  * 1. LINE Developers 建 Provider →「LINE Login」channel（**不是** Messaging API
  *    channel，官方帳號那個不能共用），拿 Channel ID 與 Channel Secret。
  * 2. 該 channel 的 Callback URL 填 `https://<專案ref>.supabase.co/auth/v1/callback`。
- * 3. Supabase → Authentication → 自訂供應商，型別 OAuth2，slug 填 `line`
- *    （要與下面的 LINE_PROVIDER 一致），端點：
- *      authorize https://access.line.me/oauth2/v2.1/authorize
- *      token     https://api.line.me/oauth2/v2.1/token
- *      userinfo  https://api.line.me/oauth2/v2.1/userinfo
- *    並允許「沒有 email 的使用者」。
+ * 3. Supabase → Authentication → Sign In / Providers → Custom Providers → New Provider：
+ *      Provider Identifier  `line`（**前面的 `custom:` 是固定前綴**，所以 SDK 要寫 `custom:line`）
+ *      Configuration Method **Manual configuration**——**不要用 Auto-discovery**：
+ *        那會讓 Supabase 當成 OIDC、拿 JWKS 驗 ID token 的簽章，而 LINE 的
+ *        網頁登入（Web app 類型）發的 ID token 是 HS256 簽的，驗不過。
+ *      Authorization  https://access.line.me/oauth2/v2.1/authorize
+ *      Token          https://api.line.me/oauth2/v2.1/token
+ *      User Info      https://api.line.me/oauth2/v2.1/userinfo
+ *        （**不要用 /v2/profile**：那支回 LINE 自己的 userId／displayName，
+ *          Supabase 要的是標準的 sub／name／picture）
+ *      Scopes         openid, profile
+ *      Allow users without email  **打開**（LINE 不給 email）
  * 4. 設定完成後把下面的 ENABLE_LINE_LOGIN 改成 true 再部署。
  */
 import { supabase } from './supabase';
@@ -45,8 +51,12 @@ import { ENTRY_URL } from './attribution';
  */
 export const ENABLE_LINE_LOGIN = false;
 
-/** 要與 Supabase 後台自訂供應商的 slug 一字不差，不一致會回 Unsupported provider */
-export const LINE_PROVIDER = 'line';
+/**
+ * 要與 Supabase 後台的 Provider Identifier 一字不差，不一致會回 Unsupported provider。
+ * **`custom:` 是 Supabase 自己加的固定前綴**：後台那欄只填 `line`，
+ * SDK 這邊要寫完整的 `custom:line`（建立表單上的說明就是這樣寫的）。
+ */
+export const LINE_PROVIDER = 'custom:line';
 
 /**
  * 同意畫面上順便問要不要加官方帳號好友（LINE 的 bot_prompt）。
