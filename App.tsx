@@ -227,6 +227,23 @@ const SERVICE_PAGE: Record<string, SitePage> = {
 const HOME_BULLETIN_LIMIT = 4;
 
 /**
+ * 揪團面板給**被揪的人**看的服務海報（廟方 2026-10-12 提供）。
+ *
+ * 被揪的人那一頁是刻意剝光的（見 isSharedGuest），手上只剩頂部一行小字，
+ * 不知道自己在報什麼。祈福揪團用的是該場活動自己的 `blessing_events.image_url`；
+ * 點燈與問事沒有「那一場」可對應——點燈是每個人各自選燈種、問事是場次只有日期，
+ * 所以各給一張代表整個服務的海報。
+ *
+ * 放 `public/` 而不是資料庫：這是固定的服務形象圖，不像活動海報每場都換。
+ * 檔名列在 `vite.config.ts` 的 HERO_FILES 裡，換圖時內容雜湊會變＝網址會變，
+ * 信眾不會被舊快取卡住（見 CLAUDE.md）。
+ */
+const SHARED_POSTERS: Partial<Record<SharedServiceType, string>> = {
+  lamp:    'shared-poster-lamp.jpg',
+  booking: 'shared-poster-booking.jpg',
+};
+
+/**
  * 歲時節令（/calendar）。2026-09-09 上線，廟方確認完 28 筆聖誕日期後開啟。
  *
  * 這個旗標要與另外兩個地方一起開關，少一個就會不一致：
@@ -1736,6 +1753,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', onPopPage);
   }, []);
 
+  /** 這種服務的揪團海報（帶內容版號）。沒設的服務回 undefined，面板就不顯示 */
+  const sharedPoster = (t: SharedServiceType): string | undefined => {
+    const f = SHARED_POSTERS[t];
+    return f ? heroSrc(f) : undefined;
+  };
+
   // ── 共享報名表 handlers ──
   const handleCreateSharedSession = async (type: SharedServiceType) => {
     setCreatingShare(true);
@@ -2786,6 +2809,8 @@ const App: React.FC = () => {
               session={sharedSession} isCreator={isCreator}
               lampConfigs={lampConfigs} blessingEvent={null}
               memberProfile={memberProfile}
+              posterUrl={sharedPoster(sharedSession.serviceType)}
+              onPoster={setPosterUrl}
               onAddEntries={handleAddSharedEntries}
               onSubmitAll={handleSubmitSharedSession}
               onDelete={() => handleDeleteSharedSession(sharedSession)}
@@ -3096,6 +3121,8 @@ const App: React.FC = () => {
                 session={sharedSession} isCreator={isCreator}
                 lampConfigs={lampConfigs} blessingEvent={null}
                 memberProfile={memberProfile}
+                posterUrl={sharedPoster(sharedSession.serviceType)}
+                onPoster={setPosterUrl}
                 onAddEntries={handleAddSharedEntries}
                 onSubmitAll={handleSubmitSharedSession}
                 onDelete={() => handleDeleteSharedSession(sharedSession)}
@@ -3467,7 +3494,8 @@ const App: React.FC = () => {
               memberProfile={memberProfile}
               onAddEntries={handleAddSharedEntries}
               onSubmitAll={handleSubmitSharedSession}
-              posterUrl={blessingEvents.find(ev => ev.id === sharedSession.config.eventId)?.imageUrl}
+              posterUrl={blessingEvents.find(ev => ev.id === sharedSession.config.eventId)?.imageUrl
+                ?? sharedPoster(sharedSession.serviceType)}
               onPoster={setPosterUrl}
               onDelete={() => handleDeleteSharedSession(sharedSession)}
               onRefresh={async () => { const u = await getSharedSession(sharedSession.id); if (u) setSharedSession(u); }}

@@ -33,6 +33,10 @@ const HERO_FILES = [
   'hero-gold.jpg',
   'hero-blue.jpg',
   'hero-porcelain.jpg',
+  // 揪團面板給被揪的人看的服務海報（點燈與問事）。祈福不在這裡——
+  // 它用的是該場活動自己的 blessing_events.image_url
+  'shared-poster-lamp.jpg',
+  'shared-poster-booking.jpg',
   // 團紋底紋（龍與鳳）。換圖時內容雜湊會變，信眾才不會被舊快取卡住
   'pattern-phoenix.png',
   'pattern-dragon.png',
