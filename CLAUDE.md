@@ -264,7 +264,12 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   (2) **報名紀錄是拿 `profile.phone` 去對三張表的**（`loadRecords`），所以登入後沒電話要引導補；信箱註冊沒填電話也是同樣的空畫面，提示不分登入方式都給，且要等 `profileLoaded` 才判斷否則會先閃一下。
   (3) 轉址回來帶 `?member=1` 讓會員中心自己打開，否則信眾覺得「按了登入什麼都沒發生」；參數用完要清掉，**其餘 query 要保留**（`?share=` 掉了那張揪團表就不見了）。
   **`bot_prompt=normal` 實測傳得過去**（產生的網址帶著它），同意畫面可順便加官方帳號好友——要先在 LINE Developers 把官方帳號連到那個 Login channel。
-  **尚未處理：帳號合併。** 現有會員是 email＋密碼註冊的，同一個人改用 LINE 登入會拿到新的 user id，之前開的揪團表（`created_by`）就對不上。要做的話得用手機號碼比對後合併。
+  **帳號合併＝綁定（identity linking），不是用電話自動併**（2026-10-13 廟方要求做合併）：手機是會員自己在個人資料打的、**沒有任何驗證**，自動合併等於任何人填別人的號碼就能把對方的通訊錄（家人的姓名生日地址）與揪團名單併過來。`member_profiles`／`member_contacts`／`shared_sessions` 現在都是 `user_id = auth.uid()` 嚴格隔離的，不要親手打開這個洞。（報名紀錄本來就以電話為鍵——`my_phone()` 讀的就是自己填的那個電話——那是**既有的弱點**，但不該再擴大。）
+  正解：先用原本的信箱密碼登入證明身分，再在會員中心按「綁定 LINE 帳號」（`linkLineAccount`）。接上後用 LINE 登入就是同一個 user id。**要先在 Supabase 後台開「Allow manual linking」**，預設是關的。
+  **兩個踩很久的坑**：
+  (1) **OAuth 的 `error_description` 要在進站那一刻就抓**——supabase-js 的 `detectSessionInUrl` 會自己把回呼參數從網址清掉，懶載入的元件掛載時再讀一定是空的。快照 `ENTRY_URL` 放 `attribution.ts`（App 啟動就載入），**不能放 `lineAuth.ts`**（它是被懶載入的會員中心帶進來的）。
+  (2) **StrictMode 會把 effect 跑兩次**，而 `takeAuthErrorFromUrl()` 只回傳一次：無條件 `setLinkError(...)` 的話第二次拿到空字串、剛讀到的訊息又被自己洗掉。要 `const e = …; if (e) setLinkError(e)`。正式站沒有 StrictMode，所以**只有本機看得出來**。
+  錯誤訊息**未登入時也要顯示**：LINE「登入」失敗（不是綁定）的人回來就是未登入狀態，只畫在已登入區塊等於「按了沒反應」。
 - **前台區塊要暫時隱藏就加旗標**，不要註解掉整段：照 `ENABLE_REPAIR`／`ENABLE_BULLETIN` 的模式，同時處理導覽列項目、區塊本身、捲動高亮，以及**其他頁面指向它的連結**（漏掉最後一項會變成「按了沒反應」）。
 - **不透明度修飾詞的數字必須落在 Tailwind 的級距上，否則整條規則靜默消失**：`bg-[#F0E9CE]/98` 產不出任何東西（級距沒有 98），元素變成完全沒有背景。手機選單就是這樣變成「沒有底色的純毛玻璃」——只剩 `backdrop-blur`，疊在 Hero 的金箔上文字幾乎看不見（廟方回報「玻璃霧面透明、看不清楚 menu 的內容」）。**它不會報錯**，class 明明寫著顏色卻毫無作用，只能靠量 `getComputedStyle(...).backgroundColor` 是不是 `rgba(0, 0, 0, 0)` 抓出來。要用 98 這種數字得寫 `/[0.98]`，或直接給 inline style。查的時候注意 `hover:` 前綴的 class 沒 hover 本來就沒值，那是誤判。
 - **導覽列的底色、文字色、品牌淡入共用 `navSolid`**（`!navOverHero || isMenuOpen`），不要各自去看 `navOverHero`。各寫各的就會兜不起來：底色改成「選單展開也上色」而 X 關閉鈕還在看 `navOverHero`，結果米色底配白色 X、對比只有 1.24:1，按鈕等於消失。
