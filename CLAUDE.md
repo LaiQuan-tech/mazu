@@ -407,8 +407,13 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   海報可點開放大（`onPoster` → App 的 `posterUrl` 燈箱），縮圖讀不到海報上的小字。
   尺寸照全站規則**只給上限**（`w-auto h-auto max-w-full max-h-[24rem]`）——
   直式用 `w-full` 會被壓扁。實測橫式 1525×1031 → 307×208、直式 853×1280 → 256×384。
-  **點燈與問事的揪團沒有海報可放**：`SharedSessionConfig` 只有 blessing 存了 `eventId`，
-  點燈是每個人各自選燈種、沒有單一一張圖，問事本來就沒有海報。
+  **點燈與問事各給一張「服務海報」**（`SHARED_POSTERS`，App.tsx，廟方 2026-10-12 提供圖）：
+  它們沒有「那一場」可對應——`SharedSessionConfig` 只有 blessing 存 `eventId`，
+  點燈是每個人各自選燈種、問事的場次只有日期——所以用一張代表整個服務的形象圖。
+  **放 `public/` 不放資料庫**（`shared-poster-lamp.jpg`／`shared-poster-booking.jpg`）：
+  這是固定的服務形象圖，不像活動海報每場都換。檔名要列進 `vite.config.ts` 的 `HERO_FILES`，
+  取網址用 `heroSrc()`——換圖時內容雜湊變＝網址變，信眾不會被舊快取卡住。
+  祈福的順序是**活動自己的 `image_url` 優先，沒有才退回服務海報**（目前祈福沒設，行為不變）。
 
   **主揪必須登入會員，被揪的人不必**（2026-09-10 廟方定調，概念同 Uber Eats 揪團）：主揪有帳號才有「誰開的」可查，換裝置也找得回未送出的表；被揪的人點連結進來選方案、填資料、加入即可，不必註冊——那正是揪團要好用的關鍵。
   `shared_sessions.created_by` 記主揪的 user id。RLS：建立需 `created_by = auth.uid()`（WITH CHECK，不能只靠前端擋）、主揪 SELECT 得到自己的場次、加名單維持開放給 anon。`get_my_shared_sessions()` 回未送出且未過期的場次含名單。
