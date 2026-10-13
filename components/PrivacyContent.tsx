@@ -50,7 +50,7 @@ const PrivacyContent: React.FC<{ siteInfo: SiteInfo }> = ({ siteInfo }) => (
 
             <div>
               <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">四、</span>資料保存與安全</h3>
-              <p>個人資料儲存於受存取控制保護的雲端資料庫，本宮採取合理的技術措施防止未授權存取、洩漏或竄改。資料保存期限以服務完成後一年為原則，或依法令規定辦理。</p>
+              <p>個人資料儲存於受存取控制保護的雲端資料庫，本宮採取合理的技術措施防止未授權存取、洩漏或竄改。資料保存期限以服務完成後八年為原則，或依法令規定辦理。</p>
             </div>
 
             <div>
