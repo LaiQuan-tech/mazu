@@ -708,10 +708,21 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
         </div>
       </div>
 
-      {/* 合併模式提示：選好來源後，點另一列即完成併入 */}
+      {/**
+        * 合併模式的提示。三件事以前都講錯或沒講（廟方 2026-10-13 回報「沒有『併入此人』的按鈕」）：
+        *  (1) **按鈕叫「比對併入」不叫「併入此人」**——提示叫人去找一顆不存在的鈕，
+        *      他只會以為功能壞了。這種字串改了按鈕卻忘了改提示，畫面上看不出來。
+        *  (2) **不在「下方」**：那顆鈕在每一列的「校正」欄（桌機在右邊、手機在卡片裡）。
+        *  (3) **沒講哪個姓名會留下來**——合併是把來源併進目標、**保留目標的姓名**，
+        *      選錯邊就是另一個名字消失。這是這段提示裡最該講的一句。
+        * 也補一句「確認後才真的合併」：按下去只是開比對視窗，不是立刻動資料。
+        */}
       {mergeFrom && (
         <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800 flex items-center gap-3 flex-wrap">
-          <span>正在合併：<strong>{mergeFrom}</strong> → 請點選要併入的那一列（下方「併入此人」）</span>
+          <span>
+            正在合併：<strong>{mergeFrom}</strong> → 請在<strong>要保留的那個姓名</strong>那一列按「比對併入」
+            <span className="text-blue-600">（會先讓你比對，確認後才真的合併）</span>
+          </span>
           <button onClick={() => setMergeFrom(null)} className="ml-auto text-xs underline hover:text-blue-900">取消</button>
         </div>
       )}
