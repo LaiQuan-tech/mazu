@@ -317,7 +317,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 ## 流量追蹤與 UTM（2026-09-09 建置）
 
 - **追蹤碼掛載在 `components/Analytics.tsx`，編號填在後台「追蹤碼」分頁**（`site_settings` 的 `ga4_id`／`meta_pixel_id`／`gtm_id`）。刻意只存編號不存整段 `<script>`：後台一被盜就能對所有訪客植入任意腳本。
-  **2026-09-09 實測：GTM 容器 `GTM-NW9Z5NWQ` 是空的**——`curl 'https://www.googletagmanager.com/gtm.js?id=GTM-NW9Z5NWQ'` 回 `"tags":[]`、`"predicates":[]`、`"rules":[]`，GA4 與像素兩欄也空白。**等於整站沒有在收任何流量資料**，卻讓每個訪客白載 331KB 的 GTM。容器內容是公開的，要確認廟方到底掛了什麼直接 curl 那支 gtm.js 抓 `"tags":`，不必登入 GTM 後台。
+  **2026-10-13 實測：已經改好了**——`gtm_id` 清空、`ga4_id` 填了 `G-LHGFX80NXY`、`meta_pixel_id` 也填了，線上確認只載入 `gtag/js?id=G-LHGFX80NXY`，沒有再載 GTM。下面那段是當時的問題與建議，保留說明經過。
+  ~~**2026-09-09 實測：GTM 容器 `GTM-NW9Z5NWQ` 是空的**~~——`curl 'https://www.googletagmanager.com/gtm.js?id=GTM-NW9Z5NWQ'` 回 `"tags":[]`、`"predicates":[]`、`"rules":[]`，GA4 與像素兩欄也空白。**等於整站沒有在收任何流量資料**，卻讓每個訪客白載 331KB 的 GTM。容器內容是公開的，要確認廟方到底掛了什麼直接 curl 那支 gtm.js 抓 `"tags":`，不必登入 GTM 後台。
   建議改成後台直接填 GA4 ID、清空 GTM 欄：`Analytics.tsx` 本來就內建 SPA 換頁的 page_view，走 GTM 反而要在容器裡自己建 `spa_page_view` 觸發器（現在沒有），多一層就是多一個沒人維護的地方。
 - **`<Analytics>` 掛在 App 的四個 return 分支**（首頁／法會／聖母經／志工），那四個分支的根節點型別不同，**切換分支時 React 會整個卸載再重新掛載**。所以它的狀態（`loaded`／`settings`／`lastSentPath`／`entryViewSent`）**一律放模組層級，不要用 useRef**——放 ref 就會每切一次分支重新注入一次 GTM／GA4 腳本，並且把那一次當成「進站第一次」再送一遍 UTM。
 - **StrictMode 會讓「只跑一次的守衛 + cancelled 旗標」這個組合永遠載不起來**：第一次掛載啟動 fetch → cleanup 把 `cancelled` 設 true → 第二次掛載被 `loadedRef` 擋掉直接 return → fetch 回來時已經沒有人採用它。正式站沒有 StrictMode 所以看不出來，**但本機也就永遠驗不了追蹤碼**——空的 GTM 容器長期沒被發現，這是原因之一。兩者只能擇一。
@@ -356,6 +357,11 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 
 本站是純前端渲染的 SPA，**原始 HTML 的可見文字是 0 個字**。Google 會執行 JS 所以看得到，但 GPTBot／ClaudeBot／PerplexityBot 這類 AI 檢索器**不執行 JS**——沒有下面這些東西，AI 對本站一無所知。
 
+- **AI 檢索（GEO）2026-10-13 補強的四件事**：
+  (1) **Event 標記改由 `blessing_events` 驅動**（見「待辦」那節），寫死的過期法會已移除。
+  (2) **各服務頁補 `Service` 節點**（ROUTES 的 `service` 欄位）：原本各頁只有 WebPage 與麵包屑，說不出「這一頁是一項服務、多少錢」。`/lamps` 另帶 `OfferCatalog`，**價格從 `lamp_service_configs` 抓不要寫死**——廟方調價就會跟標記對不起來，而「多少錢」正是最常被問、最容易答錯的一項。
+  (3) **`/bulletins` 與 `/calendar` 的實際內容進 noscript**（`fetchBulletins()`／`fetchFeasts()`）：預渲染不執行 React，那兩頁原本只寫得出「這一頁有什麼」。**刻意不用 puppeteer**——要在建置機下載 Chromium、拖慢建置、多一個會壞的環節，而內容本來就在資料庫，直接抓就好。聖誕用 `lunar-javascript` 換算，**反查確認**（函式庫對不存在的日期回鄰近值）、**日期補零再排**（不然 10/10 會排在 2/17 前）。`bulletins` **沒有 `is_visible` 欄位**，用 `is_pinned` 排序。
+  (4) **`llms.txt` 補齊所有頁面，並加一段「容易被弄混的地方」**：辦事日＝問事、點燈服務（年度）與祈福活動（單場次）不是同一種、神明聖誕是農曆要換算、匯款資訊以網站即時內容為準。這些以前只在工程師的筆記裡，AI 看不到就會把兩種點燈混在一起答。`robots.txt` 另補 Applebot／CCBot／meta-externalagent／Amazonbot／cohere-ai。
 - **預渲染（`scripts/prerender.js`）**：由 `npm run build` 自動接著跑。拿剛建好的 `dist/index.html` 當模板，為 /about /booking /lamps /blessing /relocation 各產一份靜態 HTML，換掉 title／description／canonical／og，再補該頁的 JSON-LD 與 `<noscript>` 內容。**必須跑在 vite build 之後**（資產 hash 要對得上）。它不會真的執行 React，所以後台資料（公告、神尊、關於我們內文）不會進靜態 HTML；要連那些一起靜態化得換 puppeteer 版，屆時注意 `/` 在非官網網域會顯示報名表，快照時要讓瀏覽器以 heshengtan.tw 的身分解析。
 - **`sitemap.xml` 由 `scripts/prerender.js` 從 ROUTES 產生**（2026-09-02 起），`public/sitemap.xml` 已刪除並列入 .gitignore。原本是手寫的，新增 `/scripture` 時要記得回去補一筆——漏掉不會有任何錯誤訊息，只是那頁比較晚被收錄（`/deities` 甚至連 `lastmod` 都漏了）。新增預渲染頁時只要加進 ROUTES，sitemap 自動跟上。`lastmod` 必須**明確釘住 `Asia/Taipei`**（`Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' })`）。兩層坑都踩過：先用 `toISOString().slice(0,10)`（UTC，早上 8 點前少一天），改成「本地時區」之後本機對了、**正式站還是錯**——因為那是**建置機器**的本地時區，而 Vercel 的建置機跑在 UTC。前端那條「用本地時區」的規則講的是使用者的裝置（在台灣），**建置腳本沒有這個前提**。驗證方法：`TZ=UTC npm run build` 模擬 Vercel。
 - **首頁的 `<title>` 給 Google、`og:title` 給 LINE，兩者刻意不同**：同一份 index.html 服務官網首頁與法會報名頁，而 **canonical 指的是官網首頁**，所以 `<title>`／`description` 必須是官網版。2026-09-02 之前是報名版，等於 Google 收錄的官網首頁標題是「和聖壇法會線上報名」，信眾搜「古亭 媽祖廟」看到的是一場法會的報名頁。分享卡片讀的是 `og:*`，維持報名版不受影響。收件結束時 `og:*` 也要換回官網版。
