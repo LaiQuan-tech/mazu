@@ -417,7 +417,10 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **heshengtan.tw 被 HiNet 上網守衛誤判封鎖**（2026-09-02 發現）：`safebrowsing.hinet.net` 把 `*.heshengtan.tw` 的 DNS 全導到 `202.39.161.53`，那台沒有本站憑證，Safari 直接跳「此連線並非私人連線」。**網站與憑證都正常**（Let's Encrypt，走正確 IP 是 HTTP 200、TLS 驗證 0）。
   怎麼分辨這類問題：權威 NS 與 DoH 都回正確 IP，但明文 UDP 查詢回別的 IP、TTL 固定不倒數、**連不存在的子網域也回同一個 IP**＝有人現場合成假回答，不是設定錯也不是快取。
   攔截頁的「仍要前往」按鈕對 HTTPS 網站沒用——瀏覽器在 TLS 階段就先失敗，使用者只會看到憑證警告。申訴管道：中華電信客服 0800-080-123。Google Search Console 確認過沒有安全性問題，只有 HiNet 這一家。
-- **法會 Event 結構化資料要制度化（普渡 9/13 後做，廟方 2026-09-02 決定延後）**：現在是寫死在 `index.html` 的一段 JSON-LD，每辦一場就要工程師改程式——跟 FAQ／捐款類別／基本資料那些「後台可編輯」的東西不同層級。
+- ~~**法會 Event 結構化資料要制度化**~~（**2026-10-13 已完成**，保留此條說明背景）：`scripts/prerender.js` 的 `fetchUpcomingEvents()` ＋ `toEventNode()` 從 `blessing_events` 產生，只輸出 `end_date >= 今天`（日期釘 `Asia/Taipei`，建置機跑 UTC）；辦完的自動消失、新辦的不必改程式；一場都沒有就整個不輸出——**沒有標記好過一個騙人的標記**。寫死在 index.html 的那段已移除。
+  **當時的症狀值得記著**：那段寫死的 Event 掛著一場 2026-09-13、早就辦完的法會，Search Console 回報過期活動，而 AI 檢索器讀到的是「這間廟即將舉辦的活動」是一場結束一個月的法會。**過期的結構化資料比沒有結構化資料更糟。**
+  `offers` 要嘛不給要嘛完整：一場以上用 `AggregateOffer`＋`lowPrice`／`highPrice`，單一價用 `Offer`＋`price`，缺 `priceCurrency` Search Console 會直接報錯。
+  （以下為原本的規劃說明）**法會 Event 結構化資料要制度化（普渡 9/13 後做，廟方 2026-09-02 決定延後）**：現在是寫死在 `index.html` 的一段 JSON-LD，每辦一場就要工程師改程式——跟 FAQ／捐款類別／基本資料那些「後台可編輯」的東西不同層級。
   **不必新建資料表**：`blessing_events` 已經有需要的每一個欄位（`title`→name、`start_date`/`end_date`、`registration_deadline`→offers.validThrough、`fee`/`packages`→lowPrice/highPrice、`image_url`→image、`is_active`→要不要輸出），後台也已能編輯。缺的只是「接到 JSON-LD」那一段，照 FAQ 現成的三層機制抄：`App.tsx` 執行期覆寫、`scripts/prerender.js` 建置時快照。過期活動自動不輸出，就永久解決 Search Console 的「過期活動」回報。
   **廟方已決定（2026-09-02）：以後的法會也在「祈福活動」後台建一筆 `blessing_events`。** 所以 Event JSON-LD **只讀這一張表**，不要為了相容而支援兩個來源——多一個來源就多一種「兩邊不一致」的可能。
   這次的普渡法會走的是 `fahui_registrations` 那套獨立流程、不在該表裡，屬於過渡期的特例：9/13 過後把寫死的那段 Event 直接刪掉即可，不需要回頭補建一筆。報名流程本身維持獨立（`blessing_events` 只負責「這場活動是什麼」，不取代法會的報名表）。
