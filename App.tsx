@@ -2066,7 +2066,13 @@ const App: React.FC = () => {
       <Analytics path={analyticsPath} />
       <Suspense fallback={<PageLoading />}>
         {/* 停止收件時不傳 onVolunteer，成功頁的「我要報名志工」整顆按鈕就不出現 */}
-        <FahuiRegistration onBack={closeFahui} onVolunteer={VOLUNTEER_OPEN ? (contact) => openVolunteer(contact) : undefined} />
+        {/* onJoinMember：關掉報名表、帶著剛填的電話打開會員中心。
+            電話會預填進個人資料，存檔後這一筆法會報名就對得上（紀錄以電話為鍵）。 */}
+        <FahuiRegistration
+          onBack={closeFahui}
+          onVolunteer={VOLUNTEER_OPEN ? (contact) => openVolunteer(contact) : undefined}
+          onJoinMember={(phone) => { closeFahui(); setMemberPortalPendingPhone(phone); setShowMemberPortal(true); }}
+        />
       </Suspense>
     </>);
   }

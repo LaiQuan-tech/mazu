@@ -1415,6 +1415,34 @@ export const getMyBlessingRegistrations = async (phone: string): Promise<Blessin
   return data.map(mapBlessingReg);
 };
 
+/**
+ * 自己的法會報名（2026-10-13 補）。
+ *
+ * **要先跑 `fahui_member_read.sql`**：`fahui_registrations` 原本的 SELECT 政策
+ * 只開給管理員，會員連自己那一筆都讀不到。沒跑的話這支一律回空陣列
+ * ——RLS 擋下來是靜默 0 列，不會報錯，所以查起來像「沒報過名」。
+ *
+ * 法會一筆紀錄帶著整組牌位（`entries` jsonb），不像點燈是一人一列，
+ * 所以回傳的是「一次報名」而不是「一個人」。
+ */
+export const getMyFahuiRegistrations = async (phone: string): Promise<{
+  id: string; name: string; total: number; entryCount: number; createdAt: string;
+}[]> => {
+  const { data, error } = await supabase
+    .from('fahui_registrations')
+    .select('id,name,total_amount,entries,created_at')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(r => ({
+    id: r.id,
+    name: r.name ?? '',
+    total: Number(r.total_amount ?? 0),
+    entryCount: Array.isArray(r.entries) ? r.entries.length : 0,
+    createdAt: r.created_at,
+  }));
+};
+
 // ─── Shared Sessions (共享報名表) ────────────────────────────────────────────
 
 const mapSharedEntry = (row: any): SharedEntryRecord => ({

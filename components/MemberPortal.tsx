@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, LogOut, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Eye, EyeOff, BookUser, RefreshCw, ClipboardList, Flame, Calendar, HeartHandshake, Users } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents, getMySharedHistory } from '../services/supabase';
+import { getMemberContacts, createMemberContact, updateMemberContact, deleteMemberContact, getProfile, saveProfile, getMyLampRegistrations, getMyBookings, getMyBlessingRegistrations, getLampServiceConfigs, getBlessingEvents, getMySharedHistory, getMyFahuiRegistrations } from '../services/supabase';
 import { SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from '../services/sharedSessionStore';
 import { ENABLE_LINE_LOGIN, signInWithLine, linkLineAccount, hasLineIdentity, takeAuthErrorFromUrl } from '../services/lineAuth';
 import { LineIcon } from './SocialLinks';
@@ -29,7 +29,14 @@ const describeUser = (u: { email?: string | null; user_metadata?: Record<string,
 type PortalRecord =
   | { kind: 'lamp';     id: string; name: string; zodiac?: string; serviceName: string; status: LampRegistrationStatus; createdAt: string; }
   | { kind: 'booking';  id: string; name: string; zodiac?: string; consultType: string;  bookingDate: string; status: BookingStatus; divineMessage?: string; createdAt: string; }
-  | { kind: 'blessing'; id: string; name: string; zodiac?: string; eventTitle: string;  packageName?: string; packageFee?: number; status: BlessingStatus; createdAt: string; };
+  | { kind: 'blessing'; id: string; name: string; zodiac?: string; eventTitle: string;  packageName?: string; packageFee?: number; status: BlessingStatus; createdAt: string; }
+  /**
+   * 法會報名（2026-10-13 補）。**一筆是「一次報名」不是「一個人」**：
+   * 法會一次可以報很多個牌位，整組存在同一列的 entries jsonb 裡，
+   * 跟點燈那種一人一列不同，所以顯示的是「共 N 個項目」而不是某個人的名字。
+   * status 法會表沒有這個欄位（對帳狀態是另外幾欄），所以給空字串不顯示標籤。
+   */
+  | { kind: 'fahui';    id: string; name: string; entryCount: number; total: number; status: string; createdAt: string; };
 
 /** 揪團紀錄的一列：場次本身（刪除要用）＋算好的顯示文字 */
 interface SharedRow {
@@ -501,15 +508,18 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
       }));
 
       if (!prof?.phone) { setAllRecords([]); return; }
-      const [lamps, bookings, blessings] = await Promise.all([
+      const [lamps, bookings, blessings, fahui] = await Promise.all([
         getMyLampRegistrations(prof.phone),
         getMyBookings(prof.phone),
         getMyBlessingRegistrations(prof.phone),
+        // 沒跑 fahui_member_read.sql 的話 RLS 會靜默擋成空陣列，不會壞掉
+        getMyFahuiRegistrations(prof.phone).catch(() => []),
       ]);
       const all: PortalRecord[] = [
         ...lamps.map(r => ({ kind: 'lamp'     as const, id: r.id, name: r.name, zodiac: r.zodiac, serviceName: lampMap.get(r.serviceId) ?? r.serviceId, status: r.status, createdAt: r.createdAt })),
         ...bookings.map(r => ({ kind: 'booking' as const, id: r.id, name: r.name, zodiac: r.zodiac, consultType: r.type, bookingDate: (r as any).bookingDate, status: r.status as any, divineMessage: r.divineMessage, createdAt: (r as any).createdAt })),
         ...blessings.map(r => ({ kind: 'blessing' as const, id: r.id, name: r.name, zodiac: r.zodiac, eventTitle: eventMap.get(r.eventId) ?? '法會', packageName: r.packageName, packageFee: r.packageFee, status: r.status, createdAt: r.createdAt })),
+        ...fahui.map(r => ({ kind: 'fahui' as const, id: r.id, name: r.name, entryCount: r.entryCount, total: r.total, status: '', createdAt: r.createdAt })),
       ];
       all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       setAllRecords(all);
@@ -1138,8 +1148,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                             )}
                       <div className="space-y-2.5">
                         {allRecords.map(rec => {
-                          const kindLabel  = rec.kind === 'lamp' ? '點燈' : rec.kind === 'booking' ? '問事' : '祈福';
-                          const kindColor  = SERVICE_TAG[rec.kind];
+                          const kindLabel  = rec.kind === 'lamp' ? '點燈' : rec.kind === 'booking' ? '問事' : rec.kind === 'fahui' ? '法會' : '祈福';
+                          const kindColor  = rec.kind === 'fahui' ? SERVICE_TAG.blessing : SERVICE_TAG[rec.kind];
                           const kindIcon   = rec.kind === 'lamp' ? <Flame className="w-3 h-3" /> : rec.kind === 'booking' ? <Calendar className="w-3 h-3" /> : <HeartHandshake className="w-3 h-3" />;
                           const statusStr = String(rec.status ?? '');   // status 可能為 null（後台手動建資料時），避免整頁白屏
                           // 待處理／已確認都還在進行中，用同一個；完成與取消各有自己的
@@ -1165,11 +1175,15 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                                     {rec.kind === 'lamp'     && rec.serviceName}
                                     {rec.kind === 'booking'  && `${rec.consultType}・${new Date(rec.bookingDate).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}`}
                                     {rec.kind === 'blessing' && (rec.packageName ? `${rec.eventTitle}・${rec.packageName}` : rec.eventTitle)}
+                                    {rec.kind === 'fahui'    && `共 ${rec.entryCount} 個項目・NT$${rec.total.toLocaleString()}`}
                                   </p>
                                 </div>
-                                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${statusColor}`}>
-                                  {rec.status}
-                                </span>
+                                {/* 法會表沒有狀態欄位（對帳狀態是另外幾欄），空的就不要畫一顆空標籤 */}
+                                {statusStr && (
+                                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${statusColor}`}>
+                                    {statusStr}
+                                  </span>
+                                )}
                               </div>
                               {rec.kind === 'booking' && rec.divineMessage && (
                                 <div className="mt-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">

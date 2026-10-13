@@ -288,7 +288,18 @@ function ClosedScreen({ onBack, onVolunteer }: { onBack?: () => void; onVoluntee
   );
 }
 
-export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: () => void; onVolunteer?: (contact: FahuiVolunteerHandoff) => void }) {
+export default function FahuiRegistration({ onBack, onVolunteer, onJoinMember }: {
+  onBack?: () => void;
+  onVolunteer?: (contact: FahuiVolunteerHandoff) => void;
+  /**
+   * 「加入會員」的入口（2026-10-13 補）。
+   * 法會報名原本是獨立的一套流程，成功頁完全沒有提到會員——結果普渡那四十幾位
+   * 填完整張表、填牌位、匯了款的信眾，在網站上等於不存在，下次辦法會還是從頭填一次。
+   * 問事與點燈的成功頁本來就有這個邀請，這裡照同一個模式補上。
+   * 電話帶出去，註冊完就自動對得上這一筆（紀錄是以電話為鍵）。
+   */
+  onJoinMember?: (phone: string) => void;
+}) {
   const draft = useMemo(loadDraft, []);
   // 舊草稿沒有 email／accountLast5，展開順序讓 EMPTY_CONTACT 先補齊欄位再套草稿值
   const [contact, setContact] = useState<ContactInfo>({ ...EMPTY_CONTACT, ...(draft?.contact ?? {}) });
@@ -462,7 +473,7 @@ export default function FahuiRegistration({ onBack, onVolunteer }: { onBack?: ()
   };
 
   if (submitted) {
-    return <SuccessScreen onBack={onBack} onVolunteer={onVolunteer} contact={contact} summary={summary} total={total} />;
+    return <SuccessScreen onBack={onBack} onVolunteer={onVolunteer} onJoinMember={onJoinMember} contact={contact} summary={summary} total={total} />;
   }
 
   // 報名截止後不再開放送出（避免收了款卻來不及製作牌位）；工作人員可用 ?preview=1 預覽表單
@@ -1099,12 +1110,14 @@ interface SummaryItem { title: string; count: number; unit: string; subtotal: nu
 function SuccessScreen({
   onBack,
   onVolunteer,
+  onJoinMember,
   contact,
   summary,
   total,
 }: {
   onBack?: () => void;
   onVolunteer?: (contact: FahuiVolunteerHandoff) => void;
+  onJoinMember?: (phone: string) => void;
   contact: ContactInfo;
   summary: SummaryItem[];
   total: number;
@@ -1179,6 +1192,21 @@ function SuccessScreen({
         >
           再報名一筆
         </button>
+
+        {/* 加入會員。放在志工之前：這一個對信眾本人有用（查得到自己的紀錄、
+            下次不必重填），志工是對廟方有用，順序照「對誰有用」排。 */}
+        {onJoinMember && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#C49820]/30 text-center mt-2">
+            <p className="text-sm text-[#2E2A22] mb-1 font-medium">加入會員，查得到這次的報名紀錄</p>
+            <p className="text-xs text-gray-400 mb-3">用同一支電話註冊，本次報名會自動連結；下次報名不必再填一次資料</p>
+            <button
+              onClick={() => onJoinMember(contact.phone)}
+              className="w-full py-3 rounded-2xl bg-[#7C5C1E] text-white text-sm font-bold hover:bg-[#5C4310] transition-colors"
+            >
+              立即加入會員 →
+            </button>
+          </div>
+        )}
 
         {onVolunteer && (
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#C49820]/30 text-center mt-2">
