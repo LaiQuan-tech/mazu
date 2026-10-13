@@ -2353,6 +2353,8 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
 }) => {
   // 已註冊會員詳情
   const [selectedProfile, setSelectedProfile] = useState<MemberProfileRecord | null>(null);
+  /** 這個人底下的全部帳號（通常只有一個）。通訊錄是綁 user_id 的，所以要逐個抓 */
+  const [selectedAccounts, setSelectedAccounts] = useState<MemberProfileRecord[]>([]);
   const [profileContacts, setProfileContacts] = useState<MemberContact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   // 親友詳情 modal
@@ -2390,9 +2392,37 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
     return { lamps, bookingCount: bkCount, activities: acts, donation: dn.reduce((s, d) => s + Number(d.amount), 0) };
   };
 
+  /**
+   * ── 同一個人有好幾個帳號時，列表只列一次 ──
+   *
+   * 2026-10-13 廟方回報：清單上有三筆「鍾介凡」，數字一模一樣。
+   * **數字一樣不是程式把金額複製過去**：這一頁的統計全部是拿電話去對報名紀錄的
+   * （`l.phone === p.phone`），三個帳號填的是同一支電話，所以看到的是同一筆
+   * NT$2,500 被顯示三次——錢沒有被重複計算，是「人」被重複列了三次。
+   * 換句話說**統計層早就把他們當成同一個人，只有列表層還當成三個**，這裡就是把
+   * 兩邊對齊。
+   *
+   * 一個人會有好幾個帳號的原因：用信箱註冊過一次、又用 LINE 登入一次（LINE 不給
+   * email，Supabase 只能開新帳號），或是 LINE 的 Provider 換過
+   * （LINE 的使用者 ID 綁 Provider 不是綁 channel，換了就全部對不上，見 CLAUDE.md）。
+   * 正解是請本人在會員中心「綁定 LINE 帳號」，那會把 identity 接到同一個 user id；
+   * **但已經各自存在的帳號合併不了**，所以後台至少要看得懂它們是同一個人。
+   *
+   * ── 合併的條件刻意收得很緊：電話**與**姓名都一樣 ──
+   * 只看電話會把共用一支電話的家人併成一個人（長輩常留子女的號碼），
+   * 那是把一位真的會員藏起來，比列重複嚴重得多。
+   * **電話空白的一律不併**：LINE 登入後還沒補電話的帳號電話都是空的，
+   * 只看電話的話會把他們全部併成一團。
+   */
+  const toPersonKey = (p: MemberProfileRecord): string => {
+    const phone = (p.phone ?? '').replace(/[\s-]/g, '');
+    const name  = (p.name ?? '').replace(/[\s　]/g, '');   // 與信眾名冊的 nameKey 同一套
+    return phone && name ? `${phone}|${name}` : `uid:${p.userId}`;
+  };
+
   // ── 計算排序後的 rows ──
   const sortedProfiles = useMemo(() => {
-    const rows = memberProfiles.map(p => {
+    const all = memberProfiles.map(p => {
       const lamps = lampRegistrations.filter(l => l.phone === p.phone).length;
       const bookingCount = bookings.filter(b => b.phone === p.phone).length;
       const activitiesCount = registrations.filter(r => r.phone === p.phone).length;
@@ -2400,6 +2430,36 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
       const lastLogin = usersLastLogin[p.userId] ?? null;
       return { ...p, stats: { lamps, bookingCount, activities: activitiesCount, donation }, lastLogin };
     });
+
+    /**
+     * 同一個人的帳號折成一列。
+     * **代表那一筆取最近登入的**（沒登入過就取最新建立的）：那是他現在實際在用的帳號，
+     * 顯示的姓名／性別／地址以它為準才是最新的。其餘帳號收進 `accounts`，
+     * 編號與最後登入都看得到——廟方要有辦法知道「到底是哪幾個帳號」才處理得掉。
+     */
+    const groups = new Map<string, typeof all>();
+    all.forEach(r => {
+      const k = toPersonKey(r);
+      groups.set(k, [...(groups.get(k) ?? []), r]);
+    });
+    const at = (r: typeof all[number]) => new Date(r.lastLogin ?? r.createdAt).getTime();
+    const rows = [...groups.values()].map(list => {
+      const sortedByUse = [...list].sort((a, b) => at(b) - at(a));
+      const main = sortedByUse[0];
+      return {
+        ...main,
+        // 整個人的最後登入＝所有帳號裡最晚的那一次
+        lastLogin: sortedByUse.map(r => r.lastLogin).filter(Boolean)[0] ?? null,
+        /**
+         * 「加入」要取**最早**那個帳號，不是代表帳號的。
+         * 代表取的是最近在用的，而那常常是今年才開的 LINE 帳號——照它顯示，
+         * 一位 2024 年就入會的信眾會變成「今天加入」，預設排序也會把他推到最前面。
+         */
+        createdAt: list.map(r => r.createdAt).sort()[0],
+        accounts: sortedByUse,
+      };
+    });
+
     rows.sort((a, b) => {
       if (sortBy === 'lamps')       { const d = a.stats.lamps - b.stats.lamps; return sortDir === 'asc' ? d : -d; }
       if (sortBy === 'bookings')    { const d = a.stats.bookingCount - b.stats.bookingCount; return sortDir === 'asc' ? d : -d; }
@@ -2467,7 +2527,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
           </div>
         )}
 
-        <button onClick={() => { setSelectedProfile(null); setProfileContacts([]); setSelectedContact(null); }}
+        <button onClick={() => { setSelectedProfile(null); setSelectedAccounts([]); setProfileContacts([]); setSelectedContact(null); }}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> 返回會員列表
         </button>
@@ -2497,6 +2557,36 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
             </div>
           </div>
           <StatBadges lamps={stats.lamps} bookingCount={stats.bookingCount} activities={stats.activities} donation={stats.donation} />
+
+          {/**
+            * 同一個人有好幾個帳號時，把它們列出來。
+            * 列表那邊只顯示「3 個帳號」，廟方要處理就得知道**是哪三個**
+            * （編號是他們對信眾的稱呼，最後登入則看得出哪一個還在用）。
+            * 文案要講清楚兩件事：統計沒有重複算、以及怎麼真的合併。
+            */}
+          {selectedAccounts.length > 1 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 mb-2">
+                這個人有 {selectedAccounts.length} 個登入帳號
+              </p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedAccounts.map(a => (
+                  <span key={a.userId} className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 text-gray-600">
+                    <span className="font-mono text-gray-400 mr-1.5">
+                      {a.memberNumber ? `#${String(a.memberNumber).padStart(3, '0')}` : '（無編號）'}
+                    </span>
+                    {usersLastLogin[a.userId]
+                      ? new Date(usersLastLogin[a.userId]).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
+                      : '未登入過'}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                上面的點燈／祈福／捐獻／問事是用電話對報名紀錄算出來的，整個人只算一次，沒有重複計算。
+                要讓他以後只剩一個帳號，請本人用原本的信箱密碼登入後，到會員中心按「綁定 LINE 帳號」。
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ── 歷史紀錄 ── */}
@@ -2681,7 +2771,15 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <h2 className="text-xl font-bold text-gray-800">
           會員管理
-          <span className="ml-2 text-sm font-normal text-gray-400">{memberProfiles.length} 位</span>
+          {/* **數的是人不是帳號**。一個人有好幾個帳號時（見 toPersonKey 的註解），
+              把帳號數當人數會讓廟方以為會員比實際多。兩個數字不一樣時才把帳號數講出來，
+              一樣的時候多講一次是雜訊 */}
+          <span className="ml-2 text-sm font-normal text-gray-400">
+            {sortedProfiles.length} 位
+            {memberProfiles.length !== sortedProfiles.length && (
+              <span className="ml-1 text-gray-300">（{memberProfiles.length} 個帳號）</span>
+            )}
+          </span>
         </h2>
       </div>
 
@@ -2713,8 +2811,19 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                 {sortedProfiles.map(p => (
                   <tr key={p.userId}
                     onClick={async () => {
-                      setSelectedProfile(p); setContactsLoading(true);
-                      try { setProfileContacts(await getMemberContactsByUserId(p.userId)); }
+                      setSelectedProfile(p); setSelectedAccounts(p.accounts); setContactsLoading(true);
+                      try {
+                        /**
+                         * **每個帳號都要抓**：通訊錄是綁 `user_id` 的，一個人有三個帳號時
+                         * 家人名單會散在三邊。只抓代表那一個，廟方看到的是殘缺的通訊錄
+                         * ——而且看不出有缺。抓失敗的那個當空的，不要讓一個壞掉的帳號
+                         * 把整張名單變空白。
+                         */
+                        const lists = await Promise.all(
+                          p.accounts.map(a => getMemberContactsByUserId(a.userId).catch(() => [] as MemberContact[])),
+                        );
+                        setProfileContacts(lists.flat());
+                      }
                       catch { setProfileContacts([]); }
                       finally { setContactsLoading(false); }
                     }}
@@ -2729,6 +2838,13 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                       <span className="text-sm font-semibold text-gray-800 group-hover:text-temple-red transition-colors">
                         {p.name || <span className="text-gray-400 font-normal italic">（未填）</span>}
                       </span>
+                      {/* 折起來的那幾個帳號要講出來，不然廟方只會覺得「剛剛那兩筆呢」。
+                          用灰色不用警示色：這不是錯誤，是同一個人用了不只一種方式登入 */}
+                      {p.accounts.length > 1 && (
+                        <span className="ml-2 text-[11px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                          {p.accounts.length} 個帳號
+                        </span>
+                      )}
                     </td>
                     <td data-label="性別" className="px-4 py-3">
                       {p.gender
