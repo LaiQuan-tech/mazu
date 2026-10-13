@@ -6224,9 +6224,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
    * 所以 lg 以上永遠是展開的一整份清單，只是多了四個小標題。
    */
   const NAV_GROUPS: { title: string; keys: Tab[] }[] = [
-    { title: '常用',       keys: ['overview', 'fahui', 'volunteer', 'bookings', 'lamps', 'blessings', 'donations'] },
-    { title: '名單與帳務', keys: ['roster', 'members', 'receivables', 'vouchers', 'repairs', 'traffic'] },
-    { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'feasts', 'photos', 'scripture', 'shower'] },
+    /**
+     * 「常用」組內也有先後：**每天會用的排前面，檔期性的排後面**。
+     * 法會報名與志工報名是跟著一場法會跑的——辦的時候天天開，辦完就閒置
+     * （廟方 2026-10-13：「法會與志工暫時都沒有了，可以往後下移動」）。
+     * 它們**沒有離開「常用」**：下一場法會一開又是每天要看的，
+     * 到時候把這兩個 key 搬回 overview 後面就好，不必動別的地方。
+     */
+    { title: '常用',       keys: ['overview', 'bookings', 'lamps', 'blessings', 'donations', 'fahui', 'volunteer'] },
+    /**
+     * 下面這幾組維持 2026-10-13 之前**畫面上實際的順序**，不是這串 keys 原本寫的順序。
+     * 在那之前組內順序是跟著 allNavItems 走、這串 keys 的先後沒有作用，所以兩者本來
+     * 就不一致（名單與帳務的 roster/members、網站內容的 shower 都差一位）。
+     * 改成以 keys 為準的同時把它們設回原樣——**廟方每天在用的選單，沒有被要求就不要動**。
+     */
+    { title: '名單與帳務', keys: ['members', 'roster', 'repairs', 'receivables', 'vouchers', 'traffic'] },
+    { title: '網站內容',   keys: ['bulletins', 'deities', 'about', 'relocation', 'faq', 'feasts', 'shower', 'photos', 'scripture'] },
     { title: '系統設定',   keys: ['siteinfo', 'analytics', 'social'] },
   ];
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -6237,7 +6250,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const navGroups = NAV_GROUPS
     .map((g, i) => ({
       title: g.title,
-      items: navItems.filter(n => g.keys.indexOf(n.key) >= 0)
+      /**
+       * **組內順序以 `g.keys` 為準，不是 `allNavItems`。**
+       * 原本是 `navItems.filter(...)`，順序其實跟著 allNavItems 走——
+       * 那表示調整 NAV_GROUPS 裡的 keys 順序**畫面完全不會變**，
+       * 而從程式碼看起來明明改對了（2026-10-13 調整順序時踩到）。
+       * 一份清單只能有一個順序來源，放在 keys 這裡才是人會去改的地方。
+       */
+      items: g.keys.map(k => navItems.find(n => n.key === k)).filter((n): n is typeof navItems[number] => !!n)
         .concat(i === NAV_GROUPS.length - 1 ? ungrouped : []),
     }))
     .filter(g => g.items.length > 0);
