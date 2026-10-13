@@ -39,6 +39,44 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export interface SubmitOptions { notify?: boolean }
 
 /**
+ * 把資料庫裡的點燈／祈福狀態折成現行的三個值。
+ *
+ * ── 為什麼折在讀取端 ──
+ * 2026-10-13 之前存的是「處理進度」那一組（`待處理`／`待確認`／`已確認`／`已完成`），
+ * 現在講的是收款（`待匯款`／`已收款`／`已取消`，見 types.ts 的註解）。
+ * `registration_email.sql` 會把舊資料更新過來，但**不可以假設那支已經跑過**
+ * ——廟方後台那顆「重新發布」隨時可能讓程式比 migration 先上線。
+ * 折在這裡，後面每一個消費者（徽章、篩選、待辦數字、統計、匯出）就都只看得到新值，
+ * **不必各自記得有舊值這件事**；散在各處比對兩組字串，遲早有一處漏掉。
+ *
+ * `已完成` 折成 `已收款`：那是廟方從來沒在用的狀態，而真的有這個值的紀錄
+ * 必然是收過款才會被標的。折成「已收款」是這批資料唯一說得通的解釋。
+ */
+const LEGACY_PAY_STATUS: Record<string, string> = {
+  '待處理': '待匯款',   // 點燈舊值
+  '待確認': '待匯款',   // 祈福舊值
+  '已確認': '已收款',
+  '已完成': '已收款',   // 點燈舊值，廟方未使用
+};
+
+const normalizeLampStatus = (raw: unknown): LampRegistrationStatus => {
+  const v = String(raw ?? '');
+  const mapped = LEGACY_PAY_STATUS[v] ?? v;
+  return (Object.values(LampRegistrationStatus) as string[]).includes(mapped)
+    ? (mapped as LampRegistrationStatus)
+    // 認不出來就當成還沒收款：寧可讓廟方多看一眼，也不要把一筆沒收到錢的當成收到了
+    : LampRegistrationStatus.PENDING;
+};
+
+const normalizeBlessingStatus = (raw: unknown): BlessingStatus => {
+  const v = String(raw ?? '');
+  const mapped = LEGACY_PAY_STATUS[v] ?? v;
+  return (Object.values(BlessingStatus) as string[]).includes(mapped)
+    ? (mapped as BlessingStatus)
+    : BlessingStatus.PENDING;
+};
+
+/**
  * 報名送出用的 insert：遇到「這個欄位不存在」就把選填欄位拿掉再試一次。
  *
  * ── 為什麼需要 ──
@@ -53,15 +91,37 @@ export interface SubmitOptions { notify?: boolean }
  *
  * PostgREST 回的是 `PGRST204`（Could not find the 'x' column ... in the schema
  * cache）。訊息也一起比對，因為 supabase-js 不同版本帶的欄位不一樣。
+ *
+ * ── `fallback`：值被 CHECK 擋下來時改寫成舊值 ──
+ * 2026-10-13 點燈／祈福的狀態值從「處理進度」改成收款（`待處理`→`待匯款`）。
+ * **如果那兩張表上有 CHECK 限制住舊的那組值，新值會讓每一筆報名都送不出去**
+ * ——而 status 是必填的，捨棄不掉。這兩張表是在 Supabase 後台手動建的、
+ * repo 裡沒有 CREATE TABLE，所以**從程式這邊看不出來到底有沒有那個 CHECK**。
+ * 既然看不出來就不要賭：遇到 23514（check violation）改用舊值再送一次，
+ * 讀取端的 `normalizeLampStatus()` 會把它折回來，畫面完全一致。
+ * `lamp_blessing_payment_status.sql` 跑過之後這條路就再也不會走到，
+ * 屆時可以連同這個參數一起刪掉。
  */
 const insertOptional = async (
   table: string,
   row: Record<string, unknown>,
   optional: string[],
+  fallback?: Record<string, unknown>,
 ): Promise<void> => {
   const { error } = await supabase.from(table).insert([row]);
   if (!error) return;
   const text = `${error.code ?? ''} ${error.message ?? ''}`;
+
+  // 值被 CHECK 擋下來（23514）：改寫成舊值再送一次。理由見上面的 fallback 說明
+  if (fallback && /23514/.test(text)) {
+    console.warn(`${table}: 新的狀態值被資料庫的 CHECK 擋下來，改用舊值送出`
+      + '（請執行 supabase/migrations/lamp_blessing_payment_status.sql）');
+    const legacy = await supabase.from(table).insert([{ ...row, ...fallback }]);
+    if (!legacy.error) return;
+    console.error(`Error inserting into ${table} (legacy status):`, legacy.error);
+    throw legacy.error;
+  }
+
   const schemaMiss = /PGRST204/.test(text) || /schema cache|column .* does not exist/i.test(text);
   /**
    * **只捨棄錯誤訊息真的指名的那幾欄。**
@@ -916,7 +976,7 @@ export const submitLampRegistration = async (data: LampRegistrationData, opts?: 
     status: LampRegistrationStatus.PENDING,
     email: data.email?.trim() || null,
     source: getSource(),
-  }, ['email']);
+  }, ['email'], { status: '待處理' });
   if (opts?.notify !== false) notifyRegistration('lamp_registrations', id);
   return id;
 };
@@ -943,7 +1003,7 @@ export const getLampRegistrations = async (): Promise<LampRegistrationRecord[]> 
     address: row.address || undefined,
     contactLabel: row.contact_label || undefined,
     notes: row.notes,
-    status: row.status as LampRegistrationStatus,
+    status: normalizeLampStatus(row.status),
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     email: row.email || undefined,
@@ -1264,7 +1324,7 @@ const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
   packageFee:  row.package_fee  ?? undefined,
   selectedAddons:   Array.isArray(row.selected_addons)   ? (row.selected_addons   as BlessingAddon[])    : [],
   claimedOfferings: Array.isArray(row.claimed_offerings) ? (row.claimed_offerings as ClaimedOffering[]) : [],
-  status: (row.status as BlessingStatus) || BlessingStatus.PENDING,
+  status: normalizeBlessingStatus(row.status),
   createdAt: row.created_at,
   source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
   email: row.email || undefined,
@@ -1368,9 +1428,12 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
     package_fee:       d.packageFee        ?? null,
     selected_addons:   d.selectedAddons    || [],
     claimed_offerings: d.claimedOfferings  || [],
+    // **明寫不要靠資料庫的 DEFAULT**：那個預設值是舊的「待確認」，
+    // 靠它等於每一筆新報名一出生就是舊值，還要再經過一次折算才看得對
+    status: BlessingStatus.PENDING,
     email: d.email?.trim() || null,
     source: getSource(),
-  }, ['email']);
+  }, ['email'], { status: '待確認' });
   if (opts?.notify !== false) notifyRegistration('blessing_registrations', id);
   return id;
 };

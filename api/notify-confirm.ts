@@ -86,6 +86,12 @@ const TABLES: Record<string, {
   extra?: string[];
   /** 結尾那句。捐獻的 intro 已經說了「感謝」，再謝一次是同一件事講兩次 */
   closing?: string;
+  /**
+   * 這一筆的金額，多筆時用來算合計。回 undefined ＝這一種沒有金額（問事是現場收費）。
+   * **合計一律由明細加總、不存也不信任任何既有的總額欄位**（同財務憑證那條原則）：
+   * 加總算得出來的東西存下來，一旦與明細對不起來就沒有辦法知道該信哪個。
+   */
+  amount?: (r: Row, ctx: Ctx) => number | undefined;
   /** 不要求管理員身分（改用「建立未滿 10 分鐘」當防線） */
   open?: boolean;
 }> = {
@@ -93,7 +99,12 @@ const TABLES: Record<string, {
     label: '預約問事',
     subject: '預約問事已確認',
     intro: n => `您在和聖壇的預約問事已經由本壇確認${n > 1 ? `，共 ${n} 筆` : ''}：`,
-    extra: ['請於預約的日期與時段到壇，若需改期請先與本壇聯繫。'],
+    // **問事是現場收費，不事先匯款**（廟方 2026-10-13）。要寫出來：
+    // 其餘幾種都要先匯款，信眾收到一封「已確認」很容易以為自己也漏了匯款那一步。
+    extra: [
+      '請於預約的日期與時段到壇，若需改期請先與本壇聯繫。',
+      '問事於現場繳費，不需事先匯款。',
+    ],
     line: r => [
       `${r.name}`,
       r.type ? `（${r.type}）` : '',
@@ -103,19 +114,30 @@ const TABLES: Record<string, {
   },
   lamp_registrations: {
     label: '點燈登記',
-    subject: '點燈登記已確認',
-    intro: n => `您在和聖壇的點燈登記已經由本壇確認${n > 1 ? `，共 ${n} 筆` : ''}：`,
-    line: (r, ctx) => `${r.name}　${ctx.lamp.get(r.service_id) ?? '點燈'}`,
+    subject: '點燈登記已確認、款項已收到',
+    intro: n => `您在和聖壇的點燈登記已經由本壇確認，款項也已收到${n > 1 ? `，共 ${n} 筆` : ''}：`,
+    line: (r, ctx) => {
+      const c = ctx.lamp.get(clean(r.service_id));
+      return `${r.name}　${c?.name ?? '點燈'}${c ? `　NT$${c.fee.toLocaleString()}` : ''}`;
+    },
+    amount: (r, ctx) => ctx.lamp.get(clean(r.service_id))?.fee,
   },
   blessing_registrations: {
     label: '祈福活動報名',
-    subject: '祈福活動報名已確認',
-    intro: n => `您在和聖壇的祈福活動報名已經由本壇確認${n > 1 ? `，共 ${n} 筆` : ''}：`,
-    line: (r, ctx) => [
-      `${r.name}`,
-      ctx.event.get(r.event_id) ? `　${ctx.event.get(r.event_id)}` : '',
-      r.package_name ? `（${r.package_name}）` : '',
-    ].join(''),
+    subject: '祈福活動報名已確認、款項已收到',
+    intro: n => `您在和聖壇的祈福活動報名已經由本壇確認，款項也已收到${n > 1 ? `，共 ${n} 筆` : ''}：`,
+    line: (r, ctx) => {
+      const addons: { name?: string; fee?: number }[] = Array.isArray(r.selected_addons) ? r.selected_addons : [];
+      const total = blessingTotal(r);
+      return [
+        `${r.name}`,
+        ctx.event.get(clean(r.event_id)) ? `　${ctx.event.get(clean(r.event_id))}` : '',
+        r.package_name ? `（${r.package_name}）` : '',
+        addons.length > 0 ? `　加購：${addons.map(a => clean(a.name)).filter(Boolean).join('、')}` : '',
+        `　NT$${total.toLocaleString()}`,
+      ].join('');
+    },
+    amount: r => blessingTotal(r),
   },
   /**
    * 隨喜捐獻：**感謝信，不是確認信**，而且不等廟方確認（廟方 2026-10-13）。
@@ -129,13 +151,25 @@ const TABLES: Record<string, {
     extra: ['若為匯款，款項入帳後本壇會再行核對；如有疑問歡迎與本壇聯繫。'],
     closing: '願神明庇佑，闔家平安。',
     line: r => `${r.name}　${r.type ?? ''} NT$${Number(r.amount ?? 0).toLocaleString()}${r.repair_project_name ? `（${r.repair_project_name}）` : ''}`,
+    amount: r => Number(r.amount ?? 0),
   },
   fahui_registrations: {
     label: '法會報名',
-    subject: '法會報名已確認',
+    subject: '法會報名已確認、款項已收到',
     intro: () => '您在和聖壇的法會報名已經由本壇確認，款項也已收到：',
     line: r => `${r.name}　共 NT$${Number(r.total_amount ?? 0).toLocaleString()}`,
+    amount: r => Number(r.total_amount ?? 0),
   },
+};
+
+/**
+ * 祈福一筆的金額 ＝ 方案費 ＋ 所有加購。
+ * **與後台應收管理（ReceivablesTab）同一套規則**——兩邊對不起來就沒人信
+ * （CLAUDE.md 的既有原則）。隨喜加購的 fee 存的就是信眾自填的實際金額。
+ */
+const blessingTotal = (r: Row): number => {
+  const addons: { fee?: number }[] = Array.isArray(r.selected_addons) ? r.selected_addons : [];
+  return Number(r.package_fee ?? 0) + addons.reduce((sum, a) => sum + Number(a.fee ?? 0), 0);
 };
 
 /** 一次最多處理幾筆。同一團再多也不會到這個數，這是防灌不是業務限制 */
@@ -147,8 +181,16 @@ const MAX_IDS = 50;
  */
 const NOTIFY_WINDOW_MIN = 10;
 
-/** 點燈的燈種名、祈福的活動名——信裡要寫「哪一種燈」，光寫「點燈已確認」沒有用 */
-interface Ctx { lamp: Map<string, string>; event: Map<string, string> }
+/**
+ * 點燈的燈種（含費用）、祈福的活動名。
+ * 點燈與祈福都是**先匯款**的服務（廟方 2026-10-13），所以這封信的重點是
+ * 「收到了多少錢」——光寫「點燈已確認」信眾無從核對，寫了金額他才知道
+ * 自己匯的那筆對不對得上。費用在 `lamp_service_configs`，不在報名紀錄上。
+ */
+interface Ctx {
+  lamp: Map<string, { name: string; fee: number }>;
+  event: Map<string, string>;
+}
 
 const header = (req: ReqLike, name: string): string => {
   const v = req.headers[name] ?? req.headers[name.toLowerCase()];
@@ -352,9 +394,10 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     if (table === 'lamp_registrations') {
       const idsNeeded = uuids(sendable.map(x => clean(x.service_id)));
       if (idsNeeded.length > 0) {
-        const c = await fetch(`${supabaseUrl}/rest/v1/lamp_service_configs?select=id,name&id=in.(${idsNeeded.join(',')})`, { headers: svc });
+        const c = await fetch(`${supabaseUrl}/rest/v1/lamp_service_configs?select=id,name,fee&id=in.(${idsNeeded.join(',')})`, { headers: svc });
         const list: Row[] = c.ok ? await c.json().catch(() => []) : [];
-        (Array.isArray(list) ? list : []).forEach(x => ctx.lamp.set(x.id, clean(x.name)));
+        (Array.isArray(list) ? list : []).forEach(x =>
+          ctx.lamp.set(x.id, { name: clean(x.name), fee: Number(x.fee ?? 0) }));
       }
     }
     if (table === 'blessing_registrations') {
@@ -400,6 +443,16 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         spec.intro(rows.length),
         '',
         ...rows.map(x => `・${spec.line(x, ctx)}`),
+        /**
+         * 多筆才印合計，而且**每一筆都算得出金額才印**。
+         * 少算一筆的「合計」比沒有合計糟：信眾會拿它去對自己匯的金額，對不上就要打電話。
+         */
+        ...(() => {
+          if (rows.length < 2 || !spec.amount) return [];
+          const vals = rows.map(x => spec.amount!(x, ctx));
+          if (vals.some(v => v === undefined)) return [];
+          return [`　　合計 NT$${vals.reduce((a, b) => a! + b!, 0)!.toLocaleString()}`];
+        })(),
         '',
         ...(spec.extra ? [...spec.extra, ''] : []),
         spec.closing ?? '感謝您的護持，願神明庇佑。',

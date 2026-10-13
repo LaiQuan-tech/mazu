@@ -130,6 +130,11 @@ export enum ZodiacSign {
   PIG    = '豬'
 }
 
+/**
+ * 問事的狀態。**刻意與點燈／祈福不同**：問事是**現場收費**（廟方 2026-10-13），
+ * 沒有「收款」這個環節，所以這裡講的是預約的處理進度
+ * ——已確認＝場次排好了、已完成＝問完了。不要為了統一把它改成收款那一組。
+ */
 export enum BookingStatus {
   PENDING = '待處理',
   CONFIRMED = '已確認',
@@ -470,10 +475,20 @@ export interface ScriptureVerseRecord extends ScriptureVerseData {
 }
 
 // ─── Lamp Services (點燈服務) ────────────────────────────
+/**
+ * 點燈的狀態。**講的是收款，不是處理進度**（廟方 2026-10-13：「點燈／祈福跟法會一樣，
+ * 要匯款，由後台按標記已收款，只有問事是現場收費」）。
+ *
+ * ── 舊值還在資料庫裡，讀進來時要折過來 ──
+ * 2026-10-13 之前存的是 `待處理`／`已確認`／`已完成`，而且 `已完成` 廟方從來沒在用。
+ * `registration_email.sql` 會把舊資料更新成新值，但**不可以假設那支已經跑過**
+ * ——廟方後台那顆「重新發布」隨時可能讓程式比 migration 先上線。
+ * 所以折舊值的 `normalizeLampStatus()`（services/supabase.ts）在讀取端一律生效，
+ * 讓後面每一個消費者（徽章、篩選、統計、匯出）都只看得到這三個值。
+ */
 export enum LampRegistrationStatus {
-  PENDING   = '待處理',
-  CONFIRMED = '已確認',
-  COMPLETED = '已完成',
+  PENDING   = '待匯款',
+  CONFIRMED = '已收款',
   CANCELLED = '已取消'
 }
 
@@ -561,9 +576,13 @@ export interface MemberProfileRecord extends ProfileData {
 }
 
 // ─── Blessing Events (祈福活動) ──────────────────────────
+/**
+ * 祈福報名的狀態。同 `LampRegistrationStatus`——講的是收款。
+ * 舊值是 `待確認`／`已確認`，由 `normalizeBlessingStatus()` 在讀取端折過來。
+ */
 export enum BlessingStatus {
-  PENDING   = '待確認',
-  CONFIRMED = '已確認',
+  PENDING   = '待匯款',
+  CONFIRMED = '已收款',
   CANCELLED = '已取消'
 }
 

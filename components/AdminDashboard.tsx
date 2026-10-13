@@ -45,12 +45,60 @@ const fmtDate = (s: any) => {
   } catch { return String(s); }
 };
 
+/**
+ * 收款操作鈕：點燈／祈福共用，刻意與法會那顆長得一樣。
+ *
+ * 廟方 2026-10-13：「點燈／祈福跟法會一樣，要匯款，由後台按標記已收款」。
+ * 原本這兩處是四選一的狀態下拉，而廟方真正在做的只有一件事——「錢收到了」。
+ * 下拉要點兩下、還要在四個選項裡挑，而三種要匯款的服務各長一個樣子。
+ *
+ * **取消做成小圖示、跟主按鈕拉開**：那是破壞性的語意（信眾看不到，但統計與
+ * 應收都會把它排除），不能挨著每天要按幾十次的那顆。同揪團刪除鈕的理由。
+ * 已取消的那一列給「還原」，按錯才回得來。
+ */
+const PaymentActions = <T extends string>({ status, pending, confirmed, cancelled, busy, onChange }: {
+  status: T; pending: T; confirmed: T; cancelled: T;
+  busy: boolean; onChange: (next: T) => void;
+}) => {
+  const isPaid = status === confirmed;
+  const isCancelled = status === cancelled;
+  return (
+    <div className="flex items-center gap-1">
+      {isCancelled ? (
+        <button onClick={() => onChange(pending)} disabled={busy}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50">
+          還原為待匯款
+        </button>
+      ) : (
+        <>
+          <button onClick={() => onChange(isPaid ? pending : confirmed)} disabled={busy}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+              isPaid ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-600 text-white hover:bg-green-700'
+            }`}>
+            {isPaid ? '改回待匯款' : '標記已收款'}
+          </button>
+          <button onClick={() => onChange(cancelled)} disabled={busy}
+            title="標記取消" aria-label="標記取消"
+            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50">
+            <XCircle className="w-4 h-4" />
+          </button>
+        </>
+      )}
+    </div>
+  );
+};
+
 const statusBadge = (status?: BookingStatus | LampRegistrationStatus | BlessingStatus | string) => {
   const map: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+    // 收款那一組（點燈／祈福／法會）。顏色與 fahuiStatusBadge 一致：黃＝還沒收、綠＝收到了
+    '待匯款': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock3 className="w-3 h-3" /> },
+    '已收款': { bg: 'bg-green-100',  text: 'text-green-800',  icon: <CheckCircle className="w-3 h-3" /> },
+    // 處理進度那一組：問事現場收費、沒有收款環節，維持原本的語彙（見 types.ts）
     '待處理': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock3 className="w-3 h-3" /> },
-    '待確認': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock3 className="w-3 h-3" /> },
     '已確認': { bg: 'bg-blue-100',   text: 'text-blue-800',   icon: <CheckCircle className="w-3 h-3" /> },
     '已完成': { bg: 'bg-green-100',  text: 'text-green-800',  icon: <CheckCircle className="w-3 h-3" /> },
+    // 舊的祈福待確認。點燈／祈福讀進來就折成新值了，這一筆是為了別處萬一直接印原值
+    '待確認': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Clock3 className="w-3 h-3" /> },
     '已取消': { bg: 'bg-red-100',    text: 'text-red-800',    icon: <XCircle className="w-3 h-3" /> },
   };
   const s = status || '';
@@ -182,8 +230,13 @@ interface RegViewItem {
   email?: string;
   /** 寄給信眾那封信的寄出時間。工作人員要看得出「這個人到底收到通知了沒」 */
   confirmSentAt?: string;
-  /** 這一類寄的是「感謝信」而且送出當下就寄（目前只有捐獻），文案要不一樣 */
-  thanks?: boolean;
+  /**
+   * 寄給信眾的是哪一種信。三種的觸發時機不同，所以後台要講不一樣的話：
+   *   `confirm` 問事——現場收費，廟方改成「已確認」時寄（預設）
+   *   `paid`    點燈／祈福／法會——要先匯款，廟方按「標記已收款」時寄
+   *   `thanks`  捐獻——不等確認，送出當下就寄
+   */
+  mailKind?: 'confirm' | 'paid' | 'thanks';
 }
 
 const MemberInfoModal = ({
@@ -291,7 +344,9 @@ const MemberInfoModal = ({
                   工作人員會以為信眾都知道了（這封信存在的理由就是讓信眾知道）。
                   **捐獻不會走到這裡**：它沒有「已確認」這個狀態，也沒有收信箱。 */}
               <div className="flex items-start gap-2">
-                <span className="text-xs text-gray-400 w-14 shrink-0 pt-0.5">{reg.thanks ? '感謝信' : '確認信'}</span>
+                <span className="text-xs text-gray-400 w-14 shrink-0 pt-0.5">
+                  {reg.mailKind === 'thanks' ? '感謝信' : '確認信'}
+                </span>
                 {reg.confirmSentAt ? (
                   <span className="text-xs text-green-700">
                     已寄出　{fmtDate(reg.confirmSentAt)}
@@ -300,8 +355,11 @@ const MemberInfoModal = ({
                 ) : reg.email ? (
                   <span className="text-xs text-gray-500">
                     {/* 捐獻是送出當下寄的，所以「有信箱卻還沒寄出」代表那一封沒寄成功，
-                        不是「還在等廟方確認」——兩種情況要講不一樣的話 */}
-                    {reg.thanks ? '尚未寄出（可能寄送失敗）' : '改為「已確認」時寄至'}
+                        不是「還在等廟方確認」；而點燈／祈福等的是收款不是確認。
+                        三種講一樣的話，工作人員就不知道自己該按哪一顆 */}
+                    {reg.mailKind === 'thanks' ? '尚未寄出（可能寄送失敗）'
+                      : reg.mailKind === 'paid' ? '按「標記已收款」時寄至'
+                      : '改為「已確認」時寄至'}
                     <span className="block text-gray-700">{reg.email}</span>
                   </span>
                 ) : (
@@ -2022,7 +2080,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                 {paged.map(b => (
                   <tr key={b.id}
                     className="hover:bg-blue-50/40 transition-colors cursor-pointer"
-                    onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source, email: b.email, confirmSentAt: b.confirmSentAt })}
+                    onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source, email: b.email, confirmSentAt: b.confirmSentAt, mailKind: 'confirm' })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -2209,7 +2267,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                 {paged.map(d => (
                   <tr key={d.id}
                     className="hover:bg-green-50/40 transition-colors cursor-pointer"
-                    onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source, email: d.email, confirmSentAt: d.confirmSentAt, thanks: true })}
+                    onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source, email: d.email, confirmSentAt: d.confirmSentAt, mailKind: 'thanks' })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -4218,8 +4276,10 @@ const LampsTab = ({
     setUpdatingRegId(id);
     try {
       await updateLampRegistrationStatus(id, status);
-      // 確認完成就通知信眾一聲（廟方 2026-10-13）。連著確認好幾列會併成一封，
-      // 寄過的不再寄——兩件事都在 services/notifyConfirm.ts 與那支端點裡處理
+      // 收到款就通知信眾一聲（廟方 2026-10-13）。連著標好幾列會併成一封，
+      // 寄過的不再寄——兩件事都在 services/notifyConfirm.ts 與那支端點裡處理。
+      // **只有「收到了」那個方向要寄**：改回待匯款不寄，沒有「取消確認信」這種東西，
+      // 寄一封說「其實還沒收到」只會讓信眾更混亂，廟方該直接打電話。
       if (status === LampRegistrationStatus.CONFIRMED) queueConfirmEmail('lamp_registrations', id);
       onRefresh();
     } catch {
@@ -4244,17 +4304,6 @@ const LampsTab = ({
       getServiceName(r.serviceId), r.name, r.phone, r.gender || '', r.birthDate, r.zodiac || '', r.address || '',
       r.status, r.notes || '', fmtDate(r.createdAt), r.source || ''
     ]), ['服務項目', '姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '狀態', '備註', '建立時間', '報名來源']);
-  };
-
-  const lampStatusBadge = (status: LampRegistrationStatus) => {
-    const map: Record<string, { bg: string; text: string }> = {
-      '待處理': { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-      '已確認': { bg: 'bg-blue-100',   text: 'text-blue-800' },
-      '已完成': { bg: 'bg-green-100',  text: 'text-green-800' },
-      '已取消': { bg: 'bg-red-100',    text: 'text-red-800' },
-    };
-    const cfg = map[status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
-    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>{status}</span>;
   };
 
   return (
@@ -4424,7 +4473,7 @@ const LampsTab = ({
             {pagedRegs.map(r => (
               <div key={r.id}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 cursor-pointer hover:border-orange-200 hover:bg-orange-50/30 transition-colors"
-                onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt })}
+                onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt, mailKind: 'paid' })}
               >
                 <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
                   <Flame className="w-5 h-5 text-orange-500" />
@@ -4436,7 +4485,7 @@ const LampsTab = ({
                     <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
                       {getServiceName(r.serviceId)}
                     </span>
-                    {lampStatusBadge(r.status)}
+                    {statusBadge(r.status)}
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
                     <Phone className="w-3 h-3 inline mr-1" />{r.phone}
@@ -4450,14 +4499,14 @@ const LampsTab = ({
                   <p className="text-xs text-gray-300 mt-1">{fmtDate(r.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                  <select
-                    value={r.status}
-                    disabled={updatingRegId === r.id}
-                    onChange={e => handleRegStatusChange(r.id, e.target.value as LampRegistrationStatus)}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-temple-red/20 disabled:opacity-50"
-                  >
-                    {Object.values(LampRegistrationStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <PaymentActions
+                    status={r.status}
+                    pending={LampRegistrationStatus.PENDING}
+                    confirmed={LampRegistrationStatus.CONFIRMED}
+                    cancelled={LampRegistrationStatus.CANCELLED}
+                    busy={updatingRegId === r.id}
+                    onChange={next => handleRegStatusChange(r.id, next)}
+                  />
                   <button
                     onClick={() => handleDeleteReg(r.id)}
                     className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -4685,8 +4734,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
     setUpdatingRegId(id);
     try {
       await updateBlessingRegistrationStatus(id, status);
-      // 確認完成就通知信眾一聲（廟方 2026-10-13）。連著確認好幾列會併成一封，
-      // 寄過的不再寄——兩件事都在 services/notifyConfirm.ts 與那支端點裡處理
+      // 同點燈：收到款才寄，改回待匯款不寄（理由見 LampTab 的 handleRegStatusChange）
       if (status === BlessingStatus.CONFIRMED) queueConfirmEmail('blessing_registrations', id);
       onRefresh();
     }
@@ -4791,7 +4839,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                   {filteredRegs.map(r => (
                     <tr key={r.id}
                       className="hover:bg-purple-50/40 transition-colors cursor-pointer"
-                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt })}
+                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt, mailKind: 'paid' })}
                     >
                       <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
@@ -4832,11 +4880,17 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                       <td data-label="地址" className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || '—'}</td>
                       <td data-label="備註" className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
                       <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <select value={r.status} disabled={updatingRegId === r.id}
-                          onChange={e => handleRegStatus(r.id, e.target.value as BlessingStatus)}
-                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-temple-red">
-                          {Object.values(BlessingStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <div className="flex flex-col items-start gap-1.5">
+                          {statusBadge(r.status)}
+                          <PaymentActions
+                            status={r.status}
+                            pending={BlessingStatus.PENDING}
+                            confirmed={BlessingStatus.CONFIRMED}
+                            cancelled={BlessingStatus.CANCELLED}
+                            busy={updatingRegId === r.id}
+                            onChange={next => handleRegStatus(r.id, next)}
+                          />
+                        </div>
                       </td>
                       <td data-label="報名時間" className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
                       <td data-label="操作" className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
