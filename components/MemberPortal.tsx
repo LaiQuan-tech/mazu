@@ -1152,11 +1152,24 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
                           const kindColor  = rec.kind === 'fahui' ? SERVICE_TAG.blessing : SERVICE_TAG[rec.kind];
                           const kindIcon   = rec.kind === 'lamp' ? <Flame className="w-3 h-3" /> : rec.kind === 'booking' ? <Calendar className="w-3 h-3" /> : <HeartHandshake className="w-3 h-3" />;
                           const statusStr = String(rec.status ?? '');   // status 可能為 null（後台手動建資料時），避免整頁白屏
-                          // 待處理／已確認都還在進行中，用同一個；完成與取消各有自己的
+                          /**
+                           * 狀態配色要**明確列舉**，不要用「字串裡有沒有某個字」去猜。
+                           *
+                           * 2026-10-13 點燈／祈福的狀態從「處理進度」改成收款語彙
+                           * （待處理／已確認 → 待匯款／已收款），原本那段
+                           * `includes('待') || includes('確認') … includes('完成')`
+                           * 就漏接了「已收款」——它三個條件都不符，掉到最後的
+                           * `TAG_STATE_OVER`（已結束／已過期的褪色樣式）。
+                           * **信眾剛把錢匯進來、廟方剛確認，他看到自己的紀錄變灰。**
+                           * 猜字串的寫法在改名那一刻必然失效，而且不會報錯。
+                           *
+                           * 認不出來的一律當「進行中」：褪色代表「這件事結束了」，
+                           * 對一筆我們看不懂的紀錄這樣講，比顯得突兀更糟。
+                           */
                           const statusColor =
-                            statusStr.includes('待') || statusStr.includes('確認') ? TAG_STATE_OPEN :
-                            statusStr.includes('完成') ? TAG_STATE_DONE :
-                            TAG_STATE_OVER;
+                            ['已收款', '已完成'].includes(statusStr) ? TAG_STATE_DONE :
+                            statusStr === '已取消'                   ? TAG_STATE_OVER :
+                            TAG_STATE_OPEN;   // 待匯款／待處理／待確認／已確認，與認不出來的
                           const dateStr = new Date(rec.createdAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
                           return (
                             <div key={rec.id} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl space-y-2">

@@ -158,6 +158,7 @@ const ROUTES = [
     desc: '台北古亭和聖壇點燈服務線上登記，一年一期。提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂、元辰光彩。天赦日等單場次的祈福點燈請見祈福活動。',
     h1: '點燈服務',
     body: [
+      // 價格從 lamp_service_configs 抓（見下方 llms.txt 那段的註解）；抓不到就用這串保底
       '農曆新年期間提供太歲祈安燈（每年 NT$300）、光明前程祈福燈（每年 NT$300）、財源廣進財利燈（每年 NT$500）、本命神明祈願燈（每年 NT$1,200），祈求流年順遂、元辰光彩。',
       '可於線上填寫姓名、生辰與地址完成登記。',
     ],
@@ -499,6 +500,24 @@ const fetchLampServices = async () => {
 
 const lampServices = await fetchLampServices();
 
+/**
+ * 把 `/lamps` 的 noscript 價目換成資料庫裡的。
+ *
+ * ROUTES 是模組層級的常值、在抓資料之前就定義好了，所以只能事後改它那一行。
+ * 理由同 llms.txt 那段：JSON-LD 的價格早就是資料庫來的，noscript 卻寫死，
+ * **廟方調一次價，給 Google 的與給不執行 JS 的爬蟲的就對不起來**。
+ * 抓不到價格就保留原本那串保底值（寫死的舊價也好過沒有價錢）。
+ */
+if (lampServices.length > 0) {
+  const lamps = ROUTES.find((r) => r.path === '/lamps');
+  if (lamps?.body?.length) {
+    const 價目 = lampServices
+      .map((l) => `${l.name}（每年 NT$${Number(l.fee ?? 0).toLocaleString()}）`)
+      .join('、');
+    lamps.body[0] = `農曆新年期間提供${價目}，祈求流年順遂、元辰光彩。`;
+  }
+}
+
 const upcomingEvents = await fetchUpcomingEvents();
 
 /**
@@ -727,16 +746,47 @@ ${faq.map((f) => `        <p><strong>${esc(f.q)}</strong><br />${esc(f.a)}</p>`)
   console.log(`prerender  /            → dist/index.html（FAQ ${faq.length} 題）`);
 }
 
-// llms.txt 也是給不執行 JS 的爬蟲看的靜態檔，同樣要跟著後台走
-if (site) {
+/**
+ * llms.txt 也是給不執行 JS 的爬蟲看的靜態檔，同樣要跟著後台走。
+ *
+ * ── 點燈價格也要同步，不是只有基本資料 ──
+ * 2026-10-13 發現：`/lamps` 的 JSON-LD（OfferCatalog）是從 `lamp_service_configs`
+ * 抓的，但 llms.txt 與 noscript 的那串價格是**寫死的**。
+ * 廟方在後台調一次價，同一個網站就會對 AI 說一種價、對 Google 說另一種
+ * ——而且不會有任何錯誤訊息（同「開放時間散在六處」那次事故的成因）。
+ * **「多少錢」正是最常被問、最容易答錯的一項**，所以一律從資料庫來。
+ * 抓不到價格時（Supabase 暫停、沒有環境變數）就維持檔案裡原本那串，
+ * 不要把它洗成空的——寫死的舊價也好過沒有價錢。
+ */
+const lampPriceLine = () => lampServices
+  .map((l) => `${l.name}（每年 NT$${Number(l.fee ?? 0).toLocaleString()}）`)
+  .join('、');
+
+if (site || lampServices.length > 0) {
   const llmsPath = resolve(DIST, 'llms.txt');
   try {
-    const txt = readFileSync(llmsPath, 'utf8')
-      .replace(/- 地址：.*/, `- 地址：${site.address}`)
-      .replace(/- 電話：.*/, `- 電話：${site.phone}`)
-      .replace(/- 開放時間：.*/, `- 開放時間：每日 ${site.open} – ${site.close}`);
+    let txt = readFileSync(llmsPath, 'utf8');
+    if (site) {
+      txt = txt
+        .replace(/- 地址：.*/, `- 地址：${site.address}`)
+        .replace(/- 電話：.*/, `- 電話：${site.phone}`)
+        .replace(/- 開放時間：.*/, `- 開放時間：每日 ${site.open} – ${site.close}`);
+    }
+    if (lampServices.length > 0) {
+      // 只換「：」到「。」之間那段價目，後面「多於農曆新年期間辦理」那句留著
+      /**
+       * **一定要用 replacer 函式，不能用字串**：價目裡有 `NT$1,200`，
+       * 而字串形式的替換會把 `$1` 當成捕獲群組塞進去
+       * （實測產出 `每年 NT- [點燈服務](...)：,200`）。
+       * 函式形式的回傳值不做任何 `$` 展開。
+       */
+      txt = txt.replace(
+        /(- \[點燈服務\]\(https:\/\/heshengtan\.tw\/lamps\)：)[^。]*。/,
+        (_m, head) => `${head}${lampPriceLine()}。`,
+      );
+    }
     writeFileSync(llmsPath, txt, 'utf8');
-    console.log('prerender  llms.txt      基本資料已同步');
+    console.log(`prerender  llms.txt      已同步${site ? '基本資料' : ''}${site && lampServices.length ? '與' : ''}${lampServices.length ? '點燈價格' : ''}`);
   } catch (e) {
     console.log(`prerender  llms.txt 未更新：${e.message}`);
   }
