@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GripVertical, Plus, Trash2, Eye, EyeOff, ImagePlus, X, Bold, Link2, ChevronUp, ChevronDown } from 'lucide-react';
+import { GripVertical, Plus, Trash2, Eye, EyeOff, ImagePlus, X, Bold, Link2, ChevronUp, ChevronDown, Check } from 'lucide-react';
 import {
   getAboutSections, createAboutSection, updateAboutSection, deleteAboutSection,
   reorderAboutSections, uploadAboutImage, getSiteImagePublicUrl,
@@ -305,9 +305,19 @@ const AdminAboutTab = ({
     await saveOrder(next);
   };
 
+  /**
+   * 數字卡是「點到別處才存」（onBlur），**所以一定要有存檔的回饋**。
+   * 2026-10-13 廟方以為改好了、其實沒存進去——打完字沒有任何提示，
+   * 看起來跟存好了一模一樣，前台當然沒變。
+   */
+  const [factsSaved, setFactsSaved] = useState(false);
   const saveFacts = async (next: AboutFacts) => {
     setFacts(next);
-    try { await saveAboutFacts(next); } catch { alert('數字卡儲存失敗'); }
+    try {
+      await saveAboutFacts(next);
+      setFactsSaved(true);
+      window.setTimeout(() => setFactsSaved(false), 2500);
+    } catch { alert('數字卡儲存失敗'); }
   };
 
   return (
@@ -355,8 +365,18 @@ const AdminAboutTab = ({
 
           {page === 'about' && (
           <div className="mt-10 pt-6 border-t border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-1">首頁數字卡</h3>
-            <p className="text-sm text-gray-500 mb-4">顯示在首頁「關於我們」右下方的兩個數字。</p>
+            <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+              首頁數字卡
+              {factsSaved && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                  <Check className="w-3 h-3" aria-hidden="true" />已儲存
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              顯示在首頁「關於我們」右下方的兩個數字。
+              <span className="text-gray-400">　改完請點一下欄位外面，看到「已儲存」才算存進去。</span>
+            </p>
             <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
               {([
                 ['fact1Value', 'fact1Label', '第一張'],

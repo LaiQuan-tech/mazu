@@ -964,7 +964,16 @@ const App: React.FC = () => {
   const [relocationLead, setRelocationLead] = useState<AboutSection | null>(null);
   // 首頁摘要可在後台單獨寫；留空則退回 /relocation 的第一段
   const [relocationHome, setRelocationHome] = useState<RelocationHome>({ heading: '', body: '' });
-  const [aboutFacts, setAboutFacts] = useState<AboutFacts>(DEFAULT_ABOUT_FACTS);
+  /**
+   * 首頁那兩張數字卡。
+   *
+   * **初始值是 null，不是 DEFAULT_ABOUT_FACTS**（2026-10-13 廟方回報「80+ 閃一下又變成 10 萬」）：
+   * 先畫保底值、資料庫回來再換掉，只要兩邊不一樣，信眾就會看到數字當著他的面跳一次。
+   * 一個會自己改變的統計數字看起來像壞掉的，比晚半秒出現糟得多。
+   * 保底值仍然有用——`getAboutFacts()` 讀失敗時會回傳它（Supabase 閒置暫停時首頁不開天窗），
+   * 差別只在「失敗之後才用」而不是「先用再說」。
+   */
+  const [aboutFacts, setAboutFacts] = useState<AboutFacts | null>(null);
   const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [deityHalls, setDeityHalls] = useState<HallRecord[]>([]);
   const [selectedHall, setSelectedHall] = useState<string | null>(null);
@@ -2600,8 +2609,10 @@ const App: React.FC = () => {
                 )}
               </p>
 
+              {/* 還沒載入就整塊不畫（見 aboutFacts 的註解）。不留佔位骨架是因為
+                  這一區下面還有按鈕，留一塊空白反而讓版面跳兩次 */}
               <div className="grid grid-cols-2 gap-6">
-                {[[aboutFacts.fact1Value, aboutFacts.fact1Label], [aboutFacts.fact2Value, aboutFacts.fact2Label]].map(([value, label], fi) => (
+                {(aboutFacts ? [[aboutFacts.fact1Value, aboutFacts.fact1Label], [aboutFacts.fact2Value, aboutFacts.fact2Label]] : []).map(([value, label], fi) => (
                   <div key={label} className={`sr sr-up ${fi === 0 ? 'sr-d2' : 'sr-d3'} bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold`}>
                     <span className="text-4xl font-bold text-temple-red font-serif block mb-2">{value}</span>
                     <span className="text-gray-500">{label}</span>
