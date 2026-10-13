@@ -337,6 +337,87 @@ const bodyOf = (r) => {
   return r.body;
 };
 
+/**
+ * 即將舉行的祈福活動，用來產生 Event 結構化資料。
+ *
+ * **為什麼要改成從資料庫來**（2026-10-13）：原本 index.html 裡寫死一段
+ * 「太上慈悲普渡禮懺法會 2026-09-13」的 Event。那場早就辦完了，但標記還掛在
+ * 首頁上——Search Console 會回報「過期活動」，而 AI 檢索器讀到的是
+ * 「這間廟即將舉辦的活動」是一場一個月前就結束的法會。**比沒有標記更糟**。
+ *
+ * `blessing_events` 本來就有需要的每一個欄位，而且是後台可編輯的。
+ * 改成從這裡產之後：辦完的自動不輸出、新辦的不必工程師改程式。
+ *
+ * **只輸出「還沒結束」的**（end_date >= 今天）。報名截止但還沒辦的仍然輸出——
+ * 那場活動確實即將發生，只是不收報名了（同前台的排序規則）。
+ * 走外部報名表的（external_form）也輸出：Event 描述的是「有這場活動」，
+ * 跟報名走哪一套無關。
+ */
+const fetchUpcomingEvents = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    console.log('prerender  Event 標記：略過（沒有 Supabase 環境變數）');
+    return [];
+  }
+  // 日期一律釘住台北時區：建置機跑在 UTC，用本地時間會在台灣早上 8 點前少一天
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/blessing_events?select=title,description,start_date,end_date,registration_deadline,fee,packages,image_url,is_active&is_active=eq.true&order=start_date`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    const upcoming = (Array.isArray(rows) ? rows : [])
+      .filter((r) => (r.end_date || r.start_date || '') >= today);
+    console.log(`prerender  Event 標記：${upcoming.length} 場即將舉行（共 ${rows.length} 場）`);
+    return upcoming;
+  } catch (e) {
+    console.log(`prerender  Event 標記：略過（讀資料庫失敗：${e.message}）`);
+    return [];
+  }
+};
+
+const upcomingEvents = await fetchUpcomingEvents();
+
+/**
+ * 把一筆 blessing_events 轉成 schema.org 的 Event。
+ * 價格要嘛不給、要嘛給完整——`offers` 只給一半（例如有 price 沒有 priceCurrency）
+ * Search Console 會直接回報錯誤。
+ */
+const toEventNode = (ev) => {
+  const fees = [Number(ev.fee) || 0, ...(Array.isArray(ev.packages) ? ev.packages.map((p) => Number(p?.fee) || 0) : [])]
+    .filter((n) => n > 0);
+  const node = {
+    '@type': 'Event',
+    name: ev.title,
+    startDate: ev.start_date,
+    endDate: ev.end_date || ev.start_date,
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    url: 'https://heshengtan.tw/blessing',
+    organizer: { '@id': 'https://heshengtan.tw/#temple' },
+    performer: { '@id': 'https://heshengtan.tw/#temple' },
+    location: { '@id': 'https://heshengtan.tw/#temple' },
+  };
+  if (ev.description) node.description = String(ev.description).replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (ev.image_url) node.image = [ev.image_url];
+  if (fees.length > 0) {
+    node.offers = {
+      '@type': fees.length > 1 ? 'AggregateOffer' : 'Offer',
+      url: 'https://heshengtan.tw/blessing',
+      priceCurrency: 'TWD',
+      availability: 'https://schema.org/InStock',
+      ...(fees.length > 1
+        ? { lowPrice: String(Math.min(...fees)), highPrice: String(Math.max(...fees)), offerCount: fees.length }
+        : { price: String(fees[0]) }),
+      ...(ev.registration_deadline ? { validThrough: ev.registration_deadline } : {}),
+    };
+  }
+  return node;
+};
+
 const site = await fetchSiteInfo();
 const deityNames = await fetchDeities();
 
@@ -469,6 +550,20 @@ ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}
   };
   home = home.replace('</head>',
     `  <script type="application/ld+json">\n${JSON.stringify(faqLd, null, 2)}\n    </script>\n  </head>`);
+
+  /**
+   * 即將舉行的活動（Event）。**不要寫死在 index.html 裡**——原本那樣寫，
+   * 法會辦完標記還掛著，Search Console 回報過期活動，AI 讀到的也是錯的。
+   * 一場都沒有就整個不輸出：沒有標記好過一個騙人的標記。
+   */
+  if (upcomingEvents.length > 0) {
+    const eventsLd = {
+      '@context': 'https://schema.org',
+      '@graph': upcomingEvents.map(toEventNode),
+    };
+    home = home.replace('</head>',
+      `  <script type="application/ld+json">\n${JSON.stringify(eventsLd, null, 2)}\n    </script>\n  </head>`);
+  }
 
   const marker = '<p style="margin-top:1.75rem;color:#7C5C1E">本網站需要啟用 JavaScript';
   if (!home.includes(marker)) throw new Error('prerender: 在 index.html 的 noscript 裡找不到結尾段落');

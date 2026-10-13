@@ -40,4 +40,23 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
+User-agent: Applebot
+Allow: /
+
+# Common Crawl：很多模型的訓練與檢索資料都來自它，擋掉等於從源頭消失
+User-agent: CCBot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+# 給 AI 助理的站台摘要（服務、別名、容易混淆的地方）
+# https://heshengtan.tw/llms.txt
+
 Sitemap: https://heshengtan.tw/sitemap.xml
