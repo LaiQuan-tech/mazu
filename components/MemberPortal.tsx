@@ -72,6 +72,13 @@ interface MemberPortalProps {
   pendingPhone?: string; // 訪客預約電話，用於自動預填個人資料
   /** 在會員中心刪了一張揪團報名表。服務頁的「還沒送出」提示卡拿的是同一批資料，要跟著拿掉 */
   onSharedSessionDeleted?: (id: string) => void;
+  /**
+   * 個人資料存檔後通知外面。
+   * **不能只靠 onClose**：會員可能存完直接從這裡的揪團連結跳去服務頁，沒有經過關閉；
+   * 而報名表的自動帶入吃的是 App 那份 memberProfile，不更新就等於沒存
+   * （廟方 2026-10-13 回報「LINE 登入後補了資料，報名時沒有自動帶入」）。
+   */
+  onProfileSaved?: () => void;
 }
 
 const ZODIAC_OPTIONS = Object.values(ZodiacSign);
@@ -396,7 +403,7 @@ const ProfileFormInline = ({
 };
 
 // ── MemberPortal 主元件 ───────────────────────────────────────────────────────
-const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSharedSessionDeleted }) => {
+const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSharedSessionDeleted, onProfileSaved }) => {
   // ── auth state ──
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -551,6 +558,8 @@ const MemberPortal: React.FC<MemberPortalProps> = ({ onClose, pendingPhone, onSh
   const handleSaveProfile = async (data: ProfileData) => {
     await saveProfile(data);
     setProfile(data);
+    setProfileLoaded(true);
+    onProfileSaved?.();   // 讓報名表的自動帶入立刻拿到新資料，見 onProfileSaved 的說明
   };
 
   // ── auth handlers ──

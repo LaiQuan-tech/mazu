@@ -4776,10 +4776,23 @@ const App: React.FC = () => {
           <MemberPortal
             pendingPhone={memberPortalPendingPhone}
             onSharedSessionDeleted={handleSharedSessionRemoved}
+            onProfileSaved={loadMemberProfile}
             onClose={() => {
               setShowMemberPortal(false);
               setMemberPortalPendingPhone('');
-              if (member) loadMemberContacts();
+              /**
+               * **個人資料也要重抓，不是只有通訊錄**（2026-10-13 廟方回報
+               * 「LINE 登入後補了姓名電話生日，報名時卻沒有自動帶入」）。
+               *
+               * 會員在這裡填完資料存檔，動到的是資料庫；App 手上那份 `memberProfile`
+               * 是登入當下抓的，不會自己更新。原本只重抓 contacts，profile 就一直是舊的
+               * ——自動帶入依賴的正是 profile，於是永遠沒東西可帶，要整頁重新整理才會好。
+               *
+               * **LINE 登入的人 100% 會遇到**：那是全新帳號，profile 本來就是 null，
+               * 而他的動線必然是「登入 → 馬上補資料 → 去報名」。
+               * 信箱註冊的老會員因為早就填過，反而看不出這個問題。
+               */
+              if (member) { loadMemberContacts(); loadMemberProfile(); }
             }}
           />
         </Suspense>

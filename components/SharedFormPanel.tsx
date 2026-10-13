@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { RefreshCw, Plus, Trash2, CheckCircle2, Users, X } from 'lucide-react';
 import BirthDatePicker from './BirthDatePicker';
 import {
@@ -55,6 +55,40 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
   onAddEntries, onSubmitAll, onRefresh, onDelete, posterUrl, onPoster, submitStatus,
 }) => {
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>([emptyEntry()]);
+
+  /**
+   * 主揪自己那一列預先帶入會員資料（2026-10-13 廟方：「預設本人」）。
+   *
+   * 這個面板原本只拿 `memberProfile` 當電話欄的 placeholder——**主揪在自己開的
+   * 揪團表裡，姓名、生日、地址全部要重打一次**，而那些資料他早就填在會員中心了。
+   *
+   * **只有主揪帶、而且只帶第一列**：被揪的人填的是他自己，把主揪的姓名生日塞進去
+   * 等於幫別人填錯資料（而且那是別人的個資）；第二列以後是家人，也不該是主揪本人。
+   *
+   * **只補空欄位**，使用者改過的一律不動（同 App.tsx 那四個表單的規則）。
+   * 生日要跟著遞增 `_bKey`：BirthDatePicker 的年月日是內部狀態、只在掛載時讀一次 value，
+   * 光改字串畫面不會動（三個下拉會停在「吉年／吉月／吉日」）。
+   * memberProfile 是非同步來的，所以要用 effect 等它到，不能只在 useState 初始值處理。
+   */
+  useEffect(() => {
+    if (!isCreator || !memberProfile) return;
+    setLocalEntries(prev => prev.map((e, i) => {
+      if (i !== 0) return e;
+      const next = { ...e };
+      let changed = false;
+      const put = (k: 'name' | 'birthDate' | 'gender' | 'address', v?: string) => {
+        if (v && !next[k]) { next[k] = v; changed = true; }
+      };
+      put('name', memberProfile.name);
+      put('birthDate', memberProfile.birthDate);
+      put('gender', memberProfile.gender);
+      put('address', memberProfile.address);
+      if (!next.zodiac && memberProfile.zodiac) { next.zodiac = memberProfile.zodiac as ZodiacSign; changed = true; }
+      if (!changed) return e;
+      if (next.birthDate !== e.birthDate) next._bKey = (e._bKey ?? 0) + 1;
+      return next;
+    }));
+  }, [isCreator, memberProfile]);
   const [addStatus, setAddStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [refreshing, setRefreshing] = useState(false);
 
