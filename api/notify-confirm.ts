@@ -176,6 +176,12 @@ const blessingTotal = (r: Row): number => {
 const MAX_IDS = 50;
 
 /**
+ * 「加入會員」的入口。`?member=1` 會讓會員中心自己打開（同 LINE 登入轉回來那條路），
+ * 不帶參數的話信眾落在首頁還要自己找那顆鈕。
+ */
+const MEMBER_URL = 'https://heshengtan.tw/?member=1';
+
+/**
  * 公開那條路（捐獻）只寄「建立未滿這麼久」的紀錄。
  * 與 notify-registration 的同名常數同一個理由與數值，兩邊要一起看。
  */
@@ -340,11 +346,18 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       }
     }
 
-    // ── 收件信箱：自己填的優先，沒填就拿電話對會員帳號 ──
-    const needLookup = fresh.filter(x => !isEmail(clean(x.email)));
+    /**
+     * ── 拿電話去對 member_profiles，一次問完 ──
+     * 這一份查詢同時回答兩件事：
+     *   (1) 沒填信箱的人，寄到他會員帳號的信箱（備援）；
+     *   (2) 這個人**是不是已經是會員**——是的話信末那段「加入會員」就不要出現。
+     * 原本只查「沒填信箱」那幾筆，現在改成**全部都查**：差別只有一次查詢，
+     * 而少了它就會對著已經是會員的人叫他加入會員。
+     */
+    const memberPhones = new Set<string>();      // 這些電話已經有會員帳號
     const byPhone = new Map<string, string>();   // 電話 → 會員帳號的信箱
-    if (needLookup.length > 0) {
-      const phones = [...new Set(needLookup.map(x => clean(x.phone)).filter(Boolean))];
+    {
+      const phones = [...new Set(fresh.map(x => clean(x.phone)).filter(Boolean))];
       if (phones.length > 0) {
         // member_profiles 的電話是會員自己填的，報名時也是直接帶那一欄，所以逐字比對得上
         //
@@ -358,9 +371,14 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
           { headers: svc },
         );
         const profiles: Row[] = mp.ok ? await mp.json().catch(() => []) : [];
-        // 帳號的信箱在 auth.users，只有 admin API 拿得到。一個 user 一次查詢，人數不多
-        await Promise.all((Array.isArray(profiles) ? profiles : []).map(async p => {
-          if (!p.user_id || !p.phone) return;
+        const list = Array.isArray(profiles) ? profiles : [];
+        list.forEach(p => { if (p.phone) memberPhones.add(clean(p.phone)); });
+        // 帳號的信箱在 auth.users，只有 admin API 拿得到。**只問真的需要的那幾個**
+        // ——已經自己填了信箱的人不必為了寄信去翻他的帳號
+        const needAuth = list.filter(p =>
+          p.user_id && p.phone &&
+          fresh.some(x => clean(x.phone) === clean(p.phone) && !isEmail(clean(x.email))));
+        await Promise.all(needAuth.map(async p => {
           try {
             const u = await fetch(`${supabaseUrl}/auth/v1/admin/users/${p.user_id}`, { headers: svc });
             if (!u.ok) return;
@@ -456,6 +474,31 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         '',
         ...(spec.extra ? [...spec.extra, ''] : []),
         spec.closing ?? '感謝您的護持，願神明庇佑。',
+        /**
+         * ── 還不是會員的人，邀請他加入 ──
+         * 報名**不需要帳號**（四個表單對訪客是開放的），所以報過名的人絕大多數
+         * 沒有會員帳號，在後台的「會員管理」裡看不到（廟方 2026-10-13 問起）。
+         * 成功頁那顆「立即加入會員」只有一瞬間，而這封信他會留著——而且是廟方
+         * 剛確認完、他正放心的時候，比填完表單那一刻更願意多按一下。
+         *
+         * **已經是會員的不要寄這段**：對著會員叫他加入會員是雜訊。
+         * 判斷用電話對 member_profiles（上面那份查詢順便回答的）。
+         * 一群人共用一個收件信箱時，**只要其中一個是會員就整段不出現**
+         * ——寧可少講一次，也不要對著會員喊話。
+         *
+         * **「用同一支電話」是這段裡最有用的一句**，不是客套：報名紀錄一律以電話為鍵
+         * （`my_phone()`），電話對得上，他過去的點燈問事捐獻就會自己出現、不必重填。
+         * 填別支電話的話那些紀錄就接不起來，而他不會知道為什麼。
+         *
+         * 也要點名 LINE：本站信眾以長者居多，記 email 與密碼是真實的門檻，
+         * 而「不必記密碼」正是他會按下去的理由（同會員中心把 LINE 排在信箱之前）。
+         */
+        ...(rows.every(x => !memberPhones.has(clean(x.phone)))
+          ? ['',
+             '想查詢您歷次的紀錄嗎？用 LINE 一按就能加入會員，不必記密碼。',
+             '加入時請留同一支電話，過去的報名紀錄會自動出現。',
+             MEMBER_URL]
+          : []),
         '',
         '──',
         '和聖壇',
