@@ -38,11 +38,58 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
  */
 export interface SubmitOptions { notify?: boolean }
 
+/**
+ * 報名送出用的 insert：遇到「這個欄位不存在」就把選填欄位拿掉再試一次。
+ *
+ * ── 為什麼需要 ──
+ * 這是報名的送出路徑，**擋下來的那一刻就是一筆報名沒了**。而資料庫的欄位是
+ * 由人在 Supabase 後台手動跑 migration 加上去的（本專案所有 DDL 都是這樣），
+ * 程式與資料庫之間必然有一段時間差——而且那不是「幾分鐘」的事：廟方後台那顆
+ * 「重新發布」會從 git 重建正式站，**程式隨時可能比 migration 先上線**。
+ * 那段時間裡，少一個**選填**欄位就讓四個表單全部送不出去，代價完全不成比例。
+ *
+ * 所以：必填欄位照常拋錯（那是真的壞了），選填欄位遇到 schema 不符就捨棄重試。
+ * 捨棄的後果只是那個人收不到確認信／感謝信，而不是報不了名。
+ *
+ * PostgREST 回的是 `PGRST204`（Could not find the 'x' column ... in the schema
+ * cache）。訊息也一起比對，因為 supabase-js 不同版本帶的欄位不一樣。
+ */
+const insertOptional = async (
+  table: string,
+  row: Record<string, unknown>,
+  optional: string[],
+): Promise<void> => {
+  const { error } = await supabase.from(table).insert([row]);
+  if (!error) return;
+  const text = `${error.code ?? ''} ${error.message ?? ''}`;
+  const schemaMiss = /PGRST204/.test(text) || /schema cache|column .* does not exist/i.test(text);
+  /**
+   * **只捨棄錯誤訊息真的指名的那幾欄。**
+   * 不比對名字就等於「schema 一有問題就把選填欄位全丟掉再送」——
+   * 真正缺的若是必填欄位（表根本沒建、或改了欄位名），第二次照樣失敗，
+   * 但錯誤訊息已經換成第二次那個，查起來會指向錯的方向。
+   */
+  const named = optional.filter(k => text.includes(`'${k}'`) || new RegExp(`\\b${k}\\b`).test(text));
+  if (!schemaMiss || named.length === 0) {
+    console.error(`Error inserting into ${table}:`, error);
+    throw error;
+  }
+  const retry = { ...row };
+  named.forEach(k => { delete retry[k]; });
+  console.warn(`${table}: 資料庫還沒有 ${named.join('／')} 欄位，這一筆先不帶那幾欄送出`
+    + '（請執行 supabase/migrations/registration_email.sql）');
+  const second = await supabase.from(table).insert([retry]);
+  if (second.error) {
+    console.error(`Error inserting into ${table} (retry):`, second.error);
+    throw second.error;
+  }
+};
+
 export const submitBooking = async (data: BookingData, opts?: SubmitOptions): Promise<string> => {
   // id 客戶端先產：anon 只有 INSERT 權限、不能 .select() 讀回，
   // 而報名成功要通知廟方信箱就得知道是哪一筆（見 services/notifyRegistration.ts）
   const id = newUuid();
-  const { error } = await supabase.from('bookings').insert([{
+  await insertOptional('bookings', {
     id,
     name: data.name,
     phone: data.phone,
@@ -59,12 +106,7 @@ export const submitBooking = async (data: BookingData, opts?: SubmitOptions): Pr
     status: BookingStatus.PENDING,
     email: data.email?.trim() || null,
     source: getSource(),
-  }]);
-
-  if (error) {
-    console.error('Error submitting booking:', error);
-    throw error;
-  }
+  }, ['email']);
   if (opts?.notify !== false) notifyRegistration('bookings', id);
   return id;
 };
@@ -190,7 +232,7 @@ export const deleteBookingSession = async (id: string): Promise<boolean> => {
 
 export const submitDonation = async (data: DonationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();
-  const { error } = await supabase.from('donations').insert([{
+  await insertOptional('donations', {
     id,
     name: data.name,
     phone: data.phone,
@@ -204,12 +246,7 @@ export const submitDonation = async (data: DonationData, opts?: SubmitOptions): 
     repair_project_name: data.repairProjectName || null,
     email: data.email?.trim() || null,
     source: getSource(),
-  }]);
-
-  if (error) {
-    console.error('Error submitting donation:', error);
-    throw error;
-  }
+  }, ['email']);
   if (opts?.notify !== false) notifyRegistration('donations', id);
   return id;
 };
@@ -865,7 +902,7 @@ export const deleteLampServiceConfig = async (id: string): Promise<boolean> => {
 
 export const submitLampRegistration = async (data: LampRegistrationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();
-  const { error } = await supabase.from('lamp_registrations').insert([{
+  await insertOptional('lamp_registrations', {
     id,
     service_id: data.serviceId,
     name: data.name,
@@ -879,12 +916,7 @@ export const submitLampRegistration = async (data: LampRegistrationData, opts?: 
     status: LampRegistrationStatus.PENDING,
     email: data.email?.trim() || null,
     source: getSource(),
-  }]);
-
-  if (error) {
-    console.error('Error submitting lamp registration:', error);
-    throw error;
-  }
+  }, ['email']);
   if (opts?.notify !== false) notifyRegistration('lamp_registrations', id);
   return id;
 };
@@ -1322,7 +1354,7 @@ export const getBlessingRegistrations = async (eventId?: string): Promise<Blessi
 
 export const createBlessingRegistration = async (d: BlessingRegistrationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();
-  const { error } = await supabase.from('blessing_registrations').insert({
+  await insertOptional('blessing_registrations', {
     id,
     event_id: d.eventId,
     name: d.name,
@@ -1338,8 +1370,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
     claimed_offerings: d.claimedOfferings  || [],
     email: d.email?.trim() || null,
     source: getSource(),
-  });
-  if (error) { console.error(error); throw error; }
+  }, ['email']);
   if (opts?.notify !== false) notifyRegistration('blessing_registrations', id);
   return id;
 };
