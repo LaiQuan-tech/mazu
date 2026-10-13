@@ -21,6 +21,7 @@ import {
   Pin,
   ChevronDown,
   ChevronUp,
+  ArrowLeft,
   UserPlus,
   User as UserIcon,
   BookUser,
@@ -45,6 +46,7 @@ import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, Bl
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
+import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
@@ -135,7 +137,7 @@ const ENABLE_GROUP_BOOKING = true;
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
 // 其餘內容仍是首頁上的區塊，靠捲動抵達。
-type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins';
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins' | 'privacy';
 
 const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   booking: '/booking',
@@ -159,6 +161,16 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
    * 單則公告的網址是 /bulletins/<id>，廟方可以直接把某一則分享到 LINE。
    */
   bulletins: '/bulletins',
+  /**
+   * 隱私權政策的獨立網址。
+   *
+   * 內文本來只有頁尾點開的彈出視窗，**沒有網址可以給別人填**。
+   * LINE Developers 要把 Login channel 從 Developing 切成 Published 時
+   * 必須填一個隱私權政策的網址（廟方 2026-10-13），所以補這一頁。
+   * 內文與彈出視窗共用 `components/PrivacyContent.tsx`，不會變成兩份。
+   * **刻意不進導覽列**：頁尾那個入口就夠了，導覽列那一列早就沒有空間。
+   */
+  privacy: '/privacy',
 };
 
 /**
@@ -829,6 +841,7 @@ const App: React.FC = () => {
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
       calendar:   '歲時節慶｜神明聖誕、辦事日與誦經祈福｜台北古亭和聖壇',
       bulletins:  '最新活動與壇務公告｜台北古亭和聖壇',
+      privacy:    '隱私權政策｜台北古亭和聖壇',
     };
     // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
     // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
@@ -847,7 +860,6 @@ const App: React.FC = () => {
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(adminEntry);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const openVolunteer =(prefill?: { name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string }) => {
     setVolunteerPrefill(prefill);
@@ -3958,6 +3970,43 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
+      {/* ── 隱私權政策（獨立分頁 /privacy）──
+          內文與頁尾那個彈出視窗共用 PrivacyContent，不是另寫一份。
+          這一頁存在的理由是「要有一個網址可以填給別人」（LINE Developers
+          要求 Login channel 的隱私權政策網址），所以版面從簡：
+          標題、內文、回首頁，不加導覽列入口也不放行銷元素。 */}
+      {page === 'privacy' && (
+        <div className="relative pt-20 bg-white min-h-screen overflow-hidden">
+          <PatternMedallion motif="phoenix" side="r" />
+          <section className="page-content py-16 sm:py-20 relative z-10">
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+              {/* 標題：小標 h2 → 大標 h1 → 分隔飾（全站統一寫法，見 CLAUDE.md） */}
+              <header className="text-center mb-10">
+                <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+                  <span className="w-8 h-1 bg-temple-gold" aria-hidden="true" />個資保護
+                  <span className="w-8 h-1 bg-temple-gold" aria-hidden="true" />
+                </h2>
+                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-temple-dark">隱私權政策</h1>
+                <div className="flex items-center justify-center gap-3 mt-3" aria-hidden="true">
+                  <span className="w-12 h-px bg-temple-gold/70" />
+                  <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+                  <span className="w-12 h-px bg-temple-gold/70" />
+                </div>
+              </header>
+              <div className="space-y-5 text-sm sm:text-base text-gray-700 leading-relaxed">
+                <PrivacyContent siteInfo={siteInfo} />
+              </div>
+              <div className="mt-14 text-center">
+                <button type="button" onClick={() => goToPage('home')}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-temple-gold/50 text-temple-dark hover:bg-temple-gold/10 transition-colors">
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />回首頁
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* ── 遷址捐款（獨立分頁 /relocation）──
           入口在導覽列的「更多」下拉 */}
       {page === 'relocation' && <RelocationPage onBack={() => goToPage('home')} />}
@@ -4640,7 +4689,9 @@ const App: React.FC = () => {
                   而頁尾是長者最常誤點的地方。文字色也從 gray-500 提到 gray-300——
                   深色底上的 gray-500 只有 2.3:1，看不清楚。 */}
               <button
-                onClick={() => setShowPrivacyModal(true)}
+                /* 本來是開彈出視窗。改成換頁之後隱私權政策只有一個地方可看，
+                   而且有網址可以貼給 LINE／搜尋引擎（見 PAGE_PATHS 的 privacy） */
+                onClick={() => goToPage('privacy')}
                 className="py-2 text-gray-300 hover:text-temple-gold transition-colors"
               >
                 隱私權政策
@@ -4850,86 +4901,6 @@ const App: React.FC = () => {
       )}
 
       {/* ── 隱私權政策 Modal ── */}
-      {showPrivacyModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowPrivacyModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="bg-temple-red px-6 py-5 flex items-center justify-between shrink-0">
-              <h2 className="text-white font-bold text-lg font-serif">隱私權政策</h2>
-              <button onClick={() => setShowPrivacyModal(false)} className="text-white/70 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Content */}
-            <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 leading-relaxed">
-              <p className="text-gray-500 text-xs">最後更新：{new Date().getFullYear()} 年</p>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">一、</span>總則</h3>
-                <p>台北古亭和聖壇（以下簡稱「本宮」）重視您的個人資料保護。本政策說明本宮在您使用本網站各項服務（包括點燈登記、祈福報名、捐獻護持、問事預約等）時，如何收集、使用及保護您的個人資料，適用範圍以本網站為限。</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">二、</span>收集的個人資料</h3>
-                <p className="mb-2">本宮僅在您主動填寫表單時收集以下資料：</p>
-                <ul className="space-y-1 pl-4">
-                  {['姓名', '出生年月日及生肖', '現居地址', '聯絡電話', '電子郵件（會員帳號）', '捐款金額及護持類別', '問事希望日期與時段', '備註（含匯款帳號後五碼）'].map(item => (
-                    <li key={item} className="flex items-start gap-2"><span className="text-temple-gold mt-1">•</span>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">三、</span>資料使用目的</h3>
-                <p className="mb-2">所蒐集之個人資料，僅用於以下目的：</p>
-                <ul className="space-y-1 pl-4">
-                  {[
-                    '辦理點燈、祈福、捐獻、問事等服務之登記與確認',
-                    '廟方人員與您聯繫服務細節（電話或其他方式）',
-                    '核對匯款紀錄',
-                    '寄送活動通知（需您同意）',
-                  ].map(item => (
-                    <li key={item} className="flex items-start gap-2"><span className="text-temple-gold mt-1">•</span>{item}</li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-gray-500">本宮不會將您的個人資料出售、出租或以任何形式提供予第三方，法律要求除外。</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">四、</span>資料保存與安全</h3>
-                <p>個人資料儲存於受存取控制保護的雲端資料庫，本宮採取合理的技術措施防止未授權存取、洩漏或竄改。資料保存期限以服務完成後一年為原則，或依法令規定辦理。</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">五、</span>您的權利</h3>
-                <p>依據個人資料保護法，您得向本宮提出以下請求：查詢、閱覽、製給複製本、補充或更正、停止蒐集/處理/利用、刪除。如需行使上述權利，請透過下方聯絡資訊與本宮聯繫。</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">六、</span>Cookie 使用</h3>
-                <p>本網站使用瀏覽器本機儲存（localStorage）保存會員登入狀態，不使用追蹤型 Cookie，不與第三方廣告平台共享資料。</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">七、</span>政策修訂</h3>
-                <p>本政策如有修訂，將公告於本網站，修訂後繼續使用本網站即視為同意修訂後的內容。</p>
-              </div>
-
-              <div className="bg-temple-bg rounded-xl p-4">
-                <h3 className="font-bold text-gray-800 mb-2">聯絡資訊</h3>
-                <p>台北古亭和聖壇　｜　{siteInfo.address}</p>
-                <p>電話：{siteInfo.phone}　｜　開放時間：每日 {siteInfo.hoursOpen} – {siteInfo.hoursClose}</p>
-              </div>
-            </div>
-            {/* Footer */}
-            <div className="shrink-0 px-6 py-4 border-t border-gray-100 flex justify-end">
-              <button onClick={() => setShowPrivacyModal(false)} className="px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
-                我已閱讀並了解
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showLoginModal && (
         <div
