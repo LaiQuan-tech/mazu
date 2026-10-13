@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
+import { queueConfirmEmail } from '../services/notifyConfirm';
 import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
@@ -177,6 +178,12 @@ interface RegViewItem {
   contactLabel?: string;
   /** 報名來源（UTM）。與名冊那個「參與管道」的 source 不是同一件事 */
   source?: string;
+  /** 報名時自填的信箱（選填）。捐獻沒有這一欄 */
+  email?: string;
+  /** 寄給信眾那封信的寄出時間。工作人員要看得出「這個人到底收到通知了沒」 */
+  confirmSentAt?: string;
+  /** 這一類寄的是「感謝信」而且送出當下就寄（目前只有捐獻），文案要不一樣 */
+  thanks?: boolean;
 }
 
 const MemberInfoModal = ({
@@ -279,6 +286,32 @@ const MemberInfoModal = ({
                   <span className="text-xs text-gray-400 font-mono">{reg.source}</span>
                 </div>
               )}
+              {/* 確認信：工作人員按下「已確認」之後要看得出這個人到底收到通知了沒。
+                  沒有這一行的話，「沒留信箱所以沒寄」與「寄了」在畫面上一模一樣，
+                  工作人員會以為信眾都知道了（這封信存在的理由就是讓信眾知道）。
+                  **捐獻不會走到這裡**：它沒有「已確認」這個狀態，也沒有收信箱。 */}
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-gray-400 w-14 shrink-0 pt-0.5">{reg.thanks ? '感謝信' : '確認信'}</span>
+                {reg.confirmSentAt ? (
+                  <span className="text-xs text-green-700">
+                    已寄出　{fmtDate(reg.confirmSentAt)}
+                    {reg.email ? <span className="block text-gray-400">{reg.email}</span> : null}
+                  </span>
+                ) : reg.email ? (
+                  <span className="text-xs text-gray-500">
+                    {/* 捐獻是送出當下寄的，所以「有信箱卻還沒寄出」代表那一封沒寄成功，
+                        不是「還在等廟方確認」——兩種情況要講不一樣的話 */}
+                    {reg.thanks ? '尚未寄出（可能寄送失敗）' : '改為「已確認」時寄至'}
+                    <span className="block text-gray-700">{reg.email}</span>
+                  </span>
+                ) : (
+                  /* 會員帳號那條備援在後端用電話比對，前端這裡拿不到帳號的信箱，
+                     所以寫「若⋯」而不是斷定——寫死會變成騙工作人員 */
+                  <span className="text-xs text-gray-500">
+                    未留信箱。若此電話對得上用信箱註冊的會員，會寄到那個帳號，否則不寄。
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1108,7 +1141,11 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
   const handleStatusToggle = async (r: FahuiRegistrationRecord) => {
     setBusyId(r.id);
     try {
-      await updateFahuiStatus(r.id, r.status === 'paid' ? 'pending' : 'paid');
+      const next = r.status === 'paid' ? 'pending' : 'paid';
+      await updateFahuiStatus(r.id, next);
+      // 只有「確認」那個方向要寄；改回待匯款不寄（沒有「取消確認信」這種東西，
+      // 寄一封說「其實還沒收到」只會讓信眾更混亂，廟方該直接打電話）
+      if (next === 'paid') queueConfirmEmail('fahui_registrations', r.id);
       onRefresh();
     } catch { alert('更新狀態失敗'); } finally { setBusyId(null); }
   };
@@ -1371,6 +1408,16 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
                     {r.notes && (
                       <div className="text-sm"><span className="text-gray-400">留言：</span><span className="text-gray-700">{r.notes}</span></div>
                     )}
+                    {/* 確認信：按下「標記已收款」之後，信眾收到通知了沒。
+                        法會是五種報名裡唯一本來就收信箱的，所以這裡不必講會員帳號那條備援 */}
+                    <div className="text-sm">
+                      <span className="text-gray-400">確認信：</span>
+                      {r.confirmSentAt
+                        ? <span className="text-green-700">已寄出　{fmtDate(r.confirmSentAt)}{r.email ? `（${r.email}）` : ''}</span>
+                        : r.email
+                          ? <span className="text-gray-500">標記已收款時寄至 {r.email}</span>
+                          : <span className="text-gray-500">未留信箱，不會寄確認信</span>}
+                    </div>
                     </>
                     )}
                     <FahuiReconcileBlock r={r} onSaved={onRefresh} />
@@ -1975,7 +2022,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                 {paged.map(b => (
                   <tr key={b.id}
                     className="hover:bg-blue-50/40 transition-colors cursor-pointer"
-                    onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source })}
+                    onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source, email: b.email, confirmSentAt: b.confirmSentAt })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -2162,7 +2209,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                 {paged.map(d => (
                   <tr key={d.id}
                     className="hover:bg-green-50/40 transition-colors cursor-pointer"
-                    onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source })}
+                    onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source, email: d.email, confirmSentAt: d.confirmSentAt, thanks: true })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -4171,6 +4218,9 @@ const LampsTab = ({
     setUpdatingRegId(id);
     try {
       await updateLampRegistrationStatus(id, status);
+      // 確認完成就通知信眾一聲（廟方 2026-10-13）。連著確認好幾列會併成一封，
+      // 寄過的不再寄——兩件事都在 services/notifyConfirm.ts 與那支端點裡處理
+      if (status === LampRegistrationStatus.CONFIRMED) queueConfirmEmail('lamp_registrations', id);
       onRefresh();
     } catch {
       alert('更新狀態失敗');
@@ -4374,7 +4424,7 @@ const LampsTab = ({
             {pagedRegs.map(r => (
               <div key={r.id}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 cursor-pointer hover:border-orange-200 hover:bg-orange-50/30 transition-colors"
-                onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel, source: r.source })}
+                onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt })}
               >
                 <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
                   <Flame className="w-5 h-5 text-orange-500" />
@@ -4633,7 +4683,13 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
 
   const handleRegStatus = async (id: string, status: BlessingStatus) => {
     setUpdatingRegId(id);
-    try { await updateBlessingRegistrationStatus(id, status); onRefresh(); }
+    try {
+      await updateBlessingRegistrationStatus(id, status);
+      // 確認完成就通知信眾一聲（廟方 2026-10-13）。連著確認好幾列會併成一封，
+      // 寄過的不再寄——兩件事都在 services/notifyConfirm.ts 與那支端點裡處理
+      if (status === BlessingStatus.CONFIRMED) queueConfirmEmail('blessing_registrations', id);
+      onRefresh();
+    }
     catch { alert('更新失敗'); }
     finally { setUpdatingRegId(null); }
   };
@@ -4735,7 +4791,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                   {filteredRegs.map(r => (
                     <tr key={r.id}
                       className="hover:bg-purple-50/40 transition-colors cursor-pointer"
-                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt, source: r.source })}
+                      onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt })}
                     >
                       <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
@@ -5916,6 +5972,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     setUpdatingId(id);
     try {
       await updateBookingStatus(id, status);
+      // 確認完成就通知信眾一聲（廟方 2026-10-13）。連著確認好幾列會併成一封，
+      // 寄過的不再寄——兩件事都在 services/notifyConfirm.ts 與那支端點裡處理
+      if (status === BookingStatus.CONFIRMED) queueConfirmEmail('bookings', id);
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
     } catch {
       alert('更新狀態失敗');

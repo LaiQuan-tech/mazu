@@ -57,6 +57,7 @@ export const submitBooking = async (data: BookingData, opts?: SubmitOptions): Pr
     type: data.type,
     notes: data.notes || null,
     status: BookingStatus.PENDING,
+    email: data.email?.trim() || null,
     source: getSource(),
   }]);
 
@@ -97,6 +98,8 @@ export const getBookings = async (): Promise<BookingRecord[]> => {
     divineMessage: row.divine_message || undefined,
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
+    email: row.email || undefined,
+    confirmSentAt: row.confirm_sent_at || undefined,
   }));
 };
 
@@ -199,6 +202,7 @@ export const submitDonation = async (data: DonationData, opts?: SubmitOptions): 
     notes: data.notes || null,
     repair_project_id:   data.repairProjectId   || null,
     repair_project_name: data.repairProjectName || null,
+    email: data.email?.trim() || null,
     source: getSource(),
   }]);
 
@@ -235,6 +239,8 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     repairProjectName: row.repair_project_name || undefined,
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
+    email: row.email || undefined,
+    confirmSentAt: row.confirm_sent_at || undefined,
   }));
 };
 
@@ -871,6 +877,7 @@ export const submitLampRegistration = async (data: LampRegistrationData, opts?: 
     contact_label: data.contactLabel || null,
     notes: data.notes || null,
     status: LampRegistrationStatus.PENDING,
+    email: data.email?.trim() || null,
     source: getSource(),
   }]);
 
@@ -907,6 +914,8 @@ export const getLampRegistrations = async (): Promise<LampRegistrationRecord[]> 
     status: row.status as LampRegistrationStatus,
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
+    email: row.email || undefined,
+    confirmSentAt: row.confirm_sent_at || undefined,
   }));
 };
 
@@ -1226,6 +1235,8 @@ const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
   status: (row.status as BlessingStatus) || BlessingStatus.PENDING,
   createdAt: row.created_at,
   source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
+  email: row.email || undefined,
+  confirmSentAt: row.confirm_sent_at || undefined,
 });
 
 export const getBlessingEvents = async (activeOnly = false): Promise<BlessingEventRecord[]> => {
@@ -1325,6 +1336,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
     package_fee:       d.packageFee        ?? null,
     selected_addons:   d.selectedAddons    || [],
     claimed_offerings: d.claimedOfferings  || [],
+    email: d.email?.trim() || null,
     source: getSource(),
   });
   if (error) { console.error(error); throw error; }
@@ -1870,6 +1882,7 @@ export const getFahuiRegistrations = async (): Promise<FahuiRegistrationRecord[]
     thanksLetter: typeof row.thanks_letter === 'string' ? (row.thanks_letter || undefined) : undefined,
     accountingCheck: row.accounting_check ?? false,
     adminNote: row.admin_note || undefined,
+    confirmSentAt: row.confirm_sent_at || undefined,
   }));
 };
 

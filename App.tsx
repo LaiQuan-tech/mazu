@@ -48,6 +48,7 @@ import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
+import { sendDonationThanks } from './services/notifyConfirm';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
@@ -1140,6 +1141,17 @@ const App: React.FC = () => {
   const [repairFormStatus, setRepairFormStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   // ── 訪客（未登入）電話 ──
   const [guestPhone, setGuestPhone] = useState('');
+  /**
+   * 報名用的電子信箱（選填）。四個表單共用一個，填過一次之後換個服務再報名不必重打。
+   *
+   * **對所有人顯示，不是只給訪客**（電話那一欄是未登入才顯示的，因為會員的電話
+   * 來自個人資料）：`member_profiles` 根本沒有信箱欄位，而 LINE 登入的會員連帳號
+   * 都沒有信箱——只給訪客看的話，最可能需要通知的那群人反而填不到。
+   *
+   * 用途：廟方在後台把報名改成「已確認」時，寄一封確認信給信眾（廟方 2026-10-13）。
+   * 沒填也沒關係，寄信時會拿電話回頭對會員帳號（見 api/notify-confirm.ts）。
+   */
+  const [contactEmail, setContactEmail] = useState('');
 
   /**
    * 首頁輪播的自動換頁計時器。
@@ -1411,6 +1423,24 @@ const App: React.FC = () => {
   }, [memberProfile]);
 
   /**
+   * 用信箱註冊的會員，把帳號那個信箱帶進「電子信箱」欄。
+   *
+   * **信箱不在 memberProfile 裡**（`member_profiles` 沒有這一欄），所以不能併進
+   * 上面那支 effect，要看 `member`（Supabase 的 User）。LINE 登入的帳號沒有信箱
+   * ——那是正常的，LINE 不給——所以這裡常常什麼都不做。
+   *
+   * 為什麼要帶入而不是全靠後端那條備援（拿電話對會員帳號）：
+   * **帶進來信眾才看得見、才改得掉。** 確認信要寄到哪裡是他的事，
+   * 悄悄寄到他兩年前註冊用的信箱、而畫面上一片空白，是在替他決定。
+   *
+   * 只補空值（同 fillEmptyFields 的原則）：使用者自己打過的一律不動。
+   */
+  useEffect(() => {
+    const e = member?.email;
+    if (e) setContactEmail(prev => prev || e);
+  }, [member]);
+
+  /**
    * 捐款類別載入後，把卡片上「已經不存在的類別」校正成第一項。
    * 會發生的情境：預設值來自 `DonationType` 列舉，而廟方在後台把那個類別改名了——
    * 不校正的話送出的會是一個下拉裡根本沒有的字串。
@@ -1576,7 +1606,7 @@ const App: React.FC = () => {
     setLampStatus('loading');
     // notify:false ＝整批送完才寄一封信。一次報好幾個人是同一筆訂單（廟方 2026-10-12）
     const ids = await submitSequentially(lampPersons, (p: LampPersonEntry) => submitLampRegistration({
-      serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes,
+      serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes, email: contactEmail || undefined,
     }, { notify: false }));
     // 部分成功也要通知：那幾筆已經在資料庫裡了，廟方該知道。剩下的重送時再寄一封
     notifyRegistration('lamp_registrations', ids);
@@ -1611,6 +1641,7 @@ const App: React.FC = () => {
     const ids = await submitSequentially(bookingPersons, (p: BookingPersonEntry) => submitBooking({
       name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel,
       bookingDate: selectedSession.sessionDate, bookingTime: selectedSession.sessionTime, sessionId: selectedSessionId, type: p.type, notes: p.notes || undefined,
+      email: contactEmail || undefined,
     }, { notify: false }));
     notifyRegistration('bookings', ids);
     const ok = ids.length;
@@ -1644,9 +1675,14 @@ const App: React.FC = () => {
         contactLabel: p.contactLabel, amount: p.amount, type: p.type, notes: donationNotes,
         repairProjectId:   proj?.id,
         repairProjectName: proj?.name,
+        email: contactEmail || undefined,
       }, { notify: false });
     });
     notifyRegistration('donations', ids);
+    // 捐款人自己那封感謝信（廟方 2026-10-13「捐獻，直接寄感謝信」）。
+    // 與上面那封是不同的收件人：notifyRegistration 寄給廟方，這支寄給捐款人。
+    // 沒填信箱、電話也對不上會員帳號的話後端會安靜跳過，不必在這裡判斷。
+    sendDonationThanks(ids);
     const ok = ids.length;
     if (ok < donationPersons.length) {
       if (ok > 0) { setDonationPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
@@ -1700,6 +1736,7 @@ const App: React.FC = () => {
         packageFee:  pkg?.fee,
         selectedAddons:   selectedAddons.length   > 0 ? selectedAddons   : undefined,
         claimedOfferings: claimedOfferings.length > 0 ? claimedOfferings : undefined,
+        email: contactEmail || undefined,
       } as BlessingRegistrationData, { notify: false });
     });
     notifyRegistration('blessing_registrations', ids);
@@ -3092,6 +3129,18 @@ const App: React.FC = () => {
                       </label>
                     </div>
                   )}
+                  {/* 電子信箱（選填）。**不加 required、不加格式檢查以外的任何阻擋**：
+                      這是報名的送出路徑，擋下來的那一刻就是一筆報名沒了，
+                      而一個打錯的信箱遠比掉一筆報名輕微。 */}
+                  <div>
+                    <label className="block">
+                      <span className="block text-sm font-medium text-gray-700 mb-1">電子信箱（選填）</span>
+                      <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                      placeholder="example@gmail.com"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                      <span className="block text-xs text-gray-400 mt-1">填了就會收到廟方確認後的通知；不填也可以報名。</span>
+                    </label>
+                  </div>
 
                   {bookingStatus === 'error' && (
                     <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
@@ -3373,6 +3422,17 @@ const App: React.FC = () => {
                         </label>
                       </div>
                     )}
+
+                    {/* 電子信箱（選填）。理由見另外兩處的註解與 contactEmail 的說明 */}
+                    <div>
+                      <label className="block">
+                        <span className="block text-sm font-medium text-gray-700 mb-1">電子信箱（選填）</span>
+                        <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                        placeholder="example@gmail.com"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        <span className="block text-xs text-gray-400 mt-1">填了就會收到廟方確認後的通知；不填也可以報名。</span>
+                      </label>
+                    </div>
 
                     {/* 匯款資訊 */}
                     <BankInfoBox />
@@ -3915,6 +3975,17 @@ const App: React.FC = () => {
                       </div>
                     )}
 
+                    {/* 電子信箱（選填）。理由見另外兩處的註解與 contactEmail 的說明 */}
+                    <div>
+                      <label className="block">
+                        <span className="block text-sm font-medium text-gray-700 mb-1">電子信箱（選填）</span>
+                        <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                        placeholder="example@gmail.com"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+                        <span className="block text-xs text-gray-400 mt-1">填了就會收到廟方確認後的通知；不填也可以報名。</span>
+                      </label>
+                    </div>
+
                     {/* 匯款資訊 */}
                     <BankInfoBox />
 
@@ -4289,7 +4360,7 @@ const App: React.FC = () => {
                   if (!repairSelectedProj) return;
                   setRepairFormStatus('loading');
                   try {
-                    await submitDonation({
+                    const did = await submitDonation({
                       name: repairName,
                       phone: member ? (memberProfile?.phone ?? '') : guestPhone,
                       amount: repairAmount,
@@ -4297,7 +4368,11 @@ const App: React.FC = () => {
                       repairProjectId: repairSelectedProj.id,
                       repairProjectName: repairSelectedProj.name,
                       notes: repairNotes || undefined,
+                      email: contactEmail || undefined,
                     });
+                    // 這張表沒有信箱欄位（它只收姓名與金額），但電話可能對得上
+                    // 用信箱註冊的會員——後端會去對，對不上就安靜跳過
+                    sendDonationThanks([did]);
                     setRepairFormStatus('success');
                     // 重新載入進度
                     getRepairProjectTotals().then(setRepairProjectTotals).catch(() => {});
@@ -4509,6 +4584,19 @@ const App: React.FC = () => {
                       </label>
                     </div>
                   )}
+                  {/* 電子信箱（選填）。**不加 required、不加格式檢查以外的任何阻擋**：
+                      這是送出路徑，擋下來的那一刻就是一筆捐獻沒了，
+                      而一個打錯的信箱遠比掉一筆捐獻輕微。 */}
+                  <div>
+                    <label className="block">
+                      <span className="block text-sm font-medium text-gray-700 mb-1">電子信箱（選填）</span>
+                      <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                      placeholder="example@gmail.com"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none" />
+                      {/* 捐獻與其他三種不同：不等廟方確認，送出就寄感謝信（廟方 2026-10-13） */}
+                      <span className="block text-xs text-gray-400 mt-1">填了就會收到本壇的感謝信；不填也可以捐獻。</span>
+                    </label>
+                  </div>
 
                   {/* 匯款資訊 */}
                   <BankInfoBox />

@@ -23,6 +23,10 @@ export type FahuiEntry = Record<string, string>;
 export interface FahuiRegistrationRecord {
   id: string;
   createdAt: string;
+  /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
+   *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
+   *  （見 api/notify-confirm.ts）。 */
+  confirmSentAt?: string;
   /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
    *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
    *  undefined 代表這筆早於追蹤上線（2026-09-09）。
@@ -134,6 +138,12 @@ export enum BookingStatus {
 }
 
 export interface BookingData {
+  /** 聯絡信箱（選填）。廟方在後台把這筆改成「已確認」時，確認信寄到這裡。
+   *  **會員帳號的信箱不存在這裡也補不進來**：`member_profiles` 沒有信箱欄位，
+   *  而 LINE 登入的會員連 auth 帳號都沒有信箱（LINE 不給）。
+   *  所以這一格對所有人顯示、不是只給訪客；沒填的話由後端拿電話去對
+   *  auth 帳號的信箱當備援（見 api/notify-confirm.ts）。 */
+  email?: string;
   name: string;
   phone: string;
   gender?: string;
@@ -153,6 +163,10 @@ export interface BookingData {
 
 export interface BookingRecord extends BookingData {
   id: string;
+  /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
+   *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
+   *  （見 api/notify-confirm.ts）。 */
+  confirmSentAt?: string;
   /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
    *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
    *  undefined 代表這筆早於追蹤上線（2026-09-09）。
@@ -196,6 +210,13 @@ export enum DonationType {
 }
 
 export interface DonationData {
+  /** 聯絡信箱（選填）。
+   *  捐獻**不需要廟方確認**，送出當下就寄一封感謝信到這裡（廟方 2026-10-13）。
+   *  **會員帳號的信箱不存在這裡也補不進來**：`member_profiles` 沒有信箱欄位，
+   *  而 LINE 登入的會員連 auth 帳號都沒有信箱（LINE 不給）。
+   *  所以這一格對所有人顯示、不是只給訪客；沒填的話由後端拿電話去對
+   *  auth 帳號的信箱當備援（見 api/notify-confirm.ts）。 */
+  email?: string;
   name: string;
   phone: string;
   gender?: string;
@@ -211,6 +232,11 @@ export interface DonationData {
 
 export interface DonationRecord extends DonationData {
   id: string;
+  /** 寄給信眾的那封信（確認信／感謝信）寄出的時間（ISO）。`undefined` ＝還沒寄過。
+   *  靠這一欄才不會重寄：捐獻是送出時寄，重送同一批 id 不會再來一封；
+   *  其餘幾種是廟方改狀態時寄，而那是一顆會被改來改去的下拉選單
+   *  （見 api/notify-confirm.ts）。 */
+  confirmSentAt?: string;
   /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
    *  未追蹤到就是 google.com 這類 referrer 網域或 direct；
    *  undefined 代表這筆早於追蹤上線（2026-09-09）。
@@ -467,6 +493,12 @@ export interface LampServiceConfig extends LampServiceConfigData {
 }
 
 export interface LampRegistrationData {
+  /** 聯絡信箱（選填）。廟方在後台把這筆改成「已確認」時，確認信寄到這裡。
+   *  **會員帳號的信箱不存在這裡也補不進來**：`member_profiles` 沒有信箱欄位，
+   *  而 LINE 登入的會員連 auth 帳號都沒有信箱（LINE 不給）。
+   *  所以這一格對所有人顯示、不是只給訪客；沒填的話由後端拿電話去對
+   *  auth 帳號的信箱當備援（見 api/notify-confirm.ts）。 */
+  email?: string;
   serviceId: string;
   name: string;
   phone: string;
@@ -480,6 +512,10 @@ export interface LampRegistrationData {
 
 export interface LampRegistrationRecord extends LampRegistrationData {
   id: string;
+  /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
+   *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
+   *  （見 api/notify-confirm.ts）。 */
+  confirmSentAt?: string;
   status: LampRegistrationStatus;
   createdAt: string;
   /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；
@@ -593,6 +629,12 @@ export interface BlessingEventRecord extends BlessingEventData {
 }
 
 export interface BlessingRegistrationData {
+  /** 聯絡信箱（選填）。廟方在後台把這筆改成「已確認」時，確認信寄到這裡。
+   *  **會員帳號的信箱不存在這裡也補不進來**：`member_profiles` 沒有信箱欄位，
+   *  而 LINE 登入的會員連 auth 帳號都沒有信箱（LINE 不給）。
+   *  所以這一格對所有人顯示、不是只給訪客；沒填的話由後端拿電話去對
+   *  auth 帳號的信箱當備援（見 api/notify-confirm.ts）。 */
+  email?: string;
   eventId: string;
   name: string;
   phone: string;
@@ -609,6 +651,10 @@ export interface BlessingRegistrationData {
 
 export interface BlessingRegistrationRecord extends BlessingRegistrationData {
   id: string;
+  /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
+   *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
+   *  （見 api/notify-confirm.ts）。 */
+  confirmSentAt?: string;
   status: BlessingStatus;
   createdAt: string;
   /** 報名來源（UTM），格式「來源/形式/檔期」如 line/broadcast/pudu2026；

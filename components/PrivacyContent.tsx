@@ -26,7 +26,7 @@ const PrivacyContent: React.FC<{ siteInfo: SiteInfo }> = ({ siteInfo }) => (
               <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-1.5"><span className="text-temple-red">二、</span>收集的個人資料</h3>
               <p className="mb-2">本宮僅在您主動填寫表單時收集以下資料：</p>
               <ul className="space-y-1 pl-4">
-                {['姓名', '出生年月日及生肖', '現居地址', '聯絡電話', '電子郵件（會員帳號）', '捐款金額及護持類別', '問事希望日期與時段', '備註（含匯款帳號後五碼）'].map(item => (
+                {['姓名', '出生年月日及生肖', '現居地址', '聯絡電話', '電子郵件（會員帳號，或登記時自行填寫以接收通知）', '捐款金額及護持類別', '問事希望日期與時段', '備註（含匯款帳號後五碼）'].map(item => (
                   <li key={item} className="flex items-start gap-2"><span className="text-temple-gold mt-1">•</span>{item}</li>
                 ))}
               </ul>
@@ -40,12 +40,14 @@ const PrivacyContent: React.FC<{ siteInfo: SiteInfo }> = ({ siteInfo }) => (
                   '辦理點燈、祈福、捐獻、問事等服務之登記與確認',
                   '廟方人員與您聯繫服務細節（電話或其他方式）',
                   '核對匯款紀錄',
+                  '報名經本宮確認後，寄送報名完成的確認信',
+                  '捐獻登記後，寄送感謝信',
                   '寄送活動通知（需您同意）',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2"><span className="text-temple-gold mt-1">•</span>{item}</li>
                 ))}
               </ul>
-              <p className="mt-2 text-gray-500">本宮不會將您的個人資料出售、出租或以任何形式提供予第三方，法律要求除外。</p>
+              <p className="mt-2 text-gray-500">本宮不會將您的個人資料出售或出租。為提供上述服務，資料會儲存於委外的雲端資料庫，確認信亦透過委外的電子郵件服務寄送；除此之外不會提供予第三方，法律要求除外。</p>
             </div>
 
             <div>
