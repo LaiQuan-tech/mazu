@@ -23,6 +23,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+// ESM 取 npm 套件一定要用 createRequire（NODE_PATH 對 import 沒作用，見 CLAUDE.md）
+const require = createRequire(import.meta.url);
 
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const ORIGIN = 'https://heshengtan.tw';
@@ -334,9 +338,96 @@ const NAV_LINKS = [{ path: '/', label: '首頁' }, ...ACTIVE_ROUTES.map((r) => (
  * 這一頁 noscript 的段落。預設是 ROUTES 裡手寫的 body；
  * /deities 額外把資料庫的神尊名單接在後面（手寫那句只是概括，且曾與實際名單不符）。
  */
+/**
+ * 公佈欄與神明聖誕的快照（2026-10-13 補）。
+ *
+ * **為什麼要抓**：預渲染不執行 React，所以 /bulletins 與 /calendar 原本的
+ * noscript 只寫得出「這一頁有什麼」，寫不出「現在實際有什麼」。
+ * 不執行 JS 的 AI 檢索器看到的就是一頁空殼——而「最近有什麼活動」「媽祖生日
+ * 是哪一天」正是信眾最常問、最該被答對的兩件事。
+ *
+ * **刻意不用 puppeteer**：讓無頭瀏覽器跑一次 React 是另一種解法，但要在
+ * Vercel 的建置機下載 Chromium（幾百 MB、拖慢建置、多一個會壞的環節），
+ * 而這些內容本來就在資料庫——直接抓，同樣的結果、少掉整個瀏覽器。
+ *
+ * 快照會過期（下次部署才更新），所以**只寫會長期成立的事實**：
+ * 公告標題與日期、聖誕的農曆規則與今年換算後的國曆日期。
+ */
+const fetchBulletins = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/bulletins?select=title,category,content,created_at,is_pinned&order=is_pinned.desc,created_at.desc&limit=10`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    console.log(`prerender  公告快照：${Array.isArray(rows) ? rows.length : 0} 則`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    console.log(`prerender  公告快照：略過（${e.message}）`);
+    return [];
+  }
+};
+
+/** 今年的神明聖誕（農曆換算成國曆）。lunar-javascript 與前台用同一個函式庫 */
+const fetchFeasts = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/deity_feasts?select=title,calendar_type,lunar_month,lunar_day,solar_month,solar_day,is_visible&is_visible=eq.true`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    const { Lunar, Solar } = require('lunar-javascript');
+    const year = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date()).slice(0, 4));
+    const out = [];
+    // **日期要補零再排**：不補的話字串比較會把 2026/10/10 排在 2026/2/17 前面
+    const ymd = (y, m, d) => `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
+    for (const f of (Array.isArray(rows) ? rows : [])) {
+      try {
+        if (f.calendar_type === 'solar' && f.solar_month && f.solar_day) {
+          out.push({ title: f.title, date: ymd(year, f.solar_month, f.solar_day), rule: `國曆 ${f.solar_month} 月 ${f.solar_day} 日` });
+        } else if (f.calendar_type === 'lunar' && f.lunar_month && f.lunar_day) {
+          const sol = Lunar.fromYmd(year, f.lunar_month, f.lunar_day).getSolar();
+          // 反查確認：lunar-javascript 對不存在的日期是回鄰近值而不是報錯（見 CLAUDE.md）
+          const back = sol.getLunar();
+          if (Math.abs(back.getMonth()) !== Math.abs(f.lunar_month) || back.getDay() !== f.lunar_day) continue;
+          out.push({ title: f.title, date: ymd(sol.getYear(), sol.getMonth(), sol.getDay()), rule: `農曆 ${f.lunar_month} 月 ${f.lunar_day} 日` });
+        }
+      } catch { /* 單筆算不出來就跳過，不要讓整個建置掛掉 */ }
+    }
+    out.sort((a, b) => a.date.localeCompare(b.date));
+    console.log(`prerender  聖誕快照：${out.length} 筆（${year} 年）`);
+    return out;
+  } catch (e) {
+    console.log(`prerender  聖誕快照：略過（${e.message}）`);
+    return [];
+  }
+};
+
+const bulletinSnapshot = await fetchBulletins();
+const feastSnapshot = await fetchFeasts();
+
 const bodyOf = (r) => {
   if (r.path === '/deities' && deityNames && deityNames.length) {
     return [...r.body, `本壇目前奉祀的神尊共 ${deityNames.length} 尊：${deityNames.join('、')}。`];
+  }
+  if (r.path === '/bulletins' && bulletinSnapshot.length > 0) {
+    return [...r.body, ...bulletinSnapshot.map((b) => {
+      const d = String(b.created_at || '').slice(0, 10).replace(/-/g, '/');
+      const brief = String(b.content || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+      return `${d}　【${b.category || '公告'}】${b.title}${brief ? `——${brief}…` : ''}`;
+    })];
+  }
+  if (r.path === '/calendar' && feastSnapshot.length > 0) {
+    return [...r.body, `今年的神明聖誕日期（依農曆換算）：`,
+      ...feastSnapshot.map((f) => `${f.date}　${f.title}（${f.rule}）`)];
   }
   return r.body;
 };
