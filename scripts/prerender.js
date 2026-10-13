@@ -136,6 +136,7 @@ const ROUTES = [
   },
   {
     path: '/booking',
+    service: { name: '預約問事', description: '向神明請示事業、感情、家運等疑難，由專人解籤與問事。須先線上選擇場次預約，不接受未預約臨櫃辦理。' },
     priority: '0.8',
     title: '預約問事｜台北古亭和聖壇',
     desc: '事業、感情、家運遇有瓶頸，誠心向神明請示。台北古亭和聖壇提供一對一專人解籤與問事服務，可線上預約場次，亦接受現場報名。',
@@ -147,6 +148,7 @@ const ROUTES = [
   },
   {
     path: '/lamps',
+    service: { name: '點燈服務', description: '年度點燈，一年一期：太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈。可線上登記。' },
     priority: '0.8',
     title: '點燈服務｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
     desc: '台北古亭和聖壇點燈服務線上登記，一年一期。提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂、元辰光彩。天赦日等單場次的祈福點燈請見祈福活動。',
@@ -158,6 +160,7 @@ const ROUTES = [
   },
   {
     path: '/blessing',
+    service: { name: '祈福活動', description: '單場次的祈福法會與活動，例如天赦日點燈、神明聖誕祈福，為信眾消災解厄、增福添壽。可線上報名。' },
     priority: '0.7',
     title: '祈福法會報名｜台北古亭和聖壇',
     desc: '台北古亭和聖壇不定期舉辦祈福法會，為信眾消災解厄、增福添壽，提供個人與闔家平安祈福線上報名。',
@@ -182,6 +185,7 @@ const ROUTES = [
   },
   {
     path: '/relocation',
+    service: { name: '遷址護持', description: '道場遷址的護持專案，分月供養與單次供養兩種方案。' },
     priority: '0.7',
     title: '遷址捐款｜護持和聖壇道場遷址',
     desc: '和聖壇道場遷址護持專案。分「每月同行｜月供養」與「單次供養」兩種方案，誠摯邀請信眾一同護持。',
@@ -379,6 +383,31 @@ const fetchUpcomingEvents = async () => {
   }
 };
 
+/**
+ * 點燈的燈種與價格。寫死在這裡的話，廟方在後台調價就會跟結構化資料對不起來——
+ * 而「多少錢」正是 AI 最常被問、也最容易答錯的一項。
+ */
+const fetchLampServices = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/lamp_service_configs?select=name,fee,description,is_active&is_active=eq.true&order=display_order`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    console.log(`prerender  點燈價格：${Array.isArray(rows) ? rows.length : 0} 種`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    console.log(`prerender  點燈價格：略過（${e.message}）`);
+    return [];
+  }
+};
+
+const lampServices = await fetchLampServices();
+
 const upcomingEvents = await fetchUpcomingEvents();
 
 /**
@@ -509,6 +538,37 @@ for (const r of ACTIVE_ROUTES) {
           { '@type': 'ListItem', position: 2, name: r.h1, item: url },
         ],
       },
+      /**
+       * 這一頁提供什麼服務（2026-10-13 補）。
+       * 原本各頁只有 WebPage 與麵包屑——那只說得出「站內有這一頁」，
+       * 說不出「這一頁是一項服務、多少錢、怎麼辦理」。
+       * AI 被問「古亭的媽祖廟點燈多少錢」時，要嘛從內文猜、要嘛答不出來。
+       * 點燈的價格從 lamp_service_configs 來，廟方調價會跟著變（不要寫死）。
+       */
+      ...(r.service ? [{
+        '@type': 'Service',
+        '@id': url + '#service',
+        name: r.service.name,
+        description: r.service.description,
+        serviceType: r.service.name,
+        provider: { '@id': ORIGIN + '/#temple' },
+        areaServed: { '@type': 'City', name: '臺北市' },
+        url,
+        ...(r.path === '/lamps' && lampServices.length > 0 ? {
+          hasOfferCatalog: {
+            '@type': 'OfferCatalog',
+            name: '點燈項目',
+            itemListElement: lampServices.map((l) => ({
+              '@type': 'Offer',
+              name: l.name,
+              price: String(Number(l.fee) || 0),
+              priceCurrency: 'TWD',
+              availability: 'https://schema.org/InStock',
+              url,
+            })),
+          },
+        } : {}),
+      }] : []),
     ],
   };
   html = html.replace('</head>',
