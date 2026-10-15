@@ -23,7 +23,7 @@
 import {
   type Row, type Parcel, clean, isEmail, readEnv, svcHeaders,
   lookupContacts, deliver, stamp, siteSettings, mailSignature,
-} from '../lib/notify-deliver';
+} from '../lib/notify-deliver.js';
 
 interface ResLike { status: (c: number) => ResLike; json: (b: unknown) => void }
 interface ReqLike {

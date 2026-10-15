@@ -14,7 +14,15 @@
  * 而沒 import 它的 keepalive／republish／notify-registration 都還活著。
  * `_` 開頭不當成路由那個慣例是 Next.js 的；這種「裸 api/ 目錄」的專案，
  * Vercel 會把 `api/` 底下**每一個檔**都當成函式入口，而這個檔沒有 default export。
- * **共用模組要放在 `api/` 之外**，由各端點用相對路徑 import，Vercel 打包時會帶上。
+ * **共用模組要放在 `api/` 之外**，由各端點用相對路徑 import。
+ *
+ * ── import 一定要寫 `.js` 副檔名 ──
+ * `package.json` 是 `type: module`，所以 Vercel 把這些函式當 ESM 跑，
+ * 而 **ESM 在執行期要求相對 import 帶副檔名**——少了就是
+ * `ERR_MODULE_NOT_FOUND` → FUNCTION_INVOCATION_FAILED。
+ * TypeScript 這邊寫 `.js` 會解析到這個 `.ts`（moduleResolution: bundler），
+ * 兩邊都對。**本機 tsc 與 esbuild 都不會抱怨，只有部署上去才會炸**
+ * ——所以改動這幾支之後一定要 curl 一下線上端點，不要只看建置有沒有過。
  *
  * ── 為什麼不直接用前端的 services/ ──
  * 那些模組會把 supabase client 整包拉進無伺服器函式。這裡一律用 REST 直打，

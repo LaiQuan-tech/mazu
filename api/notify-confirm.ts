@@ -67,7 +67,7 @@
 import {
   type Row, type Parcel, clean, isEmail, readEnv, svcHeaders, uuids,
   lookupContacts, deliver, stamp, siteSettings, bankLines, mailSignature,
-} from '../lib/notify-deliver';
+} from '../lib/notify-deliver.js';
 
 interface ResLike {
   status: (code: number) => ResLike;

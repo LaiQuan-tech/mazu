@@ -19,7 +19,7 @@
  * 這支省下的只是「同一件事貼兩次」，不是「做不到」。所以是一顆**要人按**的鈕，
  * 不是上架就自動發——自動發等於每改一次錯字就打擾所有好友一次。
  */
-import { type Row, clean, readEnv, svcHeaders, stamp } from '../lib/notify-deliver';
+import { type Row, clean, readEnv, svcHeaders, stamp } from '../lib/notify-deliver.js';
 
 interface ResLike { status: (c: number) => ResLike; json: (b: unknown) => void }
 interface ReqLike {
