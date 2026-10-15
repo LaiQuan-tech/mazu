@@ -56,8 +56,18 @@ const dayOffset = (days: number): string =>
 const RULES = {
   /** 送出後幾天還沒收到款就提醒一次 */
   未匯款天數: 3,
-  /** 只回頭看這麼多天內的報名。**防的是第一次上線對著所有歷史資料發信** */
-  未匯款回看天數: 30,
+  /**
+   * **刻意沒有「只回看 N 天」的上限**（廟方 2026-10-16 決定）。
+   *
+   * 原本有 30 天的下限，防的是「第一次上線就對著整段歷史發一輪信」。
+   * 但提醒改成手動之後那個風險本來就不在了——廟方按之前看得到完整名單；
+   * 而上限換來的是另一個更糟的問題：**久久沒按的話，超過 30 天的人會從名單上
+   * 靜靜地消失、從來沒被提醒過**，而且沒有任何地方看得出來。
+   *
+   * 現在欠款的人會一直留在名單上，直到被提醒或付款為止。
+   * 代價是名單可能很長，所以明細**由舊到新排**——最可能該放棄的那幾筆排在最前面，
+   * 廟方一眼就看得到「這筆 700 天前的還要提醒嗎」。
+   */
   /** 點燈期滿前幾天提醒續點 */
   到期前幾天: 30,
   /** 一次最多寄幾個人。超過的留到明天——寧可慢一點，也不要一口氣打爆配額 */
@@ -239,8 +249,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       return { ...rep, 已送: sent.已送, 結果: sent.結果, ...(sent.蓋章失敗 ? { 蓋章失敗: sent.蓋章失敗 } : {}) };
     };
 
-    const fromDay = dayOffset(-RULES.未匯款回看天數);
-    const toDay   = dayOffset(-RULES.未匯款天數);
+    const toDay = dayOffset(-RULES.未匯款天數);
     const 待匯款 = encodeURIComponent('待匯款');
     const 已收款 = encodeURIComponent('已收款');
     const 已取消 = encodeURIComponent('已取消');
@@ -256,7 +265,9 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         '若您已經匯款，款項入帳需要一些時間，請忽略本則訊息。',
         '如需取消或有任何疑問，歡迎與本壇聯繫。',
       ];
-      const 範圍 = `&created_at=gte.${fromDay}&created_at=lte.${toDay}`;
+      // 只有「送出滿 N 天」這一個下限；沒有上限（理由見 RULES）。
+      // 由舊到新排，最可能該放棄的那幾筆會排在明細最前面
+      const 範圍 = `&created_at=lte.${toDay}&order=created_at.asc`;
 
       const lampAll = await countOf(`lamp_registrations?select=id&status=eq.${待匯款}`);
       const lamp = await q(`lamp_registrations?select=id,name,phone,email,contact_label,service_id,created_at`
@@ -270,7 +281,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       }
       out['未匯款提醒_點燈'] = await report(
         'lamp_registrations', 'payment_reminded_at', lamp,
-        lampAll === undefined ? undefined : `待匯款共 ${lampAll} 筆，其中 ${lamp.rows.length} 筆落在 ${RULES.未匯款天數}–${RULES.未匯款回看天數} 天內且未提醒過`,
+        lampAll === undefined ? undefined : `待匯款共 ${lampAll} 筆，其中 ${lamp.rows.length} 筆送出滿 ${RULES.未匯款天數} 天且未提醒過`,
         x => `${clean(x.name)}　${names.get(clean(x.service_id)) ?? '點燈'}　${daysAgo(x.created_at)} 天前`,
         '點燈登記尚未收到款項', compose('點燈登記'));
 
@@ -285,7 +296,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       }
       out['未匯款提醒_祈福'] = await report(
         'blessing_registrations', 'payment_reminded_at', bless,
-        blessAll === undefined ? undefined : `待匯款共 ${blessAll} 筆，其中 ${bless.rows.length} 筆落在 ${RULES.未匯款天數}–${RULES.未匯款回看天數} 天內且未提醒過`,
+        blessAll === undefined ? undefined : `待匯款共 ${blessAll} 筆，其中 ${bless.rows.length} 筆送出滿 ${RULES.未匯款天數} 天且未提醒過`,
         x => {
           const ev = events.get(clean(x.event_id));
           // 金額規則與 serviceAmount.ts 一致：方案費優先，沒方案才用活動的統一費用
