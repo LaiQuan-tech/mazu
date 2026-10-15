@@ -1790,15 +1790,16 @@ const OverviewTab = ({
               className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
               {remindBusy ? '讀取中…' : '重新整理'}
             </button>
-            {/* 把筆數寫進按鈕本身：「現在就寄給 5 位」自己說得出要做什麼，
-                而「立即執行」不會。沒有人可寄的時候整顆按不下去——按了也不會發生事情，
-                留著只會讓人以為自己漏按了什麼。 */}
+            {/* 按鈕的字要說出「會發生什麼事」（廟方 2026-10-16 定名「寄送提醒通知」）。
+                沒有人可寄的時候整顆按不下去——按了也不會發生事情，
+                留著只會讓人以為自己漏按了什麼；筆數在上面四格裡已經看得到，
+                不必再寫進按鈕一次。 */}
             <button onClick={() => void runReminders()} disabled={remindBusy || remindTotal === 0}
               title={remindTotal === 0
-                ? '現在沒有人需要提醒'
-                : '不等明天早上，現在就把上面列出的那幾位寄出去'}
+                ? '目前沒有人需要提醒'
+                : `不等明天早上，現在就寄給上面那 ${remindTotal} 位`}
               className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              {remindTotal === 0 ? '目前沒有人要提醒' : `現在就寄給這 ${remindTotal} 位`}
+              寄送提醒通知
             </button>
           </div>
         </div>
