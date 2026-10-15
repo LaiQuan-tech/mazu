@@ -1700,9 +1700,9 @@ const OverviewTab = ({
 
   const runReminders = async () => {
     if (!confirm(
-      `確定要現在就寄給上面那 ${remindTotal} 位嗎？\n\n`
+      `確定要寄給上面那 ${remindTotal} 位嗎？\n\n`
       + '他們會立刻收到 LINE 訊息或 email，送出後無法收回。\n'
-      + '平常不必按——每天早上 9 點系統會自己寄。',
+      + '同一個人不會被重複提醒（寄過會記錄下來）。',
     )) return;
     setRemindBusy(true);
     try {
@@ -1782,7 +1782,8 @@ const OverviewTab = ({
                 我其實不知道這什麼動作」）。要寫的是「誰會收到什麼、什麼時候」，
                 不是功能的名字。 */}
             <p className="text-xs text-gray-500 mt-0.5">
-              系統每天早上 9 點會自動用 LINE 或 email 提醒下面這些人：還沒匯款的、明天要來問事的、點燈快到期的。
+              下面這些人可以用 LINE 或 email 提醒：還沒匯款的、明天要來問事的、點燈快到期的。
+              <span className="text-gray-400">　不會自動寄，按右邊的鈕才會送出。</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1797,7 +1798,7 @@ const OverviewTab = ({
             <button onClick={() => void runReminders()} disabled={remindBusy || remindTotal === 0}
               title={remindTotal === 0
                 ? '目前沒有人需要提醒'
-                : `不等明天早上，現在就寄給上面那 ${remindTotal} 位`}
+                : `寄給上面那 ${remindTotal} 位（寄過的不會再寄一次）`}
               className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               寄送提醒通知
             </button>

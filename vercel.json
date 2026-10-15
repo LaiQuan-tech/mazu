@@ -53,10 +53,6 @@
     {
       "path": "/api/keepalive",
       "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron-reminders",
-      "schedule": "0 1 * * *"
     }
   ]
 }
