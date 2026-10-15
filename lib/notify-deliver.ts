@@ -8,7 +8,13 @@
  * 複製到每個端點就是今天才修過的那種錯——祈福金額的算法有三份複製品，
  * 其中兩份同時漏掉同一件事，漏了三個月沒人發現。一份就好。
  *
- * **這個檔不是路由**：`api/` 底下 `_` 開頭的檔案 Vercel 不當成端點。
+ * ── 為什麼放在 repo 根目錄的 `lib/` 而不是 `api/_lib/` ──
+ * 2026-10-16 第一版放在 `api/_lib/deliver.ts`，結果**四支 import 它的端點
+ * 全部 FUNCTION_INVOCATION_FAILED**（連原本正常的 notify-confirm 也掛了），
+ * 而沒 import 它的 keepalive／republish／notify-registration 都還活著。
+ * `_` 開頭不當成路由那個慣例是 Next.js 的；這種「裸 api/ 目錄」的專案，
+ * Vercel 會把 `api/` 底下**每一個檔**都當成函式入口，而這個檔沒有 default export。
+ * **共用模組要放在 `api/` 之外**，由各端點用相對路徑 import，Vercel 打包時會帶上。
  *
  * ── 為什麼不直接用前端的 services/ ──
  * 那些模組會把 supabase client 整包拉進無伺服器函式。這裡一律用 REST 直打，
