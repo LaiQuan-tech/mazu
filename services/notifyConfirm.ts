@@ -66,7 +66,9 @@ const refreshToken = (): void => {
     .catch(() => { /* 拿不到就維持原值，postBatch 會再試一次 */ });
 };
 
-const post = async (table: ConfirmTable, ids: string[], needToken: boolean): Promise<void> => {
+const post = async (
+  table: ConfirmTable, ids: string[], needToken: boolean, kind?: 'payinfo',
+): Promise<void> => {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (needToken) {
@@ -82,7 +84,7 @@ const post = async (table: ConfirmTable, ids: string[], needToken: boolean): Pro
     }
     await fetch('/api/notify-confirm', {
       method: 'POST', headers,
-      body: JSON.stringify({ table, id: ids }),
+      body: JSON.stringify({ table, id: ids, ...(kind ? { kind } : {}) }),
       keepalive: true,
     });
   } catch {
@@ -149,4 +151,25 @@ export const sendDonationThanks = (ids: string[]): void => {
   const clean = ids.filter(Boolean);
   if (clean.length === 0) return;
   void post('donations', clean, false);
+};
+
+/**
+ * 點燈／祈福送出成功之後，**把匯款資訊推給信眾**（廟方 2026-10-16）。
+ *
+ * 為什麼需要：匯款帳號目前只出現在送出當下的畫面上，關掉分頁就沒了
+ * ——所以才會有人匯錯金額、或打電話來問帳號。有 LINE 就推 LINE、沒有就寄信，
+ * 他手上就留著一份。
+ *
+ * 與感謝信同樣的三條規則：不攢（送出時 id 就收齊了）、不帶 token
+ * （送出的人就是本人，防線是端點那邊的「建立未滿十分鐘」＋蓋章）、不 await
+ * （信眾等的是「登記成功」畫面，不是等訊息送完）。
+ *
+ * **問事不走這裡**：它是現場收費，沒有要匯的款。
+ */
+export const sendPaymentInfo = (
+  table: 'lamp_registrations' | 'blessing_registrations', ids: string[],
+): void => {
+  const clean = ids.filter(Boolean);
+  if (clean.length === 0) return;
+  void post(table, clean, false, 'payinfo');
 };

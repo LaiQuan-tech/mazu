@@ -48,7 +48,7 @@ import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
-import { sendDonationThanks } from './services/notifyConfirm';
+import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import Analytics from './components/Analytics';
@@ -1627,6 +1627,8 @@ const App: React.FC = () => {
     }, { notify: false }));
     // 部分成功也要通知：那幾筆已經在資料庫裡了，廟方該知道。剩下的重送時再寄一封
     notifyRegistration('lamp_registrations', ids);
+    // 把匯款資訊推給信眾（LINE 或 email）——畫面上那份他關掉分頁就沒了
+    sendPaymentInfo('lamp_registrations', ids);
     const ok = ids.length;
     if (ok < lampPersons.length) {
       if (ok > 0) { setLampPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }
@@ -1757,6 +1759,8 @@ const App: React.FC = () => {
       } as BlessingRegistrationData, { notify: false });
     });
     notifyRegistration('blessing_registrations', ids);
+    // 同點燈：祈福也要先匯款，帳號要留在他手上
+    sendPaymentInfo('blessing_registrations', ids);
     const ok = ids.length;
     if (ok < blessingPersons.length) {
       if (ok > 0) { setBlessingPersons(prev => prev.slice(ok)); alertPartialFailure(ok); }

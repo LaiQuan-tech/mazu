@@ -66,7 +66,7 @@
 
 import {
   type Row, type Parcel, clean, isEmail, readEnv, svcHeaders, uuids,
-  lookupContacts, deliver, stamp, siteSettings, mailSignature,
+  lookupContacts, deliver, stamp, siteSettings, bankLines, mailSignature,
 } from './_lib/deliver';
 
 interface ResLike {
@@ -110,6 +110,14 @@ const TABLES: Record<string, {
   amount?: (r: Row, ctx: Ctx) => number | undefined;
   /** 不要求管理員身分（改用「建立未滿 10 分鐘」當防線） */
   open?: boolean;
+  /**
+   * `kind=payinfo`：**送出當下**就把匯款資訊推給信眾（廟方 2026-10-16）。
+   * 信眾送出後匯款帳號只出現在畫面上，關掉分頁就沒了——所以才會有人匯錯金額、
+   * 或打電話來問帳號。只有「要先匯款」的服務有這一段（問事是現場收費）。
+   * 這條路與捐獻感謝信同樣是公開的：送出的人就是本人，他沒有管理員 token，
+   * 防線一樣是「建立未滿 NOTIFY_WINDOW_MIN 分鐘」＋ payinfo_sent_at 蓋章。
+   */
+  payinfo?: { subject: string; intro: (n: number) => string };
 }> = {
   bookings: {
     label: '預約問事',
@@ -129,6 +137,7 @@ const TABLES: Record<string, {
     ].join(''),
   },
   lamp_registrations: {
+    payinfo: { subject: '點燈登記已收到，請完成匯款', intro: n => `感謝您在和聖壇登記點燈${n > 1 ? `，共 ${n} 盞` : ''}。以下是您的登記內容與匯款資訊：` },
     label: '點燈登記',
     subject: '點燈登記已確認、款項已收到',
     intro: n => `您在和聖壇的點燈登記已經由本壇確認，款項也已收到${n > 1 ? `，共 ${n} 筆` : ''}：`,
@@ -139,6 +148,7 @@ const TABLES: Record<string, {
     amount: (r, ctx) => ctx.lamp.get(clean(r.service_id))?.fee,
   },
   blessing_registrations: {
+    payinfo: { subject: '祈福報名已收到，請完成匯款', intro: n => `感謝您報名和聖壇的祈福活動${n > 1 ? `，共 ${n} 筆` : ''}。以下是您的報名內容與匯款資訊：` },
     label: '祈福活動報名',
     subject: '祈福活動報名已確認、款項已收到',
     intro: n => `您在和聖壇的祈福活動報名已經由本壇確認，款項也已收到${n > 1 ? `，共 ${n} 筆` : ''}：`,
@@ -271,13 +281,19 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
   }
 
   const body = (typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body) as
-    { table?: string; id?: string | string[] } | undefined;
+    { table?: string; id?: string | string[]; kind?: string } | undefined;
   const table = clean(body?.table);
   const spec  = TABLES[table];
+  /**
+   * `kind`：`confirm`（預設，廟方確認後的確認信／感謝信）或 `payinfo`
+   * （送出當下的匯款資訊）。兩者差在文案、蓋章欄位、以及要不要驗管理員身分。
+   */
+  const payinfo = clean(body?.kind) === 'payinfo';
+  const stampCol = payinfo ? 'payinfo_sent_at' : 'confirm_sent_at';
   const ids = (Array.isArray(body?.id) ? body!.id as string[] : [clean(body?.id)])
     .filter(x => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x))
     .slice(0, MAX_IDS);
-  if (!spec || ids.length === 0) {
+  if (!spec || ids.length === 0 || (payinfo && !spec.payinfo)) {
     res.status(400).json({ ok: false, error: '參數不正確' });
     return;
   }
@@ -288,7 +304,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
    * 那條路的防線是下面的「建立未滿 NOTIFY_WINDOW_MIN 分鐘」＋ confirm_sent_at 蓋章。
    * 其餘幾種是廟方確認後才寄的，一律要管理員——不然猜中 UUID 就能對特定人寄信。
    */
-  if (!spec.open) {
+  if (!spec.open && !payinfo) {
     const auth = header(req, 'authorization');
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (!token) {
@@ -334,7 +350,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     }
 
     // 寄過的不再寄。狀態被改來改去時，這一行就是信眾不會收到一疊重複信的原因
-    let fresh = all.filter(x => !x.confirm_sent_at);
+    let fresh = all.filter(x => !x[stampCol]);
     if (fresh.length === 0) {
       res.status(200).json({ ok: true, skipped: 'already-sent', 已寄過: all.length });
       return;
@@ -345,7 +361,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
      * **管理員那條路刻意不設時間窗**：確認本來就是幾天後的事，身分驗證才是那邊的防線。
      * 整批裡混到過期的只丟掉那幾筆，不要讓同一團的其他人都收不到。
      */
-    if (spec.open) {
+    if (spec.open || payinfo) {
       const 太舊 = fresh.length;
       fresh = fresh.filter(x => {
         const t = Date.parse(x.created_at ?? '');
@@ -423,7 +439,12 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
 
     // 廟方的電話、地址（site_settings，後台可改——不要在這裡寫死）
-    const info = await siteSettings(env, ['info_address', 'info_phone']);
+    const info = await siteSettings(env, [
+      'info_address', 'info_phone',
+      ...(payinfo ? ['bank_name', 'bank_code', 'bank_branch', 'bank_account', 'bank_holder'] : []),
+    ]);
+    // 匯款帳號一律來自 site_settings，程式裡不留第二份（後台改帳號不必重新部署）
+    const bank = payinfo ? bankLines(info) : [];
 
     const bodyOf = (rows: Row[]): string[] => {
       /**
@@ -438,7 +459,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       return [
         `${稱呼 ? `${稱呼} ` : ''}您好：`,
         '',
-        spec.intro(rows.length),
+        payinfo ? spec.payinfo!.intro(rows.length) : spec.intro(rows.length),
         '',
         ...rows.map(x => `・${spec.line(x, ctx)}`),
         /**
@@ -452,8 +473,13 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
           return [`　　合計 NT$${vals.reduce((a, b) => a! + b!, 0)!.toLocaleString()}`];
         })(),
         '',
-        ...(spec.extra ? [...spec.extra, ''] : []),
-        spec.closing ?? '感謝您的護持，願神明庇佑。',
+        // payinfo 的重點就是帳號；確認信那幾句提醒對它不適用
+        ...(payinfo
+          ? [...(bank.length ? [...bank, ''] : []),
+             '匯款完成後，請於備註或與本壇聯繫時提供帳號後五碼，以利核對。',
+             '款項確認後本壇會再通知您。']
+          : [...(spec.extra ? [...spec.extra, ''] : []),
+             spec.closing ?? '感謝您的護持，願神明庇佑。']),
       ];
     };
 
@@ -507,21 +533,21 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       ids: rows.map(x => x.id),
       contact: contactOf(rows[0]),
       ownEmail: clean(rows[0].email),
-      subject: `[和聖壇] ${spec.subject}`,
+      subject: `[和聖壇] ${payinfo ? spec.payinfo!.subject : spec.subject}`,
       body: bodyOf(rows).join('\n'),
       mailTail: mailTail(rows).join('\n'),
     }));
 
     const { sentIds, results } = await deliver(env, parcels);
 
-    const st = await stamp(env, table, 'confirm_sent_at', sentIds);
+    const st = await stamp(env, table, stampCol, sentIds);
     if (!st.ok) {
       // 已經通知出去了，章沒蓋上。據實回報——下一次確認會重送，廟方要知道為什麼
       res.status(200).json({
         ok: true, 已通知: sentIds.length, 結果: results,
         警告: '已經通知出去了，但「已寄送」的紀錄沒寫進資料庫，再次確認時可能重複通知一次。',
         // 最可能的原因就是 registration_email.sql 還沒在 Supabase 跑過
-        原因: /confirm_sent_at/.test(st.why ?? '')
+        原因: new RegExp(stampCol).test(st.why ?? '')
           ? '資料表沒有 confirm_sent_at 欄位，請執行 supabase/migrations/registration_email.sql'
           : `資料庫回應：${(st.why ?? '').slice(0, 80)}`,
       });
