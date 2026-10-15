@@ -1644,6 +1644,14 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
+/** 提醒作業的四個項目。順序就是畫面上的順序 */
+const REMIND_KEYS = [
+  { key: '未匯款提醒_點燈', label: '點燈未匯款' },
+  { key: '未匯款提醒_祈福', label: '祈福未匯款' },
+  { key: '問事提醒',        label: '明日問事' },
+  { key: '點燈到期提醒',    label: '點燈即將到期' },
+] as const;
+
 const OverviewTab = ({
   bookings, donations, lampRegistrations, blessingRegistrations, lampConfigs, blessingEvents, lineStats,
 }: {
@@ -1660,50 +1668,55 @@ const OverviewTab = ({
   /**
    * 提醒作業（未匯款／問事前一天／點燈到期）。
    *
-   * 這三種平常由 Vercel Cron 每天早上九點自己跑。這裡放一組按鈕是為了兩件事：
-   *  (1) **預覽**——第一次啟用前要先看筆數合不合理，否則一上線就對著整段歷史
-   *      資料發一輪信、收不回來；
-   *  (2) **手動補跑**——排程哪天沒跑（權杖過期、Vercel 出狀況），廟方自己按得動，
-   *      不必等工程師。
+   * **進來就顯示，不必按**（廟方 2026-10-16：「直接顯示出來，不要查詢，還要按才會執行」）：
+   * 預覽是唯讀的，叫人先按一下才看得到等於多一道沒有意義的手續。
+   * 只有「立即執行」——那是真的會寄出去、收不回來的——才要按。
    *
-   * 做成後台按鈕而不是叫人用終端機：原本要先保管一串 CRON_SECRET、在終端機貼、
-   * 貼了還看不見（2026-10-16 實際卡住兩次）。按鈕用的是登入中的管理員身分，
-   * 沒有秘密要保管。
+   * 平常這三種由 Vercel Cron 每天早上九點自己跑；這一區的用途是
+   * 「看得到現在有誰該被提醒」，以及排程沒跑時手動補跑。
    */
+  const [remind, setRemind] = useState<Record<string, any> | null>(null);
+  const [remindErr, setRemindErr] = useState('');
   const [remindBusy, setRemindBusy] = useState(false);
-  const [remindOut, setRemindOut] = useState<string>('');
-  const runReminders = async (dry: boolean) => {
-    if (!dry && !confirm(
-      '確定要立刻執行提醒作業嗎？\n\n'
-      + '會真的寄出未匯款提醒、明日問事提醒、點燈到期提醒，送出後無法收回。\n'
-      + '建議先按「預覽」確認筆數。',
-    )) return;
-    setRemindBusy(true);
-    setRemindOut('');
+
+  /** 現在總共有幾位要提醒。按鈕要把這個數字講出來，而不是叫「立即執行」 */
+  const remindTotal = REMIND_KEYS.reduce((n, k) => n + (remind?.[k.key]?.對象 ?? 0), 0);
+
+  const loadRemind = async () => {
+    setRemindBusy(true); setRemindErr('');
     try {
       const { data } = await supabase.auth.getSession();
-      const r = await fetch(`/api/cron-reminders${dry ? '?dry=1' : ''}`, {
+      const r = await fetch('/api/cron-reminders?dry=1', {
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ''}` },
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.ok) { setRemindOut(`失敗：${j.error ?? r.status}`); return; }
-      const 項目 = ['未匯款提醒_點燈', '未匯款提醒_祈福', '問事提醒', '點燈到期提醒'];
-      const 標題: Record<string, string> = {
-        '未匯款提醒_點燈': '點燈未匯款', '未匯款提醒_祈福': '祈福未匯款',
-        '問事提醒': '明日問事', '點燈到期提醒': '點燈即將到期',
-      };
-      setRemindOut([
-        dry ? '【預覽，沒有寄出任何東西】' : '【已執行】',
-        ...項目.map(k => {
-          const v = (j as Record<string, { 對象?: number; 已送?: number }>)[k] ?? {};
-          return `${標題[k]}：${v.對象 ?? 0} 位${dry ? '' : `，已通知 ${v.已送 ?? 0} 位`}`;
-        }),
-      ].join('\n'));
-    } catch {
-      setRemindOut('失敗，請檢查網路後再試');
-    } finally {
-      setRemindBusy(false);
-    }
+      if (!r.ok || !j.ok) { setRemindErr(j.error ?? `讀取失敗（${r.status}）`); return; }
+      setRemind(j);
+    } catch { setRemindErr('讀取失敗，請檢查網路'); }
+    finally { setRemindBusy(false); }
+  };
+  // 進入總覽就抓一次。這支是唯讀的 dry 查詢，不會寄出任何東西
+  useEffect(() => { void loadRemind(); }, []);
+
+  const runReminders = async () => {
+    if (!confirm(
+      `確定要現在就寄給上面那 ${remindTotal} 位嗎？\n\n`
+      + '他們會立刻收到 LINE 訊息或 email，送出後無法收回。\n'
+      + '平常不必按——每天早上 9 點系統會自己寄。',
+    )) return;
+    setRemindBusy(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const r = await fetch('/api/cron-reminders', {
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { alert(`執行失敗：${j.error ?? r.status}`); return; }
+      const 送出 = REMIND_KEYS.reduce((n, k) => n + (j[k.key]?.已送 ?? 0), 0);
+      alert(`已執行，共通知 ${送出} 位。`);
+      await loadRemind();
+    } catch { alert('執行失敗，請檢查網路後再試'); }
+    finally { setRemindBusy(false); }
   };
 
   const now = Date.now();
@@ -1760,33 +1773,85 @@ const OverviewTab = ({
         <StatCard icon={<Users className="w-5 h-5 text-purple-600" />}         label="不重複信眾"  value={uniquePhones}                               sub="依電話計算"  color="bg-purple-50" />
       </div>
 
-      {/* 提醒作業：平常排程自己跑，這裡是預覽與手動補跑的入口 */}
+      {/* 提醒作業：進來就顯示現在有誰該被提醒；只有「立即執行」要按 */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div>
-            <p className="font-semibold text-gray-800 text-sm">提醒作業</p>
+            <p className="font-semibold text-gray-800 text-sm">自動提醒信眾</p>
+            {/* **不要用「提醒作業」「立即執行」這種詞**（廟方 2026-10-16：「立即執行，
+                我其實不知道這什麼動作」）。要寫的是「誰會收到什麼、什麼時候」，
+                不是功能的名字。 */}
             <p className="text-xs text-gray-500 mt-0.5">
-              未匯款提醒、明日問事提醒、點燈到期續點。每天早上 9 點自動執行一次。
+              系統每天早上 9 點會自動用 LINE 或 email 提醒下面這些人：還沒匯款的、明天要來問事的、點燈快到期的。
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => runReminders(true)} disabled={remindBusy}
-              title="只看各有幾位要提醒，不會寄出任何東西"
+            <button onClick={() => void loadRemind()} disabled={remindBusy}
               className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
-              {remindBusy ? '查詢中…' : '預覽'}
+              {remindBusy ? '讀取中…' : '重新整理'}
             </button>
-            <button onClick={() => runReminders(false)} disabled={remindBusy}
-              title="立刻執行一次（平常不必按，排程會自己跑）"
-              className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
-              立即執行
+            {/* 把筆數寫進按鈕本身：「現在就寄給 5 位」自己說得出要做什麼，
+                而「立即執行」不會。沒有人可寄的時候整顆按不下去——按了也不會發生事情，
+                留著只會讓人以為自己漏按了什麼。 */}
+            <button onClick={() => void runReminders()} disabled={remindBusy || remindTotal === 0}
+              title={remindTotal === 0
+                ? '現在沒有人需要提醒'
+                : '不等明天早上，現在就把上面列出的那幾位寄出去'}
+              className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {remindTotal === 0 ? '目前沒有人要提醒' : `現在就寄給這 ${remindTotal} 位`}
             </button>
           </div>
         </div>
-        {remindOut && (
-          // 用等寬字並保留換行：這是逐項的數字，對齊才看得出哪一項不對勁
-          <pre className="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-700 whitespace-pre-wrap font-mono">
-            {remindOut}
-          </pre>
+
+        {remindErr && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" role="alert">
+            {remindErr}
+          </p>
+        )}
+
+        {!remindErr && !remind && (
+          <p className="text-sm text-gray-400">讀取中…</p>
+        )}
+
+        {remind && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {REMIND_KEYS.map(({ key, label }) => {
+              const v = remind[key] ?? {};
+              const n = v.對象 ?? 0;
+              return (
+                <div key={key} className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/60">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-gray-700">{label}</span>
+                    {/* 查詢失敗要自己一種顏色：它既不是「有人要提醒」也不是「沒有人」 */}
+                    {v.查詢錯誤
+                      ? <span className="text-xs font-medium text-red-600">查詢失敗</span>
+                      : <span className={`text-sm font-semibold ${n > 0 ? 'text-temple-red' : 'text-gray-400'}`}>{n} 位</span>}
+                  </div>
+
+                  {v.查詢錯誤 && (
+                    <p className="mt-1.5 text-xs text-red-600 break-all">{v.查詢錯誤}</p>
+                  )}
+
+                  {/* 母體：讓「0 位」分得出是「沒有人欠款」還是「都落在時間窗外」 */}
+                  {!v.查詢錯誤 && v.母體 && (
+                    <p className="mt-1 text-xs text-gray-400">{v.母體}</p>
+                  )}
+
+                  {/* 是誰。沒有這個，數字就只能拿來問「你有把握嗎」 */}
+                  {!v.查詢錯誤 && n > 0 && (
+                    <ul className="mt-2 space-y-0.5">
+                      {(v.明細 ?? []).slice(0, 8).map((line: string, i: number) => (
+                        <li key={i} className="text-xs text-gray-600">・{line}</li>
+                      ))}
+                      {(v.明細 ?? []).length > 8 && (
+                        <li className="text-xs text-gray-400">…還有 {(v.明細 ?? []).length - 8} 位</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
