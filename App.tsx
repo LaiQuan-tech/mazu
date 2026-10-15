@@ -2980,8 +2980,12 @@ const App: React.FC = () => {
                   </p>
                   {!member && (
                     <div className="mb-6 mx-auto max-w-sm bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-5 text-center">
-                      <p className="text-sm font-semibold text-temple-dark mb-1">加入會員，查看您的問事紀錄</p>
-                      <p className="text-xs text-gray-500 mb-3">註冊後電話號碼將自動連結本次預約，日後查詢、填表更便利。</p>
+                      {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
+                          我們已經解決了（會員中心第一順位就是 LINE 登入），只是沒告訴他。
+                          順帶一提，用 LINE 登入時會一併詢問要不要加官方帳號好友（bot_prompt），
+                          所以這一行同時是 LINE 好友數的主要成長來源。 */}
+                      <p className="text-sm font-semibold text-temple-dark mb-1">用 LINE 加入會員，查看您的問事紀錄</p>
+                      <p className="text-xs text-gray-500 mb-3">一按就好，不必記密碼。加入後這次的預約會自動連結到您的電話，日後查詢、填表都更快。</p>
                       <button type="button" onClick={() => { setMemberPortalPendingPhone(guestPhone); setShowMemberPortal(true); }}
                         className="px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
                         立即加入會員 →
@@ -3327,8 +3331,12 @@ const App: React.FC = () => {
                     <p className="text-gray-500 mb-6">感謝您的登記，廟方人員將盡快與您聯繫確認。</p>
                     {!member && (
                       <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
-                        <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
-                        <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理點燈通訊錄！</p>
+                      {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
+                          我們已經解決了（會員中心第一順位就是 LINE 登入），只是沒告訴他。
+                          順帶一提，用 LINE 登入時會一併詢問要不要加官方帳號好友（bot_prompt），
+                          所以這一行同時是 LINE 好友數的主要成長來源。 */}
+                        <p className="text-sm font-semibold text-temple-dark mb-1">用 LINE 加入會員</p>
+                        <p className="text-xs text-gray-500 mb-3">一按就好，不必記密碼。下次填表更快，還能管理點燈通訊錄。</p>
                         <button type="button" onClick={() => setShowMemberPortal(true)}
                           className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
                           立即加入會員
@@ -3740,8 +3748,12 @@ const App: React.FC = () => {
                     <p className="text-gray-400 text-xs mb-4">共 {blessingPersons.length} 人</p>
                     {!member && (
                       <div className="mb-4 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
-                        <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
-                        <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，還能管理親友通訊錄！</p>
+                      {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
+                          我們已經解決了（會員中心第一順位就是 LINE 登入），只是沒告訴他。
+                          順帶一提，用 LINE 登入時會一併詢問要不要加官方帳號好友（bot_prompt），
+                          所以這一行同時是 LINE 好友數的主要成長來源。 */}
+                        <p className="text-sm font-semibold text-temple-dark mb-1">用 LINE 加入會員</p>
+                        <p className="text-xs text-gray-500 mb-3">一按就好，不必記密碼。下次填表更快，還能管理親友通訊錄。</p>
                         <button type="button" onClick={() => { setBlessingModal(null); setShowMemberPortal(true); }}
                           className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
                           立即加入會員
@@ -4492,8 +4504,12 @@ const App: React.FC = () => {
                   </p>
                   {!member && (
                     <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
-                      <p className="text-sm font-semibold text-temple-dark mb-1">成為和聖壇會員</p>
-                      <p className="text-xs text-gray-500 mb-3">加入會員，下次填表更快速，記錄每一次的護持功德！</p>
+                      {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
+                          我們已經解決了（會員中心第一順位就是 LINE 登入），只是沒告訴他。
+                          順帶一提，用 LINE 登入時會一併詢問要不要加官方帳號好友（bot_prompt），
+                          所以這一行同時是 LINE 好友數的主要成長來源。 */}
+                      <p className="text-sm font-semibold text-temple-dark mb-1">用 LINE 加入會員</p>
+                      <p className="text-xs text-gray-500 mb-3">一按就好，不必記密碼。下次填表更快，也記錄每一次的護持功德。</p>
                       <button type="button" onClick={() => setShowMemberPortal(true)}
                         className="px-4 py-2 bg-temple-red text-white text-xs font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
                         立即加入會員
