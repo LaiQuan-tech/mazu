@@ -64,6 +64,11 @@
 // 寄件者用 NOTIFY_FROM。**伺服器端的那幾個絕對不要加 VITE_ 前綴**，
 // 加了會被 Vite 內嵌進前端 JS 等於公開金鑰（同 VERCEL_DEPLOY_HOOK_URL 的理由）。
 
+import {
+  type Row, type Parcel, clean, isEmail, readEnv, svcHeaders, uuids,
+  lookupContacts, deliver, stamp, siteSettings, mailSignature,
+} from './_lib/deliver';
+
 interface ResLike {
   status: (code: number) => ResLike;
   json: (body: unknown) => void;
@@ -74,7 +79,6 @@ interface ReqLike {
   headers: Record<string, string | string[] | undefined>;
 }
 
-type Row = Record<string, any>;
 
 /**
  * 可以寄信的表，以及每一種信要怎麼寫。
@@ -223,32 +227,13 @@ const header = (req: ReqLike, name: string): string => {
   return Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
 };
 
-const clean = (v: unknown): string => String(v ?? '').trim();
-
-/** 看起來像信箱就好。擋的是空字串與明顯的垃圾，不做嚴格驗證（擋太嚴只會讓該寄的沒寄） */
-const isEmail = (v: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
-
-/** Resend 的錯誤訊息，遮掉信箱後截短（同 notify-registration 的理由） */
-const resendReason = (detail: string): string => {
-  let msg = detail;
-  try {
-    const j = JSON.parse(detail) as { message?: string; name?: string };
-    msg = String(j.message || j.name || detail);
-  } catch { /* 不是 JSON 就用原文 */ }
-  return msg.replace(/[\w.+-]+@[\w.-]+\.[\w.-]+/g, '***@***').slice(0, 300);
-};
-
 export default async function handler(req: ReqLike, res: ResLike): Promise<void> {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const anonKey     = process.env.VITE_SUPABASE_ANON_KEY;
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const apiKey      = process.env.RESEND_API_KEY;
-  const from        = process.env.NOTIFY_FROM || '和聖壇 <noreply@heshengtan.tw>';
   /**
-   * 官方帳號推訊息用的權杖（Messaging API channel 的 Channel access token）。
-   * **沒設定就整個不推**，email 照常——LINE 是加分的那一層，不是必要條件。
+   * 設定一次讀齊（共用層的 readEnv）。`lineToken` 沒設就整個不推 LINE、email 照常
+   * ——LINE 是加分的那一層，不是必要條件。
    */
-  const lineToken   = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const env = readEnv();
+  const { supabaseUrl, anonKey, serviceKey, resendKey: apiKey, from, lineToken } = env;
 
   /**
    * GET ＝自我檢查，只回「設了沒」的布林值。
@@ -373,84 +358,30 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     }
 
     /**
-     * ── 拿電話去對 member_profiles，一次問完 ──
-     * 這一份查詢同時回答兩件事：
-     *   (1) 沒填信箱的人，寄到他會員帳號的信箱（備援）；
-     *   (2) 這個人**是不是已經是會員**——是的話信末那段「加入會員」就不要出現。
-     * 原本只查「沒填信箱」那幾筆，現在改成**全部都查**：差別只有一次查詢，
-     * 而少了它就會對著已經是會員的人叫他加入會員。
+     * ── 拿電話去對 member_profiles（共用層的 lookupContacts）──
+     * 一次回答三件事：是不是會員（決定要不要邀他入會）、會員帳號的信箱（備援）、
+     * 以及 LINE userId（能不能推播）。
+     * `needEmailFor` 只放「沒自填信箱」的那幾支電話——已經填了的不必為了寄信翻他的帳號。
      */
-    const memberPhones = new Set<string>();        // 這些電話已經有會員帳號
-    const byPhone = new Map<string, string>();     // 電話 → 會員帳號的信箱
-    /**
-     * 電話 → 這個會員的 LINE userId。
-     * **取得的前提是當初把 Login channel 建在與官方帳號同一個 Provider 底下**
-     * （2026-10-13 為此整支重建過，見 CLAUDE.md）：LINE 的使用者 ID 綁 Provider
-     * 不綁 channel，不同 Provider 下同一個人是兩個 ID，官方帳號推不到登入拿到的那個。
-     * ID 存在 `auth.identities` 裡（provider = `custom:line` 那一筆），不必另開欄位。
-     */
-    const lineByPhone = new Map<string, string>(); // 電話 → LINE userId
-    {
-      const phones = [...new Set(fresh.map(x => clean(x.phone)).filter(Boolean))];
-      if (phones.length > 0) {
-        // member_profiles 的電話是會員自己填的，報名時也是直接帶那一欄，所以逐字比對得上
-        //
-        // **`in.(…)` 裡的逗號是 PostgREST 的分隔符**：整串丟進 encodeURIComponent
-        // 會把它變成 %2C，於是「兩個電話」變成「一個含逗號的怪電話」，一筆都對不到
-        // ——而症狀只是「確認信沒寄」，從外面看不出是這裡。要逐個值編碼再用逗號串。
-        // 值本身也要編（`+` 不編會被解成空白），引號則是 PostgREST 的字串界定符。
-        const q = phones.map(x => `"${encodeURIComponent(x.replace(/"/g, ''))}"`).join(',');
-        const mp = await fetch(
-          `${supabaseUrl}/rest/v1/member_profiles?select=user_id,phone&phone=in.(${q})`,
-          { headers: svc },
-        );
-        const profiles: Row[] = mp.ok ? await mp.json().catch(() => []) : [];
-        const list = Array.isArray(profiles) ? profiles : [];
-        list.forEach(p => { if (p.phone) memberPhones.add(clean(p.phone)); });
-        /**
-         * 帳號的信箱與 LINE 身分都在 auth.users，只有 admin API 拿得到。
-         * **只問真的需要的那幾個**：沒設 LINE 權杖時，已經自己填了信箱的人
-         * 不必為了寄信去翻他的帳號。設了 LINE 的話每個會員都要問一次——
-         * 那是取得 LINE userId 的唯一來源。
-         */
-        const needAuth = list.filter(p => p.user_id && p.phone && (
-          !!lineToken ||
-          fresh.some(x => clean(x.phone) === clean(p.phone) && !isEmail(clean(x.email)))));
-        await Promise.all(needAuth.map(async p => {
-          try {
-            const u = await fetch(`${supabaseUrl}/auth/v1/admin/users/${p.user_id}`, { headers: svc });
-            if (!u.ok) return;
-            const j = await u.json() as {
-              email?: string;
-              identities?: { provider?: string; id?: string; identity_data?: { sub?: string } }[];
-            };
-            const e = clean(j.email);
-            // LINE 登入的帳號沒有信箱（LINE 不給），那就是查不到，不是錯誤
-            if (isEmail(e)) byPhone.set(clean(p.phone), e);
-            // `sub` 是我們設定 userinfo 回傳的標準欄位；退到 identity 自己的 id
-            const line = (j.identities ?? []).find(i => i.provider === 'custom:line');
-            const uid = clean(line?.identity_data?.sub || line?.id);
-            if (uid) lineByPhone.set(clean(p.phone), uid);
-          } catch { /* 查不到就當作沒有 */ }
-        }));
-      }
-    }
+    const contacts = await lookupContacts(env, fresh.map(x => clean(x.phone)), {
+      wantLine: !!lineToken,
+      needEmailFor: new Set(fresh.filter(x => !isEmail(clean(x.email))).map(x => clean(x.phone))),
+    });
+    const contactOf = (x: Row) =>
+      contacts.get(clean(x.phone)) ?? { email: '', lineId: '', isMember: false };
 
     /** 這一筆要寄到哪個信箱（自己填的優先，沒填就用會員帳號的） */
     const emailOf = (x: Row): string => {
       const own = clean(x.email);
-      if (isEmail(own)) return own;
-      return byPhone.get(clean(x.phone)) ?? '';
+      return isEmail(own) ? own : contactOf(x).email;
     };
     /** 這一筆的人有沒有 LINE 可以推 */
-    const lineOf = (x: Row): string => (lineToken ? lineByPhone.get(clean(x.phone)) ?? '' : '');
+    const lineOf = (x: Row): string => (lineToken ? contactOf(x).lineId : '');
 
     /**
-     * ── 一個人只收到一則，不是 LINE 一則 email 又一則 ──
-     * 兩邊內容一模一樣，同時送就是同一件事講兩次（廟方一向的要求）。
-     * **LINE 優先**：本站信眾以長者居多，LINE 他每天在看，email 不一定。
-     * 推不出去（沒加好友／封鎖了）再退回 email——那是下面 fallback 做的事，
-     * 所以這裡先按 LINE 分組，不代表 email 那條路被放棄。
+     * ── 一個人只收到一則 ──
+     * 分組的 key 是 `line:<userId>` 或 `mail:<信箱>`。實際選哪一條、推不出去要不要
+     * 退回 email，都交給共用層的 deliver()——那是六個通知功能共用的同一套規則。
      */
     const channelOf = (x: Row): string => {
       const uid = lineOf(x);
@@ -490,18 +421,10 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       }
     }
 
-    // 廟方的電話與地址放在 site_settings（不要在這裡寫死：改了後台這裡就會跟著變）
-    const info = new Map<string, string>();
-    try {
-      const s = await fetch(`${supabaseUrl}/rest/v1/site_settings?select=key,value&key=in.(info_address,info_phone)`, { headers: svc });
-      const list: Row[] = s.ok ? await s.json().catch(() => []) : [];
-      (Array.isArray(list) ? list : []).forEach(x => info.set(x.key, clean(x.value)));
-    } catch { /* 讀不到就不寫那兩行，不要讓確認信寄不出去 */ }
 
-    /**
-     * ── 訊息本文：LINE 與 email 共用 ──
-     * 兩邊講的是同一件事，本文只能有一份；差別只在信尾（見下面的 mailTail）。
-     */
+    // 廟方的電話、地址（site_settings，後台可改——不要在這裡寫死）
+    const info = await siteSettings(env, ['info_address', 'info_phone']);
+
     const bodyOf = (rows: Row[]): string[] => {
       /**
        * 稱呼誰。**不可以一律用第一筆的姓名**：會員替父母點燈時，那幾筆的姓名是
@@ -540,6 +463,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
      * **LINE 那邊刻意都不要**：
      *  (1) 收得到 LINE 推播就表示他用 LINE 登入過、**本來就是會員**，再邀請一次是雜訊；
      *  (2) 署名與「請勿回覆」在官方帳號的對話框裡沒有意義——他知道是誰傳的，
+
      *      而且那個對話框本來就可以回覆（會進官方帳號的收件匣）。
      */
     const mailTail = (rows: Row[]): string[] => [
@@ -559,73 +483,19 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
        * （`my_phone()`），電話對得上，他過去的點燈問事捐獻就會自己出現、不必重填。
        * 填別支電話的話那些紀錄就接不起來，而他不會知道為什麼。
        */
-      ...(rows.every(x => !memberPhones.has(clean(x.phone)))
+      ...(rows.every(x => !contactOf(x).isMember)
         ? ['',
            '想查詢您歷次的紀錄嗎？用 LINE 一按就能加入會員，不必記密碼。',
            '加入時請留同一支電話，過去的報名紀錄會自動出現。',
            MEMBER_URL]
         : []),
-      '',
-      '──',
-      '和聖壇',
-      ...(info.get('info_address') ? [`地址：${info.get('info_address')}`] : []),
-      ...(info.get('info_phone')   ? [`電話：${info.get('info_phone')}`]   : []),
-      'https://heshengtan.tw',
-      '',
-      '（本信由系統寄出，請勿直接回覆。）',
+      // 署名走共用層的 mailSignature：六個通知功能的信尾只能有一份
+      mailSignature(info),
     ];
 
-    const results: { to: string; via: 'line' | 'mail'; id?: string; error?: string; 備註?: string }[] = [];
-    const sentIds: string[] = [];
-
-    /** 寄一封信。成功回 Resend 的信件 id，失敗回遮過的原因 */
-    const sendMail = async (to: string, rows: Row[]): Promise<{ id?: string; error?: string }> => {
-      const text = [...bodyOf(rows), ...mailTail(rows)].join('\n');
-      const send = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [to], subject: `[和聖壇] ${spec.subject}`, text }),
-      });
-      if (!send.ok) {
-        const detail = await send.text();
-        console.error('confirm mail failed', send.status, detail.slice(0, 300));
-        return { error: resendReason(detail) };
-      }
-      const sent = await send.json().catch(() => ({})) as { id?: string };
-      return { id: sent.id };
-    };
-
     /**
-     * 用官方帳號推一則訊息。
-     *
-     * **失敗最常見的原因是「他沒加好友或封鎖了」**，那不是壞掉、也不該讓整個請求失敗
-     * ——回 false 讓呼叫端退回 email 就好。LINE 對這種情況回的是 4xx，
-     * 訊息裡不會有個資，但仍然只取前 200 字、不把 userId 回給呼叫端。
-     * 文字上限 5000 字，我們的內容遠低於此，截斷只是防呆。
-     */
-    const pushLine = async (uid: string, rows: Row[]): Promise<{ ok: boolean; error?: string }> => {
-      try {
-        const r = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${lineToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: uid,
-            messages: [{ type: 'text', text: bodyOf(rows).join('\n').slice(0, 4900) }],
-          }),
-        });
-        if (r.ok) return { ok: true };
-        const detail = (await r.text()).slice(0, 200);
-        console.error('line push failed', r.status, detail);
-        return { ok: false, error: `LINE 回 ${r.status}：${detail}` };
-      } catch (e) {
-        console.error('line push error', e);
-        return { ok: false, error: 'LINE 推送失敗' };
-      }
-    };
-
-    /**
-     * ── 依「要送到哪」分組，一個人一則 ──
-     * key 是 `line:<userId>` 或 `mail:<信箱>`（見 channelOf）。
+     * ── 組成「一個人一則」交給共用層送出 ──
+     * 分組、LINE 優先、推不出去退回 email、成功才蓋章，全部在 deliver()／stamp() 裡。
      */
     const groups = new Map<string, Row[]>();
     sendable.forEach(x => {
@@ -633,67 +503,29 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       groups.set(k, [...(groups.get(k) ?? []), x]);
     });
 
-    for (const [key, rows] of groups) {
-      const addr = key.slice(key.indexOf(':') + 1);
+    const parcels: Parcel[] = [...groups.values()].map(rows => ({
+      ids: rows.map(x => x.id),
+      contact: contactOf(rows[0]),
+      ownEmail: clean(rows[0].email),
+      subject: `[和聖壇] ${spec.subject}`,
+      body: bodyOf(rows).join('\n'),
+      mailTail: mailTail(rows).join('\n'),
+    }));
 
-      if (key.startsWith('line:')) {
-        const r = await pushLine(addr, rows);
-        if (r.ok) {
-          results.push({ to: 'LINE', via: 'line' });
-          rows.forEach(x => sentIds.push(x.id));
-          continue;
-        }
-        /**
-         * **推不出去就退回 email**（他沒加好友、封鎖了、或權杖過期）。
-         * 不退的話這個人什麼都收不到，而後台看起來像已經通知了——
-         * 這封信存在的理由就是讓信眾知道，靜靜地沒送到等於功能死掉。
-         */
-        const mail = emailOf(rows[0]);
-        if (!mail) {
-          results.push({ to: 'LINE', via: 'line', error: r.error });
-          continue;
-        }
-        const m = await sendMail(mail, rows);
-        /**
-         * 退回 email 成功的話**不算 error**：那個人確實收到通知了。
-         * 但「LINE 推不出去」要留一句 `備註`——廟方才知道這位信眾的 LINE 是斷的
-         * （多半是沒加好友），否則下次還是以為推得到。
-         */
-        results.push({
-          to: '***@***', via: 'mail', id: m.id, error: m.error,
-          備註: 'LINE 推不出去（多半是沒加官方帳號好友），已改寄信箱',
-        });
-        if (!m.error) rows.forEach(x => sentIds.push(x.id));
-        continue;
-      }
+    const { sentIds, results } = await deliver(env, parcels);
 
-      const m = await sendMail(addr, rows);
-      results.push({ to: '***@***', via: 'mail', id: m.id, error: m.error });
-      if (!m.error) rows.forEach(x => sentIds.push(x.id));
-    }
-
-    // ── 蓋章：寄成功的才蓋 ──
-    // 寄失敗的刻意不蓋，廟方再按一次就會重試；蓋了的話那個人永遠收不到信而且沒人知道。
-    if (sentIds.length > 0) {
-      const stamp = await fetch(`${supabaseUrl}/rest/v1/${table}?id=in.(${sentIds.join(',')})`, {
-        method: 'PATCH',
-        headers: { ...svc, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({ confirm_sent_at: new Date().toISOString() }),
+    const st = await stamp(env, table, 'confirm_sent_at', sentIds);
+    if (!st.ok) {
+      // 已經通知出去了，章沒蓋上。據實回報——下一次確認會重送，廟方要知道為什麼
+      res.status(200).json({
+        ok: true, 已通知: sentIds.length, 結果: results,
+        警告: '已經通知出去了，但「已寄送」的紀錄沒寫進資料庫，再次確認時可能重複通知一次。',
+        // 最可能的原因就是 registration_email.sql 還沒在 Supabase 跑過
+        原因: /confirm_sent_at/.test(st.why ?? '')
+          ? '資料表沒有 confirm_sent_at 欄位，請執行 supabase/migrations/registration_email.sql'
+          : `資料庫回應：${(st.why ?? '').slice(0, 80)}`,
       });
-      if (!stamp.ok) {
-        // 已經通知出去了，章沒蓋上。據實回報——下一次確認會重送，廟方要知道為什麼
-        const why = (await stamp.text()).slice(0, 200);
-        console.error('confirm stamp failed', stamp.status, why);
-        res.status(200).json({
-          ok: true, 已通知: sentIds.length, 結果: results,
-          警告: '已經通知出去了，但「已寄送」的紀錄沒寫進資料庫，再次確認時可能重複通知一次。',
-          // 最可能的原因就是 registration_email.sql 還沒在 Supabase 跑過
-          原因: /confirm_sent_at/.test(why)
-            ? '資料表沒有 confirm_sent_at 欄位，請執行 supabase/migrations/registration_email.sql'
-            : `資料庫回 ${stamp.status}`,
-        });
-        return;
-      }
+      return;
     }
 
     const failed = results.filter(x => x.error).length;
