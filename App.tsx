@@ -199,6 +199,23 @@ const ENABLE_REPAIR = false;
 const ENABLE_BULLETIN = true;
 
 /**
+ * Hero 的香煙（`components/IncenseSmoke.tsx`）。廟方 2026-10-16 要求拿掉。
+ *
+ * **用旗標而不是刪檔案**（照 ENABLE_REPAIR／ENABLE_BULLETIN 的模式）：那支元件是
+ * 累積了好幾輪廟方回饋才調出來的——一炷香改成一爐多縷、再改成香粉、縷數與擴散
+ * 參數都是實測畫布像素定出來的（經過見 CLAUDE.md 的「Hero 香煙」那幾條）。
+ * 砍掉等於把那些結論一併丟了，而要回來只是把這一行改成 true。
+ *
+ * **關掉之後整支元件不會進 bundle**：這是模組層級的常值，Rollup 會把
+ * `false && <IncenseSmoke />` 消掉，`IncenseSmoke` 就沒有人引用、被 tree-shake 掉
+ * （實測線上 bundle 已經找不到它的字樣）。所以留著檔案不會讓信眾多載一份程式碼。
+ *
+ * `.incense-stage` 的 CSS（index.html）刻意留著：它只被這支元件套用，
+ * 旗標翻回 true 才有東西可套；先刪掉反而是「開回來卻沒有樣式」。
+ */
+const ENABLE_INCENSE_SMOKE = false;
+
+/**
  * 公告的兩種標籤。**全站只有這兩個常數，不要在渲染處另寫顏色。**
  *
  * 原本分類是「一類一個 Tailwind 預設色」（gray/blue/orange/purple/yellow-100），
@@ -2428,8 +2445,9 @@ const App: React.FC = () => {
         />
 
         {/* 一炷清香：只有煙、沒有香枝，發射點壓在畫面底緣之下。
-            粒子持續生成消散，所以沒有「循環播放」的接縫（作法見元件內的說明）。 */}
-        <IncenseSmoke />
+            粒子持續生成消散，所以沒有「循環播放」的接縫（作法見元件內的說明）。
+            2026-10-16 廟方要求拿掉，由 ENABLE_INCENSE_SMOKE 控制（見該旗標的說明）。 */}
+        {ENABLE_INCENSE_SMOKE && <IncenseSmoke />}
 
         {/* 宮壇名：左上角直式書寫，直接穿過導覽列的高度。
             導覽列左側已清空（無 logo 與全名），首頁頂端又是透明底，所以疊得上去。
