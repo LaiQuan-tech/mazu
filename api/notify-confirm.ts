@@ -140,16 +140,16 @@ const TABLES: Record<string, {
     intro: n => `您在和聖壇的祈福活動報名已經由本壇確認，款項也已收到${n > 1 ? `，共 ${n} 筆` : ''}：`,
     line: (r, ctx) => {
       const addons: { name?: string; fee?: number }[] = Array.isArray(r.selected_addons) ? r.selected_addons : [];
-      const total = blessingTotal(r);
+      const total = blessingTotal(r, ctx);
       return [
         `${r.name}`,
-        ctx.event.get(clean(r.event_id)) ? `　${ctx.event.get(clean(r.event_id))}` : '',
+        ctx.event.get(clean(r.event_id)) ? `　${ctx.event.get(clean(r.event_id))!.title}` : '',
         r.package_name ? `（${r.package_name}）` : '',
         addons.length > 0 ? `　加購：${addons.map(a => clean(a.name)).filter(Boolean).join('、')}` : '',
         `　NT$${total.toLocaleString()}`,
       ].join('');
     },
-    amount: r => blessingTotal(r),
+    amount: (r, ctx) => blessingTotal(r, ctx),
   },
   /**
    * 隨喜捐獻：**感謝信，不是確認信**，而且不等廟方確認（廟方 2026-10-13）。
@@ -175,13 +175,20 @@ const TABLES: Record<string, {
 };
 
 /**
- * 祈福一筆的金額 ＝ 方案費 ＋ 所有加購。
- * **與後台應收管理（ReceivablesTab）同一套規則**——兩邊對不起來就沒人信
- * （CLAUDE.md 的既有原則）。隨喜加購的 fee 存的就是信眾自填的實際金額。
+ * 祈福一筆的金額 ＝ **方案費（沒有方案就用活動的統一費用）** ＋ 所有加購。
+ *
+ * **與後台的 `services/serviceAmount.ts` 必須同一套規則**（那支是前端的單一來源；
+ * 這裡不能直接 import——那會把 supabase client 整包拉進這支無伺服器函式）。
+ * 改任何一邊都要同時改另一邊，理由寫在 serviceAmount.ts 的檔頭。
+ *
+ * **2026-10-16 修**：原本只讀 `package_fee`，而本壇的祈福活動一個都沒有設方案
+ * （費用直接填在活動的 `fee` 上），所以金額永遠是 0——廟方收到的 LINE 通知寫
+ * 「NT$0」就是這個。隨喜加購的 fee 存的就是信眾自填的實際金額。
  */
-const blessingTotal = (r: Row): number => {
+const blessingTotal = (r: Row, ctx: Ctx): number => {
   const addons: { fee?: number }[] = Array.isArray(r.selected_addons) ? r.selected_addons : [];
-  return Number(r.package_fee ?? 0) + addons.reduce((sum, a) => sum + Number(a.fee ?? 0), 0);
+  const base = r.package_fee ?? ctx.event.get(clean(r.event_id))?.fee ?? 0;
+  return (Number(base) || 0) + addons.reduce((sum, a) => sum + Number(a.fee ?? 0), 0);
 };
 
 /** 一次最多處理幾筆。同一團再多也不會到這個數，這是防灌不是業務限制 */
@@ -207,7 +214,8 @@ const NOTIFY_WINDOW_MIN = 10;
  */
 interface Ctx {
   lamp: Map<string, { name: string; fee: number }>;
-  event: Map<string, string>;
+  /** 祈福活動的名稱**與費用**：沒有方案的活動，價錢只存在活動的 `fee` 上 */
+  event: Map<string, { title: string; fee: number }>;
 }
 
 const header = (req: ReqLike, name: string): string => {
@@ -475,9 +483,10 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     if (table === 'blessing_registrations') {
       const idsNeeded = uuids(sendable.map(x => clean(x.event_id)));
       if (idsNeeded.length > 0) {
-        const c = await fetch(`${supabaseUrl}/rest/v1/blessing_events?select=id,title&id=in.(${idsNeeded.join(',')})`, { headers: svc });
+        const c = await fetch(`${supabaseUrl}/rest/v1/blessing_events?select=id,title,fee&id=in.(${idsNeeded.join(',')})`, { headers: svc });
         const list: Row[] = c.ok ? await c.json().catch(() => []) : [];
-        (Array.isArray(list) ? list : []).forEach(x => ctx.event.set(x.id, clean(x.title)));
+        (Array.isArray(list) ? list : []).forEach(x =>
+          ctx.event.set(x.id, { title: clean(x.title), fee: Number(x.fee ?? 0) }));
       }
     }
 

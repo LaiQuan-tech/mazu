@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
+import { lampAmount, blessingAmount } from '../services/serviceAmount';
 import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
@@ -5663,17 +5664,18 @@ const ReceivablesTab: React.FC<{
   };
 
   const rows = useMemo<IncomeRow[]>(() => {
+    // 金額一律走 services/serviceAmount.ts，不要在這裡自己算（理由見那支的檔頭）
     const lampRows: IncomeRow[] = lampRegistrations.map(r => {
       const cfg = lampConfigs.find(c => c.id === r.serviceId);
       return { id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
-        type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—', amount: cfg?.fee || 0, status: r.status };
+        type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—',
+        amount: lampAmount(r, lampConfigs), status: r.status };
     });
     const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
       const ev = blessingEvents.find(e => e.id === r.eventId);
-      const addonTotal = r.selectedAddons?.reduce((s, a) => s + a.fee, 0) || 0;
       return { id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
         type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
-        amount: (r.packageFee || 0) + addonTotal, status: r.status };
+        amount: blessingAmount(r, blessingEvents), status: r.status };
     });
     const donationRows: IncomeRow[] = donations.map(r => ({
       id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
@@ -5873,12 +5875,14 @@ const splitSource = (s: string): { platform: string; medium: string; campaign: s
   return { platform, medium: medium === '-' ? '' : medium, campaign: campaign === '-' ? '' : campaign };
 };
 
-const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, blessingRegistrations, fahuiRegistrations, volunteerRegistrations }: {
+const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, volunteerRegistrations }: {
   bookings: BookingRecord[];
   donations: DonationRecord[];
   lampRegistrations: LampRegistrationRecord[];
   lampConfigs: LampServiceConfig[];
   blessingRegistrations: BlessingRegistrationRecord[];
+  /** 祈福的費用多半存在活動上（沒有方案時），所以算金額一定要有這份 */
+  blessingEvents: BlessingEventRecord[];
   fahuiRegistrations: FahuiRegistrationRecord[];
   volunteerRegistrations: VolunteerRegistrationRecord[];
 }) => {
@@ -5896,14 +5900,15 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
     const all: Array<Omit<TrafficRow, 'source'> & { source?: string }> = [
       ...bookings.filter(r => r.status !== BookingStatus.CANCELLED)
         .map(r => ({ service: '問事', name: r.name, amount: 0, source: r.source, createdAt: r.createdAt })),
+      // 金額與應收管理共用同一支（services/serviceAmount.ts），兩頁對不起來就沒人信
       ...lampRegistrations.filter(r => r.status !== LampRegistrationStatus.CANCELLED).map(r => ({
         service: '點燈', name: r.name,
-        amount: lampConfigs.find(c => c.id === r.serviceId)?.fee || 0,
+        amount: lampAmount(r, lampConfigs),
         source: r.source, createdAt: r.createdAt,
       })),
       ...blessingRegistrations.filter(r => r.status !== BlessingStatus.CANCELLED).map(r => ({
         service: '祈福', name: r.name,
-        amount: (r.packageFee || 0) + (r.selectedAddons?.reduce((s, a) => s + a.fee, 0) || 0),
+        amount: blessingAmount(r, blessingEvents),
         source: r.source, createdAt: r.createdAt,
       })),
       ...donations.map(r => ({ service: '捐獻', name: r.name, amount: Number(r.amount) || 0, source: r.source, createdAt: r.createdAt })),
@@ -5915,7 +5920,7 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
       untracked: all.filter(r => !r.source).length,
     };
-  }, [bookings, donations, lampRegistrations, lampConfigs, blessingRegistrations, fahuiRegistrations, volunteerRegistrations]);
+  }, [bookings, donations, lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, volunteerRegistrations]);
 
   const filtered = useMemo(() => rows.filter(r => inDateRange(r.createdAt, dateFrom, dateTo)), [rows, dateFrom, dateTo]);
 
@@ -6410,7 +6415,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
                 fahuiCount={fahuiRegistrations.length} onGoFahui={() => setTab('fahui')} />}
               {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
               {tab === 'vouchers'    && <AdminVouchersTab />}
-              {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}
+              {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}
               {tab === 'receivables' && <ReceivablesTab lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} donations={donations} memberProfiles={memberProfiles} />}
             </>
           )}
