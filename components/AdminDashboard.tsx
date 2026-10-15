@@ -24,8 +24,7 @@ import {
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, Menu, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser, Settings, Share2,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby, ShowerHead,
-  Eye, EyeOff, ShoppingBag, Wrench, Receipt
-} from 'lucide-react';
+  Eye, EyeOff, ShoppingBag, Wrench, Receipt, Send} from 'lucide-react';
 
 type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables' | 'shower';
 
@@ -2191,6 +2190,38 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
 // ─── Donations Tab ────────────────────────────────────────────────────────────
 
 const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: DonationRecord[]; memberProfiles: MemberProfileRecord[]; onRefresh: () => void }) => {
+  /**
+   * 年度捐獻明細：把某一年的捐獻整理成一則寄給每一位捐款人。
+   * **先預覽再寄**是刻意的——這是一次寄給幾十個人的動作，按下去才發現年份選錯
+   * 就收不回來了。預覽會回報筆數、人數、以及前三則的實際內容。
+   */
+  const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
+  const [stmtBusy, setStmtBusy] = useState(false);
+  const sendStatement = async (dry: boolean) => {
+    if (!dry && !confirm(`確定要把 ${stmtYear} 年的捐獻明細寄給每一位捐款人嗎？\n\n寄出後無法收回。建議先按「預覽」確認筆數。`)) return;
+    setStmtBusy(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const r = await fetch('/api/donation-statement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+        body: JSON.stringify({ year: stmtYear, dry }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { alert(`失敗：${j.error ?? j.說明 ?? r.status}`); return; }
+      if (dry) {
+        alert(`預覽（不會寄出）\n\n${stmtYear} 年尚未寄送明細的捐獻：${j.筆數} 筆、${j.人數} 位捐款人`
+          + `\n這次會寄給 ${j.這次會寄} 位`
+          + (j.無法通知 ? `\n有 ${j.無法通知} 筆沒有信箱也沒有 LINE，無法通知` : '')
+          + (j.預覽?.[0] ? `\n\n── 內容範例（${j.預覽[0].管道}）──\n${j.預覽[0].內容}` : ''));
+      } else {
+        alert(`已寄出 ${j.已寄} 位、涵蓋 ${j.涵蓋筆數} 筆。`
+          + (j.提醒 ? `\n${j.提醒}` : '') + (j.警告 ? `\n\n注意：${j.警告}` : ''));
+        onRefresh();
+      }
+    } catch { alert('失敗，請檢查網路後再試'); }
+    finally { setStmtBusy(false); }
+  };
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [sortBy, setSortBy] = useState<'time' | 'name'>('time');
@@ -2231,10 +2262,30 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
             篩選合計：NT$ {total.toLocaleString()}
           </p>
         </div>
-        <button onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-          <Download className="w-4 h-4" /> 匯出 Excel
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 年度明細：先預覽再寄。這是一次寄給幾十個人的動作，按下去就收不回來了 */}
+          <div className="flex items-center gap-1.5 text-sm">
+            <select value={stmtYear} onChange={e => setStmtYear(Number(e.target.value))}
+              className="px-2 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-temple-red/20">
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+                .map(y => <option key={y} value={y}>{y} 年</option>)}
+            </select>
+            <button onClick={() => sendStatement(true)} disabled={stmtBusy}
+              title="只看筆數與內容，不會寄出"
+              className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
+              預覽明細
+            </button>
+            <button onClick={() => sendStatement(false)} disabled={stmtBusy}
+              title="把這一年的捐獻明細寄給每一位捐款人（LINE 或 email）"
+              className="flex items-center gap-1.5 px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+              <Send className="w-4 h-4" /> 寄年度明細
+            </button>
+          </div>
+          <button onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
+            <Download className="w-4 h-4" /> 匯出 Excel
+          </button>
+        </div>
       </div>
 
       {/* 捐款類別設定：預設收合，不擋住每天要看的捐款列表 */}
@@ -3094,6 +3145,7 @@ const SocialTab = () => {
 // ─── Bulletins Tab (公佈欄管理) ────────────────────────────────────────────────
 
 const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; onRefresh: () => void }) => {
+  const [broadcastingId, setBroadcastingId] = useState<string | null>(null);
   const emptyForm: BulletinData = {
     title: '', content: '', category: BulletinCategory.GENERAL,
     isPinned: false, publishAt: null, linkedService: null, imageUrl: null,
@@ -3178,6 +3230,42 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
       alert('刪除失敗');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  /**
+   * 群發到 LINE 官方帳號。
+   *
+   * **這顆鈕與旁邊的編輯／刪除不是同一個量級**：它送到所有好友、收不回來、
+   * 而且每一位都算一則訊息配額。所以：
+   *   文字寫明「所有好友」與「無法收回」，不是只寫「確定要群發嗎」
+   *   發過的那一則整顆鈕換成灰色的「已群發」，按不下去
+   *   真正的防線在後端（broadcast_at 蓋章），前端這層只是別讓人手滑
+   */
+  const handleBroadcast = async (b: BulletinRecord) => {
+    if (b.broadcastAt) return;
+    if (!confirm(
+      `確定要把「${b.title}」群發到 LINE 官方帳號嗎？\n\n`
+      + '・會送給所有好友，送出後無法收回\n'
+      + '・每位好友都會計入官方帳號的訊息配額\n'
+      + '・一則公告只能群發一次',
+    )) return;
+    setBroadcastingId(b.id);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const r = await fetch('/api/line-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+        body: JSON.stringify({ id: b.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { alert(`群發失敗：${j.error ?? r.status}${j.原因 ? `\n${j.原因}` : ''}`); return; }
+      alert(j.警告 ? `已群發，但有一件事要注意：\n${j.警告}` : '已群發到 LINE 官方帳號。');
+      onRefresh();
+    } catch {
+      alert('群發失敗，請檢查網路後再試');
+    } finally {
+      setBroadcastingId(null);
     }
   };
 
@@ -3284,6 +3372,17 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     <button onClick={() => openEdit(b)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
                       <Edit2 className="w-4 h-4" />
                     </button>
+                    {/* 群發：發過的就變成灰色標記、按不下去（真正的防線在後端的蓋章） */}
+                    {b.broadcastAt ? (
+                      <span title={`已於 ${fmtDate(b.broadcastAt)} 群發`}
+                        className="p-1.5 text-xs text-gray-400 whitespace-nowrap">已群發</span>
+                    ) : (
+                      <button onClick={() => handleBroadcast(b)} disabled={broadcastingId === b.id}
+                        title="群發到 LINE 官方帳號（送給所有好友，無法收回）"
+                        className="p-1.5 text-[#06C755] hover:bg-[#06C755]/10 rounded-lg transition-colors disabled:opacity-50">
+                        <Send className="w-4 h-4" />
+                      </button>
+                    )}
                     <button onClick={() => handleDelete(b.id)} disabled={deletingId === b.id}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
                       <Trash2 className="w-4 h-4" />

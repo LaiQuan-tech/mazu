@@ -308,6 +308,10 @@ export interface BulletinRecord extends BulletinData {
   id: string;
   createdAt: string;
   updatedAt: string;
+  /** 群發到 LINE 官方帳號的時間。`undefined` ＝還沒群發過。
+   *  群發送到所有好友、收不回來、而且算訊息配額，所以一則只發一次
+   *  （見 api/line-broadcast.ts）。 */
+  broadcastAt?: string;
 }
 
 // ─── Bulletin Registration (活動報名) ─────────────────────

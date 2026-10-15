@@ -373,6 +373,7 @@ export const getBulletins = async (adminMode = false): Promise<BulletinRecord[]>
     imageUrl: row.image_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    broadcastAt: row.broadcast_at ?? undefined,
   }));
 };
 
