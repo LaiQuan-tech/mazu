@@ -1,7 +1,7 @@
 /**
  * 後台「沐浴車」——管理 17 沐浴車與志工的打卡連結
  *
- * 對外的品牌是「17 沐浴車」（台中媽祖聖沐慈善協會），這裡打的名字會原封不動
+ * 對外的品牌是「17 沐浴車」（臺中市媽祖聖沐慈善協會），這裡打的名字會原封不動
  * 顯示在 /shower 上，所以後台也一律用「沐浴車」，不要再出現「洗澡車」。
  *
  * 打卡本身不在這裡，在 /shower/checkin（志工用專屬連結，不必登入）。
@@ -96,7 +96,7 @@ const AdminShowerTab: React.FC = () => {
           17 沐浴車
         </h2>
         <p className="text-sm text-gray-500 leading-relaxed">
-          台中媽祖聖沐慈善協會主辦，配合進香活動為香燈腳提供免費沐浴服務。
+          臺中市媽祖聖沐慈善協會主辦，配合進香活動為香燈腳提供免費沐浴服務。
           香客在前台的
           <a href="/shower" target="_blank" rel="noopener noreferrer"
             className="font-medium text-temple-red hover:underline mx-1 inline-flex items-center gap-0.5">
