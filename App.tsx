@@ -4806,17 +4806,36 @@ const App: React.FC = () => {
                 神明慈悲為懷，庇佑十方善信。<br />
                 歡迎各界善男信女蒞臨參香指導，共沐神恩。
               </p>
-              <div className="flex space-x-4">
-                {visibleSocials(social).map(({ key, label, url, Icon }) =>
+              {/* LINE 用官方那顆「加入好友」按鈕，其餘維持圓形圖示（廟方 2026-10-16）。
+                  **不是在圓圈旁邊再加一顆**——同一個帳號在同一區塊出現兩次是同一件事
+                  講兩次；是把那顆圓圈換掉。圓圈只寫著「LINE」，沒有動詞，看的人不知道
+                  按下去會發生什麼；官方那張直接寫「加入好友」，而且是信眾認得的樣子。
+                  點擊照樣走 openLine('footer')，後台的導流統計不受影響；
+                  後台把 lineUrl 清空時整顆一樣會消失（visibleSocials 控制）。 */}
+              <div className="flex items-center flex-wrap gap-4">
+                {/* LINE 那顆排最後：它是一條 124px 的長條，排在前面的話，平板那一段
+                    （首欄只剩 208px）會把三顆圓圈拆成「一顆在上、兩顆在下」。
+                    排最後就折得乾淨——三顆圓圈是一組、整組留在同一行。
+                    是真的調 DOM 順序不是用 CSS 的 order：後者會讓 Tab 鍵的順序
+                    與看到的順序對不起來。 */}
+                {[...visibleSocials(social)]
+                  .sort((a, b) => Number(a.key === 'lineUrl') - Number(b.key === 'lineUrl'))
+                  .map(({ key, label, url, Icon }) =>
                   key === 'lineUrl' ? (
                     <button
                       key={key}
                       onClick={() => openLine('footer')}
-                      className="w-10 h-10 rounded-full bg-[#06C755] flex items-center justify-center hover:scale-110 transition-transform text-white"
+                      className="px-1 py-1 rounded-md hover:opacity-85 transition-opacity"
                       title={label}
                     >
-                      <span className="sr-only">{label}</span>
-                      <Icon className="h-5 w-5" />
+                      <span className="sr-only">加入 LINE 官方帳號</span>
+                      <img
+                        src={heroSrc('line-add-friend.png')}
+                        alt=""
+                        width={116}
+                        height={36}
+                        className="block h-9 w-auto"
+                      />
                     </button>
                   ) : (
                     <a
