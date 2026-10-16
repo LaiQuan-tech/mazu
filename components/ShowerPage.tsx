@@ -182,9 +182,10 @@ const SectionMenu: React.FC = () => {
  * 兩支播放器自動載入等於替每個只是來查車在哪的人付掉幾 MB 的流量。
  * 網域用 `youtube-nocookie`：沒按播放之前不該有人被記上一筆。
  *
- * **封面用 YouTube 原本的預覽圖**（廟方 2026-10-16 指定）。兩支的預覽圖都是
- * 同一張協會海報、也就是這一頁最上面那張 banner，所以**標題一定要壓在封面上**
- * ——不寫的話畫面上是三張一模一樣的圖，分不出哪一支是哪一支。
+ * **封面用影片自己的圖**（廟方 2026-10-16 指定）。理事長那支用 YouTube 原本的
+ * 預覽圖，而那張就是這一頁最上面的 banner，所以**標題要壓在封面上**，不然分不出
+ * 哪一支是哪一支；「十七道光」用廟方另外給的片頭字卡，**圖上已經有片名了，
+ * 就不要再壓一次**（`coverHasTitle`）——同一件事講兩次。
  *
  * 封面**存在自己的 public/**（`shower-video-<id>.webp`）不是直接連 i.ytimg.com：
  * 沒按播放之前不必向 Google 發一次請求，而且圖多大、壓多少由我們自己決定。
@@ -192,12 +193,12 @@ const SectionMenu: React.FC = () => {
  *
  * 標題照上傳者寫的，只在數字與中文之間補了空白（與全站「17 沐浴車」的寫法一致）。
  */
-const VIDEOS: { id: string; title: string }[] = [
+const VIDEOS: { id: string; title: string; coverHasTitle?: boolean }[] = [
   { id: 'vCdQNnOVxTk', title: '17 沐浴車　吳至民理事長' },
-  { id: '6t5GIuezgpA', title: '17 道光' },
+  { id: '6t5GIuezgpA', title: '17 道光', coverHasTitle: true },
 ];
 
-const VideoCard: React.FC<{ id: string; title: string }> = ({ id, title }) => {
+const VideoCard: React.FC<{ id: string; title: string; coverHasTitle?: boolean }> = ({ id, title, coverHasTitle }) => {
   const [playing, setPlaying] = useState(false);
 
   // aspect-video 兩種狀態共用，換成播放器時版面不會跳
@@ -231,15 +232,19 @@ const VideoCard: React.FC<{ id: string; title: string }> = ({ id, title }) => {
             />
           </picture>
           {/* 標題壓在照片上一定要有底，不然淺色的天空那一帶白字就不見了 */}
-          <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" aria-hidden="true" />
+          {!coverHasTitle && (
+            <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" aria-hidden="true" />
+          )}
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
               <Play className="w-7 h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
             </span>
           </span>
-          <span className="absolute inset-x-0 bottom-0 px-4 pb-3 text-white font-serif text-base sm:text-lg font-bold text-center">
-            {title}
-          </span>
+          {!coverHasTitle && (
+            <span className="absolute inset-x-0 bottom-0 px-4 pb-3 text-white font-serif text-base sm:text-lg font-bold text-center">
+              {title}
+            </span>
+          )}
         </button>
       )}
     </div>
@@ -420,7 +425,7 @@ const ShowerPage: React.FC = () => {
             <p className="pl-4 text-gray-700 leading-relaxed">影片放在 YouTube，按下播放才會開始載入。</p>
           </div>
           <div className="mt-4 space-y-4">
-            {VIDEOS.map(v => <VideoCard key={v.id} id={v.id} title={v.title} />)}
+            {VIDEOS.map(v => <VideoCard key={v.id} {...v} />)}
           </div>
         </section>
 
