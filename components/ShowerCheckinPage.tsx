@@ -1,5 +1,5 @@
 /**
- * 洗澡車打卡 /shower/checkin
+ * 17 沐浴車打卡 /shower/checkin（對外一律稱「沐浴車」，見 ShowerPage.tsx 的檔頭）
  *
  * 給**現場志工**用的，不是給香客的。
  *
@@ -26,6 +26,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { MapPin, Send, CheckCircle2, AlertCircle, LocateFixed, Lock } from 'lucide-react';
 import { getShowerLocations, showerCheckin } from '../services/supabase';
 import { ShowerTruckLocation } from '../types';
+import { formatShowerNote } from '../services/showerNote';
 
 type GeoState =
   | { kind: 'idle' }
@@ -60,7 +61,7 @@ const ShowerCheckinPage: React.FC = () => {
   const [place, setPlace] = useState('');
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState<{ name: string; at: number; place: string } | null>(null);
+  const [done, setDone] = useState<{ name: string; at: number; place: string; note: string } | null>(null);
   const [error, setError] = useState('');
 
   /** 一進頁面就先抓位置（不送出）：按下按鈕時座標通常已經到手，少等好幾秒 */
@@ -91,6 +92,8 @@ const ShowerCheckinPage: React.FC = () => {
 
   const canSend = !!truckId && (geo.kind === 'ok' || place.trim().length > 0);
 
+  const notePreview = formatShowerNote(note);
+
   const submit = async () => {
     if (!canSend || sending) return;
     setSending(true);
@@ -104,11 +107,11 @@ const ShowerCheckinPage: React.FC = () => {
       });
       // null＝這台車被停用或已刪除。跟網路錯誤是兩回事，給的指示也不一樣
       if (!name) {
-        setError('這台洗澡車已停用，請向廟方確認。');
+        setError('這台沐浴車已停用，請向廟方確認。');
         return;
       }
       rememberTruck(truckId);
-      setDone({ name, at: Date.now(), place: place.trim() });
+      setDone({ name, at: Date.now(), place: place.trim(), note: formatShowerNote(note) });
       setNote('');
     } catch {
       setError('送出失敗，可能是訊號不穩。請確認網路後再按一次。');
@@ -136,6 +139,8 @@ const ShowerCheckinPage: React.FC = () => {
               <MapPin className="w-5 h-5 text-temple-red shrink-0 mt-1" aria-hidden="true" />
               <span>{done.place || '（現場座標，按導航即可抵達）'}</span>
             </p>
+            {/* 備註也要照抄：打錯的時間跟打錯的地名一樣會讓香客白跑一趟 */}
+            {done.note && <p className="text-gray-600 mt-2">{done.note}</p>}
             {geo.kind === 'ok' && (
               <p className="text-xs text-gray-400 mt-2">
                 座標 {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
@@ -162,7 +167,7 @@ const ShowerCheckinPage: React.FC = () => {
     <div className="min-h-screen bg-temple-bg">
       <main className="max-w-md mx-auto px-4 py-8">
         <header className="text-center mb-5">
-          <h1 className="font-serif text-2xl font-bold text-temple-dark">洗澡車打卡</h1>
+          <h1 className="font-serif text-2xl font-bold text-temple-dark">沐浴車打卡</h1>
           <p className="text-gray-500 text-sm mt-2">車停好之後按一下，香客那邊立刻就會更新。</p>
         </header>
 
@@ -172,7 +177,7 @@ const ShowerCheckinPage: React.FC = () => {
           <Lock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
           <span>
             <strong>這是工作人員專用的網址，請勿公開張貼或轉傳給香客。</strong>
-            任何拿到這條網址的人都能更改洗澡車的位置。
+            任何拿到這條網址的人都能更改沐浴車的位置。
           </span>
         </p>
 
@@ -198,7 +203,7 @@ const ShowerCheckinPage: React.FC = () => {
         )}
         {trucks && trucks.length === 0 && (
           <p role="alert" className="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">
-            目前沒有啟用中的洗澡車，請向廟方確認後台是否已新增。
+            目前沒有啟用中的沐浴車，請向廟方確認後台是否已新增。
           </p>
         )}
 
@@ -253,13 +258,20 @@ const ShowerCheckinPage: React.FC = () => {
         </label>
 
         <label className="block mb-6">
-          <span className="block text-sm font-medium text-gray-700 mb-1">備註（選填）</span>
+          <span className="block text-sm font-medium text-gray-700 mb-1">供應到幾點（選填）</span>
           <input
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder="例：供應到今晚 23:00"
+            placeholder="例：22:00"
             className={inputClass}
           />
+          {/* 只打時間就好，香客那邊會自己補成完整的句子——當場把結果寫出來，
+              志工不必猜自己打的東西會變成什麼（見 services/showerNote.ts） */}
+          <span className="block text-xs text-gray-400 mt-1">
+            {notePreview
+              ? `香客會看到「${notePreview}」`
+              : '只打時間就好，會自動顯示成「供應到今晚 22:00」。其他事情也可以直接打整句。'}
+          </span>
         </label>
 
         {error && (

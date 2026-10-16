@@ -20,9 +20,10 @@
  * 顯示「18:42」他還要自己算。超過兩小時另外加一句提醒，因為那時位置很可能已經過期。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play } from 'lucide-react';
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
+import { formatShowerNote } from '../services/showerNote';
 import { ShowerTruckLocation } from '../types';
 
 /** 位置超過這麼久就提醒香客可能已經移動 */
@@ -116,6 +117,57 @@ const SECTIONS: { no: string; title: string; sub?: string; paras: string[] }[] =
  * aspect-[1448/1086] 先把高度卡住，圖還沒載完時底下的位置卡片不會往下跳
  * （這一頁的人常常在 1 格訊號下開，圖會比文字晚很久）。
  */
+/**
+ * 影片（2026-10-16 廟方提供兩支 YouTube 連結）。
+ *
+ * **預設只畫封面，按下去才載入播放器**（facade）。YouTube 的 iframe 一掛上去就是
+ * 一兆位元組等級的 JS 與一批 cookie，而這一頁的人常常是在進香路上、一格訊號——
+ * 兩支播放器自動載入等於替每個只是來查車在哪的人付掉幾 MB 的流量。
+ * 網域用 `youtube-nocookie`：沒按播放之前不該有人被記上一筆。
+ *
+ * **封面刻意不用 YouTube 的縮圖**：兩支影片的縮圖都是同一張協會海報，
+ * 而那張已經是這一頁最上面的 banner——放上去就是同一張圖在一頁裡出現三次。
+ *
+ * 標題照上傳者寫的，只在數字與中文之間補了空白（與全站「17 沐浴車」的寫法一致）。
+ */
+const VIDEOS: { id: string; title: string }[] = [
+  { id: 'vCdQNnOVxTk', title: '17 沐浴車　吳至民理事長' },
+  { id: '6t5GIuezgpA', title: '17 道光' },
+];
+
+const VideoCard: React.FC<{ id: string; title: string }> = ({ id, title }) => {
+  const [playing, setPlaying] = useState(false);
+
+  // aspect-video 兩種狀態共用，換成播放器時版面不會跳
+  return (
+    <div className="relative overflow-hidden rounded-2xl aspect-video bg-[#B01350]">
+      {playing ? (
+        <iframe
+          className="absolute inset-0 w-full h-full"
+          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+          title={title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPlaying(true)}
+          aria-label={`播放影片：${title}`}
+          className="group absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-4 px-4 text-white"
+          style={{ background: 'linear-gradient(135deg, #B01350 0%, #D6246B 55%, #F08A3C 100%)' }}
+        >
+          <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
+            <Play className="w-7 h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
+          </span>
+          <span className="font-serif text-lg font-bold text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">{title}</span>
+        </button>
+      )}
+    </div>
+  );
+};
+
 const Banner: React.FC = () => (
   <div className="relative overflow-hidden rounded-3xl mb-8 bg-[#B01350]/10 aspect-[1448/1086]">
     <h1 className="sr-only">{BRAND.name}｜{BRAND.org}</h1>
@@ -136,6 +188,8 @@ const Banner: React.FC = () => (
 const TruckCard: React.FC<{ truck: ShowerTruckLocation }> = ({ truck }) => {
   const has = !!truck.checkedAt;
   const stale = has && Date.now() - new Date(truck.checkedAt!).getTime() > STALE_MINUTES * 60000;
+  // 志工多半只打了「22:00」，補成完整的句子香客才知道那是什麼意思
+  const noteText = formatShowerNote(truck.note);
 
   return (
     <li className="rounded-2xl border-2 border-temple-gold/40 bg-white px-5 py-5 sm:px-6">
@@ -160,7 +214,7 @@ const TruckCard: React.FC<{ truck: ShowerTruckLocation }> = ({ truck }) => {
             <MapPin className="w-6 h-6 text-temple-red shrink-0 mt-1" aria-hidden="true" />
             <span>{truck.place || '（現場座標，請按導航）'}</span>
           </p>
-          {truck.note && <p className="text-gray-600 mt-2 leading-relaxed">{truck.note}</p>}
+          {noteText && <p className="text-gray-600 mt-2 leading-relaxed">{noteText}</p>}
 
           {stale && (
             <p className="mt-3 flex items-start gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
@@ -272,6 +326,20 @@ const ShowerPage: React.FC = () => {
             </section>
           ))}
         </div>
+
+        {/* 影片。編號接著協會那四段走，排版才對得齊；01–04 是協會給的文案，這一段是我們加的 */}
+        <section className="mt-10">
+          <div className="flex items-baseline gap-3">
+            <span className="font-serif text-2xl font-bold text-[#D6246B]/35 leading-none">05</span>
+            <h2 className="font-serif text-xl font-bold text-temple-dark">影片</h2>
+          </div>
+          <div className="mt-3 pl-1 border-l-2 border-[#D6246B]/25">
+            <p className="pl-4 text-gray-700 leading-relaxed">影片放在 YouTube，按下播放才會開始載入。</p>
+          </div>
+          <div className="mt-4 space-y-4">
+            {VIDEOS.map(v => <VideoCard key={v.id} id={v.id} title={v.title} />)}
+          </div>
+        </section>
 
         {/* 信念那句自己一塊，與上面的敘述拉開——它是整個服務的總結，不是第五段文章 */}
         <div className="mt-12 rounded-2xl bg-[#FDF2F6] border border-[#D6246B]/20 px-6 py-7 text-center">
