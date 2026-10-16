@@ -61,6 +61,12 @@ const BRAND = {
   name: '17 沐浴車',
   org: '臺中市媽祖聖沐慈善協會',
   tagline: '關懷每位香客，從沐浴開始。',
+  /**
+   * **協會自己的** LINE 官方帳號（`@822oawqk`，廟方 2026-10-16 提供）。
+   * 不要跟和聖壇那個搞混——那是 `lin.ee/lj0gLqR`／`@725utjch`，寫在 CLAUDE.md 裡，
+   * 全站的浮動鈕與導覽列圖示用的都是它。這一支只出現在 /shower。
+   */
+  line: 'https://lin.ee/SUoSKti',
   /** 橫幅底下那一句，講的是「這一頁現在能幫你什麼」，不是品牌故事 */
   lead: '免費提供隨香香燈腳盥洗。位置由現場志工回報，車會隨隊伍移動，出發前請再確認一次。',
 };
@@ -471,6 +477,29 @@ const ShowerPage: React.FC = () => {
           <p className="mt-4 font-serif text-2xl sm:text-3xl font-bold text-[#B01350] tracking-wide">
             {BRAND.org}
           </p>
+
+          {/* 協會的 LINE。擺在協會名稱正下方，「加入誰的好友」才不會有疑義——
+              這一頁掛在和聖壇的網域上，放在別處會被當成和聖壇的帳號。
+              圖是 LINE 官方提供的那張，但存自己的 public/：少一次對 scdn.line-apps.com
+              的連線，而且那邊哪天換網址也不會變成一塊破圖。
+              連結的名字寫在 aria-label，img 的 alt 留空——圖上那三個字是「加入好友」，
+              讀屏軟體只念這三個字等於沒講加誰的。 */}
+          <a
+            href={BRAND.line}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`加入${BRAND.org} LINE 官方帳號`}
+            className="inline-block mt-5 px-2 py-2 hover:opacity-85 transition-opacity"
+          >
+            <img
+              src={heroSrc('line-add-friend.png')}
+              alt=""
+              width={116}
+              height={36}
+              loading="lazy"
+              className="block h-9 w-auto"
+            />
+          </a>
         </div>
       </main>
     </div>
