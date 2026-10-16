@@ -95,6 +95,42 @@ const PageLoading = () => (
 // （它們原本各自寫死網址，既不計入統計、後台改網址也不會跟著換）
 
 /** 共用匯款資訊區塊 */
+/**
+ * 回到頁首的浮動鈕。
+ *
+ * **與 LINE 浮動鈕同一邊、同樣大小**（廟方 2026-10-16）。原本是放在 LINE 的對角，
+ * 理由是「兩顆不可能疊在一起」——但那讓兩顆浮動鈕分據畫面兩側，比疊在一起更吵。
+ * 現在改成**疊在 LINE 正上方**（`stacked`），間距 12px，兩顆都是 56／64px。
+ * `stacked=false` 用在沒有 LINE 鈕的頁面（聖母經），這時它就佔 LINE 原本的位置，
+ * 不要憑空浮在半空中。
+ *
+ * **深底實心＋淺色描邊**：這顆會飄過米色頁面與深色頁尾兩種底，單一顏色顧不了兩邊
+ * ——只給 temple-red 的話在頁尾量到 2.32:1，等於看不見。米色描邊在深底上拉開界線，
+ * 在米色頁面上則由深色的填滿負責，兩種底至少有一個邊界過得了 3:1。
+ *
+ * 用 opacity＋pointer-events 隱藏而不是不渲染，才有淡入淡出；同時關掉 aria 與 Tab 焦點。
+ */
+const BackToTop: React.FC<{ show: boolean; stacked: boolean; onClick: () => void }> = ({ show, stacked, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label="回到頁首"
+    title="回到頁首"
+    aria-hidden={!show}
+    tabIndex={show ? 0 : -1}
+    className={`fixed z-[60] w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-temple-red text-white shadow-2xl
+      ring-2 ring-[#F0E9CE]/70 flex items-center justify-center hover:bg-[#5C4310] hover:scale-110
+      transition-all duration-500
+      ${stacked
+        // LINE 鈕在下面：手機 96+56+12、桌機 32+64+12
+        ? 'bottom-[164px] right-4 sm:bottom-[108px] sm:right-auto sm:left-8'
+        : 'bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8'}
+      ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
+  >
+    <ChevronUp className="w-7 h-7 sm:w-8 sm:h-8" aria-hidden="true" />
+  </button>
+);
+
 const BankInfoBox: React.FC<{ tip?: string }> = ({ tip }) => (
   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
     <p className="font-bold text-amber-800 mb-1 flex items-center gap-1.5"><Landmark className="w-4 h-4" aria-hidden="true" />匯款資訊</p>
@@ -1805,9 +1841,19 @@ const App: React.FC = () => {
    * 鎖的長度依距離算，捲得越遠飛越久。
    */
   const scrollToTop = () => {
-    navLockRef.current = performance.now() + Math.min(1400, 500 + window.scrollY * 0.25);
+    /**
+     * **開了「減少動態效果」的裝置要用 instant**（2026-10-16 修）。
+     * `prefers-reduced-motion: reduce` 之下，瀏覽器**不是把平滑捲動變成瞬間，
+     * 而是整個取消** —— `behavior: 'smooth'` 的 scrollTo 文風不動（CLAUDE.md 有實測）。
+     * 也就是說這顆鈕對那些人**按了完全沒反應**，而本站信眾以長者居多、
+     * 那個設定開著的比例不低。
+     */
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // instant 的話不必鎖導覽高亮——它一步到位，不會沿途掃過每個區塊
+    if (!reduce) navLockRef.current = performance.now() + Math.min(1400, 500 + window.scrollY * 0.25);
     if (pageFromPath() === 'home') setActiveSection('home');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: reduce ? 'instant' : 'smooth' });
   };
 
   /** 切換到獨立分頁（預約問事／點燈服務／祈福活動／神尊修復），或回首頁 */
@@ -2109,6 +2155,9 @@ const App: React.FC = () => {
     return (<>
       <Analytics path={analyticsPath} />
       <Suspense fallback={<PageLoading />}><ScripturePage onBack={closeScripture} /></Suspense>
+      {/* 聖母經 136 段、是全站最長的一頁，最需要這顆鈕，而它在獨立的 return 分支裡
+          所以原本沒有（廟方 2026-10-16 指出）。這一頁沒有 LINE 浮動鈕，stacked=false */}
+      <BackToTop show={showToTop} stacked={false} onClick={scrollToTop} />
     </>);
   }
 
@@ -4861,7 +4910,7 @@ const App: React.FC = () => {
         title="加入 LINE 官方帳號"
         aria-hidden={hideLineFloat}
         tabIndex={hideLineFloat ? -1 : 0}
-        className={`fixed bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8 z-[60] flex flex-col items-center gap-1 group
+        className={`fixed bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8 z-[60] flex items-center justify-center group
           transition-all duration-500 ${hideLineFloat ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'}`}
       >
         {/* Pulse ring */}
@@ -4869,38 +4918,13 @@ const App: React.FC = () => {
         <span className="relative bg-[#06C755] w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl group-hover:scale-110 transition-transform flex items-center justify-center">
           <LineIcon className="w-9 h-9 sm:w-10 sm:h-10" />
         </span>
-        <span className="relative bg-[#06C755] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap">
-          加入 LINE
-        </span>
       </button>
       )}
 
-      {/* ── 回到頁首 ──
-          **位置永遠在 LINE 浮動鈕的對角**：LINE 手機在右下、桌機在左下，這顆就反過來，
-          兩顆不會疊在一起。手機的 bottom 跟 LINE 一樣用 24（96px），避開 iOS Safari
-          底部工具列的範圍。
-          捲滿一個螢幕才淡入；跟 LINE 鈕一樣用 opacity＋pointer-events 隱藏而不是不渲染，
-          才有淡入淡出，同時關掉 aria 與 Tab 焦點。
+      {/* 回到頁首。疊在 LINE 鈕正上方；沒有 LINE 鈕時就佔它的位置（見 BackToTop）。
           有全螢幕覆蓋層（會員中心／報名視窗／海報燈箱）時收起來：那時捲的不是這一頁，
-          按了只會讓背景偷偷跑掉。
-          **深底實心＋淺色描邊**：這顆會飄過米色頁面與深色頁尾兩種底，單一顏色顧不了兩邊——
-          只給 temple-red 的話在頁尾量到 2.32:1，等於看不見。米色描邊在深底上拉開界線，
-          在米色頁面上則由深色的填滿負責，兩種底至少有一個邊界過得了 3:1。 */}
-      <button
-        type="button"
-        onClick={scrollToTop}
-        aria-label="回到頁首"
-        title="回到頁首"
-        aria-hidden={!showToTop || overlayOpen}
-        tabIndex={showToTop && !overlayOpen ? 0 : -1}
-        className={`fixed bottom-24 left-4 sm:bottom-8 sm:left-auto sm:right-8 z-[60]
-          w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-temple-red text-white shadow-2xl
-          ring-2 ring-[#F0E9CE]/70
-          flex items-center justify-center hover:bg-[#5C4310] hover:scale-110
-          transition-all duration-500 ${showToTop && !overlayOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
-      >
-        <ChevronUp className="w-6 h-6 sm:w-7 sm:h-7" aria-hidden="true" />
-      </button>
+          按了只會讓背景偷偷跑掉。 */}
+      <BackToTop show={showToTop && !overlayOpen} stacked={social.lineUrl.trim() !== ''} onClick={scrollToTop} />
 
       {/* Member Portal */}
       {showMemberPortal && (
