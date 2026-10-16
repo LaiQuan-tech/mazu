@@ -118,6 +118,63 @@ const SECTIONS: { no: string; title: string; sub?: string; paras: string[] }[] =
  * （這一頁的人常常在 1 格訊號下開，圖會比文字晚很久）。
  */
 /**
+ * 這一頁的目錄（廟方 2026-10-16：「影片放太下面了，還是做一個簡單的 menu」）。
+ *
+ * **不放在最上面**：這一頁的第一屏要留給「車在哪」與那顆導航鈕，塞一排目錄
+ * 進去，在 375×667 的手機上就會把導航鈕推出畫面——那是整頁存在的理由。
+ * 改成**接在位置卡片底下並 sticky**：一開始不佔第一屏，往下捲之後它黏在頂端
+ * 一直都在，要跳到影片隨時一下。
+ *
+ * 只給四項。做成完整的六項目錄就得橫向捲，而橫向捲的選單等於把後面幾項藏起來。
+ *
+ * **捲動一律 instant**：開了「減少動態效果」的裝置會把平滑捲動**整個取消**，
+ * 不是變快（全站規則，見 CLAUDE.md）。而本站信眾以長者居多、那個設定開著的
+ * 比例不低——用 smooth 等於他們按了完全沒反應。
+ */
+const MENU: { id: string; label: string }[] = [
+  { id: 'shower-now',    label: '車在哪' },
+  { id: 'shower-01',     label: '關於我們' },
+  { id: 'shower-03',     label: '服務對象' },
+  { id: 'shower-videos', label: '影片' },
+];
+
+/** sticky 的高度加一點餘裕，跳過去時標題不會被選單蓋住 */
+const MENU_OFFSET = 72;
+
+const SectionMenu: React.FC = () => {
+  const jump = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (!el) return;
+    const y = window.scrollY + el.getBoundingClientRect().top - MENU_OFFSET;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'instant' as ScrollBehavior });
+  };
+
+  return (
+    // 外層要滿版、底色與頁面同色：只放一顆浮起來的藥丸的話，黏住之後它上方那
+    // 一道縫會露出正在捲過去的半行字，看起來像畫面壞掉。`-mx-4` 抵銷 main 的內距。
+    <div className="sticky top-0 z-20 mt-8 -mx-4 px-4 pt-3 pb-2 bg-temple-bg">
+      <nav
+        aria-label="這一頁的內容"
+        className="flex items-center justify-center gap-1 rounded-full
+          border border-[#D6246B]/20 bg-white px-2 py-1.5 shadow-sm"
+      >
+        {MENU.map(m => (
+          <a
+            key={m.id}
+            href={`#${m.id}`}
+            onClick={e => jump(e, m.id)}
+            className="px-3 py-1.5 rounded-full text-sm text-temple-dark hover:bg-[#FDF2F6] hover:text-[#B01350] transition-colors"
+          >
+            {m.label}
+          </a>
+        ))}
+      </nav>
+    </div>
+  );
+};
+
+/**
  * 影片（2026-10-16 廟方提供兩支 YouTube 連結）。
  *
  * **預設只畫封面，按下去才載入播放器**（facade）。YouTube 的 iframe 一掛上去就是
@@ -273,6 +330,7 @@ const ShowerPage: React.FC = () => {
         {/* 橫幅底下只放「這一頁現在能幫你什麼」。品牌故事在位置之後 */}
         <p className="text-gray-600 leading-relaxed text-center mb-8">{BRAND.lead}</p>
 
+        <div id="shower-now" className="scroll-mt-20">
         {trucks === null ? (
           <p className="text-center py-16 text-gray-400">載入中…</p>
         ) : trucks.length === 0 ? (
@@ -286,6 +344,8 @@ const ShowerPage: React.FC = () => {
             {trucks.map(t => <TruckCard key={t.id} truck={t} />)}
           </ul>
         )}
+
+        </div>
 
         {/* 自動更新是背景行為，仍要給一顆手動的——香客會想確認「它真的有在更新嗎」 */}
         <div className="mt-8 text-center">
@@ -305,12 +365,14 @@ const ShowerPage: React.FC = () => {
           )}
         </div>
 
+        <SectionMenu />
+
         {/* ── 品牌故事 ──
             排在即時位置之後：走了一整天的香燈腳要的是「車在哪」，不是先讀四段文章。
             進香期之外沒有車可查，這幾段才是這一頁的內容——所以兩種情境都成立。 */}
         <div className="mt-14 space-y-10">
           {SECTIONS.map(sec => (
-            <section key={sec.no}>
+            <section key={sec.no} id={`shower-${sec.no}`} className="scroll-mt-20">
               <div className="flex items-baseline gap-3">
                 <span className="font-serif text-2xl font-bold text-[#D6246B]/35 leading-none">{sec.no}</span>
                 <div>
@@ -328,7 +390,7 @@ const ShowerPage: React.FC = () => {
         </div>
 
         {/* 影片。編號接著協會那四段走，排版才對得齊；01–04 是協會給的文案，這一段是我們加的 */}
-        <section className="mt-10">
+        <section id="shower-videos" className="mt-10 scroll-mt-20">
           <div className="flex items-baseline gap-3">
             <span className="font-serif text-2xl font-bold text-[#D6246B]/35 leading-none">05</span>
             <h2 className="font-serif text-xl font-bold text-temple-dark">影片</h2>
