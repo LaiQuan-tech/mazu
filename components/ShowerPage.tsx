@@ -22,6 +22,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle } from 'lucide-react';
 import { getShowerLocations } from '../services/supabase';
+import { heroSrc } from '../services/assetUrl';
 import { ShowerTruckLocation } from '../types';
 
 /** 位置超過這麼久就提醒香客可能已經移動 */
@@ -105,31 +106,30 @@ const SECTIONS: { no: string; title: string; sub?: string; paras: string[] }[] =
  *
  * 泡泡是 SVG 畫的，不是圖檔：這一頁要在訊號一格的山區載入。
  */
+/**
+ * Banner 用協會提供的原圖，不是自己畫的——品牌識別（毛筆字、粉紅、志工照）
+ * 是協會的資產，重畫一張只會變成「很像但不是」。
+ *
+ * 圖裡已經有「17 沐浴車」五個大字，所以 h1 用 sr-only：畫面上不重複講一次，
+ * 但搜尋引擎與讀屏軟體仍讀得到。alt 寫的是圖的內容，不是標題的複寫。
+ *
+ * aspect-[1448/1086] 先把高度卡住，圖還沒載完時底下的位置卡片不會往下跳
+ * （這一頁的人常常在 1 格訊號下開，圖會比文字晚很久）。
+ */
 const Banner: React.FC = () => (
-  <div className="relative overflow-hidden rounded-3xl mb-8"
-    style={{ background: 'linear-gradient(135deg, #B01350 0%, #D6246B 45%, #F08A3C 100%)' }}>
-    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g fill="#FFFFFF" opacity="0.16">
-        <circle cx="38" cy="150" r="16" /><circle cx="78" cy="176" r="9" />
-        <circle cx="330" cy="44" r="20" /><circle cx="366" cy="86" r="11" />
-        <circle cx="296" cy="150" r="13" /><circle cx="150" cy="24" r="8" />
-        <circle cx="236" cy="186" r="7" /><circle cx="12" cy="70" r="10" />
-      </g>
-      <g fill="#FFFFFF" opacity="0.1">
-        <circle cx="200" cy="120" r="48" /><circle cx="60" cy="40" r="30" />
-      </g>
-    </svg>
-    <div className="relative px-6 py-8 sm:px-10 sm:py-10 text-white">
-      <p className="text-[11px] sm:text-xs tracking-[0.3em] opacity-90">{BRAND.org}</p>
-      <h1 className="font-serif font-bold mt-2 text-4xl sm:text-5xl tracking-wide drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
-        {BRAND.name}
-      </h1>
-      <div className="flex items-center gap-3 mt-3" aria-hidden="true">
-        <span className="w-10 h-px bg-white/70" />
-        <span className="w-1.5 h-1.5 rotate-45 bg-white/90 inline-block" />
-      </div>
-      <p className="mt-3 text-sm sm:text-base font-medium opacity-95">{BRAND.tagline}</p>
-    </div>
+  <div className="relative overflow-hidden rounded-3xl mb-8 bg-[#B01350]/10 aspect-[1448/1086]">
+    <h1 className="sr-only">{BRAND.name}｜{BRAND.org}</h1>
+    <picture>
+      <source srcSet={heroSrc('shower-banner.webp')} type="image/webp" />
+      <img
+        src={heroSrc('shower-banner.jpg')}
+        alt={`${BRAND.name}——${BRAND.org}的志工在進香沿線提供免費沐浴服務。${BRAND.tagline}`}
+        width={1448}
+        height={1086}
+        fetchPriority="high"
+        className="w-full h-full object-cover block"
+      />
+    </picture>
   </div>
 );
 

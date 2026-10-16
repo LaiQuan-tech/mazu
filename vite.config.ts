@@ -46,6 +46,8 @@ const HERO_FILES = [
   // 已經分享過的網址要等它重抓；FB 用 Sharing Debugger 按「重新抓取」，
   // LINE 沒有工具，分享時在網址後面加個 ?v=2 之類就是新網址、會重抓。
   'og-hero.jpg',
+  // 17 沐浴車的 banner（協會提供，/shower）
+  'shower-banner.webp', 'shower-banner.jpg',
 ];
 
 const heroVersions = (): Record<string, string> => {
