@@ -182,8 +182,13 @@ const SectionMenu: React.FC = () => {
  * 兩支播放器自動載入等於替每個只是來查車在哪的人付掉幾 MB 的流量。
  * 網域用 `youtube-nocookie`：沒按播放之前不該有人被記上一筆。
  *
- * **封面刻意不用 YouTube 的縮圖**：兩支影片的縮圖都是同一張協會海報，
- * 而那張已經是這一頁最上面的 banner——放上去就是同一張圖在一頁裡出現三次。
+ * **封面用 YouTube 原本的預覽圖**（廟方 2026-10-16 指定）。兩支的預覽圖都是
+ * 同一張協會海報、也就是這一頁最上面那張 banner，所以**標題一定要壓在封面上**
+ * ——不寫的話畫面上是三張一模一樣的圖，分不出哪一支是哪一支。
+ *
+ * 封面**存在自己的 public/**（`shower-video-<id>.webp`）不是直接連 i.ytimg.com：
+ * 沒按播放之前不必向 Google 發一次請求，而且圖多大、壓多少由我們自己決定。
+ * 代價是上傳者換了預覽圖這邊不會跟著變，重跑一次壓縮即可。
  *
  * 標題照上傳者寫的，只在數字與中文之間補了空白（與全站「17 沐浴車」的寫法一致）。
  */
@@ -212,13 +217,29 @@ const VideoCard: React.FC<{ id: string; title: string }> = ({ id, title }) => {
           type="button"
           onClick={() => setPlaying(true)}
           aria-label={`播放影片：${title}`}
-          className="group absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-4 px-4 text-white"
-          style={{ background: 'linear-gradient(135deg, #B01350 0%, #D6246B 55%, #F08A3C 100%)' }}
+          className="group absolute inset-0 w-full h-full"
         >
-          <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
-            <Play className="w-7 h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
+          <picture>
+            <source srcSet={heroSrc(`shower-video-${id}.webp`)} type="image/webp" />
+            <img
+              src={heroSrc(`shower-video-${id}.jpg`)}
+              alt=""
+              width={640}
+              height={360}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </picture>
+          {/* 標題壓在照片上一定要有底，不然淺色的天空那一帶白字就不見了 */}
+          <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" aria-hidden="true" />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
+              <Play className="w-7 h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
+            </span>
           </span>
-          <span className="font-serif text-lg font-bold text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">{title}</span>
+          <span className="absolute inset-x-0 bottom-0 px-4 pb-3 text-white font-serif text-base sm:text-lg font-bold text-center">
+            {title}
+          </span>
         </button>
       )}
     </div>
