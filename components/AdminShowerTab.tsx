@@ -1,5 +1,8 @@
 /**
- * 後台「洗澡車」——管理進香洗澡車與志工的打卡連結
+ * 後台「沐浴車」——管理 17 沐浴車與志工的打卡連結
+ *
+ * 對外的品牌是「17 沐浴車」（台中媽祖聖沐慈善協會），這裡打的名字會原封不動
+ * 顯示在 /shower 上，所以後台也一律用「沐浴車」，不要再出現「洗澡車」。
  *
  * 打卡本身不在這裡，在 /shower/checkin（志工用專屬連結，不必登入）。
  * 這一頁只做三件事：開一台車、把連結發出去、需要時把鑰匙換掉。
@@ -59,7 +62,7 @@ const AdminShowerTab: React.FC = () => {
   const add = async () => {
     setBusy(true);
     try {
-      const created = await createShowerTruck(`洗澡車 ${trucks.length + 1}`, trucks.length + 1);
+      const created = await createShowerTruck(`沐浴車 ${trucks.length + 1}`, trucks.length + 1);
       setTrucks(prev => [...prev, created]);
     } catch {
       alert('新增失敗。若尚未執行 shower_trucks.sql，請先到 Supabase 的 SQL Editor 執行該檔。');
@@ -90,10 +93,10 @@ const AdminShowerTab: React.FC = () => {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
           <ShowerHead className="w-5 h-5 text-temple-red" aria-hidden="true" />
-          進香洗澡車
+          17 沐浴車
         </h2>
         <p className="text-sm text-gray-500 leading-relaxed">
-          白沙屯媽祖進香期間，免費提供香客盥洗的移動式洗澡車。
+          台中媽祖聖沐慈善協會主辦，配合進香活動為香燈腳提供免費沐浴服務。
           香客在前台的
           <a href="/shower" target="_blank" rel="noopener noreferrer"
             className="font-medium text-temple-red hover:underline mx-1 inline-flex items-center gap-0.5">
@@ -126,7 +129,7 @@ const AdminShowerTab: React.FC = () => {
             <Lock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             <span>
               <strong>請勿公開張貼</strong>（網站、臉書、公開群組）。
-              這條網址沒有密碼，任何拿到的人都能更改洗澡車的位置。只私訊給現場同工。
+              這條網址沒有密碼，任何拿到的人都能更改沐浴車的位置。只私訊給現場同工。
             </span>
           </p>
         </div>
@@ -149,7 +152,7 @@ const AdminShowerTab: React.FC = () => {
                     value={t.name}
                     onChange={e => setTrucks(prev => prev.map(x => x.id === t.id ? { ...x, name: e.target.value } : x))}
                     onBlur={e => patch(t.id, { name: e.target.value })}
-                    placeholder="車輛名稱，例：洗澡車 1"
+                    placeholder="車輛名稱，例：沐浴車 1"
                     aria-label="車輛名稱"
                     className={`${inputClass} font-medium`}
                   />
@@ -173,14 +176,14 @@ const AdminShowerTab: React.FC = () => {
 
             {trucks.length === 0 && (
               <p className="text-gray-400 text-sm py-10 text-center border border-dashed border-gray-300 rounded-lg">
-                還沒有任何洗澡車，按下方「新增洗澡車」建立第一台。
+                還沒有任何沐浴車，按下方「新增沐浴車」建立第一台。
               </p>
             )}
           </div>
 
           <button type="button" onClick={add} disabled={busy}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50">
-            <Plus className="w-4 h-4" aria-hidden="true" />新增洗澡車
+            <Plus className="w-4 h-4" aria-hidden="true" />新增沐浴車
           </button>
         </>
       )}
