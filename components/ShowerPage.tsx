@@ -251,6 +251,25 @@ const VideoCard: React.FC<{ id: string; title: string; coverHasTitle?: boolean }
   );
 };
 
+/**
+ * 最上面的主辦單位（廟方 2026-10-16：「網頁最上面也放一次」）。
+ *
+ * 海報上本來就印著協會名，但那是圖、字很小、而且用的是「台中」的舊寫法。
+ * 這一行用的是立案全名，而且是文字——讀得到、選得起來、搜尋引擎也看得見。
+ *
+ * **字級刻意比頁尾那行小**：這一頁的第一屏要留給「車在哪」與導航鈕，
+ * 每多一行就逼近一次 375×667 的下緣。目前量到導航鈕底邊 641 < 667。
+ * 頁尾那行是收尾、可以大；這一行是報頭，講清楚「這是誰辦的」就夠了。
+ *
+ * 不設 `whitespace-nowrap`：11 個字在 18px 下約 198px，343px 的版面綽綽有餘，
+ * 但使用者把系統字級開到兩倍時寧可讓它折行，也不要衝出畫面外。
+ */
+const Masthead: React.FC = () => (
+  <p className="mb-4 px-2 text-center font-serif text-lg sm:text-xl font-bold tracking-wide text-[#B01350]">
+    {BRAND.org}
+  </p>
+);
+
 const Banner: React.FC = () => (
   <div className="relative overflow-hidden rounded-3xl mb-8 bg-[#B01350]/10 aspect-[1448/1086]">
     <h1 className="sr-only">{BRAND.name}｜{BRAND.org}</h1>
@@ -351,7 +370,8 @@ const ShowerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-temple-bg">
-      <main className="max-w-xl mx-auto px-4 py-10 sm:py-14">
+      <main className="max-w-xl mx-auto px-4 pt-6 pb-10 sm:pt-10 sm:pb-14">
+        <Masthead />
         <Banner />
         {/* 橫幅底下只放「這一頁現在能幫你什麼」。品牌故事在位置之後 */}
         <p className="text-gray-600 leading-relaxed text-center mb-8">{BRAND.lead}</p>
