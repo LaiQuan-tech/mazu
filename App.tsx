@@ -98,11 +98,12 @@ const PageLoading = () => (
 /**
  * 回到頁首的浮動鈕。
  *
- * **與 LINE 浮動鈕同一邊、同樣大小**（廟方 2026-10-16）。原本是放在 LINE 的對角，
+ * **與 LINE 浮動鈕同一邊、同樣大小**（廟方 2026-10-16）。原本放在 LINE 的對角，
  * 理由是「兩顆不可能疊在一起」——但那讓兩顆浮動鈕分據畫面兩側，比疊在一起更吵。
- * 現在改成**疊在 LINE 正上方**（`stacked`），間距 12px，兩顆都是 56／64px。
- * `stacked=false` 用在沒有 LINE 鈕的頁面（聖母經），這時它就佔 LINE 原本的位置，
- * 不要憑空浮在半空中。
+ *
+ * **這顆固定在下面那一格，LINE 疊在它上面**（廟方 2026-10-16 指定的順序）。
+ * 固定而不是跟著挪：它出現的時機比 LINE 晚（要捲滿一屏），會動的那顆是 LINE。
+ * 沒有 LINE 鈕的頁面（聖母經）它一樣在這個位置，不必另外判斷。
  *
  * **深底實心＋淺色描邊**：這顆會飄過米色頁面與深色頁尾兩種底，單一顏色顧不了兩邊
  * ——只給 temple-red 的話在頁尾量到 2.32:1，等於看不見。米色描邊在深底上拉開界線，
@@ -110,7 +111,7 @@ const PageLoading = () => (
  *
  * 用 opacity＋pointer-events 隱藏而不是不渲染，才有淡入淡出；同時關掉 aria 與 Tab 焦點。
  */
-const BackToTop: React.FC<{ show: boolean; stacked: boolean; onClick: () => void }> = ({ show, stacked, onClick }) => (
+const BackToTop: React.FC<{ show: boolean; onClick: () => void }> = ({ show, onClick }) => (
   <button
     type="button"
     onClick={onClick}
@@ -121,10 +122,7 @@ const BackToTop: React.FC<{ show: boolean; stacked: boolean; onClick: () => void
     className={`fixed z-[60] w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-temple-red text-white shadow-2xl
       ring-2 ring-[#F0E9CE]/70 flex items-center justify-center hover:bg-[#5C4310] hover:scale-110
       transition-all duration-500
-      ${stacked
-        // LINE 鈕在下面：手機 96+56+12、桌機 32+64+12
-        ? 'bottom-[164px] right-4 sm:bottom-[108px] sm:right-auto sm:left-8'
-        : 'bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8'}
+      bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8
       ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
   >
     <ChevronUp className="w-7 h-7 sm:w-8 sm:h-8" aria-hidden="true" />
@@ -2124,6 +2122,8 @@ const App: React.FC = () => {
   const hideLineFloat = page === 'home' && !pastHero;
   /** 有全螢幕覆蓋層時，浮動鈕要讓位——那時捲的不是底下這一頁 */
   const overlayOpen = showMemberPortal || !!blessingModal || !!posterUrl;
+  /** 回頂鈕現在看得到沒有。LINE 鈕要據此往上讓位，所以兩邊共用同一個條件 */
+  const toTopShown = showToTop && !overlayOpen;
 
   // 追蹤用的「目前頁面」。報名表與聖母經現在各有網址（/fahui、/scripture），
   // 但它們是 state 不是 PAGE_PATHS 的一員，所以仍要在這裡明確對應。
@@ -2157,7 +2157,7 @@ const App: React.FC = () => {
       <Suspense fallback={<PageLoading />}><ScripturePage onBack={closeScripture} /></Suspense>
       {/* 聖母經 136 段、是全站最長的一頁，最需要這顆鈕，而它在獨立的 return 分支裡
           所以原本沒有（廟方 2026-10-16 指出）。這一頁沒有 LINE 浮動鈕，stacked=false */}
-      <BackToTop show={showToTop} stacked={false} onClick={scrollToTop} />
+      <BackToTop show={showToTop} onClick={scrollToTop} />
     </>);
   }
 
@@ -4910,8 +4910,16 @@ const App: React.FC = () => {
         title="加入 LINE 官方帳號"
         aria-hidden={hideLineFloat}
         tabIndex={hideLineFloat ? -1 : 0}
-        className={`fixed bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8 z-[60] flex items-center justify-center group
-          transition-all duration-500 ${hideLineFloat ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'}`}
+        className={`fixed right-4 sm:right-auto sm:left-8 z-[60] flex items-center justify-center group
+          transition-all duration-500
+          ${/**
+             * 回頂鈕一出現就往上讓位（手機 96+56+12、桌機 32+64+12），LINE 疊在它上面。
+             * **讓位的是 LINE 不是回頂鈕**：回頂鈕要捲滿一屏才出現，固定它、讓先出現的
+             * 那顆移動，畫面才不會有「下面空一格」的狀態。移動只發生在捲動的當下，
+             * 手指不在按鈕上，不會誤按。
+             */''}
+          ${toTopShown ? 'bottom-[164px] sm:bottom-[108px]' : 'bottom-24 sm:bottom-8'}
+          ${hideLineFloat ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'}`}
       >
         {/* Pulse ring */}
         <span className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#06C755]/40 animate-ping" />
@@ -4924,7 +4932,7 @@ const App: React.FC = () => {
       {/* 回到頁首。疊在 LINE 鈕正上方；沒有 LINE 鈕時就佔它的位置（見 BackToTop）。
           有全螢幕覆蓋層（會員中心／報名視窗／海報燈箱）時收起來：那時捲的不是這一頁，
           按了只會讓背景偷偷跑掉。 */}
-      <BackToTop show={showToTop && !overlayOpen} stacked={social.lineUrl.trim() !== ''} onClick={scrollToTop} />
+      <BackToTop show={toTopShown} onClick={scrollToTop} />
 
       {/* Member Portal */}
       {showMemberPortal && (
