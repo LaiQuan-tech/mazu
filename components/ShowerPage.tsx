@@ -433,15 +433,20 @@ const ShowerPage: React.FC = () => {
           <p className="mt-3 font-serif text-lg font-bold text-[#B01350]">{BRAND.tagline}</p>
         </div>
 
-        {/* 這一頁大多是掃 QR 或點別人轉傳的連結進來的，沒有導覽列。
-            留一個回首頁的出口給想知道「這是誰做的」的人，順便給搜尋引擎一條內部連結 */}
-        <p className="mt-10 text-center text-sm text-gray-400">
-          {BRAND.org}
-          <span className="mx-2 text-gray-300">・</span>
-          位置查詢由
-          <a href="/" className="underline decoration-gray-300 underline-offset-2 hover:text-temple-red">台北古亭和聖壇</a>
-          提供
-        </p>
+        {/* 收尾只留主辦單位，而且要大、要置中（廟方 2026-10-16）。
+            這一頁是協會的服務，和聖壇做的只是查詢頁——署名權是協會的。
+            原本那行「位置查詢由台北古亭和聖壇提供」依廟方指示移除，
+            連帶拿掉的是這一頁唯一一條回首頁的出口（掃 QR 進來的人沒有導覽列）。 */}
+        <div className="mt-14 text-center">
+          <span className="inline-flex items-center gap-3" aria-hidden="true">
+            <span className="w-10 h-px bg-[#D6246B]/40" />
+            <span className="w-2 h-2 rotate-45 bg-[#D6246B]/60 inline-block" />
+            <span className="w-10 h-px bg-[#D6246B]/40" />
+          </span>
+          <p className="mt-4 font-serif text-2xl sm:text-3xl font-bold text-[#B01350] tracking-wide">
+            {BRAND.org}
+          </p>
+        </div>
       </main>
     </div>
   );
