@@ -898,9 +898,9 @@ const App: React.FC = () => {
     // 聖母經與志工報名各有網址但不是 PAGE_PATHS 的一員，要各自給標題——
     // 不給的話分享 /scripture 出去，分頁上顯示的會是法會報名的標題。
     document.title = showShowerCheckin
-      ? '洗澡車打卡｜台北古亭和聖壇'
+      ? '17 沐浴車打卡｜志工專用'
       : showShower
-      ? '進香洗澡車位置查詢｜白沙屯媽祖進香｜台北古亭和聖壇'
+      ? '17 沐浴車｜白沙屯媽祖進香免費沐浴服務位置查詢'
       : showScripture
       ? '天上聖母經｜經文、註解與故事｜台北古亭和聖壇'
       : showVolunteer
@@ -2148,6 +2148,9 @@ const App: React.FC = () => {
     return (<>
       <Analytics path={analyticsPath} />
       <Suspense fallback={<PageLoading />}><ShowerPage /></Suspense>
+      {/* 加了協會介紹之後這一頁變成四屏長，而香客真正要用的「開啟導航」在最上面——
+          看完故事要回去按它，不該用滑的。這一頁也沒有 LINE 浮動鈕 */}
+      <BackToTop show={showToTop} onClick={scrollToTop} />
     </>);
   }
 

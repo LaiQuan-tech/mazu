@@ -1,7 +1,10 @@
 /**
- * 進香洗澡車位置查詢 /shower
+ * 17 沐浴車位置查詢 /shower
  *
- * 白沙屯媽祖進香沒有固定路線，洗澡車停在哪只有現場的人知道。志工用專屬連結打卡，
+ * 進香沿線的免費沐浴服務，主辦單位是台中媽祖聖沐慈善協會（2026-10-16 取得授權使用品牌與
+ * 文案），和聖壇提供的是這一頁位置查詢。對外一律稱「沐浴車」，不要寫回「洗澡車」。
+ *
+ * 進香沒有固定路線，車停在哪只有現場的人知道。志工用專屬連結打卡，
  * 香客在這一頁看「現在在哪裡」並直接導航過去。
  *
  * ── 使用情境決定了每一個取捨 ──
@@ -46,6 +49,90 @@ const navUrl = (t: ShowerTruckLocation): string => {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
 };
 
+/**
+ * ── 品牌與文案集中在這裡 ──
+ * 廟方 2026-10-16 提供（台中媽祖聖沐慈善協會，已取得授權；這個功能日後會獨立成
+ * 自己的站，所以文案不散在 JSX 裡、集中成一份常數，搬家時整塊帶走就好）。
+ * **一個字都不要自己編**：服務內容、服務對象這種事寫錯，香客會照著跑一趟。
+ */
+const BRAND = {
+  name: '17 沐浴車',
+  org: '台中媽祖聖沐慈善協會',
+  tagline: '關懷每位香客，從沐浴開始。',
+  /** 橫幅底下那一句，講的是「這一頁現在能幫你什麼」，不是品牌故事 */
+  lead: '免費提供隨香香燈腳盥洗。位置由現場志工回報，車會隨隊伍移動，出發前請再確認一次。',
+};
+
+/** 品牌故事。排在即時位置**之後**——理由見檔頭「一屏之內要看到答案」 */
+const SECTIONS: { no: string; title: string; sub?: string; paras: string[] }[] = [
+  {
+    no: '01', title: '團隊介紹', sub: '一份善心，十七份力量',
+    paras: [
+      '17沐浴車的起心動念，來自一份單純而真誠的善念。在媽祖進香的路上，我們看見一雙雙走了數十公里的腳，也看見香燈腳一路上的汗水與疲憊。',
+      '因此，我們希望為辛苦走在進香路上的香燈腳，提供一個可以好好洗澡的地方，讓他們洗去一身汗水與疲憊，也讓這份關懷真正落實在需要的地方。',
+      '於是，一個人的發心，慢慢凝聚成十七人的同行。由 17 位企業家共同響應公益，投入資源、共同打造 17 沐浴車，將企業家的善念化為實際行動，陪伴媽祖進香的每一段路程。',
+      '一台車，承載的不只是沐浴設備，更是十七份願意付出的心。',
+    ],
+  },
+  {
+    no: '02', title: '服務介紹', sub: '讓辛苦走在進香路上的人，好好洗一個澡',
+    paras: [
+      '長途進香，是一段充滿信念的旅程。一步一步走過的，是虔誠，也是汗水、疲憊與堅持。',
+      '17沐浴車配合媽祖進香活動，為辛苦走在進香路上的香燈腳，提供免費沐浴服務。讓大家在長途進香的過程中，能夠洗去一身汗水，洗去一路的疲憊，換上乾淨的衣物，再繼續接下來的行程。',
+      '進香路途漫長，對香燈腳而言，洗澡是一件日常而重要的事情。因此，我們將沐浴服務帶到進香路上，依活動需求提供服務，讓辛苦走了一整天的香燈腳，可以好好洗個澡，整理自己，再繼續完成這一趟虔誠的旅程。',
+      '洗去汗水，洗去疲憊。對我們而言，沐浴是一項服務；對辛苦走了一整天的香燈腳而言，卻是一份實實在在的關懷。',
+    ],
+  },
+  {
+    no: '03', title: '服務對象',
+    paras: ['主要服務參與媽祖進香活動的香燈腳、進香信眾、隨香人員與進香志工，依各項進香活動的服務安排，提供公益沐浴服務。'],
+  },
+  {
+    no: '04', title: '我們的初心',
+    paras: [
+      '因為看見，所以關心。因為關心，所以付諸行動。',
+      '從一個人的善念，到十七位企業董事長共同響應，17沐浴車希望將這份心意，化為進香路上一項實際而溫暖的服務。讓辛苦走在路上的香燈腳，洗去一身汗水與疲憊，帶著舒服的身體繼續前行。',
+    ],
+  },
+];
+
+/**
+ * 橫幅。照廟方給的海報風格：暖色夕照、桃紅、泡泡。
+ *
+ * **刻意做矮不做滿版**（手機約 190px）：這一頁的核心原則是「一屏之內要看到答案」
+ * ——香客走了一整天、天色暗，他要的是「車在哪」。一張漂亮但把位置推出畫面的
+ * 主視覺，正好違背這一頁存在的理由。品牌故事排在位置之後。
+ *
+ * 泡泡是 SVG 畫的，不是圖檔：這一頁要在訊號一格的山區載入。
+ */
+const Banner: React.FC = () => (
+  <div className="relative overflow-hidden rounded-3xl mb-8"
+    style={{ background: 'linear-gradient(135deg, #B01350 0%, #D6246B 45%, #F08A3C 100%)' }}>
+    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <g fill="#FFFFFF" opacity="0.16">
+        <circle cx="38" cy="150" r="16" /><circle cx="78" cy="176" r="9" />
+        <circle cx="330" cy="44" r="20" /><circle cx="366" cy="86" r="11" />
+        <circle cx="296" cy="150" r="13" /><circle cx="150" cy="24" r="8" />
+        <circle cx="236" cy="186" r="7" /><circle cx="12" cy="70" r="10" />
+      </g>
+      <g fill="#FFFFFF" opacity="0.1">
+        <circle cx="200" cy="120" r="48" /><circle cx="60" cy="40" r="30" />
+      </g>
+    </svg>
+    <div className="relative px-6 py-8 sm:px-10 sm:py-10 text-white">
+      <p className="text-[11px] sm:text-xs tracking-[0.3em] opacity-90">{BRAND.org}</p>
+      <h1 className="font-serif font-bold mt-2 text-4xl sm:text-5xl tracking-wide drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
+        {BRAND.name}
+      </h1>
+      <div className="flex items-center gap-3 mt-3" aria-hidden="true">
+        <span className="w-10 h-px bg-white/70" />
+        <span className="w-1.5 h-1.5 rotate-45 bg-white/90 inline-block" />
+      </div>
+      <p className="mt-3 text-sm sm:text-base font-medium opacity-95">{BRAND.tagline}</p>
+    </div>
+  </div>
+);
+
 const TruckCard: React.FC<{ truck: ShowerTruckLocation }> = ({ truck }) => {
   const has = !!truck.checkedAt;
   const stale = has && Date.now() - new Date(truck.checkedAt!).getTime() > STALE_MINUTES * 60000;
@@ -78,7 +165,7 @@ const TruckCard: React.FC<{ truck: ShowerTruckLocation }> = ({ truck }) => {
           {stale && (
             <p className="mt-3 flex items-start gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-              這個位置超過 {Math.floor(STALE_MINUTES / 60)} 小時沒有更新，洗澡車可能已經移動。
+              這個位置超過 {Math.floor(STALE_MINUTES / 60)} 小時沒有更新，沐浴車可能已經移動。
             </p>
           )}
 
@@ -128,25 +215,17 @@ const ShowerPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-temple-bg">
       <main className="max-w-xl mx-auto px-4 py-10 sm:py-14">
-        <header className="text-center mb-8">
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold text-temple-dark">進香洗澡車</h1>
-          <div className="flex items-center justify-center gap-3 mt-3 mb-4" aria-hidden="true">
-            <span className="w-12 h-px bg-temple-gold/70" />
-            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-            <span className="w-12 h-px bg-temple-gold/70" />
-          </div>
-          <p className="text-gray-600 leading-relaxed">
-            免費提供隨香香客盥洗。位置由現場志工回報，車會隨隊伍移動，出發前請再確認一次。
-          </p>
-        </header>
+        <Banner />
+        {/* 橫幅底下只放「這一頁現在能幫你什麼」。品牌故事在位置之後 */}
+        <p className="text-gray-600 leading-relaxed text-center mb-8">{BRAND.lead}</p>
 
         {trucks === null ? (
           <p className="text-center py-16 text-gray-400">載入中…</p>
         ) : trucks.length === 0 ? (
           <div className="text-center py-16">
             <ShowerHead className="w-12 h-12 mx-auto text-gray-300 mb-4" aria-hidden="true" />
-            <p className="text-gray-500 text-lg">目前沒有洗澡車在服務</p>
-            <p className="text-gray-400 text-sm mt-2">進香期間才會開放，敬請期待。</p>
+            <p className="text-gray-500 text-lg">目前沒有沐浴車在服務</p>
+            <p className="text-gray-400 text-sm mt-2">配合進香活動開放，敬請期待。</p>
           </div>
         ) : (
           <ul className="space-y-4">
@@ -172,7 +251,46 @@ const ShowerPage: React.FC = () => {
           )}
         </div>
 
-        <p className="mt-10 text-center text-sm text-gray-400">台北古亭和聖壇</p>
+        {/* ── 品牌故事 ──
+            排在即時位置之後：走了一整天的香燈腳要的是「車在哪」，不是先讀四段文章。
+            進香期之外沒有車可查，這幾段才是這一頁的內容——所以兩種情境都成立。 */}
+        <div className="mt-14 space-y-10">
+          {SECTIONS.map(sec => (
+            <section key={sec.no}>
+              <div className="flex items-baseline gap-3">
+                <span className="font-serif text-2xl font-bold text-[#D6246B]/35 leading-none">{sec.no}</span>
+                <div>
+                  <h2 className="font-serif text-xl font-bold text-temple-dark">{sec.title}</h2>
+                  {sec.sub && <p className="text-sm text-[#B01350] mt-0.5">{sec.sub}</p>}
+                </div>
+              </div>
+              <div className="mt-3 pl-1 border-l-2 border-[#D6246B]/25 space-y-3">
+                {sec.paras.map((t, i) => (
+                  <p key={i} className="pl-4 text-gray-700 leading-relaxed">{t}</p>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        {/* 信念那句自己一塊，與上面的敘述拉開——它是整個服務的總結，不是第五段文章 */}
+        <div className="mt-12 rounded-2xl bg-[#FDF2F6] border border-[#D6246B]/20 px-6 py-7 text-center">
+          <p className="text-temple-dark leading-loose">
+            一個人發心，十七人同行。<br />
+            十七份善心，匯聚成一台愛心沐浴車。
+          </p>
+          <p className="mt-3 font-serif text-lg font-bold text-[#B01350]">{BRAND.tagline}</p>
+        </div>
+
+        {/* 這一頁大多是掃 QR 或點別人轉傳的連結進來的，沒有導覽列。
+            留一個回首頁的出口給想知道「這是誰做的」的人，順便給搜尋引擎一條內部連結 */}
+        <p className="mt-10 text-center text-sm text-gray-400">
+          {BRAND.org}
+          <span className="mx-2 text-gray-300">・</span>
+          位置查詢由
+          <a href="/" className="underline decoration-gray-300 underline-offset-2 hover:text-temple-red">台北古亭和聖壇</a>
+          提供
+        </p>
       </main>
     </div>
   );
