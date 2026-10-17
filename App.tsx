@@ -405,16 +405,23 @@ const BLESSING_NAV: NavItem = { id: 'blessing', label: '祈福活動', kind: 'pa
 const LAMP_SEASON_MONTHS = [11, 12, 1];
 const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMonth());
 
+/**
+ * 導覽列的順序＝**服務在前、介紹在後**（廟方 2026-10-17 重排）。
+ *
+ * 之前是「最新活動／關於我們／祀奉神尊／遷址捐款」全排在服務前面——等於還沒讓人
+ * 看到本壇在做什麼，就先要他讀沿革、再開口募款。會進到這個網站的人絕大多數是來
+ * 辦事的，辦事的入口該排在最前面。
+ *
+ * **緊急祈願排第二**：急難的人要一下就按到，這是整列裡唯一「晚一分鐘就有差」的。
+ * **遷址捐款留在服務之後、介紹之前**（廟方指定）：募資是現在進行中的重點，
+ * 不要沉到最後一個。
+ *
+ * 第四格是點燈／祈福互換的那一格（見 isLampSeason）。順序改了寬度沒變——
+ * 整列仍是 849px／可用 849px。
+ */
 const NAV_PRIMARY: NavItem[] = [
   { id: 'home', label: '首頁', kind: 'section' },
-  // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
-  ...(ENABLE_BULLETIN ? [{ id: 'bulletin', label: '最新活動', kind: 'section' } as NavItem] : []),
-
-  { id: 'about', label: '關於我們', kind: 'section' },
-  { id: 'deities', label: '祀奉神尊', kind: 'section' },
-  { id: 'relocation', label: '遷址捐款', kind: 'page' },
   { id: 'booking', label: '預約問事', kind: 'page' },
-  isLampSeason() ? LAMP_NAV : BLESSING_NAV,
   /**
    * 緊急祈願燈（2026-10-17 廟方指定為常設項目）。
    *
@@ -426,6 +433,12 @@ const NAV_PRIMARY: NavItem[] = [
    * 收一層就變成兩個動作，而這一頁存在的理由就是「馬上」。
    */
   { id: 'urgent', label: '緊急祈願', kind: 'page' },
+  isLampSeason() ? LAMP_NAV : BLESSING_NAV,
+  { id: 'relocation', label: '遷址捐款', kind: 'page' },
+  // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
+  ...(ENABLE_BULLETIN ? [{ id: 'bulletin', label: '最新活動', kind: 'section' } as NavItem] : []),
+  { id: 'deities', label: '祀奉神尊', kind: 'section' },
+  { id: 'about', label: '關於我們', kind: 'section' },
 ];
 
 // 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列

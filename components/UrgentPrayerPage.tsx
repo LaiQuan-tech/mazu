@@ -26,8 +26,25 @@
 import React, { useEffect, useState } from 'react';
 import { HeartHandshake, Hospital, GraduationCap, Flame, Check, AlertCircle, Phone } from 'lucide-react';
 import BirthDatePicker from './BirthDatePicker';
+import PatternMedallion from './PatternMedallion';
 import { submitUrgentPrayer, urgentPrayersReady } from '../services/supabase';
 import { UrgentPrayerData, UrgentPrayerKind, ZodiacSign } from '../types';
+
+/**
+ * 版型外殼。三種畫面（表單／送出成功／資料表還沒建好）共用，**團紋才不會漏掉**
+ * ——這一頁一開始就漏了（廟方 2026-10-17 指出「底圖沒有龍紋或鳳紋」）。
+ *
+ * 用鳳紋、靠右：服務頁（/lamps、/blessing）都是這一組，龍紋留給首頁、公佈欄與
+ * 預約問事那一區。團紋是絕對定位並往外推四成，所以外層一定要 relative
+ * overflow-hidden、內容要 relative z-10，否則會撐出水平捲軸或被紋樣蓋住
+ * （見 PatternMedallion 的檔頭）。
+ */
+const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <section className="py-20 bg-temple-bg relative overflow-hidden">
+    <PatternMedallion motif="phoenix" side="r" />
+    <div className="relative z-10">{children}</div>
+  </section>
+);
 
 const KINDS: { id: UrgentPrayerKind; label: string; hint: string; Icon: React.FC<{ className?: string }> }[] = [
   { id: 'hospital', label: '手術或住院', hint: '病苦關卡、開刀、住院療養', Icon: Hospital },
@@ -134,7 +151,7 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
 
   if (doneKind) {
     return (
-      <section className="py-20 bg-temple-bg">
+      <Shell>
         <div className="max-w-2xl mx-auto px-4 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
             <Check className="w-9 h-9 text-green-600" aria-hidden="true" />
@@ -154,14 +171,14 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
             再登記一位
           </button>
         </div>
-      </section>
+      </Shell>
     );
   }
 
   // 資料表還沒建好：不要畫表單。讓急難中的人填完十幾格才發現送不出去，比什麼都不顯示糟
   if (ready === false) {
     return (
-      <section className="py-20 bg-temple-bg">
+      <Shell>
         <div className="max-w-2xl mx-auto px-4 text-center">
           <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-4 font-serif">緊急祈願燈</h1>
           <p className="text-gray-600 leading-loose">
@@ -175,14 +192,14 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
             </a>
           )}
         </div>
-      </section>
+      </Shell>
     );
   }
 
   const isMemorial = form.kind === 'memorial';
 
   return (
-    <section className="py-20 bg-temple-bg">
+    <Shell>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
           <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
@@ -357,7 +374,7 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
           </p>
         </div>
       </div>
-    </section>
+    </Shell>
   );
 };
 
