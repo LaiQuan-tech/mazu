@@ -34,7 +34,8 @@ export type ConfirmTable =
   | 'lamp_registrations'
   | 'blessing_registrations'
   | 'donations'
-  | 'fahui_registrations';
+  | 'fahui_registrations'
+  | 'urgent_prayers';
 
 /**
  * 停手多久才送出。

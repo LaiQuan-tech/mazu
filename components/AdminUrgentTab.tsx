@@ -15,6 +15,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Check, Undo2, X, Phone, Mail, Flame, Hospital, GraduationCap } from 'lucide-react';
 import { getUrgentPrayers, updateUrgentPrayerStatus } from '../services/supabase';
+import { queueConfirmEmail } from '../services/notifyConfirm';
 import { UrgentPrayerKind, UrgentPrayerRecord, UrgentPrayerStatus } from '../types';
 import { TAG_GOLD, TAG_STATE_DONE, TAG_STATE_OPEN, TAG_STATE_OVER } from './tagStyles';
 
@@ -82,6 +83,13 @@ const AdminUrgentTab: React.FC = () => {
     try {
       await updateUrgentPrayerStatus(id, status);
       setRows(prev => prev && prev.map(r => (r.id === id ? { ...r, status } : r)));
+      /*
+        **只有「已祈福」這個方向要寄信。** 改回待處理不寄——沒有「取消確認信」
+        這種東西，寄一封說「其實還沒點」只會讓信眾更混亂（同確認信那條原則）。
+        攢 6 秒再送、依收件人分組，所以廟方連按五列只會寄出一封。
+        後端靠 confirm_sent_at 蓋章擋重寄，改來改去不會變成一疊一樣的信。
+      */
+      if (status === UrgentPrayerStatus.DONE) queueConfirmEmail('urgent_prayers', id);
     } catch (err) {
       console.error(err);
       setError('更新失敗，請再試一次。');
@@ -171,11 +179,17 @@ const AdminUrgentTab: React.FC = () => {
                   <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 text-temple-red hover:underline">
                     <Phone className="w-4 h-4" aria-hidden="true" />{r.phone}
                   </a>
-                  {r.email && (
-                    <span className="inline-flex items-center gap-1.5 text-gray-500">
-                      <Mail className="w-4 h-4" aria-hidden="true" />{r.email}
-                    </span>
-                  )}
+                  {/* 三種狀態分開講。少了這一行，「沒留信箱所以沒寄」與「寄了」
+                      在畫面上一模一樣，工作人員會以為信眾都知道了——而這封信
+                      存在的理由就是讓信眾知道（同 MemberInfoModal 那條） */}
+                  <span className="inline-flex items-center gap-1.5 text-gray-500">
+                    <Mail className="w-4 h-4" aria-hidden="true" />
+                    {r.confirmSentAt
+                      ? `已寄出通知　${r.email ?? ''}`
+                      : r.email
+                        ? `標記已祈福後會寄到 ${r.email}`
+                        : '未留信箱，不會寄通知'}
+                  </span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-100">

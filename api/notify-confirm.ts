@@ -186,6 +186,31 @@ const TABLES: Record<string, {
     line: r => `${r.name}　共 NT$${Number(r.total_amount ?? 0).toLocaleString()}`,
     amount: r => Number(r.total_amount ?? 0),
   },
+  /**
+   * 緊急祈願燈（2026-10-17）。廟方在後台按「標記已祈福」時寄。
+   *
+   * **不收費，所以沒有 amount**，信裡一個數字都不要出現——這一頁從頭到尾的
+   * 承諾就是「不收取任何費用」，確認信冒出一個金額會讓人以為要補款。
+   * 也沒有 payinfo（沒有要匯的款）。
+   *
+   * **這封信的收件人是登記的人，不一定是被祈願的那一位**：冥福接引那一種
+   * `name` 是先人。所以摘要要把情況講出來，不要只寫名字。
+   */
+  urgent_prayers: {
+    label: '緊急祈願',
+    subject: '緊急祈願燈已為您點燈祈福',
+    intro: n => `您向和聖壇登記的《緊急祈願燈》，本壇已於神前代為稟告、祈福點燈${n > 1 ? `，共 ${n} 筆` : ''}：`,
+    extra: ['本服務不收取任何費用。', '若狀況有變動或需要補充，歡迎隨時與本壇聯繫。'],
+    closing: '願神明庇佑，早日平安順遂。',
+    line: r => `${r.name}　${URGENT_KIND[String(r.kind)] ?? ''}${r.place_name ? `（${r.place_name}）` : ''}`,
+  },
+};
+
+/** 與 api/notify-registration.ts 的那一份同義；兩支各自獨立不互相 import（見檔頭的 Vercel 陷阱） */
+const URGENT_KIND: Record<string, string> = {
+  hospital: '手術或住院',
+  exam:     '升學考試或考證照',
+  memorial: '冥福接引',
 };
 
 /**
