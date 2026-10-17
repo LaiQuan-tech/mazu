@@ -715,6 +715,18 @@ const HERO_VARIANTS = {
   // 白底：上緣那道黑色遮罩壓上去會變灰，導覽列與宮壇名的白字也只是勉強能讀——
   // 這一版若要採用，遮罩與字色都得另外做，現在只是拿來看構圖。
   porcelain: { file: 'hero-porcelain.jpg', tone: 'flat' as const },
+  /**
+   * 青花棚拍（`?hero=studio`，2026-10-17 廟方給的青花瓷高訂照）。
+   *
+   * **沒有檔案，整片是 CSS 漸層畫的。** 參考照的重點不是圖案是那個棚：
+   * 左上一道光、四周收深、底下一片會反光的地板。那三件事用漸層做得出來，
+   * 而且比圖檔好——零位元組、任何螢幕比例都不會裁到、縮放不會糊。
+   * 三尊本來就是去背 PNG，站上去剛好。
+   *
+   * **沒有做倒影。** 參考照地板上有完整的鏡像，但那會變成一尊上下顛倒的神尊，
+   * 那是廟方該決定的事不是我該替他決定的。現在是地板的光暈，要加倒影再說。
+   */
+  studio: { studio: true as const, tone: 'flat' as const },
 };
 const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
 
@@ -740,6 +752,39 @@ const HERO = (() => {
   if (INK_MODE) return HERO_VARIANTS.blue;
   return HERO_VARIANTS[DEFAULT_HERO];
 })();
+
+/**
+ * 青花棚拍背景（`?hero=studio`）。三層，由下而上：
+ *   1. 底色——四周收深，往下收到紙色，接得上 ?ink=1 的版面
+ *   2. 光錐——左上一道，橢圓形、邊緣要夠軟，硬邊會變成一顆球
+ *   3. 地板——底下兩成四，上緣一道亮線當地平線，往下越亮（參考照那片反光地板）
+ *
+ * 全部是漸層，所以**零請求、零位元組**，而且任何螢幕比例都不會裁到重點
+ * （圖檔的 cover 在高窄的手機上只會露出中段）。
+ */
+const HeroStudio: React.FC = () => (
+  <div className="absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div className="absolute inset-0" style={{
+      background: 'linear-gradient(170deg, #2C4480 0%, #203768 38%, #1A2B54 68%, #16233F 100%)',
+    }} />
+    {/* 主光，左上。參考照那道光很亮、邊緣很軟——邊緣一硬就變成一顆球貼在牆上 */}
+    <div className="absolute inset-0" style={{
+      background: 'radial-gradient(ellipse 75% 65% at 26% 2%, rgba(190,208,255,.70) 0%, rgba(150,175,240,.30) 40%, rgba(150,175,240,0) 72%)',
+    }} />
+    {/* 三尊背後的光暈。少了它三尊會像貼在牆上的貼紙——棚拍一定有一盞把主體
+        與背景拉開的光，這一層就是它 */}
+    <div className="absolute inset-0" style={{
+      background: 'radial-gradient(ellipse 48% 52% at 52% 72%, rgba(205,220,255,.26) 0%, rgba(205,220,255,0) 70%)',
+    }} />
+    {/* 地板。**刻意壓得很低（14%）而且不畫地平線**：三尊在版面上是被下緣裁掉的
+        （見 HERO_DEITIES 的負邊距），地平線拉高會變成一條橫線切過神尊的衣袍。
+        只留一片往下漸亮的反光，腳下有地就夠了。 */}
+    <div className="absolute inset-x-0 bottom-0" style={{
+      height: '14%',
+      background: 'linear-gradient(to bottom, rgba(150,175,240,0) 0%, rgba(175,195,245,.18) 55%, rgba(205,220,255,.34) 100%)',
+    }} />
+  </div>
+);
 
 /** 後台沒設定「關於我們」照片時的保底圖 */
 const ABOUT_IMAGE_FALLBACK = '/picture/Introduction 1.jpg';
@@ -2556,7 +2601,7 @@ const App: React.FC = () => {
             注意排序：反光層必須在下面那道深色遮罩「之前」，
             否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。
             更早的金色祥雲織錦是 /hero-clouds.jpg（tone="silk"），檔案留著。 */}
-        <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />
+        {'studio' in HERO ? <HeroStudio /> : <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />}
         {/* 深色遮罩只壓在「有字的地方」，而且只壓上緣：
             底圖很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把顏色壓濁了。
             所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓——
