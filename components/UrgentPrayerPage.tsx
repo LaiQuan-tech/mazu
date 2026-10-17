@@ -27,6 +27,7 @@ import React, { useEffect, useState } from 'react';
 import { HeartHandshake, Hospital, GraduationCap, Flame, Check, AlertCircle, Phone } from 'lucide-react';
 import BirthDatePicker from './BirthDatePicker';
 import PatternMedallion from './PatternMedallion';
+import { INK, INK_FORM_CSS } from './inkTheme';
 import { submitUrgentPrayer, urgentPrayersReady } from '../services/supabase';
 import { UrgentPrayerData, UrgentPrayerKind, ZodiacSign } from '../types';
 
@@ -40,7 +41,10 @@ import { UrgentPrayerData, UrgentPrayerKind, ZodiacSign } from '../types';
  * （見 PatternMedallion 的檔頭）。
  */
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <section className="py-20 bg-temple-bg relative overflow-hidden">
+  // ink-scope 帶 color-scheme:dark——少了它，<select> 展開那張清單會是作業系統的
+  // 白底，而那是原生 UI、CSS 改不到（見 inkTheme.ts）
+  <section className="ink-scope py-20 relative overflow-hidden" style={{ background: INK.paper }}>
+    <style>{INK_FORM_CSS}</style>
     <PatternMedallion motif="phoenix" side="r" />
     <div className="relative z-10">{children}</div>
   </section>
@@ -59,19 +63,20 @@ const NAME_LABEL: Record<UrgentPrayerKind, string> = {
   memorial: '先人姓名',
 };
 
-const inputClass =
-  'w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none';
+// 顏色與 focus 都走 .ink-field（inkTheme.ts）：placeholder 與 focus 光環用 inline
+// style 做不到，而深底上那兩件事正好最重要——看不出哪裡能打字、打了也不知道焦點在哪
+const inputClass = 'ink-field w-full px-4 py-3 rounded-lg text-sm';
 
 const Field: React.FC<{ label: string; required?: boolean; hint?: string; children: React.ReactNode }> = ({
   label, required, hint, children,
 }) => (
   // 標題包住欄位：可及名稱靠它，不要另外再加 aria-label 蓋掉看得見的標題（CLAUDE.md）
   <label className="block">
-    <span className="block text-sm font-medium text-gray-700 mb-1">
-      {label}{required && <span className="text-temple-red"> *</span>}
+    <span className="block text-sm font-medium mb-1" style={{ color: INK.inkBody }}>
+      {label}{required && <span style={{ color: INK.gold }}> *</span>}
     </span>
     {children}
-    {hint && <span className="block text-xs text-gray-400 mt-1">{hint}</span>}
+    {hint && <span className="block text-xs mt-1" style={{ color: INK.inkFaint }}>{hint}</span>}
   </label>
 );
 
@@ -153,20 +158,20 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
     return (
       <Shell>
         <div className="max-w-2xl mx-auto px-4 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <Check className="w-9 h-9 text-green-600" aria-hidden="true" />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: INK.btnFace, border: `1px solid ${INK.btnEdge}` }}>
+            <Check className="w-9 h-9" style={{ color: INK.ink }} aria-hidden="true" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-temple-dark font-serif mb-3">祈願已登記</h1>
-          <p className="text-gray-600 leading-relaxed">
+          <h1 className="text-3xl sm:text-4xl font-bold font-serif mb-3" style={{ color: INK.ink }}>祈願已登記</h1>
+          <p className="leading-relaxed" style={{ color: INK.inkBody }}>
             本壇已收到您的《緊急祈願燈》登記，將於神前代為稟告、祈福點燈。<br />
             若有需要補充，歡迎直接致電本壇。
           </p>
           {/* 不收費這件事在送出後要再講一次：這一刻最容易冒出「那要付多少」的疑問 */}
-          <p className="mt-4 text-sm text-temple-red font-medium">本服務不收取任何費用。</p>
+          <p className="mt-4 text-sm font-medium" style={{ color: INK.gold }}>本服務不收取任何費用。</p>
           <button
             type="button"
             onClick={() => { setDoneKind(null); setForm({ ...emptyForm, phone: form.phone, email: form.email }); setBKey(k => k + 1); }}
-            className="mt-8 px-6 py-3 rounded-xl border border-temple-gold/50 text-temple-dark hover:bg-temple-gold/10 transition-colors"
+            className="mt-8 px-6 py-3 rounded-xl transition-colors" style={{ color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}` }}
           >
             再登記一位
           </button>
@@ -180,14 +185,14 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
     return (
       <Shell>
         <div className="max-w-2xl mx-auto px-4 text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-4 font-serif">緊急祈願燈</h1>
-          <p className="text-gray-600 leading-loose">
-            急難之時，本壇可代為向神明稟告、祈福點燈，<strong className="text-temple-red">不收取任何費用</strong>。<br />
+          <h1 className="text-4xl sm:text-5xl font-bold mb-4 font-serif" style={{ color: INK.ink }}>緊急祈願燈</h1>
+          <p className="leading-loose" style={{ color: INK.inkBody }}>
+            急難之時，本壇可代為向神明稟告、祈福點燈，<strong style={{ color: INK.gold }}>不收取任何費用</strong>。<br />
             線上登記即將開放，目前請直接與本壇聯繫。
           </p>
           {templePhone && (
             <a href={`tel:${templePhone}`}
-              className="inline-flex items-center gap-2 mt-8 px-8 py-4 rounded-xl bg-temple-red text-white text-lg font-bold hover:bg-[#5C4310] transition-colors">
+              className="inline-flex items-center gap-2 mt-8 px-8 py-4 rounded-xl text-lg font-bold transition-colors hover:brightness-110" style={{ background: INK.gold, color: INK.paper }}>
               <Phone className="w-5 h-5" aria-hidden="true" />{templePhone}
             </a>
           )}
@@ -202,18 +207,18 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
     <Shell>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
-          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
-            <span className="w-8 h-1 bg-temple-gold" />
+          <h2 className="font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3" style={{ color: INK.gold }}>
+            <span className="w-8 h-1" style={{ background: INK.gold }} />
             集氣祈福
-            <span className="w-8 h-1 bg-temple-gold" />
+            <span className="w-8 h-1" style={{ background: INK.gold }} />
           </h2>
-          <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">緊急祈願燈</h1>
+          <h1 className="text-4xl sm:text-5xl font-bold mb-2 font-serif" style={{ color: INK.ink }}>緊急祈願燈</h1>
           <div className="flex items-center justify-center gap-3 mt-3 mb-4">
-            <span className="w-12 h-px bg-temple-gold/70" />
-            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-            <span className="w-12 h-px bg-temple-gold/70" />
+            <span className="w-12 h-px" style={{ background: INK.goldLine }} />
+            <span className="w-2 h-2 rotate-45 inline-block" style={{ background: INK.gold }} />
+            <span className="w-12 h-px" style={{ background: INK.goldLine }} />
           </div>
-          <p className="text-gray-600 leading-loose max-w-xl mx-auto">
+          <p className="leading-loose max-w-xl mx-auto" style={{ color: INK.inkBody }}>
             世間若有急難之時，一念祈願，亦可化作守護的力量。<br />
             本壇秉持濟世初心，在神明慈悲護佑之下，特設《緊急祈願燈》，
             為有急難之人代為稟告、祈福點燈。
@@ -222,15 +227,15 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
 
         {/* 「不收費」給它自己一塊，不要混在說明段落裡——這是信眾看到「點燈」
             兩個字之後第一個想問的，答案要擋在問題前面 */}
-        <div className="flex items-start gap-3 rounded-2xl bg-temple-gold/10 border border-temple-gold/40 px-5 py-4 mb-10">
-          <HeartHandshake className="w-5 h-5 text-temple-red shrink-0 mt-0.5" aria-hidden="true" />
-          <p className="text-[#5C4310] leading-relaxed">
+        <div className="flex items-start gap-3 rounded-2xl px-5 py-4 mb-10" style={{ background: INK.btnFace, border: `1px solid ${INK.btnEdge}` }}>
+          <HeartHandshake className="w-5 h-5 shrink-0 mt-0.5" style={{ color: INK.gold }} aria-hidden="true" />
+          <p className="leading-relaxed" style={{ color: INK.inkBody }}>
             <strong>本服務不收取任何費用。</strong>
             只願以一念誠心，上達神明；願一盞燈火，為祈願者帶來光明與轉機。
           </p>
         </div>
 
-        <h2 className="font-serif text-xl font-bold text-temple-dark mb-3">請選擇祈願情況</h2>
+        <h2 className="font-serif text-xl font-bold mb-3" style={{ color: INK.ink }}>請選擇祈願情況</h2>
         <div className="grid sm:grid-cols-3 gap-3 mb-8">
           {KINDS.map(({ id, label, hint, Icon }) => {
             const on = form.kind === id;
@@ -240,28 +245,28 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
                 type="button"
                 onClick={() => pickKind(id)}
                 aria-pressed={on}
-                className={`text-left px-4 py-4 rounded-2xl border-2 transition-colors ${
-                  on
-                    ? 'border-temple-red bg-temple-red/5'
-                    : 'border-gray-200 bg-white hover:border-temple-gold'
-                }`}
+                className="text-left px-4 py-4 rounded-2xl transition-colors"
+                style={{
+                  background: on ? 'rgba(201,168,106,.18)' : INK.fieldFace,
+                  border: `2px solid ${on ? INK.gold : INK.frame}`,
+                }}
               >
-                <Icon className={`w-6 h-6 mb-2 ${on ? 'text-temple-red' : 'text-temple-gold'}`} aria-hidden="true" />
-                <span className="block font-bold text-temple-dark">{label}</span>
-                <span className="block text-xs text-gray-500 mt-1 leading-relaxed">{hint}</span>
+                <Icon className="w-6 h-6 mb-2" style={{ color: on ? INK.ink : INK.gold }} aria-hidden="true" />
+                <span className="block font-bold" style={{ color: INK.ink }}>{label}</span>
+                <span className="block text-xs mt-1 leading-relaxed" style={{ color: INK.inkFaint }}>{hint}</span>
               </button>
             );
           })}
         </div>
 
-        <div className="bg-white rounded-2xl border border-temple-gold/20 p-5 sm:p-7 space-y-5">
+        <div className="rounded-2xl p-5 sm:p-7 space-y-5" style={{ background: 'rgba(255,255,255,.035)', border: `1px solid ${INK.frame}` }}>
           <Field label={NAME_LABEL[form.kind]} required>
             <input value={form.name} onChange={e => set('name', e.target.value)} className={inputClass} />
           </Field>
 
           <div>
-            <span className="block text-sm font-medium text-gray-700 mb-1">
-              農曆生日<span className="text-temple-red"> *</span>
+            <span className="block text-sm font-medium mb-1" style={{ color: INK.inkBody }}>
+              農曆生日<span style={{ color: INK.gold }}> *</span>
             </span>
             <BirthDatePicker
               key={`b-${bKey}`}
@@ -275,8 +280,8 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
           {isMemorial ? (
             <>
               <div>
-                <span className="block text-sm font-medium text-gray-700 mb-1">
-                  農曆卒日<span className="text-temple-red"> *</span>
+                <span className="block text-sm font-medium mb-1" style={{ color: INK.inkBody }}>
+                  農曆卒日<span style={{ color: INK.gold }}> *</span>
                 </span>
                 <BirthDatePicker
                   key={`d-${bKey}`}
@@ -291,11 +296,11 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
               </Field>
               {/* 三等親這條是廟方訂的規則，做成必勾的確認而不是一行小字：
                   小字讀不讀得到沒人知道，勾選代表他真的看到了 */}
-              <label className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 cursor-pointer">
+              <label className="flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer" style={{ background: INK.btnFace, border: `1px solid ${INK.btnEdge}` }}>
                 <input type="checkbox" checked={!!form.kinConfirmed}
                   onChange={e => set('kinConfirmed', e.target.checked)}
-                  className="mt-1 w-4 h-4 accent-[#7C5C1E]" />
-                <span className="text-sm text-amber-900 leading-relaxed">
+                  className="mt-1 w-4 h-4" style={{ accentColor: INK.gold }} />
+                <span className="text-sm leading-relaxed" style={{ color: INK.inkBody }}>
                   我確認<strong>先人為本人三等親內親屬</strong>。
                 </span>
               </label>
@@ -337,10 +342,10 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
 
           {/* 聯絡方式永遠是「登記的人」的，不是被祈願的那一位——
               冥福接引更明顯：先人沒有電話 */}
-          <div className="pt-4 border-t border-gray-100">
-            <p className="text-sm font-bold text-temple-dark mb-3">
+          <div className="pt-4" style={{ borderTop: `1px solid ${INK.frame}` }}>
+            <p className="text-sm font-bold mb-3" style={{ color: INK.ink }}>
               登記人聯絡方式
-              {isMemorial && <span className="font-normal text-gray-500">（不是先人的）</span>}
+              {isMemorial && <span className="font-normal" style={{ color: INK.inkFaint }}>（不是先人的）</span>}
             </p>
             <div className="space-y-5">
               <Field label="聯絡電話" required hint="廟方若需確認細節會以此聯絡；日後以同一支電話註冊會員，就看得到這筆紀錄">
@@ -355,7 +360,7 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
           </div>
 
           {error && (
-            <p role="alert" className="flex items-start gap-2 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">
+            <p role="alert" className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(220,80,80,.16)', border: '1px solid rgba(240,140,140,.45)', color: '#FFC9C9' }}>
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
               {error}
             </p>
@@ -365,11 +370,11 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
             type="button"
             onClick={submit}
             disabled={sending}
-            className="w-full px-6 py-4 rounded-xl bg-temple-red text-white text-lg font-bold hover:bg-[#5C4310] transition-colors disabled:opacity-50"
+            className="w-full px-6 py-4 rounded-xl text-lg font-bold transition-all hover:brightness-110 disabled:opacity-50" style={{ background: INK.gold, color: INK.paper }}
           >
             {sending ? '送出中…' : '送出祈願登記'}
           </button>
-          <p className="text-xs text-gray-400 text-center">
+          <p className="text-xs text-center" style={{ color: INK.inkFaint }}>
             送出後本壇會於神前代為稟告、祈福點燈，不收取任何費用。
           </p>
         </div>

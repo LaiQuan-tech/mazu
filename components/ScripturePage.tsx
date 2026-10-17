@@ -3,41 +3,8 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
+import { INK } from './inkTheme';
 
-/**
- * 青花紙配色（廟方 2026-10-17 指定，參考泥金寫經本：靛藍紙、泥金字、金欄線）。
- *
- * **在這裡改一次就能換掉整頁。** 這一頁原本把三十幾個顏色直接寫在各自的 inline
- * style 裡，換一次色要改三十個地方、漏一個就會留下一塊米黃。要再換配色（或換回
- * 紙本的米黃）只要改這個物件。
- *
- * ── 深底不是把顏色換掉就好，透明度要一起調 ──
- * 米黃底上的深色字用 50% 透明還讀得到；靛藍底上的金字用 50% 會直接糊進背景。
- * 所以每一個 rgba 的 alpha 都往上調過，不是只換色相。
- *
- * 實測對比（WCAG，在瀏覽器裡量的不是估的）：經文 11.27:1、註解 8.61:1，
- * 遠高於 4.5:1 的門檻。**深底配金比淺底配金好讀**，這不是直覺的結果——
- * 改版前那幾行金色小字壓在米黃上才是真正吃力的。
- * 章節水印（001…136）量到 1.12:1 是**刻意的**，它是底紋不是文字
- * （userSelect:none、pointerEvents:none），不要照著「修正」。
- */
-const INK = {
-  paper:     '#16233F',                    // 靛藍紙
-  paperDeep: '#0F1A2E',                    // 頁尾漸層的深處
-  navBar:    'rgba(18,28,50,0.92)',
-  ink:       '#F0D9A4',                    // 經文與大標：全頁最亮
-  inkBody:   'rgba(236,212,156,.88)',      // 註解。長段文字，要比裝飾性文字亮
-  inkSoft:   'rgba(201,168,106,.78)',      // 次要說明
-  inkFaint:  'rgba(201,168,106,.82)',      // 標籤、頁碼。**不要再調低**：12px 的小字，.62 時量到只有 3.5:1
-  gold:      '#C9A86A',
-  goldLine:  'rgba(201,168,106,.35)',      // 分隔線
-  rule:      'rgba(201,168,106,.20)',      // 經文的金欄線
-  frame:     'rgba(201,168,106,.28)',      // 經文框
-  btnFace:   'rgba(201,168,106,.12)',
-  btnEdge:   'rgba(201,168,106,.35)',
-  glow:      'rgba(201,168,106,.10)',
-  shadow:    'rgba(0,0,0,.45)',
-};
 
 // 由環境變數推導，避免專案搬遷時圖片 404
 const STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-images`;
