@@ -17,6 +17,10 @@
       "destination": "/blessing.html"
     },
     {
+      "source": "/urgent",
+      "destination": "/urgent.html"
+    },
+    {
       "source": "/relocation",
       "destination": "/relocation.html"
     },

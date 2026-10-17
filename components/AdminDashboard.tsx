@@ -10,6 +10,7 @@ import AdminFaqTab from './AdminFaqTab';
 import AdminVouchersTab from './AdminVouchersTab';
 import AdminFeastsTab from './AdminFeastsTab';
 import AdminShowerTab from './AdminShowerTab';
+import AdminUrgentTab from './AdminUrgentTab';
 import AdminDonationTypesTab from './AdminDonationTypesTab';
 import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
@@ -26,7 +27,7 @@ import {
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby, ShowerHead,
   Eye, EyeOff, ShoppingBag, Wrench, Receipt, Send} from 'lucide-react';
 
-type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables' | 'shower';
+type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables' | 'shower' | 'urgent';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -6439,6 +6440,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'relocation',  label: '遷址捐款',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'faq',         label: '常見問題',   icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'feasts',      label: '歲時節慶', icon: <CalendarClock className="w-4 h-4" /> },
+    { key: 'urgent',      label: '緊急祈願', icon: <Flame className="w-4 h-4" /> },
     { key: 'shower',      label: '沐浴車',   icon: <ShowerHead className="w-4 h-4" /> },
     { key: 'photos',      label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
@@ -6481,7 +6483,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
      * 它們**沒有離開「常用」**：下一場法會一開又是每天要看的，
      * 到時候把這兩個 key 搬回 overview 後面就好，不必動別的地方。
      */
-    { title: '常用',       keys: ['overview', 'bookings', 'lamps', 'blessings', 'donations', 'fahui', 'volunteer'] },
+    // 緊急祈願排在捐獻之後、法會之前：它每天都可能有新的一筆，而且晚一天看就失去意義
+    { title: '常用',       keys: ['overview', 'bookings', 'lamps', 'blessings', 'donations', 'urgent', 'fahui', 'volunteer'] },
     /**
      * 下面這幾組維持 2026-10-13 之前**畫面上實際的順序**，不是這串 keys 原本寫的順序。
      * 在那之前組內順序是跟著 allNavItems 走、這串 keys 的先後沒有作用，所以兩者本來
@@ -6651,6 +6654,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'relocation' && <AdminRelocationTab />}
               {tab === 'faq' && <AdminFaqTab />}
               {tab === 'feasts' && <AdminFeastsTab />}
+              {tab === 'urgent' && <AdminUrgentTab />}
               {tab === 'shower' && <AdminShowerTab />}
               {tab === 'siteinfo' && <AdminSiteInfoTab />}
               {tab === 'analytics' && <AnalyticsTab />}

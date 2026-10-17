@@ -27,7 +27,8 @@ export type NotifyTable =
   | 'blessing_registrations'
   | 'fahui_registrations'
   | 'volunteer_registrations'
-  | 'donations';
+  | 'donations'
+  | 'urgent_prayers';
 
 export const notifyRegistration = (table: NotifyTable, id: string | string[]): void => {
   const ids = (Array.isArray(id) ? id : [id]).filter(Boolean);

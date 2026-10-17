@@ -10,9 +10,10 @@ export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = {
 };
 
 export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
-  admin:   ['vouchers', 'traffic', 'analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'receivables', 'photos', 'scripture', 'feasts', 'shower'],
+  admin:   ['vouchers', 'traffic', 'analytics', 'social', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'members', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'urgent', 'receivables', 'photos', 'scripture', 'feasts', 'shower'],
   // 洗澡車給 staff：進香期間是現場同工在發打卡連結，不該每次都找管理員
-  staff:   ['traffic', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'feasts', 'shower'],
+  // 緊急祈願給 staff：它的本質是「有人出事了要馬上稟告」，卡在管理員身上等於卡住急事
+  staff:   ['traffic', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'urgent', 'feasts', 'shower'],
   finance: ['vouchers', 'overview', 'fahui', 'donations', 'receivables'],
 };
 
@@ -932,3 +933,47 @@ export interface VoucherRecord extends VoucherData {
 /** 合計一律算出來，不從資料庫讀 */
 export const voucherTotal = (items: { amount: number }[]): number =>
   items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+
+// ─── 緊急祈願燈（/urgent，2026-10-17）────────────────────────
+/**
+ * 三種情況共用一張表，欄位各自留空。為什麼不拆三張見
+ * `supabase/migrations/urgent_prayers.sql` 的檔頭。
+ */
+export type UrgentPrayerKind = 'hospital' | 'exam' | 'memorial';
+
+/** 不收費，所以狀態是處理進度不是收款（同問事，不是點燈祈福那一套） */
+export enum UrgentPrayerStatus {
+  PENDING = '待處理',
+  DONE    = '已祈福',
+  CANCELLED = '已取消',
+}
+
+export interface UrgentPrayerData {
+  kind: UrgentPrayerKind;
+  /** 被祈願的那一位。memorial 時是先人，其餘兩種通常是登記人自己 */
+  name: string;
+  birthDate: string;
+  zodiac?: ZodiacSign;
+  address?: string;
+  /** 登記人的電話。文案沒列，但沒有它廟方回不了電，會員也看不到自己這一筆 */
+  phone: string;
+  email?: string;
+  /** hospital＝醫院、exam＝學校或考場 */
+  placeName?: string;
+  placeAddress?: string;
+  roomNo?: string;
+  condition?: string;
+  eventDate?: string;
+  examNo?: string;
+  deathDate?: string;
+  tabletPlace?: string;
+  kinConfirmed?: boolean;
+}
+
+export interface UrgentPrayerRecord extends UrgentPrayerData {
+  id: string;
+  createdAt: string;
+  status: UrgentPrayerStatus;
+  source?: string;
+  confirmSentAt?: string;
+}

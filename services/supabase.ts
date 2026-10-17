@@ -21,7 +21,8 @@ const newUuid = (): string => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 };
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, UrgentPrayerData, UrgentPrayerKind, UrgentPrayerRecord, ZodiacSign } from '../types';
+import { UrgentPrayerStatus } from '../types';
 import { getSource } from './attribution';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -2045,6 +2046,106 @@ export interface VolunteerRegistrationData {
   availability?: Record<string, string[]>;
   availabilityNote?: string;
 }
+
+// ─── 緊急祈願燈 ───────────────────────────────────────────────────────────────
+/**
+ * 送出一筆緊急祈願（/urgent）。
+ *
+ * **不收費**，所以沒有金額也沒有匯款狀態；status 走處理進度（同問事）。
+ *
+ * **一定要通知廟方**：這張表的每一筆都是「有人正在開刀／明天要考試／家裡剛走了人」，
+ * 等廟方下次登入後台才看到就失去意義。走既有的 notifyRegistration（信件由後端自己
+ * 回資料庫撈，前端只送 id，見 api/notify-registration.ts 的檔頭）。
+ *
+ * 選填欄位走 insertOptional：migration 還沒跑時只會少存那幾欄，不會整筆送不出去
+ * ——而這是急事，寧可少一欄也不要讓人送不出去。
+ */
+export const submitUrgentPrayer = async (data: UrgentPrayerData, opts?: SubmitOptions): Promise<string> => {
+  const id = newUuid();
+  await insertOptional('urgent_prayers', {
+    id,
+    kind: data.kind,
+    name: data.name,
+    birth_date: data.birthDate || null,
+    zodiac: data.zodiac || null,
+    address: data.address?.trim() || null,
+    phone: data.phone,
+    email: data.email?.trim() || null,
+    place_name: data.placeName?.trim() || null,
+    place_address: data.placeAddress?.trim() || null,
+    room_no: data.roomNo?.trim() || null,
+    condition: data.condition?.trim() || null,
+    event_date: data.eventDate?.trim() || null,
+    exam_no: data.examNo?.trim() || null,
+    death_date: data.deathDate?.trim() || null,
+    tablet_place: data.tabletPlace?.trim() || null,
+    kin_confirmed: data.kinConfirmed ?? false,
+    status: UrgentPrayerStatus.PENDING,
+    source: getSource(),
+  }, ['email', 'source', 'kin_confirmed']);
+  if (opts?.notify !== false) notifyRegistration('urgent_prayers', id);
+  return id;
+};
+
+/**
+ * 資料表建好了沒。
+ *
+ * 本專案的 DDL 都是人在 Supabase 後台手動跑的，所以「程式已上線、migration 還沒跑」
+ * 必然有一段時間——而這一頁跟別的不一樣：讓急難中的人把十幾格填完才發現送不出去，
+ * 比什麼都不顯示糟。表還沒建時前台改成「請直接致電本壇」。
+ *
+ * anon 對這張表沒有 SELECT 政策，但 RLS 是**過濾列**不是報錯，所以表存在時回空陣列、
+ * 表不存在才回 error。兩者分得開。
+ */
+export const urgentPrayersReady = async (): Promise<boolean> => {
+  const { error } = await supabase.from('urgent_prayers').select('id').limit(1);
+  return !error;
+};
+
+export const getUrgentPrayers = async (): Promise<UrgentPrayerRecord[]> => {
+  const { data, error } = await supabase
+    .from('urgent_prayers')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Error fetching urgent prayers:', error); throw error; }
+  return (data || []).map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    kind: (row.kind || 'hospital') as UrgentPrayerKind,
+    name: row.name,
+    birthDate: row.birth_date || '',
+    zodiac: row.zodiac || undefined,
+    address: row.address || undefined,
+    phone: row.phone,
+    email: row.email || undefined,
+    placeName: row.place_name || undefined,
+    placeAddress: row.place_address || undefined,
+    roomNo: row.room_no || undefined,
+    condition: row.condition || undefined,
+    eventDate: row.event_date || undefined,
+    examNo: row.exam_no || undefined,
+    deathDate: row.death_date || undefined,
+    tabletPlace: row.tablet_place || undefined,
+    kinConfirmed: row.kin_confirmed ?? false,
+    // 認不出來的狀態一律當「待處理」：寧可廟方多看一眼，也不要把沒處理的
+    // 當成處理完了——這張表漏掉一筆的代價比其他表大
+    status: Object.values(UrgentPrayerStatus).includes(row.status)
+      ? (row.status as UrgentPrayerStatus)
+      : UrgentPrayerStatus.PENDING,
+    source: row.source ?? undefined,
+    confirmSentAt: row.confirm_sent_at ?? undefined,
+  }));
+};
+
+export const updateUrgentPrayerStatus = async (id: string, status: UrgentPrayerStatus): Promise<void> => {
+  const { error } = await supabase.from('urgent_prayers').update({ status }).eq('id', id);
+  if (error) { console.error('Error updating urgent prayer status:', error); throw error; }
+};
+
+export const deleteUrgentPrayer = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('urgent_prayers').delete().eq('id', id);
+  if (error) { console.error('Error deleting urgent prayer:', error); throw error; }
+};
 
 export const submitVolunteerRegistration = async (data: VolunteerRegistrationData): Promise<void> => {
   // 同法會：anon 僅有 INSERT 權限，不做 .select() 讀回

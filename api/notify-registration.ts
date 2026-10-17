@@ -44,6 +44,14 @@ const TABLES: Record<string, { label: string; title: (r: Record<string, any>) =>
   fahui_registrations:     { label: '法會報名', title: r => `${r.name}　共 NT$${Number(r.total_amount ?? 0).toLocaleString()}` },
   volunteer_registrations: { label: '志工報名', title: r => `${r.name}` },
   donations:               { label: '隨喜捐獻', title: r => `${r.name}　${r.type ?? ''} NT$${Number(r.amount ?? 0).toLocaleString()}` },
+  // 緊急祈願：主旨要一眼看出是哪一種急事。這是這幾張表裡唯一「晚一天就沒意義」的
+  urgent_prayers:          { label: '緊急祈願', title: r => `${r.name}　${URGENT_KIND[r.kind as string] ?? ''}` },
+};
+
+const URGENT_KIND: Record<string, string> = {
+  hospital: '手術或住院',
+  exam:     '升學考試或考證照',
+  memorial: '冥福接引',
 };
 
 /** 超過這麼久的紀錄不再寄通知。擋重送，也擋「拿舊 id 一直打」 */

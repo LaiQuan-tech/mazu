@@ -77,6 +77,8 @@ const VolunteerRegistration = lazy(() => import('./components/VolunteerRegistrat
 const CalendarPage = lazy(() => import('./components/CalendarPage'));
 const BulletinsPage = lazy(() => import('./components/BulletinsPage'));
 // 進香洗澡車。一年只用九天，拆成自己的 chunk，平常的訪客不必下載
+// 緊急祈願燈。整頁就是一張表單，拆成自己的 chunk
+const UrgentPrayerPage = lazy(() => import('./components/UrgentPrayerPage'));
 const ShowerPage = lazy(() => import('./components/ShowerPage'));
 const ShowerCheckinPage = lazy(() => import('./components/ShowerCheckinPage'));
 
@@ -172,12 +174,14 @@ const ENABLE_GROUP_BOOKING = true;
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
 // 其餘內容仍是首頁上的區塊，靠捲動抵達。
-type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins' | 'privacy';
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'urgent' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins' | 'privacy';
 
 const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   booking: '/booking',
   lamps: '/lamps',
   blessing: '/blessing',
+  // 緊急祈願燈。常設，不收費；三種急難情況共用一張表（2026-10-17）
+  urgent: '/urgent',
   repair: '/repair',
   // about 是首頁「關於我們」區塊的完整版，入口在該區塊的「更多」按鈕，
   // 導覽列的「關於我們」仍然捲到首頁區塊，不換頁
@@ -411,6 +415,17 @@ const NAV_PRIMARY: NavItem[] = [
   { id: 'relocation', label: '遷址捐款', kind: 'page' },
   { id: 'booking', label: '預約問事', kind: 'page' },
   isLampSeason() ? LAMP_NAV : BLESSING_NAV,
+  /**
+   * 緊急祈願燈（2026-10-17 廟方指定為常設項目）。
+   *
+   * **桌機那一列本來是滿的**（1024px 時用掉 870px、可用 870px，零餘裕），
+   * 所以這一項是拿掉導覽列上的 FB／IG／抖音換來的——那三顆在頁尾已經有一組
+   * 一模一樣的，拿掉只是不再重複。量過：拿掉省 105px，這一項吃 84px，剩 21px。
+   *
+   * **刻意放在頂層而不是收進「更多」**：急難的人要的是一下就按到。
+   * 收一層就變成兩個動作，而這一頁存在的理由就是「馬上」。
+   */
+  { id: 'urgent', label: '緊急祈願', kind: 'page' },
 ];
 
 // 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列
@@ -888,6 +903,7 @@ const App: React.FC = () => {
       booking:    '預約問事｜台北古亭和聖壇',
       lamps:      '點燈服務｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
       blessing:   '祈福法會報名｜台北古亭和聖壇',
+      urgent:     '緊急祈願燈｜急難代為稟告祈福，不收費｜台北古亭和聖壇',
       relocation: '遷址捐款｜護持和聖壇道場遷址',
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
@@ -2307,13 +2323,15 @@ const App: React.FC = () => {
               </div>
 
               {/*
-                社群圖示。後台留空的平台不會渲染（visibleSocials），所以這裡的數量
-                會隨設定變動——不要假設固定幾個而寫死寬度。
-                LINE 雖然左下角已有浮動鈕，仍然列出：那顆在首頁 Hero 期間是隱藏的，
-                導覽列這組剛好補上那段空窗。
+                桌機這一排**只留 LINE**（2026-10-17）。FB／IG／抖音在頁尾已經有一組
+                一模一樣的，而這一列的寬度得空出來給「緊急祈願」——那是急難的人要
+                一下就按到的東西，比第二份社群連結重要。手機選單不受影響，那是直的
+                清單、放得下，四個照舊。
+                LINE 留著是因為它在頁尾是「加入好友」按鈕、不是同一件事，而左下角
+                那顆浮動鈕在首頁 Hero 期間是隱藏的，這裡剛好補上那段空窗。
               */}
               <div className="flex items-center gap-0.5">
-                {visibleSocials(social).map(({ key, label, url, Icon }) => (
+                {visibleSocials(social).filter(i => i.key === 'lineUrl').map(({ key, label, url, Icon }) => (
                   <a
                     key={key}
                     href={url}
@@ -4112,6 +4130,23 @@ const App: React.FC = () => {
         )}
       </section>
       </div>
+      )}
+
+      {/* ── 緊急祈願燈（獨立分頁 /urgent）──
+          急難時代為稟告、祈福點燈，不收費。三種情況（手術住院／升學考試／冥福接引）
+          共用一張表，欄位隨情況切換。會員的姓名地址電話只補空欄位，同其他表單。 */}
+      {page === 'urgent' && (
+        <Suspense fallback={<PageLoading />}>
+          <UrgentPrayerPage
+            defaults={{
+              name: selfDefaults.name,
+              address: selfDefaults.address,
+              phone: member ? (memberProfile?.phone ?? '') : '',
+              email: contactEmail || undefined,
+            }}
+            templePhone={siteInfo.phone}
+          />
+        </Suspense>
       )}
 
       {/* ── 關於我們完整版（獨立分頁 /about）──
