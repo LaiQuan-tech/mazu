@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
+import { heroSrc } from '../services/assetUrl';
 
 /**
  * 青花紙配色（廟方 2026-10-17 指定，參考泥金寫經本：靛藍紙、泥金字、金欄線）。
@@ -283,14 +284,38 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           從右邊起算，因為直排是由右往左。
         */
         .vert-sutra {
-          padding: 1.1em 1.25em;
+          position: relative;
+          padding: 2.6em 1.25em;
           background-image: repeating-linear-gradient(
             to left,
             ${INK.rule} 0, ${INK.rule} 1px,
             transparent 1px, transparent 1.75em);
+        }
+        /*
+          上下的金龍紋邊帶（廟方 2026-10-17 依範例要求）。
+
+          **用站上現有的團龍素材，不自己畫一條龍。** 範例書上那條是連續的龍雲紋，
+          我畫一條只會變成「很像但不是」的假紋樣；這張 pattern-dragon.png 是廟方
+          本來就在用的（首頁、公佈欄的底紋同一張），小尺寸連續排出來就是傳統的
+          團花帶，而且與全站同一套視覺語彙。
+
+          **用 ::before／::after 不加 DOM**：經文那一層在手機上會被 display:contents
+          攤掉去跟插圖並排（見下面的 .sp-text），多包兩個 div 會把那個版型弄壞。
+          padding 要大於邊帶高度，不然第一欄的字會壓在龍身上。
+        */
+        .vert-sutra::before, .vert-sutra::after {
+          content: ''; position: absolute; left: 0; right: 0; height: 44px;
+          /* background-repeat: space —— 排得下幾顆就排幾顆，剩下的寬度平均分成間隙。
+             這是關鍵：團龍是圓的，緊貼著排會糊成一條看不出是什麼的東西，
+             留白之後每一顆才讀得出是龍。28px 時試過，整條像一排污漬。 */
+          background: url(${heroSrc('pattern-dragon.png')}) space center / 44px 44px;
           border-top: 1px solid ${INK.frame};
           border-bottom: 1px solid ${INK.frame};
+          opacity: .75;
+          pointer-events: none;
         }
+        .vert-sutra::before { top: 0; }
+        .vert-sutra::after  { bottom: 0; transform: scaleY(-1); }
         .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, ${INK.gold}, transparent); opacity:.55; margin:0 auto; max-width:560px; }
         .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,${INK.gold},#F0D9A4,${INK.gold}); opacity:.18; pointer-events:none; z-index:40; }
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
