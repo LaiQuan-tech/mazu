@@ -3,6 +3,41 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
 
+/**
+ * 青花紙配色（廟方 2026-10-17 指定，參考泥金寫經本：靛藍紙、泥金字、金欄線）。
+ *
+ * **在這裡改一次就能換掉整頁。** 這一頁原本把三十幾個顏色直接寫在各自的 inline
+ * style 裡，換一次色要改三十個地方、漏一個就會留下一塊米黃。要再換配色（或換回
+ * 紙本的米黃）只要改這個物件。
+ *
+ * ── 深底不是把顏色換掉就好，透明度要一起調 ──
+ * 米黃底上的深色字用 50% 透明還讀得到；靛藍底上的金字用 50% 會直接糊進背景。
+ * 所以每一個 rgba 的 alpha 都往上調過，不是只換色相。
+ *
+ * 實測對比（WCAG，在瀏覽器裡量的不是估的）：經文 11.27:1、註解 8.61:1，
+ * 遠高於 4.5:1 的門檻。**深底配金比淺底配金好讀**，這不是直覺的結果——
+ * 改版前那幾行金色小字壓在米黃上才是真正吃力的。
+ * 章節水印（001…136）量到 1.12:1 是**刻意的**，它是底紋不是文字
+ * （userSelect:none、pointerEvents:none），不要照著「修正」。
+ */
+const INK = {
+  paper:     '#16233F',                    // 靛藍紙
+  paperDeep: '#0F1A2E',                    // 頁尾漸層的深處
+  navBar:    'rgba(18,28,50,0.92)',
+  ink:       '#F0D9A4',                    // 經文與大標：全頁最亮
+  inkBody:   'rgba(236,212,156,.88)',      // 註解。長段文字，要比裝飾性文字亮
+  inkSoft:   'rgba(201,168,106,.78)',      // 次要說明
+  inkFaint:  'rgba(201,168,106,.82)',      // 標籤、頁碼。**不要再調低**：12px 的小字，.62 時量到只有 3.5:1
+  gold:      '#C9A86A',
+  goldLine:  'rgba(201,168,106,.35)',      // 分隔線
+  rule:      'rgba(201,168,106,.20)',      // 經文的金欄線
+  frame:     'rgba(201,168,106,.28)',      // 經文框
+  btnFace:   'rgba(201,168,106,.12)',
+  btnEdge:   'rgba(201,168,106,.35)',
+  glow:      'rgba(201,168,106,.10)',
+  shadow:    'rgba(0,0,0,.45)',
+};
+
 // 由環境變數推導，避免專案搬遷時圖片 404
 const STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-images`;
 
@@ -21,7 +56,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   // 掛載時把 body 背景改成頁面底色，避免捲動慣性時露白
   useEffect(() => {
     const prev = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = '#f5edd8';
+    document.body.style.backgroundColor = INK.paper;
     return () => { document.body.style.backgroundColor = prev; };
   }, []);
 
@@ -187,7 +222,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         <ul key={key} style={{ margin: '6px 0', padding: 0, listStyle: 'none' }}>
           {bullets.map((b, j) => (
             <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4em', marginBottom: 3 }}>
-              <span style={{ color: '#c9a870', flexShrink: 0, lineHeight: 'inherit' }}>•</span>
+              <span style={{ color: INK.gold, flexShrink: 0, lineHeight: 'inherit' }}>•</span>
               <span>{b}</span>
             </li>
           ))}
@@ -215,7 +250,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
     // CSS 規範：overflow-x:hidden 會讓瀏覽器把 overflow-y 自動設為 auto，
     // 使根 div 變成獨立捲動容器，攔截桌機滑鼠滾輪事件，window.scroll 不觸發。
     // 'clip' 同樣截斷水平溢出，但不建立 BFC，不產生捲動容器。
-    <div style={{ background: '#f5edd8', minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'clip' }}>
+    <div style={{ background: INK.paper, minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'clip' }}>
       <style>{`
         /* ── Entrance animations ── */
         .sp-up   { opacity:0; transform:translateY(40px);
@@ -236,10 +271,30 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         .sp-watermark     { will-change:transform; }
         /* ── Helpers ── */
         .vert { writing-mode:vertical-rl; text-orientation:mixed; }
-        .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, #c9a870, transparent); opacity:.3; margin:0 auto; max-width:560px; }
-        .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,#8b1a1a,#c0392b,#8b1a1a); opacity:.12; pointer-events:none; z-index:40; }
+        /*
+          經文的金欄線——青花紙寫經本最認得出來的特徵（廟方 2026-10-17 指定的參考圖）。
+
+          **用背景漸層畫，不是用真的元素**：欄數隨經文長短變動，畫成元素就得在
+          JS 裡數字數；而且字級是 clamp()、會隨視窗變，元素的位置會跟不上。
+          週期寫成 1.75em：vertical-rl 之下 line-height 就是「一欄的寬度」，
+          （※ 這段註解裡不可以出現反引號——整個樣式表是 JSX 的樣板字串，
+            一個反引號就把字串截斷，型別檢查會噴一長串位置不對的錯，見 CLAUDE.md）
+          而 em 相對的是這個元素自己的字級，所以字級一變欄線自己跟著變。
+          從右邊起算，因為直排是由右往左。
+        */
+        .vert-sutra {
+          padding: 1.1em 1.25em;
+          background-image: repeating-linear-gradient(
+            to left,
+            ${INK.rule} 0, ${INK.rule} 1px,
+            transparent 1px, transparent 1.75em);
+          border-top: 1px solid ${INK.frame};
+          border-bottom: 1px solid ${INK.frame};
+        }
+        .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, ${INK.gold}, transparent); opacity:.55; margin:0 auto; max-width:560px; }
+        .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,${INK.gold},#F0D9A4,${INK.gold}); opacity:.18; pointer-events:none; z-index:40; }
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
-        @keyframes sp-ring   { 0%{box-shadow:0 0 0 0 rgba(184,145,90,.45)} 70%{box-shadow:0 0 0 16px rgba(184,145,90,.0)} 100%{box-shadow:0 0 0 0 rgba(184,145,90,.0)} }
+        @keyframes sp-ring   { 0%{box-shadow:0 0 0 0 rgba(201,168,106,.55)} 70%{box-shadow:0 0 0 16px rgba(201,168,106,.0)} 100%{box-shadow:0 0 0 0 rgba(201,168,106,.0)} }
         .sp-scroll-btn { transition: opacity .25s, transform .25s; }
         .sp-scroll-btn:hover { opacity:.95; transform: translateX(-50%) scale(1.04) !important; }
         /* ── Hero 字元進場 ── */
@@ -256,7 +311,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         /* ── 香煙粒子 ── */
         .sp-particle {
           position:absolute; border-radius:50%;
-          background:rgba(184,145,90,.55); pointer-events:none;
+          background:rgba(240,217,164,.65); pointer-events:none;
           animation: sp-rise linear infinite;
         }
         @keyframes sp-rise {
@@ -279,7 +334,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         }
         /* ── 水印當前章節高亮 ── */
         .sp-watermark { will-change:transform; transition:color 0.8s ease; }
-        .sp-watermark-active { color:rgba(184,145,90,.2) !important; }
+        .sp-watermark-active { color:rgba(201,168,106,.26) !important; }
         /* ── Mobile ── */
         @media (max-width: 767px) {
           /* ── 插圖與經文並排，塞不下才把插圖擠到上面 ──
@@ -350,15 +405,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           pointerEvents: 'none',
         }}>
           <span style={{
-            color: 'rgba(107,64,16,.45)', fontSize: 9, letterSpacing: '.1em',
+            color: INK.inkFaint, fontSize: 9, letterSpacing: '.1em',
             writingMode: 'vertical-rl', lineHeight: 1.2, textAlign: 'center',
           }}>
             {currentSection > 0 ? currentSection : '―'}&thinsp;/&thinsp;{verses.length}
           </span>
-          <div style={{ width: 2, height: 72, background: 'rgba(184,145,90,.18)', borderRadius: 1, overflow: 'hidden' }}>
+          <div style={{ width: 2, height: 72, background: 'rgba(201,168,106,.22)', borderRadius: 1, overflow: 'hidden' }}>
             <div style={{
               width: '100%', height: `${scrollProgress * 100}%`,
-              background: 'linear-gradient(to bottom, #8b1a1a, #c9a870)',
+              background: `linear-gradient(to bottom, ${INK.gold}, ${INK.ink})`,
               borderRadius: 1, transition: 'height .2s ease',
             }} />
           </div>
@@ -368,23 +423,23 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       {/* ── Nav ── */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        background: atTop ? 'transparent' : 'rgba(245,237,216,0.92)',
+        background: atTop ? 'transparent' : INK.navBar,
         backdropFilter: atTop ? 'none' : 'blur(10px)',
-        borderBottom: atTop ? 'none' : '1px solid rgba(184,145,90,0.25)',
+        borderBottom: atTop ? 'none' : `1px solid ${INK.goldLine}`,
         transition: 'all .4s ease',
       }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b4010', background: 'rgba(107,64,16,.08)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '6px 8px', cursor: 'pointer' }} title="返回首頁">
+          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '6px 8px', cursor: 'pointer' }} title="返回首頁">
             <ChevronLeft size={18} />
           </button>
-          <span style={{ color: '#5a3010', fontSize: 15, letterSpacing: '.35em' }}>天 上 聖 母 經</span>
+          <span style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.35em' }}>天 上 聖 母 經</span>
           <div style={{ width: 88 }} />
         </div>
       </div>
 
       {/* ── Hero（無獨立背景 div，與內文頁同色，自然銜接） ── */}
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: 'radial-gradient(ellipse, rgba(188,140,60,.12), transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+        <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: `radial-gradient(ellipse, ${INK.glow}, transparent 70%)`, borderRadius: '50%', pointerEvents: 'none' }} />
         {/* 香煙粒子 — 模擬香爐輕煙上升 */}
         {[0,1,2,3,4,5,6].map(i => (
           <div key={i} className="sp-particle" style={{
@@ -397,7 +452,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           }} />
         ))}
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
-          <p style={{ color: 'rgba(107,64,16,.5)', fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>台 北 古 亭 和 聖 壇</p>
+          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>台 北 古 亭 和 聖 壇</p>
           {/*
             **這裡必須是 h1**：整頁原本一個標題標籤都沒有（2026-09-10 實測
             document.querySelectorAll('h1,h2,h3,h4') 回傳空陣列）。五個字是逐字
@@ -412,30 +467,30 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
               // 內層 .hero-char-in：CSS 進場動畫（opacity + translateY），兩者不衝突
               <span key={i} className="hero-char" style={{ display: 'inline-block' }}>
                 <span className="hero-char-in" style={{
-                  fontSize: 'clamp(46px,7.5vw,100px)', color: '#3a2008', fontWeight: 900,
-                  lineHeight: 1, textShadow: '2px 3px 12px rgba(107,64,16,.12)',
+                  fontSize: 'clamp(46px,7.5vw,100px)', color: INK.ink, fontWeight: 900,
+                  lineHeight: 1, textShadow: `0 3px 18px ${INK.shadow}`,
                   animationDelay: `${0.3 + i * 0.14}s`,
                 }}>{ch}</span>
               </span>
             ))}
           </h1>
-          <p style={{ color: 'rgba(107,64,16,.55)', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　註　解　與　故　事</p>
+          <p style={{ color: INK.inkSoft, fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　註　解　與　故　事</p>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280, animation: 'sp-fade-up 0.9s ease 1.5s both' }} />
-          <p className="hero-sub" style={{ color: 'rgba(90,48,16,.6)', fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
-          <p style={{ color: 'rgba(90,48,16,.4)', fontSize: 12, letterSpacing: '.2em', marginTop: 16, animation: 'sp-fade-up 0.8s ease 1.9s both' }}>
+          <p className="hero-sub" style={{ color: INK.inkSoft, fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
+          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.2em', marginTop: 16, animation: 'sp-fade-up 0.8s ease 1.9s both' }}>
             {loading ? '載入中…' : `全經共 ${verses.length} 節`}
           </p>
         </div>
         <div className="sp-scroll-btn"
           onClick={() => window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' })}
           style={{ position: 'absolute', bottom: 36, left: '50%', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: 'sp-bounce 2.4s ease-in-out infinite', userSelect: 'none' }}>
-          <span style={{ color: 'rgba(90,48,16,.65)', fontSize: 12, letterSpacing: '.6em' }}>開 始 閱 讀</span>
+          <span style={{ color: INK.inkSoft, fontSize: 12, letterSpacing: '.6em' }}>開 始 閱 讀</span>
           <div style={{
             width: 50, height: 50, borderRadius: '50%',
-            border: '1.5px solid rgba(184,145,90,.6)',
-            background: 'rgba(188,140,60,.10)',
+            border: `1.5px solid ${INK.btnEdge}`,
+            background: INK.btnFace,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'rgba(107,64,16,.80)',
+            color: INK.ink,
             animation: 'sp-ring 2.1s ease-out infinite',
           }}>
             <ChevronDown size={22} />
@@ -445,8 +500,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
 
       {/* ── 開場 ── */}
       <div data-intro="true" style={{ maxWidth: 680, margin: '0 auto', padding: '20px 32px 40px', textAlign: 'center' }}>
-        <p className="sp-up" style={{ color: 'rgba(90,48,16,.55)', fontSize: 12, letterSpacing: '.5em', marginBottom: 18 }}>✦ 按章節閱讀 ✦</p>
-        <p className="sp-up sp-d1" style={{ color: 'rgba(58,32,8,.7)', fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
+        <p className="sp-up" style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 18 }}>✦ 按章節閱讀 ✦</p>
+        <p className="sp-up sp-d1" style={{ color: INK.inkBody, fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
           聖母經乃歷代信眾虔誠奉誦之頌詞，記載天上聖母慈悲護佑之事蹟。<br />
           以下各節，輔以圖繪與說解，願讀者沐浴聖恩，心生清淨。
         </p>
@@ -467,13 +522,13 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 [isEven ? 'right' : 'left']: '-8%',
                 top: '15%',
                 width: '55%', height: '70%',
-                background: 'radial-gradient(ellipse, rgba(188,140,60,.045), transparent 68%)',
+                background: `radial-gradient(ellipse, ${INK.glow}, transparent 68%)`,
                 borderRadius: '50%',
                 pointerEvents: 'none',
               }} />
 
               {/* Watermark section number：當前章節亮度提升 */}
-              <span className={`sp-watermark${currentSection === idx + 1 ? ' sp-watermark-active' : ''}`} style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(184,145,90,.05)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
+              <span className={`sp-watermark${currentSection === idx + 1 ? ' sp-watermark-active' : ''}`} style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(201,168,106,.07)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
                 {String(section.sectionNumber).padStart(3, '0')}
               </span>
 
@@ -489,7 +544,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                           src={imgUrl}
                           alt=""
                           loading="lazy"
-                          style={{ width: '100%', display: 'block', filter: 'drop-shadow(0 8px 32px rgba(90,48,16,.13))' }}
+                          style={{ width: '100%', display: 'block', filter: `drop-shadow(0 10px 36px ${INK.shadow})` }}
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                       </div>
@@ -502,7 +557,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                 <div className="sp-text" style={{ flex: 1, minWidth: 200 }}>
                   {/* sp-verse：scroll-reveal 時加 sp-in → .verse-char 逐字飄入 */}
                   <div className="sp-verse" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
-                    <div className="vert" style={{ color: '#3a2008', fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
+                    <div className="vert vert-sutra" style={{ color: INK.ink, fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
                       {section.verse.split('').map((ch, ci) =>
                         ch === '\n'
                           ? <br key={`br${ci}`} />
@@ -510,8 +565,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                       )}
                     </div>
                   </div>
-                  <div className="sp-up sp-d2 sp-rule" style={{ height: 1, marginBottom: 20, background: isEven ? 'linear-gradient(to right, rgba(184,145,90,.35), transparent)' : 'linear-gradient(to left, rgba(184,145,90,.35), transparent)' }} />
-                  <div className="sp-up sp-d3 sp-note" style={{ color: 'rgba(58,32,8,.62)', fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 640 }}>
+                  <div className="sp-up sp-d2 sp-rule" style={{ height: 1, marginBottom: 20, background: isEven ? `linear-gradient(to right, ${INK.goldLine}, transparent)` : `linear-gradient(to left, ${INK.goldLine}, transparent)` }} />
+                  <div className="sp-up sp-d3 sp-note" style={{ color: INK.inkBody, fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 640 }}>
                     {renderAnnotation(section.annotation)}
                   </div>
                 </div>
@@ -523,15 +578,15 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
 
       {/* ── 結尾 ── */}
       <hr className="brush-line" />
-      <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '72px 32px', background: 'linear-gradient(to bottom, #f5edd8, #efe3c4)' }}>
+      <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '72px 32px', background: `linear-gradient(to bottom, ${INK.paper}, ${INK.paperDeep})` }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="vert sp-up" style={{ color: '#3a2008', fontSize: 'clamp(16px,2.5vw,28px)', fontWeight: 300, letterSpacing: '.35em', lineHeight: 1.9, height: 'clamp(180px,26vw,320px)', margin: '0 auto' }}>
+          <div className="vert sp-up" style={{ color: INK.ink, fontSize: 'clamp(16px,2.5vw,28px)', fontWeight: 300, letterSpacing: '.35em', lineHeight: 1.9, height: 'clamp(180px,26vw,320px)', margin: '0 auto' }}>
             {'天上聖母\n護佑眾生\n萬古流芳\n聖恩永沐'}
           </div>
           <hr className="brush-line sp-up sp-d1" style={{ margin: '40px auto' }} />
-          <p className="sp-up sp-d2" style={{ color: 'rgba(90,48,16,.45)', fontSize: 13, letterSpacing: '.4em', lineHeight: 2.4 }}>台北古亭和聖壇　敬獻</p>
+          <p className="sp-up sp-d2" style={{ color: INK.inkFaint, fontSize: 13, letterSpacing: '.4em', lineHeight: 2.4 }}>台北古亭和聖壇　敬獻</p>
           <div className="sp-up sp-d3" style={{ marginTop: 44 }}>
-            <button onClick={onBack} style={{ color: '#6b4010', background: 'rgba(107,64,16,.07)', border: '1px solid rgba(107,64,16,.2)', borderRadius: 999, padding: '10px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="返回首頁">
+            <button onClick={onBack} style={{ color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '10px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="返回首頁">
               <ChevronLeft size={20} />
             </button>
           </div>
