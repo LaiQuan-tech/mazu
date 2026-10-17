@@ -20,7 +20,7 @@
  * 顯示「18:42」他還要自己算。超過兩小時另外加一句提醒，因為那時位置很可能已經過期。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play } from 'lucide-react';
+import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play, ArrowRight } from 'lucide-react';
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
 import { formatShowerNote } from '../services/showerNote';
@@ -67,6 +67,8 @@ const BRAND = {
    * 全站的浮動鈕與導覽列圖示用的都是它。這一支只出現在 /shower。
    */
   line: 'https://lin.ee/SUoSKti',
+  /** 志工招募報名表（Google 表單，廟方 2026-10-17 提供） */
+  volunteerForm: 'https://forms.gle/P46M9nt7Dzh4125z6',
   /** 橫幅底下那一句，講的是「這一頁現在能幫你什麼」，不是品牌故事 */
   lead: '免費提供隨香香燈腳盥洗。位置由現場志工回報，車會隨隊伍移動，出發前請再確認一次。',
 };
@@ -131,17 +133,20 @@ const SECTIONS: { no: string; title: string; sub?: string; paras: string[] }[] =
  * 改成**接在位置卡片底下並 sticky**：一開始不佔第一屏，往下捲之後它黏在頂端
  * 一直都在，要跳到影片隨時一下。
  *
- * 只給四項。做成完整的六項目錄就得橫向捲，而橫向捲的選單等於把後面幾項藏起來。
+ * 只給四項。做成完整的目錄就得橫向捲，而橫向捲的選單等於把後面幾項藏起來。
+ * 2026-10-17 把「服務對象」換成「志工報名」：前者就在「關於我們」底下兩段、
+ * 捲一下就看得到，後者在整頁最後面、沒有任何地方指得到它。兩個標籤都是四個字，
+ * 換了寬度不變（量過：四項共 306px、藥丸可用 343px，第五項放不下）。
  *
  * **捲動一律 instant**：開了「減少動態效果」的裝置會把平滑捲動**整個取消**，
  * 不是變快（全站規則，見 CLAUDE.md）。而本站信眾以長者居多、那個設定開著的
  * 比例不低——用 smooth 等於他們按了完全沒反應。
  */
 const MENU: { id: string; label: string }[] = [
-  { id: 'shower-now',    label: '車在哪' },
-  { id: 'shower-01',     label: '關於我們' },
-  { id: 'shower-03',     label: '服務對象' },
-  { id: 'shower-videos', label: '影片' },
+  { id: 'shower-now',       label: '車在哪' },
+  { id: 'shower-01',        label: '關於我們' },
+  { id: 'shower-videos',    label: '影片' },
+  { id: 'shower-volunteer', label: '志工報名' },
 ];
 
 /** sticky 的高度加一點餘裕，跳過去時標題不會被選單蓋住 */
@@ -256,6 +261,48 @@ const VideoCard: React.FC<{ id: string; title: string; coverHasTitle?: boolean }
     </div>
   );
 };
+
+/**
+ * 志工招募（廟方 2026-10-17 提供橫幅與 Google 表單）。
+ *
+ * **位置在「信念」那一塊之後、頁尾之前**，不在前面：這一頁的第一屏是給
+ * 「車停在哪」的，而會想報名志工的人，是讀完四段故事、看完影片、再讀到
+ * 「一個人發心，十七人同行」那一刻才被打動的——招募擺在那句話後面才接得上。
+ * 擺在上面只會擋住查位置的人，而且對還不知道這是什麼的人喊「來當志工」沒有用。
+ *
+ * **圖上已經有「志工招募」四個字**，所以不另外加標題（同影片封面那條）；
+ * 但圖本身看不出可以按，所以底下補一行「我要報名」當作可點的提示。
+ * 連結整塊包起來，手指按哪裡都會進表單。
+ *
+ * 表單在 Google，所以開新分頁並在 aria-label 裡講明白——
+ * 正要離開這個網站這件事，應該讓人事先知道。
+ */
+const VolunteerBanner: React.FC = () => (
+  <a
+    href={BRAND.volunteerForm}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="志工招募：替媽祖服務每一位香燈腳。開啟 Google 報名表單（另開新分頁）"
+    id="shower-volunteer"
+    className="group block mt-12 scroll-mt-20 rounded-2xl overflow-hidden border border-[#D6246B]/20 hover:border-[#D6246B]/50 transition-colors"
+  >
+    <picture>
+      <source srcSet={heroSrc('shower-volunteer.webp')} type="image/webp" />
+      <img
+        src={heroSrc('shower-volunteer.jpg')}
+        alt=""
+        width={2000}
+        height={667}
+        loading="lazy"
+        className="block w-full h-auto"
+      />
+    </picture>
+    <span className="flex items-center justify-center gap-2 bg-[#B01350] px-4 py-3 text-white font-bold group-hover:bg-[#8E0F41] transition-colors">
+      我要報名
+      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+    </span>
+  </a>
+);
 
 /**
  * 最上面的主辦單位（廟方 2026-10-16：「網頁最上面也放一次」）。
@@ -463,6 +510,8 @@ const ShowerPage: React.FC = () => {
           </p>
           <p className="mt-3 font-serif text-lg font-bold text-[#B01350]">{BRAND.tagline}</p>
         </div>
+
+        <VolunteerBanner />
 
         {/* 收尾只留主辦單位，而且要大、要置中（廟方 2026-10-16）。
             這一頁是協會的服務，和聖壇做的只是查詢頁——署名權是協會的。

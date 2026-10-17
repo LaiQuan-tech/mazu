@@ -50,6 +50,7 @@ const HERO_FILES = [
   'shower-banner.webp', 'shower-banner.jpg',
   'shower-video-vCdQNnOVxTk.webp', 'shower-video-vCdQNnOVxTk.jpg',
   'shower-video-6t5GIuezgpA.webp', 'shower-video-6t5GIuezgpA.jpg',
+  'shower-volunteer.webp', 'shower-volunteer.jpg',
   // LINE 官方提供的「加入好友」按鈕圖（/shower 的協會帳號在用）
   'line-add-friend.png',
 ];
