@@ -148,6 +148,40 @@ export const INK_PAPER_CSS = `
   .ink-paper .pattern-phoenix { opacity: .26; }
   .ink-paper .pattern-dragon  { opacity: .20; }
 
+  /*
+    ── 讓青花＋泥金讀起來是「現在」而不是「廟宇網站」（廟方 2026-10-17）──
+
+    現在這個版面會顯得舊，不是顏色的問題，是**金用得太多**：每一條框、每一顆
+    圖示、每一個標題、每一節下面的菱形飾都是金的。當代的奢侈品視覺剛好相反——
+    金屬色是**稀有的重音**，一個畫面只出現一兩次，其餘靠留白與線的粗細說話。
+
+    所以這一段做四件事，每一件都是「拿掉」不是「加上」：
+      1. 金框 → 極細的冷色線。框線不該是裝飾，它只是界線。
+      2. 圓角與陰影 → 幾乎拉平。浮起來的圓角卡片是上一個十年的語言，
+         當代編輯式版面是貼齊的平面。
+      3. 每節標題下面的菱形分隔飾 → 收起來。那個符號重複了八次，
+         重複的裝飾不會變高級，只會變壁紙。
+      4. 小標 → 更小、更細、字距拉到 0.5em，和巨大的襯線主標形成反差。
+         字級的落差才是時尚感的來源，不是多加一個圖案。
+
+    **金沒有被拿掉，是被省下來**：留給宮壇名、主標與按鈕——那幾個地方金才有份量。
+  */
+  .ink-paper [class*="border-temple-gold"],
+  .ink-paper [class*="border-temple-red"] { border-color: rgba(214,228,255,.14) !important; }
+  .ink-paper .rounded-xl, .ink-paper .rounded-2xl, .ink-paper .rounded-lg { border-radius: 3px !important; }
+  .ink-paper .shadow-sm, .ink-paper .shadow-md, .ink-paper .shadow-lg,
+  .ink-paper .shadow-xl, .ink-paper .shadow-2xl { box-shadow: none !important; }
+  /* 菱形分隔飾（span.w-2.h-2.rotate-45）與它兩側的短線 */
+  .ink-paper section span.rotate-45 { display: none !important; }
+  .ink-paper section span.w-12.h-px { width: 84px !important; opacity: .45; }
+  /* 小標兩側那兩根粗短棒 → 一條細長線 */
+  .ink-paper section span.w-8.h-1 { height: 1px !important; width: 56px !important; opacity: .5; }
+  .ink-paper section h2.tracking-widest {
+    font-weight: 400 !important;
+    font-size: 11px !important;
+    letter-spacing: .5em !important;
+  }
+
   /* 表單控制項：同 /urgent 試作學到的那三件事 */
   .ink-paper input, .ink-paper textarea, .ink-paper select {
     background: ${INK.fieldFace} !important;

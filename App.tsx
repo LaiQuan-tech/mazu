@@ -270,6 +270,21 @@ const ENABLE_INCENSE_SMOKE = false;
  * 對比都量過（見 CLAUDE.md），不要把霧金的透明度往下調。
  */
 /**
+ * 首頁青花紙試裝（`?ink=1`，2026-10-17 廟方「測試看看」）。
+ *
+ * **預設關閉，正式站一個像素都不會動。** 沿用 `?hero=` 那一套比稿機制：
+ * 在真正的首頁上比較，不是靜態截圖——導覽列、三尊、按鈕、表單全都在。
+ * 沒有任何連結指過去、不在 sitemap，query string 不會產生新的可索引網址。
+ *
+ * 開啟時連 Hero 底圖一起換成藍金流體畫（hero-blue.jpg，廟方 2026-09-09 看過的
+ * 那一版）：金箔牆配靛藍紙會變成上半頁米黃、下半頁靛藍的兩截。
+ *
+ * 要採用的話不是把這個旗標打開就好——覆蓋層只適合拿來看，見 inkTheme.ts。
+ */
+const INK_MODE = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('ink') === '1';
+
+/**
  * Hero 底部收邊要淡進的顏色 ＝ **Hero 下一個區塊的底色**。
  * 兩者不一致，交界就是兩塊平色相接、看起來像被切了一刀（廟方回報過：
  * 當時收邊淡進米色 #F5F0E8，而下面的公佈欄是 bg-white，中間就多一條白邊）。
@@ -277,9 +292,13 @@ const ENABLE_INCENSE_SMOKE = false;
  * 公佈欄關掉時，接在 Hero 後面的是「關於我們」（bg-temple-bg）。
  * 動到區塊順序或它們的底色時，這裡要一起改。
  */
-const HERO_FADE_RGB = ENABLE_BULLETIN
-  ? '255 255 255'   // #bulletin 的 bg-white
-  : '245 240 232';  // #about 的 bg-temple-bg
+const HERO_FADE_RGB = INK_MODE
+  // 青花版：下一區是 bg-white 疊 4.5% 在靛藍紙上，實際是 rgb(33,45,72)。
+  // **淡進白色就是那道突兀的亮帶**——規則就是上面那一句，顏色要等於下一區的底色。
+  ? '33 45 72'
+  : ENABLE_BULLETIN
+    ? '255 255 255'   // #bulletin 的 bg-white
+    : '245 240 232';  // #about 的 bg-temple-bg
 
 /** 點燈／祈福／問事各自獨立成頁，捐獻仍是首頁上的區塊 */
 const SERVICE_PAGE: Record<string, SitePage> = {
@@ -730,20 +749,6 @@ const HERO_VARIANTS = {
 };
 const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
 
-/**
- * 首頁青花紙試裝（`?ink=1`，2026-10-17 廟方「測試看看」）。
- *
- * **預設關閉，正式站一個像素都不會動。** 沿用 `?hero=` 那一套比稿機制：
- * 在真正的首頁上比較，不是靜態截圖——導覽列、三尊、按鈕、表單全都在。
- * 沒有任何連結指過去、不在 sitemap，query string 不會產生新的可索引網址。
- *
- * 開啟時連 Hero 底圖一起換成藍金流體畫（hero-blue.jpg，廟方 2026-09-09 看過的
- * 那一版）：金箔牆配靛藍紙會變成上半頁米黃、下半頁靛藍的兩截。
- *
- * 要採用的話不是把這個旗標打開就好——覆蓋層只適合拿來看，見 inkTheme.ts。
- */
-const INK_MODE = typeof window !== 'undefined'
-  && new URLSearchParams(window.location.search).get('ink') === '1';
 const HERO = (() => {
   if (typeof window === 'undefined') return HERO_VARIANTS[DEFAULT_HERO];
   const v = new URLSearchParams(window.location.search).get('hero');
@@ -779,9 +784,17 @@ const HeroStudio: React.FC = () => (
     {/* 地板。**刻意壓得很低（14%）而且不畫地平線**：三尊在版面上是被下緣裁掉的
         （見 HERO_DEITIES 的負邊距），地平線拉高會變成一條橫線切過神尊的衣袍。
         只留一片往下漸亮的反光，腳下有地就夠了。 */}
+    {/*
+      地板的光。**最後一段一定要收回紙色**：第一版讓它一路亮到最下緣，結果 hero
+      與下一區之間多出一道橫向的亮帶，整頁看起來像被裁斷（廟方 2026-10-17 說
+      「間隔有點突兀」就是這個）。
+
+      規則很簡單——**hero 的最後一個像素要等於下一區的第一個像素**。所以亮度在
+      七成處到頂，之後收回 0；光讀起來是「地上一攤光」，不是「畫面底部一條線」。
+    */}
     <div className="absolute inset-x-0 bottom-0" style={{
-      height: '14%',
-      background: 'linear-gradient(to bottom, rgba(150,175,240,0) 0%, rgba(175,195,245,.18) 55%, rgba(205,220,255,.34) 100%)',
+      height: '22%',
+      background: 'linear-gradient(to bottom, rgba(150,175,240,0) 0%, rgba(178,198,248,.20) 42%, rgba(196,214,252,.26) 68%, rgba(150,175,240,.07) 90%, rgba(22,35,63,0) 100%)',
     }} />
   </div>
 );
