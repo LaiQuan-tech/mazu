@@ -292,7 +292,21 @@ const SERVICE_PAGE: Record<string, SitePage> = {
  * 加上置頂那一則實際會是 5 張；手機每張卡 106px，約 530px，
  * 一個螢幕內看得完，信眾不必滑過整面公告才走得到「關於我們」。
  */
-const HOME_BULLETIN_LIMIT = 4;
+/**
+ * 首頁「最新活動」最多顯示幾則——**這個數字是總數，置頂的也算在裡面**
+ * （廟方 2026-10-17：「含遷址，一共顯示三則就好，目前五則太多」）。
+ *
+ * **這與先前的規則相反，改之前請先讀完。** 原本是「置頂的全列＋最新 4 則」，
+ * 置頂不佔名額——理由是廟方把一則置頂就是要它一直在最上面，被上限擠掉等於
+ * 那個功能失效。結果線上是 1 則置頂＋4 則＝5 張卡，廟方看了實際畫面之後決定
+ * 砍到 3 張，而且**置頂的要算進去**。
+ *
+ * 置頂仍然排最前面，所以只要置頂不超過 3 則，置頂的功能還是成立的；
+ * 真的同時置頂 3 則以上才會把最新的全部擠掉，那時廟方自己會看到。
+ *
+ * 手機上每張卡約 106px，三張約 320px——信眾不必滑過整面公告才走得到下一區。
+ */
+const HOME_BULLETIN_TOTAL = 3;
 
 /**
  * 揪團面板給**被揪的人**看的服務海報（廟方 2026-10-12 提供）。
@@ -1656,9 +1670,10 @@ const App: React.FC = () => {
    * 等於那個功能失效。
    */
   const homeBulletins = useMemo(() => {
+    // 置頂的排前面，然後整串砍到總數上限——置頂也算在內（見 HOME_BULLETIN_TOTAL）
     const pinned = feedBulletins.filter(b => b.isPinned);
-    const rest = feedBulletins.filter(b => !b.isPinned).slice(0, HOME_BULLETIN_LIMIT);
-    return [...pinned, ...rest];
+    const rest = feedBulletins.filter(b => !b.isPinned);
+    return [...pinned, ...rest].slice(0, HOME_BULLETIN_TOTAL);
   }, [feedBulletins]);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
