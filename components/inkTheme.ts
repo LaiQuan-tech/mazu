@@ -128,6 +128,19 @@ export const INK_PAPER_CSS = `
   .ink-paper .text-amber-800  { color: ${INK.ink} !important; }
   .ink-paper .text-amber-700  { color: ${INK.inkSoft} !important; }
 
+  /*
+    導覽列的「更多」下拉與手機選單。這兩塊的字色是寫死的任意值
+    （text-[#3D2800]），沒有語意類別可以蓋，上面那串後代選擇器碰不到——
+    量到 1.39:1，打開就是一片看不見的字。用屬性選擇器指名。
+    它們平常是收起來的，所以光看畫面不會發現；是掃全頁對比才抓到的。
+  */
+  .ink-paper nav [class*="text-[#3D2800]"] { color: ${INK.ink} !important; }
+  .ink-paper nav [class*="bg-[#3D2800]"]   { background: ${INK.goldLine} !important; }
+  .ink-paper nav [class*="bg-[#F0E9CE]"]   { background: ${INK.paperDeep} !important; }
+  /* 導覽列裡的 text-temple-red 會落在金色的「目前頁」底上，用 gold 量到 4.44:1
+     ——差 0.06 就過不了 AA。導覽列裡一律用最亮的那一階。 */
+  .ink-paper nav .text-temple-red { color: ${INK.ink} !important; }
+
   /* 頁尾本來是 #2E2A22 的暖黑，接在靛藍下面偏棕，換成紙色的深處 */
   .ink-paper footer { background: ${INK.paperDeep} !important; }
 

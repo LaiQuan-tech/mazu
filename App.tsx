@@ -709,7 +709,7 @@ const HERO_SLIDESHOW = false;
 const HERO_VARIANTS = {
   // tone 見 SilkSheen：gold＝金屬反光、flat＝完全不反光（流體畫沒有緞面光澤）
   gold: { file: 'hero-gold.jpg', tone: 'gold' as const },
-  blue: { file: 'hero-blue.jpg', tone: 'flat' as const },
+  blue: { file: 'hero-blue.jpg', tone: 'flat' as const, dark: true as const },
   // 青花瓷（2026-09-12 廟方給的參考圖，?hero=porcelain）。
   // 原圖是直式 907×1803 的截圖，桌機上 cover 只會露出中段那截河道，手機才看得到整張。
   // 白底：上緣那道黑色遮罩壓上去會變灰，導覽列與宮壇名的白字也只是勉強能讀——
@@ -726,7 +726,7 @@ const HERO_VARIANTS = {
    * **沒有做倒影。** 參考照地板上有完整的鏡像，但那會變成一尊上下顛倒的神尊，
    * 那是廟方該決定的事不是我該替他決定的。現在是地板的光暈，要加倒影再說。
    */
-  studio: { studio: true as const, tone: 'flat' as const },
+  studio: { studio: true as const, tone: 'flat' as const, dark: true as const },
 };
 const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
 
@@ -2227,7 +2227,15 @@ const App: React.FC = () => {
    */
   const navSolid = !navOverHero || isMenuOpen;
   // 青花試裝時導覽列要跟著變深，否則米黃的 bar 壓在靛藍紙上像兩個網站拼起來
-  const navFace   = INK_MODE ? 'rgba(18,28,50,0.97)' : 'rgba(240, 233, 206, 0.97)';
+  // 青花版的導覽列底色。**不要調得太深**（廟方 2026-10-17）：18,28,50 幾乎是黑的，
+  // 那條 bar 壓在版面上太重。改成偏青花的中藍——量過泥金字 #E8CF9A 壓上去 7.3:1，
+  // 還有很大的餘裕可以再亮，4.5:1 的門檻大約到 rgba(70,100,160) 才會碰到。
+  const navFace   = INK_MODE ? 'rgba(44,66,118,0.95)' : 'rgba(240, 233, 206, 0.97)';
+  // 導覽列左邊的宮壇名（捲動後才淡入）。青花版要用泥金——深褐字壓在中藍 bar 上
+  // 量到 1.39:1，等於看不見。這顆與 hero 左上那個宮壇名是兩個不同的元素，
+  // 改了一個要記得改另一個。
+  const navBrand  = INK_MODE ? 'text-[#F0D9A4] hover:text-white focus-visible:text-white'
+                             : 'text-[#3D2800] hover:text-[#7C5C1E] focus-visible:text-[#7C5C1E]';
   const navActive = INK_MODE ? 'bg-[#C49820]/25 text-[#F0D9A4] font-semibold'
                              : 'bg-temple-gold/15 text-temple-red font-semibold';
   const navIdle   = INK_MODE ? 'text-[#E8CF9A] hover:bg-[#C49820]/15 hover:text-[#F0D9A4]'
@@ -2342,8 +2350,8 @@ const App: React.FC = () => {
               onClick={() => navTo({ id: 'home', label: '首頁', kind: 'section' })}
               aria-hidden={!navSolid}
               tabIndex={navSolid ? 0 : -1}
-              className={`shrink-0 font-serif font-bold text-xl sm:text-2xl tracking-[0.25em] text-[#3D2800]
-                transition-all duration-300 hover:text-[#7C5C1E] focus-visible:text-[#7C5C1E]
+              className={`shrink-0 font-serif font-bold text-xl sm:text-2xl tracking-[0.25em] ${navBrand}
+                transition-all duration-300
                 ${navSolid ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
             >
               和聖壇
@@ -2502,7 +2510,7 @@ const App: React.FC = () => {
               與導覽列本體同一種寫法，兩者顏色也保證一致。 */}
           <div
             className="backdrop-blur-md border-t border-[#C49820]/30 px-4 pt-2 pb-4 space-y-1 max-h-[80vh] overflow-y-auto"
-            style={{ backgroundColor: 'rgba(240, 233, 206, 0.97)' }}
+            style={{ backgroundColor: navFace }}
           >
             {/*
               社群：對應桌機導覽列右側的位置。放在選單最上方（廟方指定）。
@@ -2630,17 +2638,23 @@ const App: React.FC = () => {
             「台北古亭」與那條短線是照分享卡的字標帶（scripts/assets/og-hero-wordmark.jpg）
             補上的：卡片上一直有，網站上沒有，廟方 2026-09-12 要求兩邊一致。
             地名不放進 h1——h1 是宮壇名，地名是說明；分頁標題與 og:title 已經帶著「台北古亭」。 */}
-        <div className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+        {/* 宮壇名的顏色跟著底圖走（廟方 2026-10-17「和聖壇要用金色不要白色」）：
+            深色底（藍金／青花棚拍）用泥金，金箔牆仍然用白——金字壓在金箔上等於沒有字。
+            暗影兩邊都要留：金字在藍底上也需要那圈影子才不會發虛。 */}
+        <div
+          className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+          style={{ color: 'dark' in HERO ? '#F0D9A4' : '#FFFFFF' }}
+        >
           <h1
             className="font-serif font-bold text-4xl sm:text-6xl tracking-[0.25em]
                        [writing-mode:vertical-rl] [text-orientation:upright]"
           >
             和聖壇
           </h1>
-          <div aria-hidden="true" className="mt-3 sm:mt-5 w-9 sm:w-14 border-t-2 border-white/75" />
+          <div aria-hidden="true" className="mt-3 sm:mt-5 w-9 sm:w-14 border-t-2" style={{ borderColor: 'dark' in HERO ? 'rgba(240,217,164,.75)' : 'rgba(255,255,255,.75)' }} />
           {/* 地名落在上緣遮罩之外（遮罩到 36% 高就收乾淨），白字直接壓在亮金上；
               補一圈貼著筆畫的暗影當底，不然 18px 的細字在金底上會發虛 */}
-          <p className="mt-2.5 sm:mt-4 font-serif text-sm sm:text-lg tracking-[0.45em] text-white whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">台北古亭</p>
+          <p className="mt-2.5 sm:mt-4 font-serif text-sm sm:text-lg tracking-[0.45em] whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">台北古亭</p>
         </div>
 
         {/* Hero 前景：行動按鈕與三尊神明放在同一個 flex 容器裡，讓瀏覽器自己算避讓。
