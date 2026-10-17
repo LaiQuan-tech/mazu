@@ -60,3 +60,87 @@ export const INK = {
  * 另外導覽列也要跟著變深，否則米黃的 bar 壓在靛藍紙上像兩個網站拼起來；
  * 頁尾不必動（#2E2A22 近黑色，接在靛藍下面沒有違和）。
  */
+
+/**
+ * 首頁的青花紙試裝（`?ink=1`，2026-10-17 廟方「測試看看」）
+ *
+ * ── 為什麼是一層覆蓋而不是逐個元件改 ──
+ * 首頁有上千行 JSX、四十幾種顏色類別散在各處。逐個改要一整天，而這是**要給廟方
+ * 看了才決定的東西**——看完說不要，那一天就白花了。覆蓋層十分鐘寫完、十秒鐘移除，
+ * 而且正式站一個像素都不會動（預設關閉，要加 ?ink=1 才看得到）。
+ * 這沿用站上既有的比稿機制（`?hero=blue`／`?hero=porcelain`），廟方已經熟悉。
+ *
+ * **這不是上線用的寫法。** 決定要採用的話，要改成每個元件自己帶顏色；
+ * `!important` 疊在 Tailwind 上只適合拿來看，長期維護會變成兩套顏色在打架。
+ *
+ * ── 已知的妥協 ──
+ * 白卡上的陰影（shadow-lg）在深底上幾乎看不到，所以卡片的層次會比米黃版弱；
+ * 真要上線得把陰影換成邊框或內發光。
+ */
+export const INK_PAPER_CSS = `
+  .ink-paper { background: ${INK.paper}; color-scheme: dark; }
+
+  /* 版面底：米黃的區塊讓紙色透出來，白卡改成極淡的白疊色（深淺跟著紙色走） */
+  .ink-paper .bg-temple-bg { background: transparent !important; }
+  .ink-paper .bg-white,
+  .ink-paper .bg-gray-50    { background: rgba(255,255,255,.045) !important; }
+  /* 「跳至主要內容」是 a.bg-white＋寫死的 text-[#7C5C1E]，上一條會把它的白底
+     換掉、而寫死的那個色沒有類別可以蓋，結果深褐字壓在深底上（量到 2.53:1）。
+     這顆是給鍵盤使用者的唯一捷徑，不能讓它看不見——直接給金底深字。 */
+  .ink-paper a.bg-white { background: ${INK.gold} !important; color: ${INK.paper} !important; }
+
+  /* bg-temple-red 身兼兩職：整片的區塊底，以及按鈕。用標籤名分開——
+     區塊變成更深的紙（不要變成一大塊金），按鈕才變金底深字 */
+  .ink-paper section.bg-temple-red { background: ${INK.paperDeep} !important; }
+  .ink-paper button.bg-temple-red,
+  .ink-paper a.bg-temple-red { background: ${INK.gold} !important; color: ${INK.paper} !important; }
+
+  /* 文字。alpha 都是量過對比才定的，見本檔開頭 */
+  .ink-paper .text-temple-dark { color: ${INK.ink} !important; }
+  .ink-paper .text-gray-700,
+  .ink-paper .text-gray-600,
+  .ink-paper .text-amber-900   { color: ${INK.inkBody} !important; }
+  .ink-paper .text-gray-500    { color: ${INK.inkSoft} !important; }
+  .ink-paper .text-gray-400,
+  .ink-paper .text-gray-300    { color: ${INK.inkFaint} !important; }
+  .ink-paper .text-temple-red  { color: ${INK.gold} !important; }
+  .ink-paper .text-temple-red\\/70 { color: ${INK.inkSoft} !important; }
+
+  /* 框線。灰框在深底上會消失，一律換成金的細框 */
+  .ink-paper .border-gray-100,
+  .ink-paper .border-gray-200,
+  .ink-paper .border-gray-300,
+  .ink-paper .border-temple-red\\/30 { border-color: ${INK.frame} !important; }
+
+  /* 常見問題用的是原生 <details>，樣式寫在 index.css 的 .faq-item，
+     不是 Tailwind 類別——所以上面那一串後代選擇器碰不到它，要另外指名。
+     不補的話整個問答區是深褐字壓在靛藍上，量到 1.12:1（等於看不見）。 */
+  .ink-paper .faq-item > summary { color: ${INK.ink} !important; }
+  .ink-paper .faq-item > summary:hover { color: ${INK.gold} !important; }
+  .ink-paper .faq-item .faq-answer,
+  .ink-paper .faq-item > div { color: ${INK.inkBody} !important; }
+
+  /* 匯款資訊那一塊是琥珀色系（bg-amber-50 ＋ text-amber-*）。
+     **底色一定要跟著換**：只換文字的話會變成金字壓在米黃底上，量到 1.34:1
+     ——那是整頁最不能看不清楚的一塊（銀行代碼與帳號）。 */
+  .ink-paper .bg-amber-50     { background: ${INK.btnFace} !important; }
+  .ink-paper .border-amber-200 { border-color: ${INK.btnEdge} !important; }
+  .ink-paper .text-amber-800  { color: ${INK.ink} !important; }
+  .ink-paper .text-amber-700  { color: ${INK.inkSoft} !important; }
+
+  /* 頁尾本來是 #2E2A22 的暖黑，接在靛藍下面偏棕，換成紙色的深處 */
+  .ink-paper footer { background: ${INK.paperDeep} !important; }
+
+  /* 團紋在深底上要更濃一點才看得到（同 PatternMedallion 的 onDark） */
+  .ink-paper .pattern-phoenix { opacity: .26; }
+  .ink-paper .pattern-dragon  { opacity: .20; }
+
+  /* 表單控制項：同 /urgent 試作學到的那三件事 */
+  .ink-paper input, .ink-paper textarea, .ink-paper select {
+    background: ${INK.fieldFace} !important;
+    border-color: ${INK.btnEdge} !important;
+    color: ${INK.ink} !important;
+  }
+  .ink-paper input::placeholder, .ink-paper textarea::placeholder { color: rgba(201,168,106,.55) !important; }
+  .ink-paper option { background: ${INK.paperDeep}; color: ${INK.ink}; }
+`;

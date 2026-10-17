@@ -46,6 +46,7 @@ import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, Bl
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
+import { INK_PAPER_CSS } from './components/inkTheme';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
@@ -716,10 +717,28 @@ const HERO_VARIANTS = {
   porcelain: { file: 'hero-porcelain.jpg', tone: 'flat' as const },
 };
 const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
+
+/**
+ * 首頁青花紙試裝（`?ink=1`，2026-10-17 廟方「測試看看」）。
+ *
+ * **預設關閉，正式站一個像素都不會動。** 沿用 `?hero=` 那一套比稿機制：
+ * 在真正的首頁上比較，不是靜態截圖——導覽列、三尊、按鈕、表單全都在。
+ * 沒有任何連結指過去、不在 sitemap，query string 不會產生新的可索引網址。
+ *
+ * 開啟時連 Hero 底圖一起換成藍金流體畫（hero-blue.jpg，廟方 2026-09-09 看過的
+ * 那一版）：金箔牆配靛藍紙會變成上半頁米黃、下半頁靛藍的兩截。
+ *
+ * 要採用的話不是把這個旗標打開就好——覆蓋層只適合拿來看，見 inkTheme.ts。
+ */
+const INK_MODE = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('ink') === '1';
 const HERO = (() => {
   if (typeof window === 'undefined') return HERO_VARIANTS[DEFAULT_HERO];
   const v = new URLSearchParams(window.location.search).get('hero');
-  return v && v in HERO_VARIANTS ? HERO_VARIANTS[v as keyof typeof HERO_VARIANTS] : HERO_VARIANTS[DEFAULT_HERO];
+  if (v && v in HERO_VARIANTS) return HERO_VARIANTS[v as keyof typeof HERO_VARIANTS];
+  // ?ink=1 沒有另外指定 hero 時，底圖跟著換成藍金（理由見 INK_MODE）
+  if (INK_MODE) return HERO_VARIANTS.blue;
+  return HERO_VARIANTS[DEFAULT_HERO];
 })();
 
 /** 後台沒設定「關於我們」照片時的保底圖 */
@@ -2162,6 +2181,12 @@ const App: React.FC = () => {
    * 品牌「和聖壇」同理，不跟著亮出來的話，展開選單時上面那條會是一片空白米色。
    */
   const navSolid = !navOverHero || isMenuOpen;
+  // 青花試裝時導覽列要跟著變深，否則米黃的 bar 壓在靛藍紙上像兩個網站拼起來
+  const navFace   = INK_MODE ? 'rgba(18,28,50,0.97)' : 'rgba(240, 233, 206, 0.97)';
+  const navActive = INK_MODE ? 'bg-[#C49820]/25 text-[#F0D9A4] font-semibold'
+                             : 'bg-temple-gold/15 text-temple-red font-semibold';
+  const navIdle   = INK_MODE ? 'text-[#E8CF9A] hover:bg-[#C49820]/15 hover:text-[#F0D9A4]'
+                             : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red';
 
   // LINE 浮動鈕只在首頁的 Hero 期間收起來；其他分頁沒有 Hero，一進來就顯示。
   const hideLineFloat = page === 'home' && !pastHero;
@@ -2233,7 +2258,8 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col text-temple-dark selection:bg-temple-red selection:text-white">
+    <div className={`min-h-screen flex flex-col text-temple-dark selection:bg-temple-red selection:text-white${INK_MODE ? ' ink-paper' : ''}`}>
+      {INK_MODE && <style>{INK_PAPER_CSS}</style>}
       <Analytics path={analyticsPath} />
       <a
         href="#main-content"
@@ -2260,7 +2286,7 @@ const App: React.FC = () => {
         }`}
         // 選單展開時一律給底色：不給的話上面那條（宮壇名＋關閉鈕）還停在透明狀態，
         // 跟下方的米色面板斷成兩截，而且那兩個元素自己也疊在金箔與神尊上。
-        style={{ backgroundColor: navSolid ? 'rgba(240, 233, 206, 0.97)' : 'transparent' }}
+        style={{ backgroundColor: navSolid ? navFace : 'transparent' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
@@ -2285,8 +2311,8 @@ const App: React.FC = () => {
                   onClick={() => navTo(item)}
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${activeSection === item.id
-                      ? (navSolid ? 'bg-temple-gold/15 text-temple-red font-semibold' : 'bg-white/15 text-white font-semibold')
-                      : (navSolid ? 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red' : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
+                      ? (navSolid ? navActive : 'bg-white/15 text-white font-semibold')
+                      : (navSolid ? navIdle : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
                 >
                   {item.label}
                   {activeSection === item.id && (
@@ -2309,8 +2335,8 @@ const App: React.FC = () => {
                   aria-haspopup="true"
                   className={`relative flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${NAV_MORE.some(m => m.id === activeSection) || moreOpen
-                      ? (navSolid ? 'bg-temple-gold/15 text-temple-red font-semibold' : 'bg-white/15 text-white font-semibold')
-                      : (navSolid ? 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red' : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
+                      ? (navSolid ? navActive : 'bg-white/15 text-white font-semibold')
+                      : (navSolid ? navIdle : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
                 >
                   更多
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
