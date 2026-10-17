@@ -41,43 +41,22 @@ export const INK = {
 } as const;
 
 /**
- * 深底頁面共用的一小段樣式。靠 inline style 做不到的那幾件事放這裡：
- * placeholder 的顏色、focus 的光環、下拉選單展開後那張清單的底色。
+ * ── 做過但收回來的：深底表單（2026-10-17）──
  *
- * **`color-scheme: dark` 是其中最重要的一行**：少了它，`<select>` 展開的那張
- * 清單、以及日期欄位的原生圖示，會沿用作業系統的淺色外觀——畫面上是靛藍的表單，
- * 點下去跳出一張白底清單，而且那是原生 UI，CSS 改不到。
+ * 曾經把 /urgent 整頁改成青花紙當試作，當天廟方決定**只有聖母經用這個風格**，
+ * 所以那一版收回去了。程式碼不留（沒有人引用的 CSS 會爛掉），但那一趟學到的
+ * 三件事留在這裡——哪天再要把深底推到別的頁，這三件就是會卡住的地方：
+ *
+ * 1. **`color-scheme: dark` 是最關鍵的一行。** 少了它，`<select>` 展開的那張清單
+ *    與日期欄位的原生圖示會沿用作業系統的淺色外觀——畫面上是靛藍的表單，點下去
+ *    跳出一張白底清單，而且那是原生 UI、CSS 碰不到。
+ * 2. **placeholder 與 focus 光環一定要自己給。** inline style 做不到這兩件事，
+ *    而深底上正好最需要它們：看不出哪裡可以打字、打了也不知道焦點在哪。
+ *    輸入框的底用白色低透明度（不要用純色），深淺會跟著紙色走。
+ * 3. **共用元件的淺色外觀從外面蓋掉，不要去改元件本身。** BirthDatePicker 是六個
+ *    表單共用的，為了一頁改它會動到另外五個還在米黃底上的表單。正解是給容器一個
+ *    scope class，用後代選擇器壓掉 `.text-gray-*`／`.bg-white` 那幾個 Tailwind 類。
+ *
+ * 另外導覽列也要跟著變深，否則米黃的 bar 壓在靛藍紙上像兩個網站拼起來；
+ * 頁尾不必動（#2E2A22 近黑色，接在靛藍下面沒有違和）。
  */
-export const INK_FORM_CSS = `
-  .ink-scope { color-scheme: dark; }
-  .ink-field {
-    background: ${INK.fieldFace};
-    border: 1px solid ${INK.btnEdge};
-    color: ${INK.ink};
-  }
-  .ink-field::placeholder { color: rgba(201,168,106,.55); }
-  .ink-field:focus {
-    outline: none;
-    border-color: ${INK.gold};
-    box-shadow: 0 0 0 3px rgba(201,168,106,.18);
-  }
-  .ink-field option { background: ${INK.paperDeep}; color: ${INK.ink}; }
-
-  /*
-    共用元件的淺色外觀在深底上要壓掉——BirthDatePicker 是全站六個表單共用的，
-    **不要為了這一頁去改它**（那會動到另外五個在米黃底上的表單）。
-    改成從外面用後代選擇器蓋掉：壞了只壞這一個 scope，而且新頁套 .ink-scope
-    就自動跟著對。缺點是靠 Tailwind 產生的 class 名，Tailwind 改版時要回來看一眼。
-  */
-  .ink-scope select { background: ${INK.fieldFace}; border-color: ${INK.btnEdge}; color: ${INK.ink}; }
-  .ink-scope select option { background: ${INK.paperDeep}; color: ${INK.ink}; }
-  .ink-scope .text-gray-400 { color: ${INK.inkFaint} !important; }
-  .ink-scope .text-gray-500 { color: ${INK.inkFaint} !important; }
-  .ink-scope .text-gray-600 { color: ${INK.inkBody} !important; }
-  .ink-scope .text-gray-700 { color: ${INK.inkBody} !important; }
-  .ink-scope .text-temple-dark { color: ${INK.ink} !important; }
-  .ink-scope .text-temple-red  { color: ${INK.gold} !important; }
-  .ink-scope .bg-temple-bg     { background: ${INK.fieldFace} !important; }
-  .ink-scope .bg-white         { background: ${INK.fieldFace} !important; }
-  .ink-scope .border-gray-200  { border-color: ${INK.btnEdge} !important; }
-`;

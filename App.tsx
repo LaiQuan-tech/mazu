@@ -2162,22 +2162,6 @@ const App: React.FC = () => {
    * 品牌「和聖壇」同理，不跟著亮出來的話，展開選單時上面那條會是一片空白米色。
    */
   const navSolid = !navOverHero || isMenuOpen;
-  /**
-   * 青花紙的頁面（2026-10-17 起 /urgent 先做）。導覽列要跟著變深——米黃的 bar
-   * 直接壓在靛藍紙上，看起來像兩個網站拼在一起。頁尾不用動，它本來就是
-   * #2E2A22 的近黑色，接在靛藍下面沒有違和。
-   *
-   * **之後每多一頁改成青花就把 id 加進這個集合**，不要在各處再寫一次
-   * `page === 'xxx'`——那正是「換一次配色要改三十個地方」的開端。
-   */
-  const INK_PAGES = new Set<SitePage>(['urgent']);
-  const inkNav = INK_PAGES.has(page);
-  const navFace   = inkNav ? 'rgba(18,28,50,0.97)' : 'rgba(240, 233, 206, 0.97)';
-  const navEdge   = inkNav ? 'border-[#C49820]/35' : 'border-[#C49820]/50';
-  const navActive = inkNav ? 'bg-[#C49820]/25 text-[#F0D9A4] font-semibold'
-                           : 'bg-temple-gold/15 text-temple-red font-semibold';
-  const navIdle   = inkNav ? 'text-[#E8CF9A] hover:bg-[#C49820]/15 hover:text-[#F0D9A4]'
-                           : 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red';
 
   // LINE 浮動鈕只在首頁的 Hero 期間收起來；其他分頁沒有 Hero，一進來就顯示。
   const hideLineFloat = page === 'home' && !pastHero;
@@ -2272,11 +2256,11 @@ const App: React.FC = () => {
           // 而 `transition-all` 讓寬度花 300ms 從 1px 縮到 0——這 300ms 就是一條很明顯的白線
           // （廟方回報「往下滑導覽列下緣會出現一條白線」）。維持寬度、只讓顏色在
           // 透明與金色之間過渡，就沒有中間狀態可言。
-          navSolid ? `backdrop-blur-md shadow-md ${navEdge}` : 'border-transparent'
+          navSolid ? 'backdrop-blur-md shadow-md border-[#C49820]/50' : 'border-transparent'
         }`}
         // 選單展開時一律給底色：不給的話上面那條（宮壇名＋關閉鈕）還停在透明狀態，
         // 跟下方的米色面板斷成兩截，而且那兩個元素自己也疊在金箔與神尊上。
-        style={{ backgroundColor: navSolid ? navFace : 'transparent' }}
+        style={{ backgroundColor: navSolid ? 'rgba(240, 233, 206, 0.97)' : 'transparent' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`}>
@@ -2301,8 +2285,8 @@ const App: React.FC = () => {
                   onClick={() => navTo(item)}
                   className={`relative px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${activeSection === item.id
-                      ? (navSolid ? navActive : 'bg-white/15 text-white font-semibold')
-                      : (navSolid ? navIdle : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
+                      ? (navSolid ? 'bg-temple-gold/15 text-temple-red font-semibold' : 'bg-white/15 text-white font-semibold')
+                      : (navSolid ? 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red' : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
                 >
                   {item.label}
                   {activeSection === item.id && (
@@ -2325,8 +2309,8 @@ const App: React.FC = () => {
                   aria-haspopup="true"
                   className={`relative flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 font-serif whitespace-nowrap
                     ${NAV_MORE.some(m => m.id === activeSection) || moreOpen
-                      ? (navSolid ? navActive : 'bg-white/15 text-white font-semibold')
-                      : (navSolid ? navIdle : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
+                      ? (navSolid ? 'bg-temple-gold/15 text-temple-red font-semibold' : 'bg-white/15 text-white font-semibold')
+                      : (navSolid ? 'text-[#3D2800] hover:bg-[#C49820]/10 hover:text-temple-red' : 'text-white/90 hover:bg-white/10 hover:text-white')}`}
                 >
                   更多
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
