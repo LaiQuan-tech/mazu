@@ -412,7 +412,8 @@ const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMont
  * 看到本壇在做什麼，就先要他讀沿革、再開口募款。會進到這個網站的人絕大多數是來
  * 辦事的，辦事的入口該排在最前面。
  *
- * **緊急祈願排第二**：急難的人要一下就按到，這是整列裡唯一「晚一分鐘就有差」的。
+ * **緊急祈願緊接在首頁後面**（廟方 2026-10-17 再調）：它是整列裡唯一「晚一分鐘
+ * 就有差」的，所以不只是排在服務前段，而是排在**第一個位置**。
  * **遷址捐款留在服務之後、介紹之前**（廟方指定）：募資是現在進行中的重點，
  * 不要沉到最後一個。
  *
@@ -421,7 +422,6 @@ const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMont
  */
 const NAV_PRIMARY: NavItem[] = [
   { id: 'home', label: '首頁', kind: 'section' },
-  { id: 'booking', label: '預約問事', kind: 'page' },
   /**
    * 緊急祈願燈（2026-10-17 廟方指定為常設項目）。
    *
@@ -433,6 +433,7 @@ const NAV_PRIMARY: NavItem[] = [
    * 收一層就變成兩個動作，而這一頁存在的理由就是「馬上」。
    */
   { id: 'urgent', label: '緊急祈願', kind: 'page' },
+  { id: 'booking', label: '預約問事', kind: 'page' },
   isLampSeason() ? LAMP_NAV : BLESSING_NAV,
   { id: 'relocation', label: '遷址捐款', kind: 'page' },
   // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
