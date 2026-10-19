@@ -12,6 +12,14 @@
  * 遠高於 4.5:1 的門檻。**深底配金比淺底配金好讀**，這不是直覺的結果——
  * 改版前那些金色小字壓在米黃上才是真正吃力的。
  *
+ * ── 改這個檔之前 ──
+ * `INK_PAPER_CSS` 是一個樣板字串，**註解裡不能出現反引號**——一個就把字串截斷，
+ * 型別檢查會噴一長串位置看起來無關的錯。2026-10-20 在這裡踩過一次
+ * （CLAUDE.md 記的是 ScripturePage 的同一個坑，這個檔是第二個）。
+ *
+ * 選擇器裡的方括號要寫 `\\[`（兩個反斜線）：樣板字串會吃掉一層，
+ * 寫一個的話輸出的 CSS 是 `[`，選擇器就不成立了。
+ *
  * ── 要加新色之前 ──
  * 先問這個色是不是已經有了。這張表刻意只有十幾個值：值一多就會開始出現
  * 「差一點點」的兩個金色，而那正是色票存在要避免的事。
@@ -21,9 +29,16 @@ export const INK = {
   paperDeep: '#0F1A2E',                    // 漸層的深處
   navBar:    'rgba(18,28,50,0.97)',        // 導覽列實心時的底
   ink:       '#F0D9A4',                    // 大標與主要文字：全頁最亮
-  inkBody:   'rgba(236,212,156,.88)',      // 長段內文。要比裝飾性文字亮
-  inkSoft:   'rgba(201,168,106,.78)',      // 次要說明
-  inkFaint:  'rgba(201,168,106,.82)',      // 標籤、頁碼。**不要再調低**：12px 的小字，.62 時量到只有 3.5:1
+  // 實測：.88 時整站的長段內文量到 4.31:1，差 4.5 一點點；.95 之後過線。
+  // 「差一點點」比「差很多」危險——畫面上看起來沒問題，但就是不合格。
+  inkBody:   'rgba(236,212,156,.95)',      // 長段內文。要比裝飾性文字亮
+  // .78 時匯款說明那種小字量到 3.64:1。小字沒有放寬標準，一樣要 4.5。
+  inkSoft:   'rgba(216,186,124,.92)',      // 次要說明
+  // 標籤、頁碼、表單提示。**不要再調低**：12px 的小字，.62 時量到只有 3.5:1。
+  // 底色也換過一次：原本的 (201,168,106) 在純紙上量 5.09 看似過關，但卡片底
+  // （白疊色 .045～.135）一疊上去就掉到 3.58——法會報名表那堆「（選填）」就是
+  // 這樣掉到 4.01。那個底太暗，alpha 拉到 1.0 也只有 4.54，只能換亮一階的底。
+  inkFaint:  'rgba(228,200,142,.86)',
   gold:      '#C9A86A',
   goldLine:  'rgba(201,168,106,.35)',      // 分隔線
   rule:      'rgba(201,168,106,.20)',      // 欄線
@@ -82,8 +97,33 @@ export const INK_PAPER_CSS = `
 
   /* 版面底：米黃的區塊讓紙色透出來，白卡改成極淡的白疊色（深淺跟著紙色走） */
   .ink-paper .bg-temple-bg { background: transparent !important; }
+  /**
+   * 淺色的底。**灰階要一路蓋到 gray-300，不是只有 white 與 gray-50。**
+   * 原本只轉那兩個，於是 bg-gray-100 的區塊（公佈欄的分類鈕、遷址的表格）
+   * 底還是淺灰、字卻已經被轉成泥金——實測 1.30:1 與 1.45:1，等於看不見。
+   * 深淺跟著階層走，原本的層次感才留得住：越深的灰在紙上就疊得越亮一點。
+   */
   .ink-paper .bg-white,
   .ink-paper .bg-gray-50    { background: rgba(255,255,255,.045) !important; }
+  .ink-paper .bg-gray-100   { background: rgba(255,255,255,.075) !important; }
+  .ink-paper .bg-gray-200   { background: rgba(255,255,255,.105) !important; }
+  .ink-paper .bg-gray-300   { background: rgba(255,255,255,.135) !important; }
+
+  /**
+   * **帶透明度修飾的淺色底也要蓋**（bg-temple-bg/50、bg-gray-50/60⋯）。
+   * 上面那些規則比對的是完整的類別名，而 Tailwind 的 /50 是另一個類別，
+   * 整批從這一層底下溜過去。實測 /relocation 的表格隔行底色是 bg-temple-bg/50
+   * （五成米白），泥金的打勾壓上去只有 1.45:1——而且**只有隔行**，
+   * 隨手抽一格量很可能抽到好的那一行，看起來沒問題。
+   * 用 [class*=] 比對前綴就一次蓋完，不必追著每一個透明度值跑。
+   */
+  .ink-paper [class*="bg-temple-bg/"],
+  .ink-paper [class*="bg-temple-cream/"] { background: rgba(255,255,255,.05) !important; }
+  .ink-paper [class*="bg-white/"],
+  .ink-paper [class*="bg-gray-50/"],
+  .ink-paper [class*="bg-gray-100/"],
+  .ink-paper [class*="bg-amber-50/"] { background: rgba(255,255,255,.07) !important; }
+  .ink-paper .hover\:bg-gray-200:hover { background: rgba(255,255,255,.16) !important; }
   /* 「跳至主要內容」是 a.bg-white＋寫死的 text-[#7C5C1E]，上一條會把它的白底
      換掉、而寫死的那個色沒有類別可以蓋，結果深褐字壓在深底上（量到 2.53:1）。
      這顆是給鍵盤使用者的唯一捷徑，不能讓它看不見——直接給金底深字。 */
@@ -97,6 +137,9 @@ export const INK_PAPER_CSS = `
 
   /* 文字。alpha 都是量過對比才定的，見本檔開頭 */
   .ink-paper .text-temple-dark { color: ${INK.ink} !important; }
+  /* gray-800／900 是深色標題，全站 130 多處；在深紙上會黑掉，量到 1.06:1 */
+  .ink-paper .text-gray-900,
+  .ink-paper .text-gray-800    { color: ${INK.ink} !important; }
   .ink-paper .text-gray-700,
   .ink-paper .text-gray-600,
   .ink-paper .text-amber-900   { color: ${INK.inkBody} !important; }
@@ -129,7 +172,7 @@ export const INK_PAPER_CSS = `
   .ink-paper .text-amber-700  { color: ${INK.inkSoft} !important; }
 
   /*
-    導覽列的「更多」下拉與手機選單。這兩塊的字色是寫死的任意值
+    導覽列的」更多」下拉與手機選單。這兩塊的字色是寫死的任意值
     （text-[#3D2800]），沒有語意類別可以蓋，上面那串後代選擇器碰不到——
     量到 1.39:1，打開就是一片看不見的字。用屬性選擇器指名。
     它們平常是收起來的，所以光看畫面不會發現；是掃全頁對比才抓到的。
@@ -141,6 +184,69 @@ export const INK_PAPER_CSS = `
      ——差 0.06 就過不了 AA。導覽列裡一律用最亮的那一階。 */
   .ink-paper nav .text-temple-red { color: ${INK.ink} !important; }
 
+  /**
+   * ── 寫死的色（」text-[#…]「 / 」bg-[#…]「）──
+   *
+   * **這是這一層最大的漏洞。** 上面那些規則對的是 Tailwind 的具名色
+   * （text-gray-700、bg-white⋯），而全站有一百多處用的是方括號的任意色，
+   * 它們完全繞過這一層。實測 」/urgent「 的」本服務不收取任何費用」是
+   * 「text-[#5C4310]」（深褐），壓在靛藍紙上量到 **1.46:1**——等於看不見，
+   * 而畫面上它只是「有點暗」，不盯著看不會發現。
+   *
+   * 下面只列**溫暖色系那幾個深色**（宮廟的褐與金）。刻意不寫成
+   * 」[class*="text-["]「 那種萬用比對，因為會把下面兩種也一起吃掉：
+   *   沐浴車的桃紅 #B01350 / #D6246B —— 那是另一個單位的品牌色。
+   *   LINE 綠 #06C755、FB 藍 #1877F2 —— 社群按鈕照它們的規範走。
+   * （沐浴車頁本來就在 ink-paper 之外，但規則寫窄一點，日後搬動版面才不會誤傷。）
+   */
+  .ink-paper .text-\\[\\#2E2A22\\],
+  .ink-paper .text-\\[\\#3D2800\\],
+  .ink-paper .text-\\[\\#5C1A04\\] { color: ${INK.ink} !important; }
+  .ink-paper .text-\\[\\#7C5C1E\\],
+  .ink-paper .text-\\[\\#5C4310\\] { color: ${INK.inkBody} !important; }
+  /* #C49820 是品牌金本身。當底色時沒問題，當文字壓在卡片上只有 4.38:1——
+     而法會報名表拿它寫金額（$1,200、$800），那是整張表最不能看錯的字。
+     給最亮的一階 */
+  .ink-paper .text-\\[\\#C49820\\] { color: ${INK.ink} !important; }
+
+  /* 米色的區塊底：變成白色的低透明度，深淺自己跟著紙色走 */
+  .ink-paper .bg-\\[\\#F5F0E8\\],
+  .ink-paper .bg-\\[\\#F0E9CE\\] { background: rgba(255,255,255,.055) !important; }
+  /* 帶透明度的那一版（法會報名的 sticky 表頭是 bg-[#F5F0E8]/95）。
+     上面比對完整類別名，/95 是另一個類別會整個溜過去——用前綴比對一次蓋完。
+     引號裡的 # 與方括號是字串內容，不用轉義 */
+  .ink-paper [class*="bg-[#F5F0E8]/"],
+  .ink-paper [class*="bg-[#F0E9CE]/"] { background: ${INK.paperDeep} !important; }
+  /* 深褐／深金的實心塊：直接用紙的深處，才不會變成一塊突兀的咖啡色 */
+  .ink-paper .bg-\\[\\#5C4310\\],
+  .ink-paper .bg-\\[\\#5C441A\\],
+  .ink-paper .bg-\\[\\#5C1A04\\],
+  .ink-paper .bg-\\[\\#7C5C1E\\] { background: ${INK.paperDeep} !important; }
+
+  /**
+   * **金底的東西，字一定要翻成深色。**
+   * 金填底（bg-[#C49820]、bg-temple-gold⋯）在米色站上配的是白字或金字，
+   * 搬到青花紙上底色沒變、字也沒變，就成了金底金字。
+   * 實測」登入」1.63:1、「建立共享報名表（揪團）」1.09:1、公佈欄的分類鈕 1.28:1
+   * ——那是三顆**看不見的按鈕**，不是不好看而已。
+   */
+  .ink-paper .bg-\\[\\#C49820\\],
+  .ink-paper .bg-\\[\\#A87F16\\],
+  .ink-paper [class*="bg-temple-gold"]:not([class*="bg-temple-gold/"]) {
+    background: ${INK.ink} !important;
+    color: ${INK.paper} !important;
+  }
+  .ink-paper .bg-\\[\\#C49820\\] *,
+  .ink-paper [class*="bg-temple-gold"]:not([class*="bg-temple-gold/"]) * { color: inherit !important; }
+
+  /**
+   * 表格（遷址方案的對照表）。原本整張表沒有任何 ink 規則，
+   * 實測表頭 2.36:1、打勾 1.45:1——那張表是拿來比較各級差異的，看不見就沒用了。
+   */
+  .ink-paper table { color: ${INK.inkBody} !important; }
+  .ink-paper th { color: ${INK.ink} !important; background: rgba(255,255,255,.05) !important; }
+  .ink-paper td { border-color: ${INK.rule} !important; }
+
   /* 頁尾本來是 #2E2A22 的暖黑，接在靛藍下面偏棕，換成紙色的深處 */
   .ink-paper footer { background: ${INK.paperDeep} !important; }
 
@@ -149,13 +255,13 @@ export const INK_PAPER_CSS = `
   .ink-paper .pattern-dragon  { opacity: .20; }
 
   /*
-    ── 讓青花＋泥金讀起來是「現在」而不是「廟宇網站」（廟方 2026-10-17）──
+    ── 讓青花＋泥金讀起來是」現在」而不是「廟宇網站」（廟方 2026-10-17）──
 
     現在這個版面會顯得舊，不是顏色的問題，是**金用得太多**：每一條框、每一顆
     圖示、每一個標題、每一節下面的菱形飾都是金的。當代的奢侈品視覺剛好相反——
     金屬色是**稀有的重音**，一個畫面只出現一兩次，其餘靠留白與線的粗細說話。
 
-    所以這一段做四件事，每一件都是「拿掉」不是「加上」：
+    所以這一段做四件事，每一件都是」拿掉」不是「加上」：
       1. 金框 → 極細的冷色線。框線不該是裝飾，它只是界線。
       2. 圓角與陰影 → 幾乎拉平。浮起來的圓角卡片是上一個十年的語言，
          當代編輯式版面是貼齊的平面。
@@ -188,6 +294,8 @@ export const INK_PAPER_CSS = `
     border-color: ${INK.btnEdge} !important;
     color: ${INK.ink} !important;
   }
-  .ink-paper input::placeholder, .ink-paper textarea::placeholder { color: rgba(201,168,106,.55) !important; }
+  /* placeholder 原本是 .55，在表單卡片上量到 2.31:1。法會報名的提示寫的是
+     「請填國曆自動換算農曆」這種要照著填的格式，不是純裝飾，跟著提示文字走 */
+  .ink-paper input::placeholder, .ink-paper textarea::placeholder { color: ${INK.inkFaint} !important; }
   .ink-paper option { background: ${INK.paperDeep}; color: ${INK.ink}; }
 `;

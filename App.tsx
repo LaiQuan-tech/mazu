@@ -294,6 +294,18 @@ const INK_MODE = typeof window !== 'undefined'
  * 公佈欄關掉時，接在 Hero 後面的是「關於我們」（bg-temple-bg）。
  * 動到區塊順序或它們的底色時，這裡要一起改。
  */
+/**
+ * ?ink=1 時，走獨立 return 分支的頁面也要套青花紙，不然從首頁（深底）點進
+ * 法會報名（淺底）會整個斷掉。這兩頁是和聖壇自己的（普渡禮懺法會、法會志工），
+ * 用的也是同一套 #C49820／#F0E9CE。
+ * **不套的三頁**：聖母經（廟方交代那頁不要動）、沐浴車與現場報到
+ * （不是和聖壇的服務，有自己的粉色品牌）。
+ */
+const InkShell: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+  INK_MODE
+    ? <div className="ink-paper min-h-screen"><style>{INK_PAPER_CSS}</style>{children}</div>
+    : <>{children}</>;
+
 const HERO_FADE_RGB = INK_MODE
   // 青花版：下一區是 bg-white 疊 4.5% 在靛藍紙上，實際是 rgb(33,45,72)。
   // **淡進白色就是那道突兀的亮帶**——規則就是上面那一句，顏色要等於下一區的底色。
@@ -2735,13 +2747,16 @@ const App: React.FC = () => {
   if (showVolunteer) {
     return (<>
       <Analytics path={analyticsPath} />
-      <Suspense fallback={<PageLoading />}><VolunteerRegistration prefill={volunteerPrefill} onBack={closeVolunteer} open={VOLUNTEER_OPEN} /></Suspense>
+      <InkShell>
+        <Suspense fallback={<PageLoading />}><VolunteerRegistration prefill={volunteerPrefill} onBack={closeVolunteer} open={VOLUNTEER_OPEN} /></Suspense>
+      </InkShell>
     </>);
   }
 
   if (showFahui) {
     return (<>
       <Analytics path={analyticsPath} />
+      <InkShell>
       <Suspense fallback={<PageLoading />}>
         {/* 停止收件時不傳 onVolunteer，成功頁的「我要報名志工」整顆按鈕就不出現 */}
         {/* onJoinMember：關掉報名表、帶著剛填的電話打開會員中心。
@@ -2752,6 +2767,7 @@ const App: React.FC = () => {
           onJoinMember={(phone) => { closeFahui(); setMemberPortalPendingPhone(phone); setShowMemberPortal(true); }}
         />
       </Suspense>
+      </InkShell>
     </>);
   }
 
