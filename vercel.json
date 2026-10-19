@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "destination": "/shower",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/about",
@@ -19,11 +27,6 @@
     {
       "source": "/urgent",
       "destination": "/urgent.html"
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
-      "destination": "/shower.html"
     },
     {
       "source": "/checkin",
