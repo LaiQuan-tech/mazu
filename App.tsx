@@ -746,6 +746,27 @@ const HERO_VARIANTS = {
    * 那是廟方該決定的事不是我該替他決定的。現在是地板的光暈，要加倒影再說。
    */
   studio: { studio: true as const, tone: 'flat' as const, dark: true as const },
+  /**
+   * 首屏改版的兩個方向（2026-10-20 廟方：「hero 太普通，也就是漸層」）。
+   *
+   * **量到的問題不是漸層，是空。** 1280×800 時三尊從 x=547 起算，
+   * 左邊 547px（43%）是空的金色；手機 375×812 時神尊從 y=342 起算，上面空 342px。
+   * 而且首屏**一顆按鈕都沒有**——`FAHUI_SIGNUP_OPEN=false` 讓整個左欄不渲染
+   * （那一欄是 `land:flex-1`，等於首屏的一半），`ENABLE_INCENSE_SMOKE=false`
+   * 又讓左邊那塊徹底空掉。換個更花的底圖，空的 hero 還是空的。
+   *
+   *   `?hero=lockup`   把左邊填上內容：字標組＋兩顆主要按鈕（不動底圖）
+   *   `?hero=caisson`  讓金箔長出結構：藻井＋光束＋海水江崖（不加內容）
+   *   `?hero=full`     兩個一起
+   *
+   * 三個都還是金箔牆，所以往下捲一屏回到米色＋金不會斷掉——那正是藍金與青花瓷
+   * 不建議直接採用的理由（見上面 blue／porcelain 的註解）。
+   * 決定要用哪一個就改 `DEFAULT_HERO`，**並重跑 `scripts/build-og-hero.js`**：
+   * lockup 把字標從左上角搬到左欄、字也放大了，分享卡上的字標帶對不上。
+   */
+  lockup: { file: 'hero-gold.jpg', tone: 'gold' as const, lockup: true as const },
+  caisson: { file: 'hero-gold.jpg', tone: 'gold' as const, caisson: true as const },
+  full: { file: 'hero-gold.jpg', tone: 'gold' as const, lockup: true as const, caisson: true as const },
 };
 const DEFAULT_HERO: keyof typeof HERO_VARIANTS = 'gold';
 
@@ -796,6 +817,96 @@ const HeroStudio: React.FC = () => (
       height: '22%',
       background: 'linear-gradient(to bottom, rgba(150,175,240,0) 0%, rgba(178,198,248,.20) 42%, rgba(196,214,252,.26) 68%, rgba(150,175,240,.07) 90%, rgba(22,35,63,0) 100%)',
     }} />
+  </div>
+);
+
+/** 藻井用的正八邊形：頂點朝上，半徑 r，中心固定在 viewBox 的 (100,100) */
+const octagon = (r: number): string =>
+  Array.from({ length: 8 }, (_, k) => {
+    const a = ((-90 + k * 45) * Math.PI) / 180;
+    return `${(100 + r * Math.cos(a)).toFixed(2)},${(100 + r * Math.sin(a)).toFixed(2)}`;
+  }).join(' ');
+
+/**
+ * 金箔牆上的紋樣層（`?hero=caisson`）。
+ *
+ * 金箔牆看起來像漸層，是因為**它沒有結構**——整片只有一道由中心往外變暗的明暗，
+ * 放大到 1280px 寬就只剩「黃色」。這一層補的是幾何，不是更多顏色。
+ *
+ * 三層，由下而上：
+ *   1. 光束——左上斜射一道，補上香煙關掉之後空出來的那塊（ENABLE_INCENSE_SMOKE）。
+ *      **刻意是靜態的**：會動的煙被廟方否決過，而這一層要的是質感不是動態。
+ *   2. 藻井——放射狀的斗拱線條，對齊三尊的中心（桌機 71%、手機 50%）。
+ *      藻井在廟裡就在神龕正上方，擺在神尊後面是對的位置，不是隨便找個地方放圖案。
+ *   3. 海水江崖——底部一道低對比的傳統紋樣，當地平線用；
+ *      沒有它三尊像浮在空中（原本靠香煙與陰影暗示地面，煙拿掉之後就沒了）。
+ *
+ * **全部是 CSS 與 inline SVG：零請求、零位元組**，而且任何螢幕比例都不會被裁
+ * （圖檔的 cover 在高窄的手機上只露出中段，那是 porcelain 那版的毛病）。
+ * 整層 `aria-hidden`，而且排在上緣那道深色遮罩**之前**——排在之後的話，
+ * 藻井會壓在被壓暗的頂部比周圍亮，導覽列的字就讀不出來了（同 SilkSheen 反光層那條）。
+ */
+const HeroCaisson: React.FC = () => (
+  <div className="hero-pattern absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div className="hero-shaft" />
+    {/*
+      **不要畫成「同心圓＋從中心放射到外圈的長線」**（2026-10-20 第一版就是那樣，
+      廟方一眼認出來：「有一點像蜘蛛網，這樣很像蜘蛛人」）。那個組合在視覺上
+      就是蛛網的定義，跟藻井一點關係也沒有。
+
+      真的藻井是**一層一層往上收**的：外面一圈寬帶、收進八角、再收進圓，
+      最中間是明鏡。層次靠「帶子的寬窄與深淺」做，不是靠線。
+      所以這一版：寬帶 ＋ 交界的細線 ＋ 八角那一層 ＋ 中央的蓮花明鏡，
+      **一條貫穿半徑的線都沒有**；唯一的放射元素是最外圈帶子「裡面」的短撐
+      （斗拱），短到不會連成蛛網的輻條。
+
+      兩組分開的理由：`vectorEffect="non-scaling-stroke"` 會讓線寬變成**螢幕像素**，
+      細線要的正是這個（縮放都保持銳利），但寬帶要跟著元素一起縮放，
+      套上去的話 13 單位的帶子會變成 13px 的細線。
+    */}
+    <svg className="hero-caisson" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+      {/* 寬帶：由外往內三層，越裡面越窄，看起來就是往上收的斗八 */}
+      <g fill="none" stroke="currentColor">
+        <circle cx="100" cy="100" r="80" strokeWidth="13" opacity="0.34" />
+        <circle cx="100" cy="100" r="58" strokeWidth="9" opacity="0.26" />
+        <circle cx="100" cy="100" r="39" strokeWidth="6" opacity="0.2" />
+      </g>
+      <g fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke">
+        {/* 每一層的上下緣，層與層之間才有交界 */}
+        <circle cx="100" cy="100" r="86.5" strokeWidth="1" />
+        <circle cx="100" cy="100" r="73.5" strokeWidth="0.7" opacity="0.72" />
+        <circle cx="100" cy="100" r="62.5" strokeWidth="1" />
+        {/* 八角：藻井之所以叫斗八，少了這一層就只剩同心圓、變成箭靶 */}
+        <polygon points={octagon(47)} strokeWidth="1" />
+        <polygon points={octagon(31)} strokeWidth="0.7" opacity="0.72" />
+        {/* 斗拱：只在最外那一圈帶子「之內」的短撐，長度剛好一個帶寬 */}
+        {Array.from({ length: 24 }, (_, k) => {
+          const a = ((-90 + k * 15) * Math.PI) / 180;
+          return (
+            <line
+              key={k} strokeWidth="1.3" opacity="0.5"
+              x1={(100 + 74 * Math.cos(a)).toFixed(2)} y1={(100 + 74 * Math.sin(a)).toFixed(2)}
+              x2={(100 + 86 * Math.cos(a)).toFixed(2)} y2={(100 + 86 * Math.sin(a)).toFixed(2)}
+            />
+          );
+        })}
+        {/* 明鏡：中央那面圓鏡，廟裡多半雕蓮花或蟠龍。八瓣蓮花 */}
+        <g opacity="0.85">
+          {Array.from({ length: 8 }, (_, k) => (
+            <ellipse key={k} cx="100" cy="84" rx="5.5" ry="12" strokeWidth="0.9"
+              transform={`rotate(${k * 45} 100 100)`} />
+          ))}
+          <circle cx="100" cy="100" r="6" strokeWidth="1.2" />
+        </g>
+      </g>
+    </svg>
+    {/* preserveAspectRatio="none" 會把線條橫向拉扁，所以每一條都要 non-scaling-stroke */}
+    <svg className="hero-waves" viewBox="0 0 120 22" preserveAspectRatio="none">
+      <g fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke">
+        <path strokeWidth="1" d="M-10 19 q10 -11 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" />
+        <path strokeWidth="0.8" opacity="0.66" d="M0 12 q10 -11 20 0 t20 0 t20 0 t20 0 t20 0 t20 0" />
+      </g>
+    </svg>
   </div>
 );
 
@@ -2691,6 +2802,7 @@ const App: React.FC = () => {
             否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。
             更早的金色祥雲織錦是 /hero-clouds.jpg（tone="silk"），檔案留著。 */}
         {'studio' in HERO ? <HeroStudio /> : <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />}
+        {'caisson' in HERO && <HeroCaisson />}
         {/* 深色遮罩只壓在「有字的地方」，而且只壓上緣：
             底圖很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把顏色壓濁了。
             所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓——
@@ -2722,6 +2834,9 @@ const App: React.FC = () => {
         {/* 宮壇名的顏色跟著底圖走（廟方 2026-10-17「和聖壇要用金色不要白色」）：
             深色底（藍金／青花棚拍）用泥金，金箔牆仍然用白——金字壓在金箔上等於沒有字。
             暗影兩邊都要留：金字在藍底上也需要那圈影子才不會發虛。 */}
+        {/* lockup 版把宮壇名搬進左欄並放大，這裡就不渲染——
+            **兩個都畫會有兩個 h1**，而全站的驗收標準是每頁剛好一個。 */}
+        {!('lockup' in HERO) && (
         <div
           className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
           style={{ color: 'dark' in HERO ? '#F0D9A4' : '#FFFFFF' }}
@@ -2737,6 +2852,45 @@ const App: React.FC = () => {
               補一圈貼著筆畫的暗影當底，不然 18px 的細字在金底上會發虛 */}
           <p className="mt-2.5 sm:mt-4 font-serif text-sm sm:text-lg tracking-[0.45em] whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">台北古亭</p>
         </div>
+        )}
+
+        {/*
+          字標組（`?hero=lockup`）。把左邊那 43% 的空白填上「這是誰、我能做什麼」。
+          **不是裝飾是內容**：原本首屏只有一個佔寬 4.7% 的角落字標、零顆按鈕，
+          信眾看完第一屏仍然不知道能在這裡做什麼。
+
+          **刻意放 absolute 不進那個 flex 容器**：那個容器是為了「按鈕欄與神尊互相避讓」
+          設計的（見下面那段註解），而字標組在手機上要在神尊**上方**、桌機要在**左側**，
+          跟原本按鈕欄的 order 規則剛好相反。硬塞進去要改動那一整套 order／flex-1 的
+          平衡，而那是踩過平板直立被裁 144px 才調出來的。
+
+          桌機垂直置中在左半部、手機貼上緣（神尊從 y=342 起算，上面放得下）。
+          金箔牆上用白字不用金字——金字壓在金箔上等於沒有字（同 hero-title 那條）。
+        */}
+        {'lockup' in HERO && (
+          <div className="hero-lockup absolute z-30 left-5 sm:left-10 top-6 land:top-1/2 land:-translate-y-1/2 max-w-[17rem] sm:max-w-[22rem] land:max-w-[26rem] text-white">
+            <h1 className="font-serif font-bold text-5xl sm:text-7xl tracking-[0.16em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]">和聖壇</h1>
+            <div aria-hidden="true" className="mt-4 sm:mt-5 w-14 sm:w-20 border-t-2 border-white/75" />
+            <p className="mt-4 font-serif text-base sm:text-xl tracking-[0.2em] [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">台北古亭　主祀天上聖母</p>
+            <p className="mt-1.5 text-sm sm:text-base tracking-[0.1em] text-white/85 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">創立於民國 73 年</p>
+            <div className="mt-6 sm:mt-8 flex flex-wrap gap-3">
+              {/* 主按鈕沿用 .btn-sutra（磁青底泥金字）：金底按鈕在金箔牆上會埋進背景，
+                  那是 2026-10 已經換過一次的結論，不要走回去 */}
+              <button
+                onClick={() => navTo({ id: 'booking', label: '預約問事', kind: 'page' })}
+                className="btn-sutra px-7 py-3 font-bold tracking-wider whitespace-nowrap transition-transform hover:scale-105"
+              >
+                預約問事
+              </button>
+              <button
+                onClick={() => navTo({ id: 'bulletin', label: '最新活動', kind: 'section' })}
+                className="hero-ghost px-7 py-3 font-bold tracking-wider whitespace-nowrap transition-transform hover:scale-105"
+              >
+                最新活動
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Hero 前景：行動按鈕與三尊神明放在同一個 flex 容器裡，讓瀏覽器自己算避讓。
             神明的寬度是由 vh 高度推出來的，用 vw 寫死按鈕位置在平板尺寸會夾在

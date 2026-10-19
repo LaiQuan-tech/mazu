@@ -284,6 +284,116 @@
       .hero-deity-1 { animation-delay: 240ms; }
       .hero-deity-2 { animation-delay: 420ms; }
       .hero-deity-3 { animation-delay: 560ms; }
+      /* ── 首屏紋樣層（?hero=caisson，見 App.tsx 的 HeroCaisson）──
+         三層都用 currentColor 上色，顏色寫在各自的 color 上，
+         這樣濃淡只要調一個值，不必在 SVG 裡逐條改。 */
+      .hero-pattern { pointer-events: none; }
+
+      /* 光束：左上斜射。邊緣一定要夠軟——硬邊會變成一塊貼在牆上的三角形，
+         那是當初做香煙時量過的同一個毛病。 */
+      .hero-shaft {
+        position: absolute;
+        top: -26%;
+        left: -14%;
+        width: 62%;
+        height: 150%;
+        transform: rotate(17deg);
+        transform-origin: top center;
+        /* **不要用 mix-blend-mode: screen。** screen 的算式是 1-(1-a)(1-b)，
+           底色越亮效果越小——金箔牆本來就亮，白色的光束疊上去實測完全看不出來。
+           改成一般混色直接提亮，才真的有一道光。 */
+        background: linear-gradient(to bottom,
+          rgba(255, 251, 236, 0.34) 0%,
+          rgba(255, 248, 224, 0.17) 36%,
+          rgba(255, 244, 210, 0.06) 66%,
+          transparent 88%);
+        filter: blur(24px);
+      }
+
+      /* 藻井：對齊三尊的中心。桌機三尊在右側（實測中心約 71%），
+         手機三尊佔滿整個寬度、中心就是 50%。
+         --cy 稍微高於神尊群的中心：藻井在廟裡是在神龕「上方」的天花板。 */
+      .hero-caisson {
+        position: absolute;
+        left: var(--caisson-x, 50%);
+        top: var(--caisson-y, 50%);
+        width: var(--caisson-size, min(96vw, 560px));
+        aspect-ratio: 1;
+        transform: translate(-50%, -50%);
+        /* **金箔牆很亮，所以線條要用暗的不是亮的。**
+           第一版畫成淺金色（rgba(255,246,214,.2)），在 1280px 的畫面上整片看不見——
+           比背景亮的線在本來就很亮的底上沒有地方可去。改成深褐的刻痕，
+           再用一道貼著下緣的亮邊做出浮雕感，那才是廟裡藻井實際的樣子。 */
+        color: rgba(88, 52, 4, 0.34);
+        filter: drop-shadow(0 1px 0 rgba(255, 248, 224, 0.38));
+      }
+      @media (min-width: 640px) and (min-aspect-ratio: 1/1) {
+        .hero-caisson {
+          --caisson-x: 71%;
+          --caisson-y: 46%;
+          --caisson-size: min(82vh, 860px);
+        }
+      }
+
+      /* 海水江崖：底部的地平線。要落在 hero-bottom-fade 之上，
+         不然那道往下淡出的漸層會把它整條吃掉。 */
+      .hero-waves {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 9%;
+        width: 100%;
+        height: 13vh;
+        min-height: 84px;
+        color: rgba(88, 52, 4, 0.26);
+        filter: drop-shadow(0 1px 0 rgba(255, 248, 224, 0.30));
+      }
+
+      /* 字標組背後的暗場（?hero=lockup）。
+         **這不是為了氣氛，是因為量出來讀不到。** 白字壓在金箔牆最亮的地方實測
+         只有 1.45:1（全站標準 4.5:1）；左上角那個舊字標讀得到，是因為它落在
+         上緣那道深色遮罩裡，而字標組垂直置中、早就離開遮罩的範圍了。
+         金箔牆最亮與最暗差很多，所以「改用深色字」也不行——深字在亮處 9.6:1、
+         在暗處只剩 3.9:1，兩種顏色各顧一半。鋪一層暗場把底色變成可預期的，
+         才是唯一兩邊都成立的作法。
+         橢圓形、而且文字整個落在最內那一段**平的**區域裡（0–42%），
+         所以文字後面的 alpha 是固定的 0.50，可以直接算對比，不必逐像素猜。
+         0.50 實測把 1.45:1 拉到 5.3:1。 */
+      .hero-lockup { position: absolute; }
+      .hero-lockup::before {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        left: -2.5rem;
+        right: -16rem;
+        top: -14rem;
+        bottom: -14rem;
+        pointer-events: none;
+        /* **半徑一定要小於框的一半，漸層才淡得完。**
+           第一版寫 `ellipse 150% 130%`，到框的邊緣時 alpha 還有 0.37，
+           於是暗場的四個邊是直的——看起來像貼了一塊深色方塊，不是暈開的光。
+           垂直半徑取 50%（＝框的一半）就剛好在上下緣收乾淨；
+           水平 70% 也在右緣之內。文字整個落在 0–55% 那段平的區域裡，
+           所以背後的 alpha 是固定的 0.50，對比可以直接算。 */
+        background: radial-gradient(ellipse 70% 50% at 22% 50%,
+          rgba(0, 0, 0, 0.50) 0%,
+          rgba(0, 0, 0, 0.50) 55%,
+          rgba(0, 0, 0, 0.18) 80%,
+          transparent 100%);
+      }
+
+      /* 次要按鈕（?hero=lockup）。主按鈕是 .btn-sutra 的磁青底泥金字，
+         這一顆要能並排又不搶戲：半透明深底＋白字＋細金邊。
+         **不要做成純透明只有白框**——金箔牆最亮的地方白字會糊掉，
+         實測要有那層深底才過得了 4.5:1。 */
+      .hero-ghost {
+        background: rgba(20, 28, 48, 0.62);
+        color: #ffffff;
+        border: 1px solid rgba(240, 217, 164, 0.6);
+        backdrop-filter: blur(2px);
+      }
+      .hero-ghost:hover { background: rgba(20, 28, 48, 0.74); }
+
       .hero-aura {
         position: absolute;
         z-index: 0;
