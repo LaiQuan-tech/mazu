@@ -374,43 +374,6 @@
           transparent 76%);
       }
 
-      /* 口沿的回紋：壓在導覽列底下那一條 */
-      .qh-fret {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 72px;
-        color: rgba(201, 168, 106, 0.42);
-      }
-      /* 肩上的纏枝蓮。**青花是藍不是金**——它是畫在瓷上的料，
-         跟泥金那幾層分屬兩種工藝，顏色混在一起就看不出是兩層了。 */
-      .qh-vine {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 116px;
-        color: rgba(138, 182, 240, 0.46);
-      }
-      /* 腹：神尊背後的藻井。深底上泥金是「比底亮」，方向與金箔牆相反，
-         所以亮邊與暗影要對調（同 PatternMedallion 的 onDark）。 */
-      .qh-caisson {
-        position: absolute;
-        left: var(--caisson-x, 50%);
-        top: var(--caisson-y, 52%);
-        width: var(--caisson-size, min(96vw, 560px));
-        aspect-ratio: 1;
-        transform: translate(-50%, -50%);
-        color: rgba(201, 168, 106, 0.40);
-        filter: drop-shadow(0 1px 0 rgba(10, 18, 34, 0.55));
-      }
-      @media (min-width: 640px) and (min-aspect-ratio: 1/1) {
-        .qh-caisson {
-          --caisson-x: 71%;
-          --caisson-y: 46%;
-          --caisson-size: min(82vh, 860px);
-        }
-      }
-
       /* 字標組背後的暗場（?hero=lockup）。
          **這不是為了氣氛，是因為量出來讀不到。** 白字壓在金箔牆最亮的地方實測
          只有 1.45:1（全站標準 4.5:1）；左上角那個舊字標讀得到，是因為它落在

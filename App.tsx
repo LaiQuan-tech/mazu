@@ -917,71 +917,19 @@ const octagon = (r: number): string =>
  * 是一張生成的流體畫，而生成圖的特徵就是**糊掉的漸層與講不出名字的細節**——
  * 看久了每個人都認得出來。
  *
- * **所以這一版一張圖都不用。** 底是 CSS 漸層，紋樣全部是手寫的 SVG 幾何：
- * 線寬一致、左右對稱、每一個母題都叫得出名字。那正是生成圖做不到的事，
- * 也是「看起來像設計過」與「看起來像算出來」的差別。
- * 附帶的好處跟藻井那層一樣：零請求、零位元組，任何螢幕比例都不會裁到。
+ * **所以這一版一張圖都不用**，整片是 CSS 漸層。零請求、零位元組，
+ * 任何螢幕比例都不會裁到重點（圖檔的 cover 在高窄的手機上只露出中段）。
  *
- * **構成照青花瓷器本身的分層**，不是隨便找地方貼圖案：
- *   口沿 → 回紋（泥金）        頂端一道，壓在導覽列下方
- *   肩   → 纏枝蓮（青花）      上半部的捲草與蓮花
- *   腹   → 藻井（泥金）        神尊背後，與金箔版共用同一組幾何
- *
- * **脛的那一圈仰蓮做過又拿掉了。** 底部是 `hero-bottom-fade` 的地盤——深色底
- * 要 224px 才淡得不突兀，紋樣擺進去不是被洗掉就是得往上挪，而往上挪就會
- * 橫過神尊的袍子。那裡本來就不需要裝飾：收邊是那道淡出的工作。
- *
- * 帶狀的三層**刻意不給 viewBox**：沒有 viewBox 時 SVG 的使用者單位就等於 CSS 像素，
- * 回紋與蓮瓣因此在任何寬度的螢幕上都是同一個大小、一路平鋪過去。
- * 給了 viewBox 的話圖案會跟著螢幕寬度縮放，手機上會變成一排看不清的小點。
+ * **紋樣全部拿掉了**（廟方 2026-10-20：「回紋、纏枝蓮、藻井都不要」）。
+ * 原本照青花瓷器的分層做了三條帶子——口沿的回紋、肩上的纏枝蓮、
+ * 神尊背後的藻井，廟方看過之後決定只留底。
+ * 那三個的畫法沒有刪掉：回紋與纏枝蓮在 git（本次提交的前一版），
+ * 藻井還活著、在 `CaissonSvg`（`?hero=caisson` 還在用）。要加回來不必重畫。
  */
 const HeroQinghua: React.FC = () => (
   <div className="hero-qinghua absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
     <div className="qh-ground" />
     <div className="qh-glaze" />
-
-    {/* 口沿的回紋 */}
-    <svg className="qh-fret" width="100%" height="18">
-      <defs>
-        <pattern id="qh-fret-unit" width="26" height="18" patternUnits="userSpaceOnUse">
-          <path d="M1 17 V4 H20 V14 H8 V9 H15" fill="none" stroke="currentColor" strokeWidth="1.3" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="18" fill="url(#qh-fret-unit)" />
-    </svg>
-
-    {/* 肩上的纏枝蓮：一條波浪的藤，波峰上開蓮花、波谷配一對葉 */}
-    <svg className="qh-vine" width="100%" height="96">
-      <defs>
-        <pattern id="qh-vine-unit" width="180" height="96" patternUnits="userSpaceOnUse">
-          <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M0 62 C 24 18, 66 18, 90 62 C 114 106, 156 106, 180 62" />
-            {/*
-              波峰的蓮花。**花瓣要用尖頭的瓣形，不要用細長的橢圓。**
-              第一版是六個 rx4.5/ry9 的橢圓繞著中心轉，放大看就是一朵雪花——
-              從一個點放射出去的細長形狀，視覺上讀到的是「輻射」不是「花」。
-              改成兩端收尖、中段鼓起的瓣，八瓣相鄰處互相交疊，才像蓮。
-            */}
-            <g transform="translate(45 34)">
-              {Array.from({ length: 8 }, (_, k) => (
-                <path key={k} d="M0 0 C -6 -5, -7 -13, 0 -17 C 7 -13, 6 -5, 0 0" transform={`rotate(${k * 45})`} />
-              ))}
-              <circle cx="0" cy="0" r="3.4" />
-            </g>
-            {/* 波谷的捲草：一對葉子 */}
-            <g transform="translate(135 86)">
-              <path d="M0 0 C -14 -6, -18 -18, -6 -22" />
-              <path d="M0 0 C 14 -6, 18 -18, 6 -22" />
-            </g>
-          </g>
-        </pattern>
-      </defs>
-      <rect width="100%" height="96" fill="url(#qh-vine-unit)" />
-    </svg>
-
-    {/* 腹：神尊背後的藻井，與金箔版同一組幾何 */}
-    <CaissonSvg className="qh-caisson" />
-
   </div>
 );
 
