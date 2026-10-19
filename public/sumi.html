@@ -77,14 +77,7 @@
 <canvas id="stage"></canvas>
 <div id="fail">這個瀏覽器不支援 WebGL</div>
 
-<div id="bar" role="toolbar" aria-label="墨色設定">
-  <button class="sw" data-ink="0" title="泥金" aria-label="泥金" aria-pressed="true"  style="background:#D8BD7C"></button>
-  <button class="sw" data-ink="1" title="銀泥" aria-label="銀泥" aria-pressed="false" style="background:#C8CDD2"></button>
-  <button class="sw" data-ink="2" title="赤金" aria-label="赤金" aria-pressed="false" style="background:#C9864E"></button>
-  <button class="sw" data-ink="3" title="青金" aria-label="青金" aria-pressed="false" style="background:#BFC89A"></button>
-  <span class="sep"></span>
-  <button class="tb" id="cycle" aria-pressed="false">輪替</button>
-  <button class="tb" id="auto"  aria-pressed="true">自動</button>
+<div id="bar" role="toolbar" aria-label="操作">
   <button class="tb" id="wash">洗い流す</button>
 </div>
 
@@ -352,10 +345,8 @@ void main () {
   function bind(i, tex) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex); }
   function use(q, w, h) { gl.useProgram(q.p); if (q.u.uTexel) gl.uniform2f(q.u.uTexel, 1 / w, 1 / h); return q.u; }
 
-  // 紺紙金泥那一套：泥金、銀泥、赤金、青金
-  var INKS = [[0.847, 0.741, 0.486], [0.784, 0.804, 0.824], [0.788, 0.525, 0.306], [0.749, 0.784, 0.604]];
-  var inkIndex = 0;
-  var cycling = false;
+  // 只有泥金（廟方 2026-10-20：「要金色，其他顏色都不要」）
+  var INK = [0.847, 0.741, 0.486];
 
   function splat(x, y, fx, fy, amount, ring, inner) {
     var v = velocity.read, u = use(P.splatVel, v.w, v.h);
@@ -368,7 +359,7 @@ void main () {
     if (amount <= 0) return;
     var d = dye.read; u = use(P.splatDye, d.w, d.h);
     bind(0, d.tex);
-    var c = INKS[inkIndex];
+    var c = INK;
     gl.uniform1i(u.uTarget, 0); gl.uniform1f(u.uAspect, aspect);
     gl.uniform2f(u.uPoint, x, y);
     // 預乘：rgb = 顏色×量、a = 量
@@ -377,7 +368,6 @@ void main () {
     gl.uniform1f(u.uInner, inner !== undefined ? inner : 0.020 + Math.random() * 0.045);
     gl.uniform1f(u.uRing, ring ? 1 : 0);
     blit(dye.write); dye.swap();
-    if (cycling && ring) { inkIndex = (inkIndex + 1) % INKS.length; paint(); }
   }
 
   // ── 一幀 ────────────────────────────────────────────────────
@@ -440,74 +430,65 @@ void main () {
     return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height];
   }
   /**
-   * 滴一滴。**一次要下好幾圈同心的，不是一圈。**
-   * 真的墨流し是在同一點反覆滴墨與分散劑，每一滴把前一滴往外推，
-   * 所以一滴下去看到的是一組套在一起的環——只畫一圈就只是個甜甜圈。
+   * **只有滑鼠在動的時候才有東西發生**（廟方 2026-10-20：「不要用滴的，
+   * 要有滑鼠才會有動畫」）。所以：
+   *   沒有點擊下墨——`pointermove` 本身就是輸入，不必按著。
+   *   沒有自動演出——沒人動滑鼠畫面就是靜的。
+   *   迴圈也跟著停：最後一次移動之後讓水流自己收幾秒就不再排程 rAF，
+   *   不是永遠掛著一個空轉的模擬。
    */
-  function drip(x, y) {
-    var base = 0.018 + Math.random() * 0.012;
-    for (var i = 0; i < 3; i++) {
-      splat(x, y, 0, 0, 0.95 - i * 0.22, true, base * (1 + i * 1.75));
-    }
+  var px = 0, py = 0, hasPrev = false, sinceRing = 0;
+
+  function toUv(e) {
+    var r = canvas.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height];
   }
-  canvas.addEventListener('pointerdown', function (e) {
-    var p = toUv(e); down = true; hasPrev = true; px = p[0]; py = p[1];
-    drip(p[0], p[1]);
-    canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener('pointermove', function (e) {
-    if (!down) return;
-    var p = toUv(e);
+
+  window.addEventListener('pointermove', function (e) {
+    var p = toUv(e), x = p[0], y = p[1];
+    if (x < 0 || x > 1 || y < 0 || y > 1) { hasPrev = false; return; }
     // 力道要夾住：滑鼠突然跳很遠（切視窗回來）會一下把水攪散
-    var fx = hasPrev ? Math.max(-70, Math.min(70, (p[0] - px) * 5200)) : 0;
-    var fy = hasPrev ? Math.max(-70, Math.min(70, (p[1] - py) * 5200)) : 0;
-    px = p[0]; py = p[1]; hasPrev = true;
-    splat(p[0], p[1], fx, fy, Math.min(0.22, 0.04 + Math.hypot(fx, fy) * 0.006), false);
-  });
-  function up() { down = false; hasPrev = false; }
-  canvas.addEventListener('pointerup', up);
-  canvas.addEventListener('pointercancel', up);
+    var fx = hasPrev ? Math.max(-70, Math.min(70, (x - px) * 5200)) : 0;
+    var fy = hasPrev ? Math.max(-70, Math.min(70, (y - py) * 5200)) : 0;
+    var moved = Math.hypot(fx, fy);
+    px = x; py = y; hasPrev = true;
+    if (moved < 0.8) return;
 
-  // ── 自動演出 ─────────────────────────────────────────────────
-  var auto = true, nextAuto = performance.now() + 1000;
-  function autoTick(now) {
-    if (!auto || now < nextAuto) return;
-    // 偶爾滴一滴，再加一點很輕的水流——不是每秒都動，那會變成螢幕保護程式
-    drip(0.18 + Math.random() * 0.64, 0.22 + Math.random() * 0.56);
-    for (var i = 0; i < 2; i++) {
-      splat(Math.random(), Math.random(), (Math.random() - 0.5) * 11, (Math.random() - 0.5) * 11, 0, false);
+    /**
+     * 連續的筆觸用團，**每隔一小段才補一圈同心環**。
+     * 全部用團的話只是一條金色的帶子；而環是墨流し的招牌——
+     * 它會被水流拉開成大理石紋，那個紋路才是這個效果的重點。
+     */
+    splat(x, y, fx, fy, Math.min(0.15, 0.026 + moved * 0.0034), false);
+    // 環不能太密也不能太濃：每六筆補一組、濃度跟筆觸差不多時，整條會變成一串
+    // 疙瘩像麻花，而不是一道被攪開的墨。拉長間隔、壓低濃度，環才是「藏在流裡」的。
+    if (++sinceRing >= 11) {
+      sinceRing = 0;
+      var base = 0.016 + Math.random() * 0.010;
+      for (var i = 0; i < 2; i++) splat(x, y, 0, 0, 0.26 - i * 0.10, true, base * (1 + i * 1.8));
     }
-    nextAuto = now + 2600 + Math.random() * 3200;
-  }
+    wake(3600);
+  }, { passive: true });
 
+  var raf = 0, liveUntil = 0;
   function frame() {
-    autoTick(performance.now());
+    raf = 0;
     step();
-    requestAnimationFrame(frame);
+    if (performance.now() < liveUntil && !document.hidden) raf = requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+  function wake(ms) {
+    liveUntil = Math.max(liveUntil, performance.now() + ms);
+    if (!raf && !document.hidden) raf = requestAnimationFrame(frame);
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; }
+  });
+  step();          // 先畫一次紙，不然進來是一片黑
 
   // ── 控制列 ───────────────────────────────────────────────────
-  var swatches = Array.prototype.slice.call(document.querySelectorAll('.sw'));
-  function paint() {
-    swatches.forEach(function (b, i) { b.setAttribute('aria-pressed', String(i === inkIndex)); });
-  }
-  var cycleBtn = document.getElementById('cycle');
-  swatches.forEach(function (b, i) {
-    b.addEventListener('click', function () {
-      inkIndex = i; cycling = false; cycleBtn.setAttribute('aria-pressed', 'false'); paint();
-    });
-  });
-  cycleBtn.addEventListener('click', function () {
-    cycling = !cycling; cycleBtn.setAttribute('aria-pressed', String(cycling));
-  });
-  var autoBtn = document.getElementById('auto');
-  autoBtn.addEventListener('click', function () {
-    auto = !auto; autoBtn.setAttribute('aria-pressed', String(auto));
-    nextAuto = performance.now() + 600;
-  });
   document.getElementById('wash').addEventListener('click', function () {
     washUntil = performance.now() + 2600;   // 慢慢淡掉，不是一下清空
+    wake(3000);                             // 要讓迴圈跑起來才淡得掉
   });
 
   addEventListener('resize', allocate);
