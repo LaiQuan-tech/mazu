@@ -19,7 +19,7 @@
  * 車會移動，所以香客真正要判斷的是「這個位置還可信嗎」。顯示「12 分鐘前」他立刻知道，
  * 顯示「18:42」他還要自己算。超過兩小時另外加一句提醒，因為那時位置很可能已經過期。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play, ArrowRight } from 'lucide-react';
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
@@ -151,32 +151,44 @@ const SECTIONS: { no: string; title: string; sub?: string; paras: string[] }[] =
  * 不是變快（全站規則，見 CLAUDE.md）。而本站信眾以長者居多、那個設定開著的
  * 比例不低——用 smooth 等於他們按了完全沒反應。
  */
+// 四個標籤一律四個字（廟方 2026-10-20：「可以統一都四個字嗎」）。
+// 字數一致，四顆膠囊的寬度才一樣，橫排看起來才是一列整齊的目錄而不是長短不一的字串。
+// 「相關影片」要與區塊標題 <h2> 同字，目錄寫一個名字、跳過去看到另一個名字，
+// 人會以為自己按錯了（同 CLAUDE.md 那條「叫得出按鈕真正的名字」）。
 const MENU: { id: string; label: string }[] = [
-  { id: 'shower-now',       label: '車在哪' },
+  { id: 'shower-now',       label: '車在哪裡' },
   { id: 'shower-01',        label: '關於我們' },
-  { id: 'shower-videos',    label: '影片' },
+  { id: 'shower-videos',    label: '相關影片' },
   { id: 'shower-volunteer', label: '志工報名' },
 ];
 
-/** sticky 的高度加一點餘裕，跳過去時標題不會被選單蓋住 */
+/** 量不到 sticky 高度時的保底值（四個標籤排一列時就是這麼高） */
 const MENU_OFFSET = 72;
 
 const SectionMenu: React.FC = () => {
+  const barRef = useRef<HTMLDivElement>(null);
+
   const jump = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     const el = document.getElementById(id);
     if (!el) return;
-    const y = window.scrollY + el.getBoundingClientRect().top - MENU_OFFSET;
+    // **偏移量用量的不要寫死**：標籤統一成四個字之後，320px 的窄螢幕放不下一列、
+    // 會折成兩列，選單就比寫死的 72 高，跳過去時區塊標題會被蓋住。
+    const offset = (barRef.current?.getBoundingClientRect().height ?? MENU_OFFSET) + 8;
+    const y = window.scrollY + el.getBoundingClientRect().top - offset;
     window.scrollTo({ top: Math.max(0, y), behavior: 'instant' as ScrollBehavior });
   };
 
   return (
     // 外層要滿版、底色與頁面同色：只放一顆浮起來的藥丸的話，黏住之後它上方那
     // 一道縫會露出正在捲過去的半行字，看起來像畫面壞掉。`-mx-4` 抵銷 main 的內距。
-    <div className="sticky top-0 z-20 mt-8 -mx-4 px-4 pt-3 pb-2 bg-temple-bg">
+    <div ref={barRef} className="sticky top-0 z-20 mt-8 -mx-4 px-4 pt-3 pb-2 bg-temple-bg">
       <nav
         aria-label="這一頁的內容"
-        className="flex items-center justify-center gap-1 rounded-full
+        // `flex-wrap` ＋ 每顆 `whitespace-nowrap`：放得下就一列，放不下整顆換到第二列。
+        // 少了 nowrap，窄螢幕上是**標籤自己從中間斷開**（「車在／哪裡」），
+        // 那比折成兩列難看得多，而且第一眼看不出是版面問題還是字打錯。
+        className="flex flex-wrap items-center justify-center gap-1 rounded-full
           border border-[#D6246B]/20 bg-white px-2 py-1.5 shadow-sm"
       >
         {MENU.map(m => (
@@ -184,7 +196,11 @@ const SectionMenu: React.FC = () => {
             key={m.id}
             href={`#${m.id}`}
             onClick={e => jump(e, m.id)}
-            className="px-3 py-1.5 rounded-full text-sm text-temple-dark hover:bg-[#FDF2F6] hover:text-[#B01350] transition-colors"
+            // 窄螢幕的左右內距小一號。四個四字標籤加 `nowrap` 之後自然寬度是 332px，
+            // 而 375px 的手機只有 327px 可用——差這 5px 就會折成「三個＋一個」那種
+            // 更難看的兩列。縮成 px-2 之後是 300px，360px 的機子也排得下；
+            // 真的放不下（320px）才折成整齊的兩列兩顆。
+            className="whitespace-nowrap px-2 sm:px-3 py-1.5 rounded-full text-sm text-temple-dark hover:bg-[#FDF2F6] hover:text-[#B01350] transition-colors"
           >
             {m.label}
           </a>
@@ -536,7 +552,7 @@ const ShowerPage: React.FC = () => {
         <section id="shower-videos" className="mt-10 scroll-mt-20">
           <div className="flex items-baseline gap-3">
             <span className="font-serif text-2xl font-bold text-[#D6246B]/35 leading-none">05</span>
-            <h2 className="font-serif text-xl font-bold text-temple-dark">影片</h2>
+            <h2 className="font-serif text-xl font-bold text-temple-dark">相關影片</h2>
           </div>
           <div className="mt-3 pl-1 border-l-2 border-[#D6246B]/25">
             <p className="pl-4 text-gray-700 leading-relaxed">影片放在 YouTube，按下播放才會開始載入。</p>
