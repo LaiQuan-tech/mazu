@@ -221,7 +221,7 @@ void main () {
    * 會讓纖維變成一條條黑痕，看起來是髒不是紙。
    */
   var F_DISPLAY = HEAD + [
-    'uniform sampler2D uDye;uniform vec2 uRes;',
+    'uniform sampler2D uDye;uniform vec2 uRes;uniform vec2 uDyeTexel;',
     // 不用 sin(dot(p,...)) 當雜湊：顆粒那層的輸入是 floor(vUv*uRes)，在 2560 寬的
     // 畫布上 dot 會到八十幾萬，而 GLSL 對這麼大的角度不保證精度，不同驅動結果不一樣。
     // 這個版本全程留在 [0,1)，多大的座標都穩定。
@@ -243,15 +243,36 @@ void main () {
     // 很淡的邊緣暗角
     '  float v=length((vUv-0.5)*vec2(1.0,0.86));',
     '  base*=1.0-0.30*smoothstep(0.30,0.85,v);',
-    '  vec4 d=texture(uDye,vUv);',
-    '  float amt=max(d.a,0.0);',
-    // 預乘還原成顏色；量太小時除法會爆掉，所以要擋
-    '  vec3 tint=amt>0.0008?clamp(d.rgb/amt,0.0,1.6):vec3(0.769,0.596,0.125);',
+    '  float amt=max(texture(uDye,vUv).a,0.0);',
     // 金泥也吃纖維：紙上有纖維的地方沾得多一點，邊緣才會毛
-    '  float cover=1.0-exp(-amt*3.0*(1.0+0.30*(f1+f2-1.0)));',
-    '  vec3 col=mix(base,tint,clamp(cover,0.0,1.0));',
-    // 金屬一點點反光：濃的地方再提一咪咪，不然是平的色塊不是泥金
-    '  col+=tint*0.10*smoothstep(0.55,1.0,cover);',
+    '  float cover=clamp(1.0-exp(-amt*3.0*(1.0+0.30*(f1+f2-1.0))),0.0,1.0);',
+    /*
+     * **金要有層次，不能一個色到底**（廟方 2026-10-20）。
+     * 色票是從首頁現在用的金箔牆 public/hero-gold.jpg 取樣出來的，不是憑感覺調的：
+     * 那張圖的金由暗到亮是 #D09002 → #DAA505 → #F1D706。
+     * 中間那一站釘在官網的 temple-gold #C49820，兩端才往金箔牆的深淺走——
+     * 這樣既有層次，主色也還是官網那一支。
+     * 對應到物理也說得通：泥金上得薄，紙色透出來就偏深；上得厚才是亮面。
+     */
+    '  vec3 gDeep=vec3(0.690,0.470,0.030);',
+    '  vec3 gMid =vec3(0.769,0.596,0.125);',
+    '  vec3 gTop =vec3(0.945,0.843,0.180);',
+    '  vec3 metal=cover<0.5?mix(gDeep,gMid,cover*2.0):mix(gMid,gTop,(cover-0.5)*2.0);',
+    '  vec3 col=mix(base,metal,cover);',
+    /*
+     * 褶子的反光。把墨的濃淡當成一個起伏的表面，取它的梯度當法線，
+     * 打一道固定方向的光——金箔真正的立體感來自「邊緣會亮起來」，
+     * 平均地加亮只會變成一塊發光的色塊。
+     * 取樣的位移一定要用 dye 自己的 texel，用畫布的 texel 會因為 dye 解析度
+     * 低得多而幾乎取到同一點，梯度等於零、完全沒有效果。
+     */
+    '  float aL=texture(uDye,vUv-vec2(uDyeTexel.x,0.0)).a;',
+    '  float aR=texture(uDye,vUv+vec2(uDyeTexel.x,0.0)).a;',
+    '  float aB=texture(uDye,vUv-vec2(0.0,uDyeTexel.y)).a;',
+    '  float aT=texture(uDye,vUv+vec2(0.0,uDyeTexel.y)).a;',
+    '  vec3 n=normalize(vec3((aR-aL)*7.0,(aT-aB)*7.0,1.0));',
+    '  float spec=pow(clamp(dot(n,normalize(vec3(-0.55,0.62,0.56))),0.0,1.0),11.0);',
+    '  col+=vec3(1.0,0.94,0.74)*spec*0.55*smoothstep(0.04,0.30,cover);',
     '  oColor=vec4(col,1.0);',
     '}'].join('\n');
 
@@ -443,6 +464,7 @@ void main () {
     bind(0, dye.read.tex);
     gl.uniform1i(u.uDye, 0);
     gl.uniform2f(u.uRes, canvas.width, canvas.height);
+    gl.uniform2f(u.uDyeTexel, 1 / d.w, 1 / d.h);
     blit(null);
   }
 
