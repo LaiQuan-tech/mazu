@@ -469,6 +469,19 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   程式端是 `SHOWER_HOSTS`（App.tsx）：這個網域的根路徑回傳 `isShowerUrl() === true`，**同時就把法會著陸頁擋掉了**——`shouldShowFahui()` 的規則是「非官方網域的根路徑顯示法會報名」，而 17bath.org 正好符合。少了這一段，新網域打開會是普渡法會的報名表。
   **先上程式再指 DNS**，順序反了就會出現上面那個畫面。
   canonical 目前仍指向 `heshengtan.tw/shower`（廟方 2026-10-20 決定維持現狀，不做轉址與正本對調）。
+  **網站圖示是沐浴車自己那組 `public/bath-*`**（2026-10-20 廟方：「17bath.org 的 Favicon，不要用和聖壇的」），
+  由 `scripts/build-bath-icons.js` 產生（用法在檔頭，sharp 裝在暫存資料夾、別寫進 package.json）。
+  **刻意不用海報**：favicon 只有 16px，人、車、廟、泡泡縮到那個尺寸會糊成一團粉紅色塊，
+  讀得出來的只有「17」兩個數字，所以是品牌粉紅底（#B01350→#E0457F）＋白字。
+  **不要靠 `dominant-baseline="central"` 置中**：文字的墨水範圍與字型的 em 方框不一樣，
+  librsvg 算出來偏上，16px 那一格數字只佔 7 列、底下空一條。那支腳本先把字渲染出來量 alpha 的
+  邊界，再換算成 viewBox 座標的 transform，所以換字或換字型都不必手調（白筆畫像素 21 → 42）。
+  **兩條路徑都要換，靜態殼顧不到全部**：`/shower` 由 `scripts/prerender.js` 換（路由多一個
+  `icons` 前綴欄位）；**`17bath.org/checkin` 走 SPA 萬用規則、吃的是 index.html**，
+  由 `App.tsx` 的 `applyFavicons()` 在執行期換，那支同時負責「從沐浴車回到和聖壇時換回來」。
+  **四個標籤要一起換**：瀏覽器是從全部的 `<link rel="icon">` 裡自己挑一個用、挑的規則各家不同，
+  少換一個就可能挑到剩下的那個舊圖示，症狀是「換了但有時候還是舊的」，極難查。
+  改 href 不夠，`applyFavicons()` 是把節點整個換掉——部分瀏覽器只在 `<link>` 插入時才重新抓圖示。
 - **`vercel.json` 的陷阱**：**不要開 `cleanUrls`**。開了之後 `/about` 仍然會被最後那條 SPA 萬用 rewrite 吃掉、回傳 index.html（實測過兩次都失敗，拿掉才正常）。正確作法是在萬用規則**之前**逐條寫 `/about → /about.html`。新增預渲染頁時，`vercel.json` 與 `scripts/prerender.js` 的 ROUTES 要一起加。
 - **分頁標題**：`App.tsx` 有一份 `titles` 對照表，內容要與 `scripts/prerender.js` 的 ROUTES 一致，否則爬蟲看到的和使用者看到的不一樣。
 - **基本資料（地址／電話／開放時間）在資料庫**：`site_settings` 的 `info_*` 系列（後台「基本資料」分頁，migration：`supabase/migrations/site_info.sql`）。**不要再把這三項寫死在程式裡**——它們原本散在六處各寫一份，改一次要記得六個都動，漏一個就是網站自己跟自己說不一樣的話（2026-08-11 網站寫 22:30、首頁問答寫 22:00，持續數小時才被發現）。現在的分工：頁尾／隱私政策／地圖是執行期讀 DB；`PlaceOfWorship` 的 telephone／address／openingHours 由 App.tsx **執行期覆寫**靜態那份（只改這三個欄位，不整包重寫——那節點還有 hasOfferCatalog 等等，整包重寫等於維護第二份定義）；`llms.txt` 與 noscript 由 `scripts/prerender.js` 建置時寫入，按後台「重新發布」更新。開放時間存 `HH:MM` 兩欄不是一段文字：`opens`／`closes` 要機器可讀，Google 對格式不符是**靜默忽略**。電話轉國際格式只把開頭的 0 換成 `+886-`，保留連字號分組。
