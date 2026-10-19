@@ -626,6 +626,27 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   375px 的手機只有 327px 可用，所以窄螢幕內距縮成 `px-2`（總寬 300px），
   真的放不下（320px）才靠 `flex-wrap` 折成兩列兩顆。
   **跳過去的偏移量要量不要寫死**：折成兩列時選單高 102 而原本寫死 72，區塊標題會被選單蓋住。
+  **AI 檢索（2026-10-20 補）**：不執行 JS 的檢索器只讀得到 noscript、JSON-LD 與 llms.txt，
+  而這一頁的那三樣原本都在講和聖壇。**最嚴重的是主辦單位答錯**——其餘每一頁的 WebPage 都
+  `about: #temple`、Service 都 `provider: #temple`，這一頁照抄的話 AI 會回答
+  「17 沐浴車是台北古亭和聖壇辦的」，那不只標錯，是把別人的功勞算到自己頭上。
+  現在 ROUTES 可以帶 `org`（一個 NGO 節點），有它的頁面 `about` 與 `provider` 都改指過去。
+  **新增「別的單位的頁面」時一定要給 `org`**，不給就是靜靜地掛在宮廟名下。
+  其餘：`service.areaServed` 可覆寫（預設「臺北市」，而這台車從來不在台北）、
+  `service.free` 會輸出 `isAccessibleForFree` 與 price 0 的 Offer
+  （「免費」是最常被問的一件事，要讓機器讀得懂，不要只寫在內文裡）、
+  `faq: 'shower'` 會輸出 FAQPage ＋ noscript 問答、`footer` 覆寫 noscript 的署名行。
+  **常見問題只有一份 `content/shower-faq.json`**：畫面（`/shower` 的 06 區塊）、
+  FAQPage 標記與 noscript 讀同一個檔——FAQPage 的規則就是「標記的內容使用者要看得到」，
+  只放進 noscript 的話那個標記本身就違規。
+  **`org` 路由的 noscript 站內連結改成絕對網址**：這份 HTML 同時被 17bath.org 供應，
+  相對網址在那邊會變成 `17bath.org/booking`⋯⋯而 SPA 萬用規則真的會把整個和聖壇網站
+  在沐浴車的網域底下再長一份出來，爬蟲照著爬就是兩個網域各一套。
+  **17bath.org 有自己的 `llms.txt` 與 `robots.txt`**（`public/llms-bath.txt`、
+  prerender 產生的 `dist/robots-bath.txt`），用 `vercel.json` 的 host 條件轉過去。
+  **只能用 `redirects` 不能用 `rewrites`**：那兩個檔在 `dist` 裡真的存在，
+  檔案系統會先命中（同根路徑那條）。robots 裡的和聖壇路徑名單由 `ACTIVE_ROUTES` 產生，
+  不會因為日後新增頁面而漏掉。
 - 歷史遺留：檢測報告 17 項問題已全修（2026-07-06），詳見 memory 的 project_main_site_prelaunch。
 
 ## Changelog
