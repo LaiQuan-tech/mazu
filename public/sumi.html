@@ -378,6 +378,24 @@ void main () {
   // ── 一幀 ────────────────────────────────────────────────────
   var DT = 0.016;
   var washUntil = 0;
+  var lastInput = 0;
+
+  /**
+   * 速度場的消散。**平常很低（水要會流），沒人動之後才慢慢拉高。**
+   *
+   * 原本是固定 0.20、迴圈三秒多就停——問題是 0.20 衰減得很慢（每幀只掉 0.3%），
+   * 三秒後水還在明顯地流，迴圈一停等於**整個畫面凍結在半途**，
+   * 廟方回報「滑鼠停止幾秒後動畫也停，很怪」就是這個。
+   *
+   * 改成閒置一秒多之後開始加大阻力，到停掉迴圈的那一刻速度早就趨近零，
+   * 所以「停」是看不出來的——它是自己靜下來的，不是被切斷的。
+   */
+  function velDissipation(now) {
+    var idle = (now - lastInput) / 1000;
+    if (idle < 1.2) return 0.20;
+    return Math.min(4.0, 0.20 + (idle - 1.2) * 0.9);
+  }
+
   function step() {
     var v = velocity.read, u;
     u = use(P.curl, v.w, v.h); bind(0, v.tex); gl.uniform1i(u.uVelocity, 0); blit(curlF);
@@ -408,7 +426,7 @@ void main () {
     bind(0, velocity.read.tex);
     gl.uniform1i(u.uVelocity, 0); gl.uniform1i(u.uSource, 0);
     gl.uniform2f(u.uTexelSim, 1 / v.w, 1 / v.h);
-    gl.uniform1f(u.uDt, DT); gl.uniform1f(u.uDissipation, 0.20);
+    gl.uniform1f(u.uDt, DT); gl.uniform1f(u.uDissipation, velDissipation(performance.now()));
     blit(velocity.write); velocity.swap();
 
     var d = dye.read;
@@ -464,15 +482,16 @@ void main () {
      * 全部用團的話只是一條金色的帶子；而環是墨流し的招牌——
      * 它會被水流拉開成大理石紋，那個紋路才是這個效果的重點。
      */
-    splat(x, y, fx, fy, Math.min(0.15, 0.026 + moved * 0.0034), false);
+    splat(x, y, fx, fy, Math.min(0.072, 0.012 + moved * 0.0016), false);
     // 環不能太密也不能太濃：每六筆補一組、濃度跟筆觸差不多時，整條會變成一串
     // 疙瘩像麻花，而不是一道被攪開的墨。拉長間隔、壓低濃度，環才是「藏在流裡」的。
     if (++sinceRing >= 11) {
       sinceRing = 0;
       var base = 0.016 + Math.random() * 0.010;
-      for (var i = 0; i < 2; i++) splat(x, y, 0, 0, 0.26 - i * 0.10, true, base * (1 + i * 1.8));
+      for (var i = 0; i < 2; i++) splat(x, y, 0, 0, 0.14 - i * 0.05, true, base * (1 + i * 1.8));
     }
-    wake(3600);
+    lastInput = performance.now();
+    wake(9500);
   }, { passive: true });
 
   var raf = 0, liveUntil = 0;
