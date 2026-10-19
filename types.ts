@@ -813,7 +813,7 @@ export interface RegularSession extends RegularSessionData {
 }
 
 // ─── 進香洗澡車（shower_trucks / shower_checkins）──────────────────────────
-// 白沙屯媽祖進香沒有固定路線，洗澡車停在哪只有現場的人知道。
+// 洗澡車隨進香隊伍移動，停在哪只有現場的人知道。
 // 志工用專屬連結打卡、香客在 /shower 查詢並導航。
 // 設計與權限見 supabase/migrations/shower_trucks.sql 的檔頭。
 

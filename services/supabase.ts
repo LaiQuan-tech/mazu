@@ -2748,7 +2748,7 @@ export const deleteRegularSession = async (id: string): Promise<void> => {
   if (error) { console.error('Error deleting regular session:', error); throw error; }
 };
 
-// ─── 進香洗澡車（白沙屯媽祖進香）───────────────────────────────────────────
+// ─── 進香洗澡車（媽祖進香）─────────────────────────────────────────────────
 // 香客查位置、志工打卡都走 SECURITY DEFINER RPC：shower_trucks 裡有 checkin_key，
 // 那是志工的憑證，anon 對兩張表都沒有直接權限。見 shower_trucks.sql 的檔頭。
 

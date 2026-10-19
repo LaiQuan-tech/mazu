@@ -851,7 +851,7 @@ const isScriptureUrl = (): boolean =>
   typeof window !== 'undefined' && stripSlash(window.location.pathname) === SCRIPTURE_PATH;
 
 /**
- * 進香洗澡車（白沙屯媽祖進香，2026-10-08）。兩個網址：
+ * 進香洗澡車（媽祖進香，2026-10-08）。兩個網址：
  *   /shower          香客查位置
  *   /shower/checkin  現場志工打卡。**不帶參數、沒有密碼**——志工進去選一次車就好
  *                    （廟方 2026-10-08：鑰匙版「太複雜了」，見 ShowerCheckinPage 檔頭）
@@ -1084,7 +1084,7 @@ const App: React.FC = () => {
     document.title = showShowerCheckin
       ? '17 沐浴車打卡｜志工專用'
       : showShower
-      ? '17 沐浴車｜白沙屯媽祖進香免費沐浴服務位置查詢'
+      ? '17 沐浴車｜媽祖進香免費沐浴服務位置查詢'
       : showScripture
       ? '天上聖母經｜經文、註解與故事｜台北古亭和聖壇'
       : showVolunteer
