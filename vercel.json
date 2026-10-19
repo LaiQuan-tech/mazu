@@ -21,6 +21,18 @@
       "destination": "/urgent.html"
     },
     {
+      "comment": "17bath.org：沐浴車自己的網域，根路徑直接給預渲染好的沐浴車頁。不這樣做的話，/ 會落到最下面那條萬用規則、送出 index.html——那份的 title 與 og 是和聖壇的，貼到 LINE 的預覽卡會變成「問事、點燈與法會服務」。只有這個網域吃這條規則，heshengtan.tw 的首頁不受影響。",
+      "source": "/",
+      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "destination": "/shower.html"
+    },
+    {
+      "comment": "志工打卡的短網址。沒有預渲染也不該被索引（robots.txt 擋），所以直接給 SPA 殼。",
+      "source": "/checkin",
+      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "destination": "/index.html"
+    },
+    {
       "source": "/relocation",
       "destination": "/relocation.html"
     },

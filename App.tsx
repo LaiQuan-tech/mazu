@@ -861,10 +861,35 @@ const isScriptureUrl = (): boolean =>
  */
 const SHOWER_PATH = '/shower';
 const SHOWER_CHECKIN_PATH = '/shower/checkin';
-const isShowerUrl = (): boolean =>
-  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SHOWER_PATH;
-const isShowerCheckinUrl = (): boolean =>
-  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SHOWER_CHECKIN_PATH;
+
+/**
+ * 沐浴車自己的網域（17bath.org，2026-10-19 廟方買下）。
+ *
+ * 這個網域上**根路徑就是沐浴車查詢頁**，不是和聖壇首頁——所以 `/` 與 `/checkin`
+ * 兩條短網址都要認得。原本的 `/shower` 與 `/shower/checkin` 在兩個網域上都照舊
+ * 有效：現場海報與 LINE 上已經發出去的 QR code 指的是舊網址，**不能讓它們失效**。
+ *
+ * **`isShowerUrl()` 回 true 這件事同時擋掉了法會報名頁。** `shouldShowFahui()` 的
+ * 規則是「非官方網域的根路徑顯示法會報名」，而 17bath.org 正好是非官方網域——
+ * 少了這一段，新網域打開會是普渡法會的報名表。那正是 CLAUDE.md 記過兩次的坑。
+ *
+ * 測試方法（CLAUDE.md 的 TEMP-HOSTTEST）：把 'localhost' 暫時加進這一串就能在本機
+ * 驗這一半，**測完務必撤掉**，部署前 grep 確認為 0。
+ */
+const SHOWER_HOSTS = ['17bath.org', 'www.17bath.org'];
+const isShowerHost = (): boolean =>
+  typeof window !== 'undefined' && SHOWER_HOSTS.includes(window.location.hostname);
+
+const isShowerUrl = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const path = stripSlash(window.location.pathname);
+  return path === SHOWER_PATH || (isShowerHost() && path === '/');
+};
+const isShowerCheckinUrl = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const path = stripSlash(window.location.pathname);
+  return path === SHOWER_CHECKIN_PATH || (isShowerHost() && path === '/checkin');
+};
 
 /**
  * 志工報名是否還收件。普渡法會（9/13）的志工已募足，廟方 2026-09-02 決定停止收件。
