@@ -892,6 +892,44 @@ const isShowerCheckinUrl = (): boolean => {
 };
 
 /**
+ * 沐浴車的頁面要掛沐浴車自己的網站圖示，不要掛和聖壇的
+ * （廟方 2026-10-20：「17bath.org 的 Favicon，不要用和聖壇的」）。
+ *
+ * `/shower` 的靜態殼已經由 `scripts/prerender.js` 換好了（那一頁的 `icons` 欄位），
+ * 這支負責靜態殼顧不到的兩件事：
+ *   1. **`17bath.org/checkin` 吃的是 index.html**——它走 SPA 萬用規則、沒有自己的
+ *      預渲染檔，所以靜態拿到的是和聖壇那四個圖示。
+ *   2. **換頁要換回來**：SPA 不會重新載入文件，從沐浴車按上一頁回到和聖壇時，
+ *      分頁上會一直留著沐浴車的圖示。
+ *
+ * **四個標籤要一起換**：瀏覽器是從全部的 `<link rel="icon">` 裡自己挑一個用，
+ * 挑的規則各家不同，少換一個就可能挑到剩下的那個舊圖示——症狀是「換了但有時候
+ * 還是舊的」，極難查。
+ *
+ * **改 href 不夠，要把節點換掉**：部分瀏覽器只在 `<link>` 插入時才重新抓圖示，
+ * 原地改 href 不一定會觸發。
+ */
+const FAVICONS: { sel: string; temple: string; bath: string }[] = [
+  { sel: 'link[rel="icon"][sizes="any"]',   temple: '/favicon.ico',          bath: '/bath-favicon.ico' },
+  { sel: 'link[rel="icon"][sizes="96x96"]', temple: '/icon-96.png',          bath: '/bath-icon-96.png' },
+  { sel: 'link[rel="icon"][sizes="32x32"]', temple: '/favicon-32.png',       bath: '/bath-favicon-32.png' },
+  { sel: 'link[rel="apple-touch-icon"]',    temple: '/apple-touch-icon.png', bath: '/bath-apple-touch-icon.png' },
+];
+
+const applyFavicons = (bath: boolean): void => {
+  if (typeof document === 'undefined') return;
+  for (const icon of FAVICONS) {
+    const el = document.querySelector<HTMLLinkElement>(icon.sel);
+    if (!el) continue;
+    const href = bath ? icon.bath : icon.temple;
+    if (el.getAttribute('href') === href) continue;   // 已經是對的就不動，免得每次換頁都重抓
+    const next = el.cloneNode(true) as HTMLLinkElement;
+    next.setAttribute('href', href);
+    el.replaceWith(next);
+  }
+};
+
+/**
  * 志工報名是否還收件。普渡法會（9/13）的志工已募足，廟方 2026-09-02 決定停止收件。
  *
  * 關掉時會同時處理兩個地方，缺一不可：
@@ -1055,6 +1093,11 @@ const App: React.FC = () => {
       ? '和聖壇法會線上報名｜太上慈悲普渡禮懺法會'
       : titles[page];
   }, [showScripture, showVolunteer, showFahui, showShower, showShowerCheckin, page]);
+
+  // 沐浴車那兩頁換成沐浴車自己的網站圖示，其餘一律是和聖壇的（理由見 FAVICONS）
+  useEffect(() => {
+    applyFavicons(showShower || showShowerCheckin);
+  }, [showShower, showShowerCheckin]);
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(adminEntry);

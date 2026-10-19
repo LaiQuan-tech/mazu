@@ -114,6 +114,11 @@ const ROUTES = [
     // （`og-shower.jpg`，由協會海報裁上半部產生）。
     image: '/og-shower.jpg',
     imageAlt: '17 沐浴車｜臺中市媽祖聖沐慈善協會　關懷每位香客，從沐浴開始。',
+    // 這一頁的網站圖示用沐浴車自己那組（`public/bath-*`），不要用和聖壇的
+    // （廟方 2026-10-20：「17bath.org 的 Favicon，不要用和聖壇的」）。
+    // 17bath.org/ 會 307 轉到這一頁，所以這一行同時就決定了那個網域的 favicon。
+    // 值是檔名前綴，對應 public/ 底下的 bath-favicon.ico 等四個檔。
+    icons: 'bath-',
     body: [
       '17 沐浴車由臺中市媽祖聖沐慈善協會主辦，配合媽祖進香活動，為辛苦走在進香路上的香燈腳提供免費沐浴服務。',
       '白沙屯媽祖進香沒有固定路線，沐浴車隨隊伍移動。本頁顯示每台車目前停放的地點與最後回報時間，可直接開啟 Google 地圖導航前往。位置由現場志工回報，出發前請再確認一次。',
@@ -636,6 +641,27 @@ for (const r of ACTIVE_ROUTES) {
       html = swap(html, /<meta property="og:image:alt" content="[^"]*" \/>/,
         `<meta property="og:image:alt" content="${esc(r.imageAlt)}" />`, 'og:image:alt');
     }
+  }
+
+  /**
+   * 這一頁自己的網站圖示（沒指定就沿用 index.html 那組和聖壇的）。
+   * `/shower` 是獨立的網站（17bath.org），分頁上掛和聖壇的 logo 會讓香客
+   * 以為自己點錯地方。
+   * **四個標籤要一起換**：瀏覽器是從全部的 <link rel="icon"> 裡自己挑一個用
+   * （挑的規則各家不同），少換一個就可能挑到剩下的那個舊圖示，
+   * 症狀是「換了但有時候還是舊的」，極難查。
+   * 檔名只差一個前綴，所以用前綴組字串，不必再維護一份對照表。
+   */
+  if (r.icons) {
+    const p = r.icons;
+    html = swap(html, /<link rel="icon" href="\/favicon\.ico"/,
+      `<link rel="icon" href="/${p}favicon.ico"`, 'favicon.ico');
+    html = swap(html, /<link rel="icon" type="image\/png" href="\/icon-96\.png"/,
+      `<link rel="icon" type="image/png" href="/${p}icon-96.png"`, 'icon-96.png');
+    html = swap(html, /<link rel="icon" type="image\/png" href="\/favicon-32\.png"/,
+      `<link rel="icon" type="image/png" href="/${p}favicon-32.png"`, 'favicon-32.png');
+    html = swap(html, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png"/,
+      `<link rel="apple-touch-icon" href="/${p}apple-touch-icon.png"`, 'apple-touch-icon.png');
   }
 
   // 法會的 Event 只留在首頁。
