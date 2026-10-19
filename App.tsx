@@ -82,6 +82,8 @@ const BulletinsPage = lazy(() => import('./components/BulletinsPage'));
 const UrgentPrayerPage = lazy(() => import('./components/UrgentPrayerPage'));
 const ShowerPage = lazy(() => import('./components/ShowerPage'));
 const ShowerCheckinPage = lazy(() => import('./components/ShowerCheckinPage'));
+// 墨流（?hero=sumi）。整支只有那一個變體會用到，懶載入才不會讓每個人都背著它的 shader
+const HeroSuminagashi = lazy(() => import('./components/HeroSuminagashi'));
 
 const PageLoading = () => (
   <div className="min-h-[100svh] bg-[#F5F0E8] flex items-center justify-center" role="status" aria-live="polite">
@@ -772,6 +774,12 @@ const HERO_VARIANTS = {
   qinghua: { qinghua: true as const, tone: 'flat' as const, dark: true as const },
   /** 青花紙＋泥金渲染（見 HeroInkGold）。神尊沿用現有的那三張，不動。 */
   inkgold: { inkgold: true as const, tone: 'flat' as const, dark: true as const },
+  /**
+   * 青花墨流（見 components/HeroSuminagashi.tsx）。廟方指定的參考是 suminagashi：
+   * 墨**浮在水面上被推著跑**，不是滲進紙裡——所以是真的跑一個流體模擬，
+   * 不是 inkgold 那種疊圖。接不住的裝置會自己退回 inkgold。
+   */
+  sumi: { sumi: true as const, tone: 'flat' as const, dark: true as const },
   'qinghua-full': { qinghua: true as const, tone: 'flat' as const, dark: true as const, lockup: true as const },
   lockup: { file: 'hero-gold.jpg', tone: 'gold' as const, lockup: true as const },
   caisson: { file: 'hero-gold.jpg', tone: 'gold' as const, caisson: true as const },
@@ -3046,7 +3054,9 @@ const App: React.FC = () => {
             注意排序：反光層必須在下面那道深色遮罩「之前」，
             否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。
             更早的金色祥雲織錦是 /hero-clouds.jpg（tone="silk"），檔案留著。 */}
-        {'inkgold' in HERO ? <HeroInkGold />
+        {'sumi' in HERO
+          ? <Suspense fallback={<HeroInkGold />}><HeroSuminagashi fallback={<HeroInkGold />} /></Suspense>
+          : 'inkgold' in HERO ? <HeroInkGold />
           : 'qinghua' in HERO ? <HeroQinghua />
           : 'studio' in HERO ? <HeroStudio />
           : <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />}

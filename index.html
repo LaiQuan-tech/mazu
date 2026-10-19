@@ -395,6 +395,17 @@
         filter: blur(5px);
       }
 
+      /* 墨流的畫布（?hero=sumi）。整個首屏的底就是它畫的，所以不需要另外鋪漸層。
+         pointer-events 一樣要關掉，否則導覽列與按鈕全部點不到。 */
+      .hero-sumi-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+
       /* 字標組背後的暗場（?hero=lockup）。
          **這不是為了氣氛，是因為量出來讀不到。** 白字壓在金箔牆最亮的地方實測
          只有 1.45:1（全站標準 4.5:1）；左上角那個舊字標讀得到，是因為它落在
