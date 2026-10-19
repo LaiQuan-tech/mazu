@@ -199,75 +199,110 @@ const SectionMenu: React.FC = () => {
  *
  * **預設只畫封面，按下去才載入播放器**（facade）。YouTube 的 iframe 一掛上去就是
  * 一兆位元組等級的 JS 與一批 cookie，而這一頁的人常常是在進香路上、一格訊號——
- * 兩支播放器自動載入等於替每個只是來查車在哪的人付掉幾 MB 的流量。
+ * 五支播放器自動載入等於替每個只是來查車在哪的人付掉幾 MB 的流量。
  * 網域用 `youtube-nocookie`：沒按播放之前不該有人被記上一筆。
  *
- * **封面用影片自己的圖**（廟方 2026-10-16 指定）。理事長那支用 YouTube 原本的
- * 預覽圖，而那張就是這一頁最上面的 banner，所以**標題要壓在封面上**，不然分不出
- * 哪一支是哪一支；「十七道光」用廟方另外給的片頭字卡，**圖上已經有片名了，
- * 就不要再壓一次**（`coverHasTitle`）——同一件事講兩次。
+ * **封面用影片自己的圖**（廟方 2026-10-16 指定）。
+ *
+ * **標題放在圖的下面，不要壓在圖上**（2026-10-20 加到五支時改的）。
+ * 兩支影片時壓在圖上沒問題，加到五支就壞了，而且壞在兩個地方：
+ *   1. 新聞台的縮圖**自己就有跑馬燈與下標**，我們再壓一行上去是兩層字疊在一起；
+ *   2. 標題一長就換行，文字往上長到卡片中央，直接**撞上播放鍵**
+ *      （實測 715px 寬時卡片只有 149px 高，兩行標題的頂端正好落在圓鈕上）。
+ * 改到圖下面之後兩個問題都不存在，而且**每張卡都有標題、底線對得齊**；
+ * 片名已經印在圖上的那兩支（十七道光、情暖花蓮）照樣給一行——
+ * 縮圖上的字是美術設計，下面那行是清單的標籤，兩者不是同一件事。
  *
  * 封面**存在自己的 public/**（`shower-video-<id>.webp`）不是直接連 i.ytimg.com：
  * 沒按播放之前不必向 Google 發一次請求，而且圖多大、壓多少由我們自己決定。
- * 代價是上傳者換了預覽圖這邊不會跟著變，重跑一次壓縮即可。
+ * 代價是上傳者換了預覽圖這邊不會跟著變，重跑 `scripts/build-shower-covers.js` 即可
+ * （加影片也跑那一支，用法在檔頭；直式要抓 `oardefault` 才不會有黑邊，它有處理）。
  *
  * 標題照上傳者寫的，只在數字與中文之間補了空白（與全站「17 沐浴車」的寫法一致）。
+ * 兩個例外寫在各自那一行的註解裡。
  */
-const VIDEOS: { id: string; title: string; coverHasTitle?: boolean }[] = [
+const VIDEOS: {
+  id: string;
+  title: string;
+  /** 直式（9:16 的 YouTube Shorts）。橫式的一律不填 */
+  portrait?: boolean;
+  /** 外部媒體的報導要標出是哪一台，自己拍的不填 */
+  source?: string;
+}[] = [
   { id: 'vCdQNnOVxTk', title: '17 沐浴車　吳至民理事長' },
-  { id: '6t5GIuezgpA', title: '17 道光', coverHasTitle: true },
+  { id: '6t5GIuezgpA', title: '十七道光' },
+  // **同一則報導上在兩個兄弟台**：2025-05-02 相差兩分鐘發佈、說明文字一字不差。
+  // 所以標題一樣，只有 source 不同——**少了那一行就會像同一張卡片貼了兩次**。
+  // 兩則都留是廟方的決定；要收掉一則，刪掉這兩行其中一行就好。
+  // 標題砍掉後半的「香燈腳洗香香再上陣」：卡片下面那行容不下，而這一頁本來就在講沐浴車。
+  { id: 'Ub9tUWn4Jfw', title: '400 萬超豪華沐浴車', source: '壹電視 NEXT TV' },
+  { id: '1OfjxccLSbs', title: '400 萬超豪華沐浴車', source: '年代新聞 CH50' },
+  // 上傳者的標題是「20251017 17沐浴車 line」——那是檔名不是標題，
+  // 改用片頭自己印著的那兩行。這一支講的是花蓮災區不是進香，標題要看得出來。
+  { id: 'rEZZV5X6VHo', title: '情暖花蓮　17 沐浴功德車', portrait: true },
 ];
 
-const VideoCard: React.FC<{ id: string; title: string; coverHasTitle?: boolean }> = ({ id, title, coverHasTitle }) => {
+const VideoCard: React.FC<{
+  id: string; title: string; portrait?: boolean; source?: string;
+}> = ({ id, title, portrait, source }) => {
   const [playing, setPlaying] = useState(false);
 
-  // aspect-video 兩種狀態共用，換成播放器時版面不會跳
   return (
-    <div className="relative overflow-hidden rounded-2xl aspect-video bg-[#B01350]">
-      {playing ? (
-        <iframe
-          className="absolute inset-0 w-full h-full"
-          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
-          title={title}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allowFullScreen
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setPlaying(true)}
-          aria-label={`播放影片：${title}`}
-          className="group absolute inset-0 w-full h-full"
-        >
-          <picture>
-            <source srcSet={heroSrc(`shower-video-${id}.webp`)} type="image/webp" />
-            <img
-              src={heroSrc(`shower-video-${id}.jpg`)}
-              alt=""
-              width={640}
-              height={360}
-              loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          </picture>
-          {/* 標題壓在照片上一定要有底，不然淺色的天空那一帶白字就不見了 */}
-          {!coverHasTitle && (
-            <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" aria-hidden="true" />
-          )}
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
-              <Play className="w-7 h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
+    <figure className={portrait ? 'max-w-[260px] sm:max-w-[288px] mx-auto' : undefined}>
+      {/*
+        長寬比兩種狀態共用，換成播放器時版面不會跳。
+        **直式一定要給寬度上限**（上面那層 figure）：9:16 攤滿手機的欄寬就是 667px 高、
+        比一個螢幕還長，香客得滑過一整屏才看得到下一支。260 大約就是手機握在手上的樣子。
+      */}
+      <div className={`relative overflow-hidden rounded-2xl bg-[#B01350] ${portrait ? 'aspect-[9/16]' : 'aspect-video'}`}>
+        {playing ? (
+          <iframe
+            className="absolute inset-0 w-full h-full"
+            src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+            title={title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            aria-label={`播放影片：${title}`}
+            className="group absolute inset-0 w-full h-full"
+          >
+            <picture>
+              <source srcSet={heroSrc(`shower-video-${id}.webp`)} type="image/webp" />
+              <img
+                src={heroSrc(`shower-video-${id}.jpg`)}
+                alt=""
+                width={portrait ? 480 : 640}
+                height={portrait ? 854 : 360}
+                loading="lazy"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </picture>
+            <span className="absolute inset-0 flex items-center justify-center">
+              {/* 小卡片上 64px 的圓鈕會佔掉四成高度，窄螢幕縮一號 */}
+              <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
+                <Play className="w-6 h-6 sm:w-7 sm:h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
+              </span>
             </span>
-          </span>
-          {!coverHasTitle && (
-            <span className="absolute inset-x-0 bottom-0 px-4 pb-3 text-white font-serif text-base sm:text-lg font-bold text-center">
-              {title}
-            </span>
-          )}
-        </button>
-      )}
-    </div>
+          </button>
+        )}
+      </div>
+      {/* 標題在圖的下面不壓在圖上（理由見 VIDEOS 上面那段）。
+          媒體名稱排在片名之上、小一號：它是出處不是標題，
+          但兩則新聞的片名一模一樣，沒有它就分不出哪一台。 */}
+      <figcaption className="mt-2 px-1 text-center">
+        {source && (
+          <span className="block text-xs text-[#B01350] tracking-wide">{source}</span>
+        )}
+        <span className="block font-serif text-sm sm:text-base font-bold text-temple-dark leading-snug">
+          {title}
+        </span>
+      </figcaption>
+    </figure>
   );
 };
 
@@ -506,7 +541,20 @@ const ShowerPage: React.FC = () => {
           <div className="mt-3 pl-1 border-l-2 border-[#D6246B]/25">
             <p className="pl-4 text-gray-700 leading-relaxed">影片放在 YouTube，按下播放才會開始載入。</p>
           </div>
-          <div className="mt-4 space-y-4">
+          {/*
+            五支影片：四支橫式、一支直式，**一列一支**。
+
+            排成兩欄試過，不行：整頁是 `max-w-xl`（576px）的單欄版面——這一頁是做給
+            在進香路上、拿著手機的香客看的——所以兩欄在**任何**螢幕上都只有 264px 寬，
+            按下播放之後就是一個 264px 的 YouTube 播放器，控制列擠成一團。
+            欄寬永遠長不大，兩欄就永遠換不到好處，只省掉桌機的捲動（而那是最不缺的）。
+
+            直式的靠**寬度上限**收，不要靠裁切：塞進 `aspect-video` 用 object-cover
+            會把 9:16 裁到剩中間一條，那正是公佈欄海報那次被廟方退回的做法。
+            上限寫在 `VideoCard` 的 figure 上，置中之後比橫式窄一截——
+            它本來就是手機拍的側錄，不該是這一區裡最大的一塊。
+          */}
+          <div className="mt-4 space-y-5">
             {VIDEOS.map(v => <VideoCard key={v.id} {...v} />)}
           </div>
         </section>
