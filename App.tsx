@@ -770,6 +770,8 @@ const HERO_VARIANTS = {
    * 沒有 `file`：整片是畫出來的，所以也不必進 HERO_FILES、不必 preload。
    */
   qinghua: { qinghua: true as const, tone: 'flat' as const, dark: true as const },
+  /** 青花紙＋泥金渲染（見 HeroInkGold）。神尊沿用現有的那三張，不動。 */
+  inkgold: { inkgold: true as const, tone: 'flat' as const, dark: true as const },
   'qinghua-full': { qinghua: true as const, tone: 'flat' as const, dark: true as const, lockup: true as const },
   lockup: { file: 'hero-gold.jpg', tone: 'gold' as const, lockup: true as const },
   caisson: { file: 'hero-gold.jpg', tone: 'gold' as const, caisson: true as const },
@@ -932,6 +934,212 @@ const HeroQinghua: React.FC = () => (
     <div className="qh-glaze" />
   </div>
 );
+
+/**
+ * 青花紙上的泥金渲染（`?hero=inkgold`，2026-10-20）。
+ *
+ * 廟方拿出一段 2026-07-30 的錄影：舊的 `mazu-beta` 專案上，墨會跟著手指在宣紙上
+ * 化開。那一版的程式碼已經不存在了——7/17 到 7/31 之間的部署被 Vercel 清光，
+ * 活下來的 7/31 那版墨層已經拆掉（只留下 `touchAction: "pan-y"` 與一個空的 z-1）。
+ * 所以這是照著錄影重做的，不是還原。
+ *
+ * 這一版照廟方的指定改了兩件事：**底是青花紙的靛藍**（不是宣紙的米白），
+ * **墨是泥金**（不是靛藍）。神尊完全不動，沿用現有的 `HERO_DEITIES`。
+ *
+ * ── 幾個做法上的決定 ──
+ *
+ * **不清畫布，用「疊加＝擴散」。** 每一幀替每一團墨畫一次更大一點、很淡的暈，
+ * 畫過的不擦掉。墨在紙上本來就是越疊越濃，所以累積出來的濃淡剛好對。
+ * 另一種做法是「成長中的畫在暫存層、長完才蓋進主層」，要兩塊畫布與合成；
+ * 不清畫布這招一塊就夠，而且同心圓的堆疊痕跡會被低 alpha 自己抹平。
+ *
+ * **邊緣要毛的，所以一團墨不是一個圓。** 繞一圈畫七個互相重疊的小團，
+ * 位置與半徑各自用這一團的亂數種子錯開——單一個 radial-gradient 畫出來是
+ * 噴槍不是墨。
+ *
+ * **畫布只用一半解析度。** 墨本來就是糊的，放大回來反而更像暈開，而且省四倍
+ * 的填充率——這一頁的信眾以長者居多、舊手機比例不低。
+ *
+ * **監聽掛在 window 不是畫布上。** 畫布是 `pointer-events-none`（否則會把導覽列
+ * 與按鈕的點擊吃掉），所以自己拿 host 的 rect 換算座標，落在框外就不畫。
+ * 捲離首屏之後 rect 跑掉，座標自然落在框外，不必另外做可見性判斷。
+ *
+ * **rAF 只在有墨在長的時候跑**，長完就停——不是一直掛著一個空轉的迴圈。
+ * 開了「減少動態效果」的話不跑動畫，直接畫到最終大小：
+ * 效果是使用者自己的操作帶出來的，不該整個拿掉，但不必讓它自己動。
+ */
+const HeroInkGold: React.FC = () => {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    const cv = canvasRef.current;
+    if (!host || !cv) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+
+    const SCALE = 0.5;
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let w = 1;
+    let h = 1;
+
+    const resize = () => {
+      const r = host.getBoundingClientRect();
+      const nw = Math.max(1, Math.round(r.width * SCALE));
+      const nh = Math.max(1, Math.round(r.height * SCALE));
+      if (nw === w && nh === h) return;
+      w = nw; h = nh;
+      // 改 width/height 會清空畫布。首屏換方向時本來就該重來，不必保留。
+      cv.width = w; cv.height = h;
+    };
+    resize();
+
+    type Blot = { x: number; y: number; r: number; max: number; seed: number };
+    const blots: Blot[] = [];
+    let frame = 0;
+    let last = 0;
+
+    /** 一次的暈：中心一團 ＋ 繞一圈七個小團 */
+    const disc = (cx: number, cy: number, rr: number, a0: number) => {
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr);
+      // 泥金。單次很淡，靠一幀一幀疊上去變濃
+      g.addColorStop(0, `rgba(216,186,124,${a0})`);
+      g.addColorStop(0.55, `rgba(201,168,106,${a0 * 0.55})`);
+      g.addColorStop(1, 'rgba(190,154,88,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(1, rr), 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const stamp = (b: Blot) => {
+      /**
+       * **中心那一團是必要的，不是多畫的。**
+       * 只畫繞一圈的小團時，半徑一長那幾團就跟著往外跑，中心反而只吃到最早
+       * 那幾幀——實測整片最濃只有 alpha 42/255，看起來像沾到髒東西不像墨。
+       * 中心固定補一團，濃度才會由內往外遞減。
+       *
+       * **alpha 要很低。** 一團在 60 幀裡會被疊 60 次，`source-over` 的累積是
+       * `1-(1-a)^60`——a 給 0.03 就直接飽和成一片金漆（實測中心 246/255、
+       * 覆蓋 25%，看起來是油漆不是墨）。0.011 疊完大約落在 0.48，
+       * 才留得住「透得過去」的感覺。
+       */
+      disc(b.x, b.y, b.r * 0.6, 0.011);
+
+      /**
+       * 外圍的瓣。**半徑要長得比位移慢**（`r^0.78` 對上 `r`）：
+       * 兩個同速的話整團永遠是同一個形狀放大，累積出來是一顆均勻的圓球；
+       * 讓瓣往外跑得比自己長大快，半徑一大它們就彼此分開，邊緣才有一條條
+       * 散開的絲，那才是墨在纖維上爬的樣子。
+       */
+      const LOBES = 9;
+      const rr = Math.pow(b.r, 0.78);
+      for (let k = 0; k < LOBES; k++) {
+        const a = (k / LOBES) * Math.PI * 2 + b.seed;
+        const j = 0.5 + 0.5 * Math.sin(b.seed * 7.3 + k * 2.1);
+        disc(
+          b.x + Math.cos(a) * b.r * 0.5 * j,
+          b.y + Math.sin(a) * b.r * 0.5 * j,
+          rr * (1.1 + 0.5 * Math.sin(b.seed * 3.1 + k)),
+          0.0075,
+        );
+      }
+
+      /** 更遠的幾點飛白：墨邊緣甩出去的那幾滴，很淡但少了它邊界會太乾淨 */
+      for (let k = 0; k < 3; k++) {
+        const a = b.seed * 2.3 + k * 2.4;
+        disc(
+          b.x + Math.cos(a) * b.r * (0.82 + 0.3 * Math.sin(b.seed + k)),
+          b.y + Math.sin(a) * b.r * (0.82 + 0.3 * Math.cos(b.seed * 1.7 + k)),
+          rr * 0.75,
+          0.005,
+        );
+      }
+    };
+
+    /** 讓一團長大一步並畫上去。回傳 true 表示長完了 */
+    const grow = (b: Blot): boolean => {
+      // 逼近最大半徑：越接近越慢，那就是擴散該有的速率
+      b.r += (b.max - b.r) * 0.07;
+      stamp(b);
+      return b.max - b.r < 0.7;
+    };
+
+    const tick = () => {
+      frame = 0;
+      for (let i = blots.length - 1; i >= 0; i--) if (grow(blots[i])) blots.splice(i, 1);
+      if (blots.length > 0) frame = requestAnimationFrame(tick);
+    };
+
+    const prev = { x: 0, y: 0, ok: false };
+
+    const drop = (x: number, y: number) => {
+      const b: Blot = { x, y, r: 3, max: 30 + Math.random() * 26, seed: Math.random() * 6.283 };
+      if (calm) {
+        /**
+         * 開了「減少動態效果」：**畫出一模一樣的結果，只是不讓人看到它長出來**。
+         * 原本是「直接畫到最終大小一次就好」，那是錯的——墨的濃淡是一層一層疊
+         * 出來的，只畫一次中心 alpha 只有 42/255，疊完是 246/255，看起來像沾到
+         * 髒東西不像墨。把同一個成長序列一次跑完，結果與動畫版完全相同。
+         * 守門的 200 是防呆，正常 60 步左右就結束。
+         */
+        for (let guard = 0; guard < 200 && !grow(b); guard++);
+        return;
+      }
+      blots.push(b);
+      if (!frame) frame = requestAnimationFrame(tick);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const now = performance.now();
+      if (now - last < (calm ? 64 : 42)) return;   // 太密的取樣只是把同一個地方畫到死
+      const r = host.getBoundingClientRect();
+      const x = (e.clientX - r.left) * SCALE;
+      const y = (e.clientY - r.top) * SCALE;
+      if (x < 0 || y < 0 || x > w || y > h) { prev.ok = false; return; }
+      last = now;
+      /**
+       * **沿著上一點到這一點補畫，不要只在落點放一團。**
+       * 指標事件是離散的，手移快一點兩次取樣就差好幾十個像素，只在落點蓋章
+       * 會變成一串分開的珠子不是一筆（實測看得很清楚）。
+       * 中間補幾顆才連得成一道。距離太遠（剛從框外回來、或視窗切換回來）
+       * 就不補，否則會憑空拉出一條橫越整個畫面的線。
+       */
+      const d = prev.ok ? Math.hypot(x - prev.x, y - prev.y) : 0;
+      /**
+       * **減少動態效果時補畫的上限要低很多。** 那條路徑上每一顆都是同步跑完
+       * 整個成長序列的（見下面 drop 裡的說明），一顆約 4.4ms；補到 5 顆就是
+       * 一次 22ms，而事件每 42ms 來一次——實測 rAF 被餓到只剩 4fps。
+       * 動畫版的每顆只畫一幀，補 5 顆才不到一毫秒，不受這個限制。
+       */
+      const cap = calm ? 2 : 5;
+      const steps = d > 0 && d < w * 0.5 ? Math.min(cap, Math.max(1, Math.round(d / 13))) : 1;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        drop(prev.ok ? prev.x + (x - prev.x) * t : x, prev.ok ? prev.y + (y - prev.y) * t : y);
+      }
+      prev.x = x; prev.y = y; prev.ok = true;
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    const ro = new ResizeObserver(resize);
+    ro.observe(host);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      ro.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return (
+    <div ref={hostRef} className="hero-inkgold absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+      <div className="qh-ground" />
+      <div className="qh-glaze" />
+      <canvas ref={canvasRef} className="hero-ink-canvas" />
+    </div>
+  );
+};
 
 const HeroCaisson: React.FC = () => (
   <div className="hero-pattern absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
@@ -2838,7 +3046,8 @@ const App: React.FC = () => {
             注意排序：反光層必須在下面那道深色遮罩「之前」，
             否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。
             更早的金色祥雲織錦是 /hero-clouds.jpg（tone="silk"），檔案留著。 */}
-        {'qinghua' in HERO ? <HeroQinghua />
+        {'inkgold' in HERO ? <HeroInkGold />
+          : 'qinghua' in HERO ? <HeroQinghua />
           : 'studio' in HERO ? <HeroStudio />
           : <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />}
         {'caisson' in HERO && <HeroCaisson />}
