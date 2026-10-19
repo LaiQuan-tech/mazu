@@ -46,12 +46,11 @@ const HERO_FILES = [
   // 已經分享過的網址要等它重抓；FB 用 Sharing Debugger 按「重新抓取」，
   // LINE 沒有工具，分享時在網址後面加個 ?v=2 之類就是新網址、會重抓。
   'og-hero.jpg',
-  // 17 沐浴車的 banner 與五支影片的封面（/shower，由 scripts/build-shower-covers.js 產生）
+  // 17 沐浴車的 banner 與四支影片的封面（/shower，由 scripts/build-shower-covers.js 產生）
   'shower-banner.webp', 'shower-banner.jpg',
   'shower-video-vCdQNnOVxTk.webp', 'shower-video-vCdQNnOVxTk.jpg',
   'shower-video-6t5GIuezgpA.webp', 'shower-video-6t5GIuezgpA.jpg',
   'shower-video-Ub9tUWn4Jfw.webp', 'shower-video-Ub9tUWn4Jfw.jpg',
-  'shower-video-1OfjxccLSbs.webp', 'shower-video-1OfjxccLSbs.jpg',
   'shower-video-rEZZV5X6VHo.webp', 'shower-video-rEZZV5X6VHo.jpg',
   'shower-volunteer.webp', 'shower-volunteer.jpg',
   // LINE 官方提供的「加入好友」按鈕圖（/shower 的協會帳號在用）
