@@ -35,6 +35,10 @@ import React, { useEffect, useRef, useState } from 'react';
  * 5. **停下來要自己靜下來，不是被切掉。** 速度場固定低消散時，停止輸入三秒多
  *    速度還剩四成八，這時收掉 rAF 等於把畫面凍結在半途（廟方回報過「很怪」）。
  *    閒置之後把阻力拉高，到收掉迴圈時早就沒有東西在動了。
+ *
+ * 6. **「減少動態效果」不要整個換成別的效果。** 換掉的話那些人看到的是另一個
+ *    長得完全不同的東西，而這支效果本來就只跟著指標動、沒有自己會動的部分。
+ *    收斂「手停了還在動」那一段就夠了，見 useEffect 開頭的 `calm`。
  */
 
 const VERT = `#version 300 es
@@ -187,8 +191,20 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    // 流體模擬是停不下來的動畫，開了「減少動態效果」的人不該被迫看它跑
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFailed(true); return; }
+    /**
+     * 「減少動態效果」**不整個退回 2D 那版，改成讓它一停就靜下來**。
+     *
+     * 原本是直接 `setFailed`，結果開了那個設定的人看到的是 `HeroInkGold`
+     * （2D、半解析度、糊的），而 `public/sumi.html` 根本沒有這個判斷——
+     * 兩邊因此長得完全不一樣，廟方回報「動畫又回到 320 畫，不是 sumi.html 的效果」。
+     * 實測那台機器 `prefers-reduced-motion` 是 true，hero 真的在跑 2D 那版。
+     *
+     * 而這個效果**沒有任何自己會動的東西**：不自動下墨、不自動流，
+     * 完全是跟著使用者自己的指標走的，比較接近 hover 而不是自動播放。
+     * 真正該收斂的是「手停了畫面還在動好幾秒」那一段，所以那一段收到半秒內收完，
+     * 視覺維持一模一樣。
+     */
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const host = hostRef.current;
     const canvas = canvasRef.current;
     if (!host || !canvas) return;
@@ -349,9 +365,14 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
     const DT = 0.016;
     let lastInput = 0;
 
-    /** 閒置之後把阻力拉高，讓水自己靜下來（理由見檔頭第 5 點） */
+    /**
+     * 閒置之後把阻力拉高，讓水自己靜下來（理由見檔頭第 5 點）。
+     * `calm` 時斜率大得多——實測 D=12 每幀只剩 0.839，半秒就收乾淨，
+     * 所以「手停了還在動」那段幾乎不存在，但畫面本身完全一樣。
+     */
     const velDissipation = (now: number): number => {
       const idle = (now - lastInput) / 1000;
+      if (calm) return idle < 0.05 ? 0.20 : Math.min(12, 0.20 + idle * 14);
       if (idle < 1.2) return 0.20;
       return Math.min(4.0, 0.20 + (idle - 1.2) * 0.9);
     };
@@ -452,7 +473,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
         for (let i = 0; i < 2; i++) splat(x, y, 0, 0, 0.14 - i * 0.05, true, base * (1 + i * 1.8));
       }
       lastInput = performance.now();
-      wake(9500);
+      wake(calm ? 900 : 9500);
     };
     const onVisible = () => { if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; } };
 
