@@ -1,49 +1,46 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 /**
- * 青花墨流（`?hero=sumi`，2026-10-20）
+ * 青花墨流（`?hero=sumi`）
  *
- * 廟方給的參考是 suminagashi（墨流し）——**墨浮在水面上被推著跑**，不是墨滲進紙裡。
- * 這兩件事的物理完全不同，所以做法也完全不同：
- *   滲進紙裡（`HeroInkGold`）＝ 一團一團疊上去，位置不會變，靠累積出濃淡。
- *   浮在水上（這一支）    ＝ 墨會**被水流帶著走**，所以必須真的算一個速度場。
- * 前者用 2D canvas 疊圖就好，後者只能用 GPU 跑流體。
+ * 效果與 `public/sumi.html` 是**同一套**（廟方 2026-10-20：「動畫用目前的」）。
+ * 那一頁是先做出來給廟方定案的獨立展示頁，這一支是把它搬進首頁：
+ * 拿掉控制列、畫布改成跟著 Hero 的框而不是整個視窗、座標改成相對於那個框，
+ * 其餘的 shader 與參數一個字都沒動。**兩邊要一起改**，不然會各自漂移。
+ *
+ * 神尊完全沒動：它們是 Hero 既有的 `HERO_DEITIES`（z-10），這一層是 z-0 的底。
  *
  * ── 跑的是什麼 ──
- * 標準的 Stable Fluids，每一幀七個 pass：
- *   curl → vorticity（渦度補強，不然小漩渦一下就被數值黏滯吃掉）
- *   → divergence → pressure（Jacobi 疊代）→ gradientSubtract（把速度場壓成無散度）
- *   → advect velocity → advect dye
- * 滑鼠的位移當成外力打進速度場，墨（dye）只是被那個場帶著走的被動量。
+ * suminagashi（墨流し）：墨**浮在水面上被推著跑**，不是滲進紙裡——所以必須真的
+ * 算一個速度場（Stable Fluids），疊圖做不出來。每一幀七個 pass：
+ *   curl → vorticity（渦度補強）→ divergence → pressure（Jacobi ×20）
+ *   → gradientSubtract → advect velocity → advect dye → display
  *
- * ── 青花與泥金 ──
- * 底不是 DOM 的漸層，是 display shader 自己畫的靛藍；墨是泥金。
- * 所以這一層就是整個首屏的底，神尊（z-10）直接站在上面。
+ * ── 五件做出來才知道的事（都在 public/sumi.html 踩過一次）──
  *
- * **墨點打的是「環」不是「團」。** 那是 suminagashi 的招牌：真的做法是黑墨與
- * 分散劑交替滴在水面上，推開成一圈一圈的同心環。高斯團打出來是一朵雲，
- * 看起來像煙不像墨流。
+ * 1. **一定要 LINEAR。** 不要用 `OES_texture_float_linear` 在不在來決定 LINEAR
+ *    還是 NEAREST——那個擴充講的是 32 位元浮點，而 half-float 的線性取樣在
+ *    WebGL2 裡是核心功能，本來就有。判斷失誤退到 NEAREST，整片墨會變成馬賽克。
  *
- * ── 效能（這一頁的信眾以長者居多、舊手機比例不低）──
- *   模擬解析度與 dye 解析度都刻意壓低（流體本來就是平滑的，低解析度看不出來），
- *   壓力疊代只跑 14 次，DPR 上限 1.5。
- *   **沒有互動就不跑**：最後一次下墨之後再跑幾秒就停掉 rAF，不是永遠掛著一個迴圈。
- *   捲離首屏或切到別的分頁也停。
+ * 2. **dye 的 alpha 一定要清成 0。** dye 的 a 存的是墨量（預乘模型），清成 1 等於
+ *    整張紙一開始就被墨蓋滿、而 rgb 是 0，還原出來是黑的——畫面整片漆黑。
  *
- * ── 接不住的時候退回去 ──
- * 沒有 WebGL2、拿不到浮點 render target、或使用者開了「減少動態效果」，
- * 一律退回 `HeroInkGold`（2D canvas 那版）。流體模擬本身就是一個停不下來的動畫，
- * 開了減少動態效果的人不該被迫看它跑。
+ * 3. **金泥不能用「吸收」算。** 深色紙上的金比紙亮，是顏料蓋上去不是染進去；
+ *    Beer–Lambert（紙 × exp(-吸收)）只對「深墨壓淺紙」成立，拿來畫金會越疊越黑。
+ *
+ * 4. **金要有層次，而且色票是量出來的。** 從 `public/hero-gold.jpg`（首頁原本用的
+ *    金箔牆）依亮度取分位平均，那張圖的金由暗到亮是 #D09002 → #DAA505 → #F1D706。
+ *    中間那一站釘在官網的 `temple-gold` #C49820。
+ *
+ * 5. **停下來要自己靜下來，不是被切掉。** 速度場固定低消散時，停止輸入三秒多
+ *    速度還剩四成八，這時收掉 rAF 等於把畫面凍結在半途（廟方回報過「很怪」）。
+ *    閒置之後把阻力拉高，到收掉迴圈時早就沒有東西在動了。
  */
 
-const BASE_VERT = `#version 300 es
+const VERT = `#version 300 es
 precision highp float;
 in vec2 aPos;
-out vec2 vUv;
-out vec2 vL;
-out vec2 vR;
-out vec2 vT;
-out vec2 vB;
+out vec2 vUv; out vec2 vL; out vec2 vR; out vec2 vT; out vec2 vB;
 uniform vec2 uTexel;
 void main () {
   vUv = aPos * 0.5 + 0.5;
@@ -57,191 +54,168 @@ void main () {
 const HEAD = `#version 300 es
 precision highp float;
 precision highp sampler2D;
-in vec2 vUv;
-in vec2 vL;
-in vec2 vR;
-in vec2 vT;
-in vec2 vB;
+in vec2 vUv; in vec2 vL; in vec2 vR; in vec2 vT; in vec2 vB;
 out vec4 oColor;
 `;
 
-/** 速度場的外力：一般的高斯團 */
-const SPLAT_VEL = HEAD + `
-uniform sampler2D uTarget;
-uniform float uAspect;
-uniform vec2 uPoint;
-uniform vec2 uForce;
-uniform float uRadius;
+const F_SPLAT_VEL = HEAD + `
+uniform sampler2D uTarget; uniform float uAspect; uniform vec2 uPoint;
+uniform vec2 uForce; uniform float uRadius;
 void main () {
-  vec2 p = vUv - uPoint;
-  p.x *= uAspect;
-  vec2 add = exp(-dot(p, p) / uRadius) * uForce;
-  oColor = vec4(texture(uTarget, vUv).xy + add, 0.0, 1.0);
+  vec2 p = vUv - uPoint; p.x *= uAspect;
+  oColor = vec4(texture(uTarget, vUv).xy + exp(-dot(p, p) / uRadius) * uForce, 0.0, 1.0);
 }`;
 
-/**
- * 墨點：**環狀**不是團狀（理由見檔頭）。
- * `uInner` 是環心的半徑，`uBand` 是環的厚薄。
- */
-const SPLAT_DYE = HEAD + `
-uniform sampler2D uTarget;
-uniform float uAspect;
-uniform vec2 uPoint;
-uniform float uAmount;
-uniform float uInner;
-uniform float uBand;
+/** `uRing>0.5` 打的是**環**不是團——那是墨流し的招牌（同心環被水流拉開成大理石紋） */
+const F_SPLAT_DYE = HEAD + `
+uniform sampler2D uTarget; uniform float uAspect; uniform vec2 uPoint; uniform vec4 uInk;
+uniform float uRadius; uniform float uInner; uniform float uRing;
 void main () {
-  vec2 p = vUv - uPoint;
-  p.x *= uAspect;
-  float d = length(p);
-  float ring = exp(-((d - uInner) * (d - uInner)) / uBand);
-  oColor = vec4(texture(uTarget, vUv).x + ring * uAmount, 0.0, 0.0, 1.0);
+  vec2 p = vUv - uPoint; p.x *= uAspect; float d = length(p);
+  float g = exp(-dot(p, p) / uRadius);
+  float r = exp(-((d - uInner) * (d - uInner)) / uRadius);
+  oColor = texture(uTarget, vUv) + uInk * mix(g, r, step(0.5, uRing));
 }`;
 
-const ADVECT = HEAD + `
-uniform sampler2D uVelocity;
-uniform sampler2D uSource;
-uniform vec2 uTexelSim;
-uniform float uDt;
-uniform float uDissipation;
+const F_ADVECT = HEAD + `
+uniform sampler2D uVelocity; uniform sampler2D uSource; uniform vec2 uTexelSim;
+uniform float uDt; uniform float uDissipation;
 void main () {
   vec2 coord = vUv - uDt * texture(uVelocity, vUv).xy * uTexelSim;
   oColor = texture(uSource, coord) / (1.0 + uDissipation * uDt);
 }`;
 
-const DIVERGENCE = HEAD + `
+const F_DIVERGENCE = HEAD + `
 uniform sampler2D uVelocity;
 void main () {
-  float l = texture(uVelocity, vL).x;
-  float r = texture(uVelocity, vR).x;
-  float t = texture(uVelocity, vT).y;
-  float b = texture(uVelocity, vB).y;
+  float l = texture(uVelocity, vL).x, r = texture(uVelocity, vR).x;
+  float t = texture(uVelocity, vT).y, b = texture(uVelocity, vB).y;
   vec2 c = texture(uVelocity, vUv).xy;
-  // 邊界：牆面反射，不然墨會從邊緣漏出去、整片慢慢變平
-  if (vL.x < 0.0) { l = -c.x; }
-  if (vR.x > 1.0) { r = -c.x; }
-  if (vT.y > 1.0) { t = -c.y; }
-  if (vB.y < 0.0) { b = -c.y; }
+  // 邊界當牆：不這樣做墨會從邊緣流掉，整片慢慢變平
+  if (vL.x < 0.0) l = -c.x;
+  if (vR.x > 1.0) r = -c.x;
+  if (vT.y > 1.0) t = -c.y;
+  if (vB.y < 0.0) b = -c.y;
   oColor = vec4(0.5 * (r - l + t - b), 0.0, 0.0, 1.0);
 }`;
 
-const CURL = HEAD + `
+const F_CURL = HEAD + `
 uniform sampler2D uVelocity;
 void main () {
-  float l = texture(uVelocity, vL).y;
-  float r = texture(uVelocity, vR).y;
-  float t = texture(uVelocity, vT).x;
-  float b = texture(uVelocity, vB).x;
+  float l = texture(uVelocity, vL).y, r = texture(uVelocity, vR).y;
+  float t = texture(uVelocity, vT).x, b = texture(uVelocity, vB).x;
   oColor = vec4(0.5 * (r - l - t + b), 0.0, 0.0, 1.0);
 }`;
 
-const VORTICITY = HEAD + `
-uniform sampler2D uVelocity;
-uniform sampler2D uCurl;
-uniform float uCurlAmount;
-uniform float uDt;
+const F_VORTICITY = HEAD + `
+uniform sampler2D uVelocity; uniform sampler2D uCurl;
+uniform float uCurlAmount; uniform float uDt;
 void main () {
-  float l = texture(uCurl, vL).x;
-  float r = texture(uCurl, vR).x;
-  float t = texture(uCurl, vT).x;
-  float b = texture(uCurl, vB).x;
-  float c = texture(uCurl, vUv).x;
-  vec2 force = 0.5 * vec2(abs(t) - abs(b), abs(r) - abs(l));
-  force /= length(force) + 0.0001;
-  force *= uCurlAmount * c;
-  force.y *= -1.0;
-  vec2 vel = texture(uVelocity, vUv).xy + force * uDt;
-  oColor = vec4(clamp(vel, -1000.0, 1000.0), 0.0, 1.0);
+  float l = texture(uCurl, vL).x, r = texture(uCurl, vR).x;
+  float t = texture(uCurl, vT).x, b = texture(uCurl, vB).x, c = texture(uCurl, vUv).x;
+  vec2 f = 0.5 * vec2(abs(t) - abs(b), abs(r) - abs(l));
+  f /= length(f) + 0.0001; f *= uCurlAmount * c; f.y *= -1.0;
+  oColor = vec4(clamp(texture(uVelocity, vUv).xy + f * uDt, -1200.0, 1200.0), 0.0, 1.0);
 }`;
 
-const PRESSURE = HEAD + `
-uniform sampler2D uPressure;
-uniform sampler2D uDivergence;
+const F_PRESSURE = HEAD + `
+uniform sampler2D uPressure; uniform sampler2D uDivergence;
 void main () {
-  float l = texture(uPressure, vL).x;
-  float r = texture(uPressure, vR).x;
-  float t = texture(uPressure, vT).x;
-  float b = texture(uPressure, vB).x;
-  float div = texture(uDivergence, vUv).x;
-  oColor = vec4((l + r + b + t - div) * 0.25, 0.0, 0.0, 1.0);
+  float l = texture(uPressure, vL).x, r = texture(uPressure, vR).x;
+  float t = texture(uPressure, vT).x, b = texture(uPressure, vB).x;
+  oColor = vec4((l + r + b + t - texture(uDivergence, vUv).x) * 0.25, 0.0, 0.0, 1.0);
 }`;
 
-const GRADIENT = HEAD + `
-uniform sampler2D uPressure;
-uniform sampler2D uVelocity;
+const F_GRADIENT = HEAD + `
+uniform sampler2D uPressure; uniform sampler2D uVelocity;
 void main () {
-  float l = texture(uPressure, vL).x;
-  float r = texture(uPressure, vR).x;
-  float t = texture(uPressure, vT).x;
-  float b = texture(uPressure, vB).x;
-  vec2 vel = texture(uVelocity, vUv).xy - vec2(r - l, t - b);
-  oColor = vec4(vel, 0.0, 1.0);
+  float l = texture(uPressure, vL).x, r = texture(uPressure, vR).x;
+  float t = texture(uPressure, vT).x, b = texture(uPressure, vB).x;
+  oColor = vec4(texture(uVelocity, vUv).xy - vec2(r - l, t - b), 0.0, 1.0);
 }`;
 
-/**
- * 上色：青花的底 ＋ 泥金的墨。
- * 濃度換成不透明度用 `1 - exp(-k·d)`，到頂是漸近不是一刀切——
- * 線性的話濃的地方會削平成一塊死金，看不出墨的層次。
- */
-const DISPLAY = HEAD + `
-uniform sampler2D uDye;
+/** 青花紙 ＋ 有層次的泥金。色票與寫法見檔頭第 3、4 點 */
+const F_DISPLAY = HEAD + `
+uniform sampler2D uDye; uniform vec2 uRes; uniform vec2 uDyeTexel;
+float hash (vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vnoise (vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
 void main () {
-  float d = texture(uDye, vUv).x;
-  vec3 deep = vec3(0.059, 0.102, 0.184);
-  vec3 lift = vec3(0.133, 0.220, 0.420);
-  vec3 paper = mix(deep, lift, smoothstep(0.0, 1.0, vUv.y));
-  // 釉光：一道很寬很淡的斜掃，水面才不是平的
-  paper += vec3(0.055, 0.070, 0.090) * smoothstep(0.75, 0.0, abs(vUv.x * 0.8 + vUv.y * 0.6 - 0.75));
-  vec3 gold = vec3(0.886, 0.761, 0.498);
-  float a = 1.0 - exp(-d * 5.2);
-  /**
-   * **濃度低的地方不要直接往金色插值。** 靛藍混一點點金是灰的，整片看起來像
-   * 蒙了一層霧而不是泥金（實測墨流的紋路偏灰）。先讓薄的地方往暖處偏一點，
-   * 濃的地方才真的是金，層次才立得起來。
-   */
-  vec3 warm = mix(paper, vec3(0.42, 0.44, 0.40), clamp(a * 1.6, 0.0, 1.0));
-  oColor = vec4(mix(warm, gold, clamp(a * a * 1.25, 0.0, 1.0)), 1.0);
+  vec3 base = mix(vec3(0.059, 0.098, 0.180), vec3(0.125, 0.200, 0.361), smoothstep(0.0, 1.0, vUv.y));
+  // 纖維：兩個方向都拉長，交錯起來才像手漉的紙。
+  // **深色紙上的纖維是「比底亮」的**，照淺紙那樣寫（乘小於一）會變成一條條黑痕。
+  float f1 = vnoise(vec2(vUv.x * 180.0, vUv.y * 1400.0));
+  float f2 = vnoise(vec2(vUv.x * 1500.0, vUv.y * 140.0));
+  float f3 = vnoise(vUv * vec2(60.0, 52.0));
+  base *= 1.0 + 0.13 * (f1 - 0.5) + 0.10 * (f2 - 0.5) + 0.09 * (f3 - 0.5);
+  base *= 1.0 + 0.040 * (hash(floor(vUv * uRes)) - 0.5);
+  float v = length((vUv - 0.5) * vec2(1.0, 0.86));
+  base *= 1.0 - 0.30 * smoothstep(0.30, 0.85, v);
+
+  float amt = max(texture(uDye, vUv).a, 0.0);
+  // 金泥也吃纖維：紙上有纖維的地方沾得多一點，邊緣才會毛
+  float cover = clamp(1.0 - exp(-amt * 3.0 * (1.0 + 0.30 * (f1 + f2 - 1.0))), 0.0, 1.0);
+
+  vec3 gDeep = vec3(0.690, 0.470, 0.030);
+  vec3 gMid  = vec3(0.769, 0.596, 0.125);
+  vec3 gTop  = vec3(0.945, 0.843, 0.180);
+  vec3 metal = cover < 0.5 ? mix(gDeep, gMid, cover * 2.0) : mix(gMid, gTop, (cover - 0.5) * 2.0);
+  vec3 col = mix(base, metal, cover);
+
+  // 褶子的反光。取樣位移要用 dye 自己的 texel——用畫布的 texel 會因為 dye 解析度
+  // 低得多而幾乎取到同一點，梯度等於零、完全沒有效果。
+  float aL = texture(uDye, vUv - vec2(uDyeTexel.x, 0.0)).a;
+  float aR = texture(uDye, vUv + vec2(uDyeTexel.x, 0.0)).a;
+  float aB = texture(uDye, vUv - vec2(0.0, uDyeTexel.y)).a;
+  float aT = texture(uDye, vUv + vec2(0.0, uDyeTexel.y)).a;
+  vec3 n = normalize(vec3((aR - aL) * 7.0, (aT - aB) * 7.0, 1.0));
+  float spec = pow(clamp(dot(n, normalize(vec3(-0.55, 0.62, 0.56))), 0.0, 1.0), 11.0);
+  col += vec3(1.0, 0.94, 0.74) * spec * 0.55 * smoothstep(0.04, 0.30, cover);
+
+  oColor = vec4(col, 1.0);
 }`;
 
 type FBO = { tex: WebGLTexture; fbo: WebGLFramebuffer; w: number; h: number };
 type Double = { read: FBO; write: FBO; swap: () => void };
+type Prog = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
 
 const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) => {
+  const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    // 流體模擬是一個停不下來的動畫，開了「減少動態效果」的人不該被迫看它跑
+    // 流體模擬是停不下來的動畫，開了「減少動態效果」的人不該被迫看它跑
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFailed(true); return; }
+    const host = hostRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!host || !canvas) return;
 
     const gl = canvas.getContext('webgl2', {
       alpha: false, depth: false, stencil: false, antialias: false, powerPreference: 'low-power',
     });
-    // 沒有 WebGL2，或拿不到浮點 render target（舊 iOS 常見）就退回 2D 那版
+    // 沒有 WebGL2 或拿不到浮點 render target（舊 iOS 常見）就退回 2D 那版
     if (!gl || !gl.getExtension('EXT_color_buffer_float')) { setFailed(true); return; }
-    const linear = !!gl.getExtension('OES_texture_float_linear');
-    const filter = linear ? gl.LINEAR : gl.NEAREST;
 
-    const compile = (type: number, src: string): WebGLShader | null => {
-      const sh = gl.createShader(type);
-      if (!sh) return null;
-      gl.shaderSource(sh, src);
-      gl.compileShader(sh);
-      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
-      return sh;
+    const sh = (type: number, src: string): WebGLShader | null => {
+      const s = gl.createShader(type);
+      if (!s) return null;
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { gl.deleteShader(s); return null; }
+      return s;
     };
-    const vs = compile(gl.VERTEX_SHADER, BASE_VERT);
+    const vs = sh(gl.VERTEX_SHADER, VERT);
     if (!vs) { setFailed(true); return; }
 
     const programs: WebGLProgram[] = [];
-    const make = (fragSrc: string): { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> } | null => {
-      const fs = compile(gl.FRAGMENT_SHADER, fragSrc);
-      const p = fs && gl.createProgram();
-      if (!fs || !p) return null;
-      gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
-      gl.deleteShader(fs);
+    const make = (src: string): Prog | null => {
+      const f = sh(gl.FRAGMENT_SHADER, src);
+      const p = f && gl.createProgram();
+      if (!f || !p) return null;
+      gl.attachShader(p, vs); gl.attachShader(p, f); gl.linkProgram(p);
+      gl.deleteShader(f);
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { gl.deleteProgram(p); return null; }
       programs.push(p);
       const u: Record<string, WebGLUniformLocation | null> = {};
@@ -253,12 +227,12 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       return { p, u };
     };
 
-    const prog = {
-      splatVel: make(SPLAT_VEL), splatDye: make(SPLAT_DYE), advect: make(ADVECT),
-      divergence: make(DIVERGENCE), curl: make(CURL), vorticity: make(VORTICITY),
-      pressure: make(PRESSURE), gradient: make(GRADIENT), display: make(DISPLAY),
+    const P = {
+      splatVel: make(F_SPLAT_VEL), splatDye: make(F_SPLAT_DYE), advect: make(F_ADVECT),
+      divergence: make(F_DIVERGENCE), curl: make(F_CURL), vorticity: make(F_VORTICITY),
+      pressure: make(F_PRESSURE), gradient: make(F_GRADIENT), display: make(F_DISPLAY),
     };
-    if (Object.values(prog).some((v) => !v)) { setFailed(true); return; }
+    if (Object.values(P).some((v) => !v)) { setFailed(true); return; }
 
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -266,173 +240,173 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    // 配置過的全部記起來。少了這個，每次 allocate 都是十張新的貼圖加十個 FBO，
-    // 舊的沒人刪——手機捲動時網址列一收一放就會觸發一次，記憶體一路往上疊。
-    const owned: { texes: WebGLTexture[]; fbos: WebGLFramebuffer[] } = { texes: [], fbos: [] };
-    const releaseAll = () => {
-      owned.texes.forEach((t) => gl.deleteTexture(t));
-      owned.fbos.forEach((f) => gl.deleteFramebuffer(f));
-      owned.texes = []; owned.fbos = [];
+    // 配置過的全部記起來：少了這個，每次重配都是十張新貼圖＋十個 FBO、舊的沒人刪，
+    // 手機捲動時網址列一收一放就觸發一次，記憶體一路往上疊。
+    let owned: Array<[WebGLTexture, WebGLFramebuffer]> = [];
+    const release = () => {
+      owned.forEach(([t, f]) => { gl.deleteTexture(t); gl.deleteFramebuffer(f); });
+      owned = [];
     };
-
-    const makeFBO = (w: number, h: number, internal: number, format: number): FBO => {
+    const fbo = (w: number, h: number, internal: number, format: number): FBO => {
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      // **一律 LINEAR**（理由見檔頭第 1 點）
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, gl.HALF_FLOAT, null);
-      const fbo = gl.createFramebuffer()!;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      const f = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       gl.viewport(0, 0, w, h);
-      gl.clearColor(0, 0, 0, 1);
+      // **alpha 要清成 0**（理由見檔頭第 2 點）
+      gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      owned.texes.push(tex); owned.fbos.push(fbo);
-      return { tex, fbo, w, h };
+      owned.push([tex, f]);
+      return { tex, fbo: f, w, h };
     };
     const makeDouble = (w: number, h: number, internal: number, format: number): Double => {
-      let a = makeFBO(w, h, internal, format);
-      let b = makeFBO(w, h, internal, format);
-      return {
-        get read() { return a; }, get write() { return b; },
-        swap() { const t = a; a = b; b = t; },
-      } as Double;
+      let a = fbo(w, h, internal, format);
+      let b = fbo(w, h, internal, format);
+      return { get read() { return a; }, get write() { return b; }, swap() { const t = a; a = b; b = t; } } as Double;
     };
 
-    // 解析度刻意低：流體本來就是平滑的，低解析度看不太出來，但省下來的是四倍
-    const SIM = 128;
-    const DYE = 320;
+    const SIM = 256;
     let aspect = 1;
+    let gw = 0;
+    let gh = 0;
     let velocity!: Double;
     let dye!: Double;
-    let divergenceFBO!: FBO;
-    let curlFBO!: FBO;
+    let divergenceF!: FBO;
+    let curlF!: FBO;
     let pressure!: Double;
 
-    let gridW = 0;
-    let gridH = 0;
-
     const allocate = () => {
-      const r = canvas.getBoundingClientRect();
+      const r = host.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
-      aspect = Math.max(0.2, r.width / Math.max(1, r.height));
-      const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-      canvas.width = Math.max(1, Math.round(r.width * dpr));
-      canvas.height = Math.max(1, Math.round(r.height * dpr));
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const W = Math.max(1, Math.round(r.width * dpr));
+      const H = Math.max(1, Math.round(r.height * dpr));
+      canvas.width = W; canvas.height = H;
+      aspect = Math.max(0.2, W / H);
       const sw = aspect >= 1 ? Math.round(SIM * aspect) : SIM;
-      const sh = aspect >= 1 ? SIM : Math.round(SIM / aspect);
-      const dw = aspect >= 1 ? Math.round(DYE * aspect) : DYE;
-      const dh = aspect >= 1 ? DYE : Math.round(DYE / aspect);
-      /**
-       * **格子大小沒變就不要重配。** 畫布的 CSS 尺寸一變 ResizeObserver 就會叫一次，
-       * 而手機捲動時網址列一收一放高度就變——每次都重配不只是浪費，
-       * 重配等於把水面清空，使用者畫到一半的墨會憑空消失。
-       * 後端像素還是要跟著更新（上面那兩行），那只是改畫布大小不涉及模擬。
-       */
-      if (sw === gridW && sh === gridH) return;
-      gridW = sw; gridH = sh;
-      releaseAll();
-      velocity = makeDouble(sw, sh, gl.RG16F, gl.RG);
-      dye = makeDouble(dw, dh, gl.R16F, gl.RED);
-      divergenceFBO = makeFBO(sw, sh, gl.R16F, gl.RED);
-      curlFBO = makeFBO(sw, sh, gl.R16F, gl.RED);
-      pressure = makeDouble(sw, sh, gl.R16F, gl.RED);
+      const shh = aspect >= 1 ? SIM : Math.round(SIM / aspect);
+      // 格子沒變就不要重配——重配等於把水面清空，畫到一半的墨會憑空消失
+      if (sw === gw && shh === gh) return;
+      gw = sw; gh = shh;
+      // dye 跟著螢幕走、上限 1024。低解析度的 dye 放大就是一格一格的馬賽克。
+      const long = Math.min(1024, Math.max(640, Math.round(Math.max(W, H) * 0.75)));
+      const dw = aspect >= 1 ? long : Math.round(long * aspect);
+      const dh = aspect >= 1 ? Math.round(long / aspect) : long;
+      release();
+      velocity = makeDouble(sw, shh, gl.RG16F, gl.RG);
+      dye = makeDouble(dw, dh, gl.RGBA16F, gl.RGBA);
+      divergenceF = fbo(sw, shh, gl.R16F, gl.RED);
+      curlF = fbo(sw, shh, gl.R16F, gl.RED);
+      pressure = makeDouble(sw, shh, gl.R16F, gl.RED);
     };
     allocate();
 
-    const blit = (target: FBO | null) => {
-      if (target) { gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo); gl.viewport(0, 0, target.w, target.h); }
+    const blit = (t: FBO | null) => {
+      if (t) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo); gl.viewport(0, 0, t.w, t.h); }
       else { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); }
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
-    const bind = (slot: number, tex: WebGLTexture) => { gl.activeTexture(gl.TEXTURE0 + slot); gl.bindTexture(gl.TEXTURE_2D, tex); };
-    const useProg = (q: { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> }, w: number, h: number) => {
+    const bind = (i: number, tex: WebGLTexture) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex); };
+    const use = (q: Prog, w: number, h: number) => {
       gl.useProgram(q.p);
       if (q.u.uTexel) gl.uniform2f(q.u.uTexel, 1 / w, 1 / h);
       return q.u;
     };
 
-    // ── 下墨與施力 ──────────────────────────────────────────────
-    const splat = (x: number, y: number, dx: number, dy: number, ink: number) => {
+    // 官網的金 temple-gold #C49820（這是中間那一站，深淺兩端在 display 裡）
+    const INK = [196 / 255, 152 / 255, 32 / 255];
+
+    const splat = (x: number, y: number, fx: number, fy: number, amount: number, ring: boolean, inner?: number) => {
       const v = velocity.read;
-      let u = useProg(prog.splatVel!, v.w, v.h);
+      let u = use(P.splatVel!, v.w, v.h);
       bind(0, v.tex);
-      gl.uniform1i(u.uTarget!, 0);
-      gl.uniform1f(u.uAspect!, aspect);
-      gl.uniform2f(u.uPoint!, x, y);
-      gl.uniform2f(u.uForce!, dx, dy);
-      gl.uniform1f(u.uRadius!, 0.0009);
+      gl.uniform1i(u.uTarget!, 0); gl.uniform1f(u.uAspect!, aspect);
+      gl.uniform2f(u.uPoint!, x, y); gl.uniform2f(u.uForce!, fx, fy);
+      gl.uniform1f(u.uRadius!, 0.0012);
       blit(velocity.write); velocity.swap();
 
-      if (ink <= 0) return;
+      if (amount <= 0) return;
       const d = dye.read;
-      u = useProg(prog.splatDye!, d.w, d.h);
+      u = use(P.splatDye!, d.w, d.h);
       bind(0, d.tex);
-      gl.uniform1i(u.uTarget!, 0);
-      gl.uniform1f(u.uAspect!, aspect);
+      gl.uniform1i(u.uTarget!, 0); gl.uniform1f(u.uAspect!, aspect);
       gl.uniform2f(u.uPoint!, x, y);
-      gl.uniform1f(u.uAmount!, ink);
-      // 環心半徑與厚薄：每次隨機一點，疊起來才像一圈一圈不是同一個印章
-      gl.uniform1f(u.uInner!, 0.03 + Math.random() * 0.055);
-      gl.uniform1f(u.uBand!, 0.00012 + Math.random() * 0.00018);
+      // 預乘：rgb = 顏色×量、a = 量
+      gl.uniform4f(u.uInk!, INK[0] * amount, INK[1] * amount, INK[2] * amount, amount);
+      gl.uniform1f(u.uRadius!, ring ? 0.00022 : 0.00060);
+      gl.uniform1f(u.uInner!, inner !== undefined ? inner : 0.020 + Math.random() * 0.045);
+      gl.uniform1f(u.uRing!, ring ? 1 : 0);
       blit(dye.write); dye.swap();
     };
 
-    // ── 每一幀 ─────────────────────────────────────────────────
     const DT = 0.016;
+    let lastInput = 0;
+
+    /** 閒置之後把阻力拉高，讓水自己靜下來（理由見檔頭第 5 點） */
+    const velDissipation = (now: number): number => {
+      const idle = (now - lastInput) / 1000;
+      if (idle < 1.2) return 0.20;
+      return Math.min(4.0, 0.20 + (idle - 1.2) * 0.9);
+    };
+
     const step = () => {
       const v = velocity.read;
-      let u = useProg(prog.curl!, v.w, v.h);
-      bind(0, v.tex); gl.uniform1i(u.uVelocity!, 0);
-      blit(curlFBO);
+      let u = use(P.curl!, v.w, v.h);
+      bind(0, v.tex); gl.uniform1i(u.uVelocity!, 0); blit(curlF);
 
-      u = useProg(prog.vorticity!, v.w, v.h);
-      bind(0, velocity.read.tex); bind(1, curlFBO.tex);
+      u = use(P.vorticity!, v.w, v.h);
+      bind(0, velocity.read.tex); bind(1, curlF.tex);
       gl.uniform1i(u.uVelocity!, 0); gl.uniform1i(u.uCurl!, 1);
-      gl.uniform1f(u.uCurlAmount!, 26); gl.uniform1f(u.uDt!, DT);
+      gl.uniform1f(u.uCurlAmount!, 30); gl.uniform1f(u.uDt!, DT);
       blit(velocity.write); velocity.swap();
 
-      u = useProg(prog.divergence!, v.w, v.h);
-      bind(0, velocity.read.tex); gl.uniform1i(u.uVelocity!, 0);
-      blit(divergenceFBO);
+      u = use(P.divergence!, v.w, v.h);
+      bind(0, velocity.read.tex); gl.uniform1i(u.uVelocity!, 0); blit(divergenceF);
 
-      // 壓力場不清零：上一幀的解是這一幀很好的起點，疊代次數可以少一半
-      for (let i = 0; i < 14; i++) {
-        u = useProg(prog.pressure!, v.w, v.h);
-        bind(0, pressure.read.tex); bind(1, divergenceFBO.tex);
+      // 壓力場不清零：上一幀的解是這一幀很好的起點，疊代次數可以省一半
+      for (let i = 0; i < 20; i++) {
+        u = use(P.pressure!, v.w, v.h);
+        bind(0, pressure.read.tex); bind(1, divergenceF.tex);
         gl.uniform1i(u.uPressure!, 0); gl.uniform1i(u.uDivergence!, 1);
         blit(pressure.write); pressure.swap();
       }
 
-      u = useProg(prog.gradient!, v.w, v.h);
+      u = use(P.gradient!, v.w, v.h);
       bind(0, pressure.read.tex); bind(1, velocity.read.tex);
       gl.uniform1i(u.uPressure!, 0); gl.uniform1i(u.uVelocity!, 1);
       blit(velocity.write); velocity.swap();
 
-      u = useProg(prog.advect!, v.w, v.h);
+      u = use(P.advect!, v.w, v.h);
       bind(0, velocity.read.tex);
       gl.uniform1i(u.uVelocity!, 0); gl.uniform1i(u.uSource!, 0);
       gl.uniform2f(u.uTexelSim!, 1 / v.w, 1 / v.h);
-      gl.uniform1f(u.uDt!, DT); gl.uniform1f(u.uDissipation!, 0.22);
+      gl.uniform1f(u.uDt!, DT); gl.uniform1f(u.uDissipation!, velDissipation(performance.now()));
       blit(velocity.write); velocity.swap();
 
       const d = dye.read;
-      u = useProg(prog.advect!, d.w, d.h);
+      u = use(P.advect!, d.w, d.h);
       bind(0, velocity.read.tex); bind(1, d.tex);
       gl.uniform1i(u.uVelocity!, 0); gl.uniform1i(u.uSource!, 1);
       gl.uniform2f(u.uTexelSim!, 1 / v.w, 1 / v.h);
-      // 墨幾乎不消散：墨流的紋路是留在水面上的，不是一下就散掉的煙
-      gl.uniform1f(u.uDt!, DT); gl.uniform1f(u.uDissipation!, 0.012);
+      // 墨幾乎不退：墨流的紋路是留在水面上的，不是一下就散掉的煙
+      gl.uniform1f(u.uDt!, DT); gl.uniform1f(u.uDissipation!, 0.008);
       blit(dye.write); dye.swap();
 
-      u = useProg(prog.display!, canvas.width, canvas.height);
-      bind(0, dye.read.tex); gl.uniform1i(u.uDye!, 0);
+      u = use(P.display!, canvas.width, canvas.height);
+      bind(0, dye.read.tex);
+      gl.uniform1i(u.uDye!, 0);
+      gl.uniform2f(u.uRes!, canvas.width, canvas.height);
+      gl.uniform2f(u.uDyeTexel!, 1 / d.w, 1 / d.h);
       blit(null);
     };
 
-    // ── 迴圈：只在還有東西在動的時候跑 ──────────────────────────
     let raf = 0;
     let liveUntil = 0;
     const loop = () => {
@@ -445,54 +419,56 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       if (!raf && !document.hidden) raf = requestAnimationFrame(loop);
     };
 
-    const prev = { x: 0, y: 0, ok: false };
+    let px = 0;
+    let py = 0;
+    let hasPrev = false;
+    let sinceRing = 0;
+
+    /**
+     * **只有滑鼠在動的時候才有東西發生**：沒有點擊下墨、沒有自動演出。
+     * 監聽掛在 window 不是畫布上——畫布是 `pointer-events: none`（否則會把導覽列
+     * 與按鈕的點擊吃掉），所以自己拿框的 rect 換算座標，落在框外就不畫。
+     * 捲離首屏之後 rect 跑掉，座標自然落在框外，不必另外做可見性判斷。
+     */
     const onMove = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return;
       const x = (e.clientX - r.left) / r.width;
       const y = 1 - (e.clientY - r.top) / r.height;
-      if (x < 0 || x > 1 || y < 0 || y > 1) { prev.ok = false; return; }
-      /**
-       * 外力的倍率。**太大的話水面會被打爆**：實測給 6200 時，一次橫掃就把整片墨
-       * 推出畫面外，掃完畫面是乾淨的靛藍——力道大到變成擦掉而不是攪動。
-       * 再加一個上限擋住「滑鼠突然跳很遠」（切視窗回來、兩個螢幕之間移動）那種
-       * 單幀巨大位移，不然一下就把水攪散。
-       */
-      const k = 1500;
-      const dx = prev.ok ? Math.max(-26, Math.min(26, (x - prev.x) * k)) : 0;
-      const dy = prev.ok ? Math.max(-26, Math.min(26, (y - prev.y) * k)) : 0;
-      prev.x = x; prev.y = y; prev.ok = true;
-      const moved = Math.hypot(dx, dy);
-      if (moved < 1.5) return;
-      splat(x, y, dx, dy, Math.min(0.17, 0.02 + moved * 0.0006));
-      wake(4200);
-    };
-    const onDown = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const y = 1 - (e.clientY - r.top) / r.height;
-      if (x < 0 || x > 1 || y < 0 || y > 1) return;
-      splat(x, y, 0, 0, 0.55);   // 按下去滴一滴，推開成一圈
-      wake(5200);
+      if (x < 0 || x > 1 || y < 0 || y > 1) { hasPrev = false; return; }
+      // 力道要夾住：滑鼠突然跳很遠（切視窗回來）會一下把水攪散
+      const fx = hasPrev ? Math.max(-70, Math.min(70, (x - px) * 5200)) : 0;
+      const fy = hasPrev ? Math.max(-70, Math.min(70, (y - py) * 5200)) : 0;
+      const moved = Math.hypot(fx, fy);
+      px = x; py = y; hasPrev = true;
+      if (moved < 0.8) return;
+
+      // 連續的筆觸用團，每隔一段才補一組同心環。
+      // 環太密太濃的話整條會變成一串疙瘩像麻花，而不是一道被攪開的墨。
+      splat(x, y, fx, fy, Math.min(0.072, 0.012 + moved * 0.0016), false);
+      if (++sinceRing >= 11) {
+        sinceRing = 0;
+        const base = 0.016 + Math.random() * 0.010;
+        for (let i = 0; i < 2; i++) splat(x, y, 0, 0, 0.14 - i * 0.05, true, base * (1 + i * 1.8));
+      }
+      lastInput = performance.now();
+      wake(9500);
     };
     const onVisible = () => { if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; } };
 
     window.addEventListener('pointermove', onMove, { passive: true });
-    window.addEventListener('pointerdown', onDown, { passive: true });
     document.addEventListener('visibilitychange', onVisible);
+    const ro = new ResizeObserver(() => { allocate(); wake(400); });
+    ro.observe(host);
 
-    const ro = new ResizeObserver(() => { allocate(); wake(600); });
-    ro.observe(canvas);
-
-    // 開場先畫一次，不然沒碰過之前是全黑
-    step();
+    step();   // 先畫一次紙，不然沒人動滑鼠之前是一片黑
 
     return () => {
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerdown', onDown);
       document.removeEventListener('visibilitychange', onVisible);
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
-      releaseAll();
+      release();
       programs.forEach((p) => gl.deleteProgram(p));
       gl.deleteShader(vs);
       gl.deleteBuffer(quad);
@@ -501,7 +477,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
 
   if (failed) return <>{fallback}</>;
   return (
-    <div className="hero-sumi absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div ref={hostRef} className="hero-sumi absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
       <canvas ref={canvasRef} className="hero-sumi-canvas" />
     </div>
   );
