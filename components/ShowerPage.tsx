@@ -24,6 +24,7 @@ import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play, ArrowRigh
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
 import { formatShowerNote } from '../services/showerNote';
+import showerFaq from '../content/shower-faq.json';
 import { FacebookIcon } from './SocialLinks';
 import { ShowerTruckLocation } from '../types';
 
@@ -575,6 +576,36 @@ const ShowerPage: React.FC = () => {
           */}
           <div className="mt-4 space-y-5">
             {VIDEOS.map(v => <VideoCard key={v.id} {...v} />)}
+          </div>
+        </section>
+
+        {/*
+          常見問題（2026-10-20 補，為了 AI 檢索）。
+          **內容只有一份**：`content/shower-faq.json`，這裡與 `scripts/prerender.js`
+          （FAQPage 結構化資料＋noscript 純文字）讀的是同一個檔。各寫一份的話，
+          哪天改了答案就會變成畫面講一套、給爬蟲的標記講另一套。
+          **而且 FAQPage 的規則就是「標記的內容使用者要看得到」**——
+          只放進 noscript、畫面上沒有，那個標記本身就是違規的（同首頁 FAQ 那條）。
+          用原生 `<details>`：收起來不佔版面，點一下就開，不必自己寫狀態。
+        */}
+        <section id="shower-faq" className="mt-12 scroll-mt-20">
+          <div className="flex items-baseline gap-3">
+            <span className="font-serif text-2xl font-bold text-[#D6246B]/35 leading-none">06</span>
+            <h2 className="font-serif text-xl font-bold text-temple-dark">常見問題</h2>
+          </div>
+          <div className="mt-4 space-y-2">
+            {showerFaq.map(f => (
+              <details
+                key={f.q}
+                className="group rounded-2xl border border-[#D6246B]/20 bg-white px-4 py-3"
+              >
+                <summary className="cursor-pointer list-none font-bold text-temple-dark flex items-start gap-2">
+                  <span className="mt-1.5 w-1.5 h-1.5 rotate-45 bg-[#D6246B]/60 shrink-0" aria-hidden="true" />
+                  <span>{f.q}</span>
+                </summary>
+                <p className="mt-2 pl-4 text-gray-700 leading-relaxed">{f.a}</p>
+              </details>
+            ))}
           </div>
         </section>
 

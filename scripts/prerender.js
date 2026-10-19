@@ -119,11 +119,56 @@ const ROUTES = [
     // 17bath.org/ 會 307 轉到這一頁，所以這一行同時就決定了那個網域的 favicon。
     // 值是檔名前綴，對應 public/ 底下的 bath-favicon.ico 等四個檔。
     icons: 'bath-',
+    /**
+     * **這一頁的主體不是和聖壇。**（2026-10-20 補）
+     * 其餘每一頁的 WebPage 都 `about: #temple`、Service 都 `provider: #temple`，
+     * 這一頁照抄的話，AI 被問「17 沐浴車是誰辦的」會答「台北古亭和聖壇」——
+     * 錯的，而且是把別人的功勞算到自己頭上。主辦是協會，和聖壇做的只有這個查詢頁。
+     * 有 `org` 的路由，WebPage 的 `about` 與 Service 的 `provider` 都改指這個節點。
+     */
+    org: {
+      '@type': ['NGO', 'Organization'],
+      name: '臺中市媽祖聖沐慈善協會',
+      alternateName: ['17 沐浴車', '媽祖聖沐慈善協會'],
+      description: '臺中市立案的慈善協會，由 17 位企業家共同響應公益發起，打造 17 沐浴車，'
+        + '配合媽祖進香活動為香燈腳提供免費沐浴服務，也曾前往花蓮災區提供服務。',
+      url: 'https://17bath.org/',
+      sameAs: [
+        'https://17bath.org/',
+        'https://www.facebook.com/profile.php?id=61574029464178',
+        'https://lin.ee/SUoSKti',
+      ],
+    },
+    service: {
+      name: '17 沐浴車免費沐浴服務',
+      description: '配合媽祖進香活動，為走在進香路上的香燈腳提供免費盥洗服務。'
+        + '不收取任何費用。車輛隨進香隊伍移動，位置由現場志工即時回報。',
+      // **「免費」是這一頁最常被問、也最該被答對的一件事**，所以不是只寫在內文裡，
+      // 要讓結構化資料自己講得出來（Offer 的 price 0 ＋ isAccessibleForFree）。
+      free: true,
+      // 白沙屯媽祖進香的路線會經過的縣市。寫「臺北市」（其他頁的預設值）是錯的，
+      // 這台車從來不在台北——而「在哪裡服務」正是這一頁存在的理由。
+      areaServed: ['苗栗縣', '臺中市', '彰化縣', '雲林縣'],
+    },
+    faq: 'shower',
+    /**
+     * 不執行 JS 的檢索器只讀得到 noscript，所以這一頁的實際內容要在這裡講完。
+     * 位置是即時的、不可能寫進靜態檔（也不該——它每小時都在變），
+     * 但「誰辦的、給誰用、要不要錢、位置怎麼來的、多久更新一次」是不會變的，
+     * 而那恰好就是 AI 被問到時要回答的東西。
+     */
     body: [
-      '17 沐浴車由臺中市媽祖聖沐慈善協會主辦，配合媽祖進香活動，為辛苦走在進香路上的香燈腳提供免費沐浴服務。',
-      '白沙屯媽祖進香沒有固定路線，沐浴車隨隊伍移動。本頁顯示每台車目前停放的地點與最後回報時間，可直接開啟 Google 地圖導航前往。位置由現場志工回報，出發前請再確認一次。',
+      '17 沐浴車由臺中市媽祖聖沐慈善協會主辦，配合媽祖進香活動，為辛苦走在進香路上的香燈腳提供免費沐浴服務，不收取任何費用。',
+      '協會由 17 位企業家共同響應公益發起，合力打造這台沐浴車，車名的「17」就是這個由來。服務內容曾獲壹電視 NEXT TV 專題報導。',
+      '白沙屯媽祖進香沒有固定路線，沐浴車隨隊伍移動。本頁顯示每台車目前停放的地點與最後回報時間，可直接開啟 Google 地圖導航前往。位置由現場志工在現場回報，出發前請再確認一次；超過兩小時沒有更新的位置，頁面會另外標示提醒。',
       '服務對象：參與媽祖進香活動的香燈腳、進香信眾、隨香人員與進香志工。',
+      '非進香期間本頁不會有位置資料。協會也在花蓮災區提供過沐浴服務。',
+      '這一頁的網址有兩個：17bath.org 與 heshengtan.tw/shower，內容相同。',
     ],
+    // noscript 頁尾要署協會的名，不是和聖壇的地址電話與開放時間——
+    // 那是一間在台北的宮廟，而這台車在進香路上，兩者擺在一起會被當成同一個單位。
+    footer: '臺中市媽祖聖沐慈善協會｜17 沐浴車｜'
+      + 'Facebook：17沐浴車｜網址 https://17bath.org/',
   },
   {
     // 公佈欄完整清單。內容是資料庫來的，prerender 只產靜態殼——
@@ -256,6 +301,14 @@ const template = readFileSync(resolve(DIST, 'index.html'), 'utf8');
  * 最後一項有時間差是刻意的取捨：那只影響新鮮度，不影響標記與畫面是否一致。
  */
 const FALLBACK_FAQ = JSON.parse(readFileSync(resolve(DIST, '..', 'content', 'faq.json'), 'utf8')).items;
+
+/**
+ * 沐浴車的常見問題。**與 `components/ShowerPage.tsx` 讀同一個檔**——
+ * 畫面、FAQPage 標記、noscript 純文字三個地方必須是同一份內容，
+ * 各寫一份的話改了答案就會變成「標記的內容使用者看不到」（FAQPage 的規則就是這條）。
+ * 這一份刻意放檔案不放資料庫：它講的是協會的服務，後台沒有、也不該有它的編輯介面。
+ */
+const SHOWER_FAQ = JSON.parse(readFileSync(resolve(DIST, '..', 'content', 'shower-faq.json'), 'utf8'));
 
 const fetchFaq = async () => {
   const url = process.env.VITE_SUPABASE_URL;
@@ -690,7 +743,8 @@ for (const r of ACTIVE_ROUTES) {
         description: r.desc,
         inLanguage: 'zh-TW',
         isPartOf: { '@id': ORIGIN + '/#website' },
-        about: { '@id': ORIGIN + '/#temple' },
+        // 這一頁在講誰。多數頁是宮廟本體，`org` 路由（沐浴車）是別的單位，見該路由的註解。
+        about: { '@id': r.org ? url + '#org' : ORIGIN + '/#temple' },
       },
       {
         '@type': 'BreadcrumbList',
@@ -699,6 +753,8 @@ for (const r of ACTIVE_ROUTES) {
           { '@type': 'ListItem', position: 2, name: r.h1, item: url },
         ],
       },
+      // 這一頁談的是別的單位時，那個單位自己要是一個節點，才有東西可以被指到
+      ...(r.org ? [{ '@id': url + '#org', ...r.org }] : []),
       /**
        * 這一頁提供什麼服務（2026-10-13 補）。
        * 原本各頁只有 WebPage 與麵包屑——那只說得出「站內有這一頁」，
@@ -712,9 +768,22 @@ for (const r of ACTIVE_ROUTES) {
         name: r.service.name,
         description: r.service.description,
         serviceType: r.service.name,
-        provider: { '@id': ORIGIN + '/#temple' },
-        areaServed: { '@type': 'City', name: '臺北市' },
+        provider: { '@id': r.org ? url + '#org' : ORIGIN + '/#temple' },
+        areaServed: (r.service.areaServed ?? ['臺北市']).map((n) => ({ '@type': 'City', name: n })),
         url,
+        // 免費的服務要講得出「免費」。只寫在內文裡，AI 得自己從句子推；
+        // 給 Offer 一個 price 0 才是機器讀得懂的講法（緊急祈願燈也是免費的，
+        // 但它目前沒開這個旗標——要補的話在那一筆加 `free: true` 就好）。
+        ...(r.service.free ? {
+          isAccessibleForFree: true,
+          offers: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'TWD',
+            availability: 'https://schema.org/InStock',
+            url,
+          },
+        } : {}),
         ...(r.path === '/lamps' && lampServices.length > 0 ? {
           hasOfferCatalog: {
             '@type': 'OfferCatalog',
@@ -730,21 +799,58 @@ for (const r of ACTIVE_ROUTES) {
           },
         } : {}),
       }] : []),
+      /**
+       * 這一頁自己的常見問題（`faq: 'shower'`）。
+       * **畫面上看得到的那一份才可以標記**——內容與 `components/ShowerPage.tsx`
+       * 讀的是同一個 `content/shower-faq.json`，兩邊不會各自漂移。
+       * 首頁的 FAQ 走另一條路（資料庫、App.tsx 執行期覆寫），不要混在一起。
+       */
+      ...(r.faq === 'shower' ? [{
+        '@type': 'FAQPage',
+        '@id': url + '#faq',
+        inLanguage: 'zh-TW',
+        mainEntity: SHOWER_FAQ.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      }] : []),
     ],
   };
   html = html.replace('</head>',
     `  <script type="application/ld+json">\n${JSON.stringify(ld, null, 2)}\n    </script>\n  </head>`);
 
-  // 不執行 JS 的檢索器讀得到的實際文字
+  // 不執行 JS 的檢索器讀得到的實際文字（GPTBot／ClaudeBot／PerplexityBot 都不跑 JS）
+
+  // 這一頁自己的常見問題也要寫進來：爬蟲讀得到的只有這裡，
+  // 而問答正是被引用時最好用的格式（一問一答，不必自己從長段落裡切）。
+  const faqText = r.faq === 'shower'
+    ? `\n        <h2 style="font-size:1.15rem;margin:1.75rem 0 .5rem">常見問題</h2>\n`
+      + SHOWER_FAQ.map((f) => `        <p><strong>${esc(f.q)}</strong><br />${esc(f.a)}</p>`).join('\n')
+    : '';
+
+  // 署名：有 `org` 的路由署那個單位（沐浴車是協會的），其餘署宮廟。
+  const footerText = r.footer
+    ? esc(r.footer)
+    : `台北古亭和聖壇｜${site ? esc(site.address) : '100 臺北市中正區晉江街 72 巷 9 號'}｜電話 <a href="tel:${site ? site.phone.replace(/[^\d+]/g, '') : '0953945349'}" style="color:#7C5C1E">${site ? esc(site.phone) : '0953-945-349'}</a>｜每日 ${site ? `${site.open} – ${site.close}` : '06:00 – 23:00'}`;
+
+  /**
+   * 站內連結。**`org` 的路由要用絕對網址指回 heshengtan.tw。**
+   * 這一份 HTML 同時被 17bath.org 供應，相對網址在那個網域上會變成
+   * `17bath.org/booking`、`17bath.org/lamps`⋯⋯而 SPA 的萬用規則真的會把
+   * 整個和聖壇網站在沐浴車的網域底下再長一份出來。爬蟲照著爬就是兩個網域
+   * 各有一套一模一樣的內容，誰是正本就說不清楚了。
+   */
+  const linkBase = r.org ? ORIGIN : '';
   const noscript = `
     <noscript>
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
         <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
-${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}
-        <p style="margin-top:1.5rem">台北古亭和聖壇｜${site ? esc(site.address) : '100 臺北市中正區晉江街 72 巷 9 號'}｜電話 <a href="tel:${site ? site.phone.replace(/[^\d+]/g, '') : '0953945349'}" style="color:#7C5C1E">${site ? esc(site.phone) : '0953-945-349'}</a>｜每日 ${site ? `${site.open} – ${site.close}` : '06:00 – 23:00'}</p>
+${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${faqText}
+        <p style="margin-top:1.5rem">${footerText}</p>
         <p style="margin-top:1.25rem">${NAV_LINKS.filter((l) => l.path !== r.path)
-          .map((l) => `<a href="${l.path}" style="color:#7C5C1E;margin-right:1rem">${esc(l.label)}</a>`).join('')}</p>
-        <p style="color:#7C5C1E">本頁的線上登記功能需要啟用 JavaScript。</p>
+          .map((l) => `<a href="${linkBase}${l.path}" style="color:#7C5C1E;margin-right:1rem">${esc(l.label)}</a>`).join('')}</p>
+        <p style="color:#7C5C1E">${r.org ? '本頁的沐浴車位置查詢需要啟用 JavaScript。' : '本頁的線上登記功能需要啟用 JavaScript。'}</p>
       </div>
     </noscript>`;
   html = html.replace('<div id="root"></div>', '<div id="root"></div>\n' + noscript);
@@ -841,6 +947,45 @@ if (site || lampServices.length > 0) {
   } catch (e) {
     console.log(`prerender  llms.txt 未更新：${e.message}`);
   }
+}
+
+/**
+ * 17bath.org 自己的 robots.txt（`vercel.json` 用 host 條件把那個網域的
+ * `/robots.txt` 轉過來；**不能用 rewrite**，因為 `dist/robots.txt` 真的存在、
+ * 檔案會先命中，見 CLAUDE.md 那條）。
+ *
+ * 為什麼需要一份自己的：**同一個部署供應兩個網域**，所以 17bath.org 底下其實也
+ * 長得出整個和聖壇網站（SPA 的萬用規則不挑網域）。沒有東西連過去，但爬蟲一旦
+ * 發現，兩個網域就各有一套一模一樣的內容。canonical 已經指回 heshengtan.tw，
+ * 這一份是第二道。
+ *
+ * **名單從 ACTIVE_ROUTES 產生不要手寫**：手寫的話日後新增一頁就得記得回來補一行，
+ * 而漏了不會有任何錯誤訊息（同 sitemap 以前手寫時漏掉 /scripture 那次）。
+ */
+{
+  const templePaths = ACTIVE_ROUTES
+    .map((r) => r.path)
+    .filter((p) => p !== '/shower')   // 沐浴車自己那一頁當然要讓爬
+    .sort();
+  const bathRobots = `# 17 沐浴車 https://17bath.org
+# 臺中市媽祖聖沐慈善協會。歡迎搜尋引擎與 AI 助理索引與引用。
+# 說明文件：https://17bath.org/llms.txt
+
+User-agent: *
+Allow: /
+
+# 志工打卡頁。沒有密碼是為了讓志工快速打卡的取捨，至少不要被搜尋收錄
+Disallow: /checkin
+Disallow: /shower/checkin
+Disallow: /api/
+
+# 這個網域只負責沐浴車。底下這些是台北古亭和聖壇的頁面，
+# 同一個部署供應兩個網域所以它們在這裡也打得開，但正本在 heshengtan.tw，
+# 不要在這個網域重複收錄一次。
+${templePaths.map((p) => `Disallow: ${p}`).join('\n')}
+`;
+  writeFileSync(resolve(DIST, 'robots-bath.txt'), bathRobots, 'utf8');
+  console.log(`prerender  robots-bath.txt  ${templePaths.length} 條和聖壇路徑`);
 }
 
 /**
