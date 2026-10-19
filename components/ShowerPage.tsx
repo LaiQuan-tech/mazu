@@ -24,6 +24,7 @@ import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play, ArrowRigh
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
 import { formatShowerNote } from '../services/showerNote';
+import { FacebookIcon } from './SocialLinks';
 import { ShowerTruckLocation } from '../types';
 
 /** 位置超過這麼久就提醒香客可能已經移動 */
@@ -67,6 +68,14 @@ const BRAND = {
    * 全站的浮動鈕與導覽列圖示用的都是它。這一支只出現在 /shower。
    */
   line: 'https://lin.ee/SUoSKti',
+  /**
+   * 協會的臉書粉專「17沐浴車一起來沐浴」（廟方 2026-10-20 提供）。
+   *
+   * 用 `profile.php?id=` 這個穩定形式，不用他給的 `facebook.com/share/xxx`
+   * 分享短連結——那種是臨時的、會換；也不用 `/people/<中文名>/<id>/` 那個，
+   * 網址裡一長串 URL-encode 的中文，貼在哪裡都難看而且一樣會跟著改名變動。
+   */
+  facebook: 'https://www.facebook.com/profile.php?id=61574029464178',
   /** 志工招募報名表（Google 表單，廟方 2026-10-17 提供） */
   volunteerForm: 'https://forms.gle/P46M9nt7Dzh4125z6',
   /** 橫幅底下那一句，講的是「這一頁現在能幫你什麼」，不是品牌故事 */
@@ -533,12 +542,17 @@ const ShowerPage: React.FC = () => {
               的連線，而且那邊哪天換網址也不會變成一塊破圖。
               連結的名字寫在 aria-label，img 的 alt 留空——圖上那三個字是「加入好友」，
               讀屏軟體只念這三個字等於沒講加誰的。 */}
+          {/* LINE 與臉書並排。**兩顆都走協會自己的帳號**——這一頁掛在和聖壇的
+              網域上，社群連結放在協會名稱正下方才不會被誤會成和聖壇的。
+              臉書用站上現成的 FacebookIcon（SocialLinks 只相依 React 與 types，
+              不會把別的東西拖進這個 chunk），不要再畫一顆一模一樣的。 */}
+          <div className="mt-5 flex items-center justify-center gap-3">
           <a
             href={BRAND.line}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`加入${BRAND.org} LINE 官方帳號`}
-            className="inline-block mt-5 px-2 py-2 hover:opacity-85 transition-opacity"
+            className="inline-block px-2 py-2 hover:opacity-85 transition-opacity"
           >
             <img
               src={heroSrc('line-add-friend.png')}
@@ -549,6 +563,20 @@ const ShowerPage: React.FC = () => {
               className="block h-9 w-auto"
             />
           </a>
+
+          {/* 臉書做成與 LINE 鈕同高（36px）的圓形，兩顆並排時重量才一致。
+              點擊區 44x44，長者的拇指按得準（WCAG 的 24px 只是下限）。 */}
+          <a
+            href={BRAND.facebook}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${BRAND.org}臉書粉絲專頁`}
+            className="inline-flex items-center justify-center w-11 h-11 rounded-full text-white hover:opacity-85 transition-opacity"
+            style={{ background: '#1877F2' }}
+          >
+            <FacebookIcon className="w-5 h-5" />
+          </a>
+          </div>
         </div>
       </main>
     </div>
