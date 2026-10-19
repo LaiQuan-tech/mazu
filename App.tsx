@@ -764,6 +764,13 @@ const HERO_VARIANTS = {
    * 決定要用哪一個就改 `DEFAULT_HERO`，**並重跑 `scripts/build-og-hero.js`**：
    * lockup 把字標從左上角搬到左欄、字也放大了，分享卡上的字標帶對不上。
    */
+  /**
+   * 青花與泥金（見 HeroQinghua）。`dark: true` 讓宮壇名改用泥金——
+   * 深底上的白字會發虛，而這一版的主色本來就是泥金。
+   * 沒有 `file`：整片是畫出來的，所以也不必進 HERO_FILES、不必 preload。
+   */
+  qinghua: { qinghua: true as const, tone: 'flat' as const, dark: true as const },
+  'qinghua-full': { qinghua: true as const, tone: 'flat' as const, dark: true as const, lockup: true as const },
   lockup: { file: 'hero-gold.jpg', tone: 'gold' as const, lockup: true as const },
   caisson: { file: 'hero-gold.jpg', tone: 'gold' as const, caisson: true as const },
   full: { file: 'hero-gold.jpg', tone: 'gold' as const, lockup: true as const, caisson: true as const },
@@ -820,6 +827,63 @@ const HeroStudio: React.FC = () => (
   </div>
 );
 
+/**
+ * 藻井的幾何。金箔版（`?hero=caisson`）與青花版（`?hero=qinghua`）共用同一份——
+ * 兩邊各畫一次的話，日後調層次只會改到其中一邊。顏色由 CSS 的 `color` 決定。
+ *
+ * **不要畫成「同心圓＋從中心放射到外圈的長線」**（2026-10-20 第一版就是那樣，
+ * 廟方一眼認出來：「有一點像蜘蛛網，這樣很像蜘蛛人」）。那個組合在視覺上
+ * 就是蛛網的定義，跟藻井一點關係也沒有。
+ *
+ * 真的藻井是**一層一層往上收**的：外面一圈寬帶、收進八角、再收進圓，
+ * 最中間是明鏡。層次靠「帶子的寬窄與深淺」做，不是靠線。
+ * 所以這一版：寬帶 ＋ 交界的細線 ＋ 八角那一層 ＋ 中央的蓮花明鏡，
+ * **一條貫穿半徑的線都沒有**；唯一的放射元素是最外圈帶子「裡面」的短撐
+ * （斗拱），短到不會連成蛛網的輻條。
+ *
+ * 兩組 `<g>` 分開的理由：`vectorEffect="non-scaling-stroke"` 會讓線寬變成
+ * **螢幕像素**，細線要的正是這個（縮放都保持銳利），但寬帶要跟著元素一起縮放，
+ * 套上去的話 13 單位的帶子會變成 13px 的細線。
+ */
+const CaissonSvg: React.FC<{ className: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+    {/* 寬帶：由外往內三層，越裡面越窄，看起來就是往上收的斗八 */}
+    <g fill="none" stroke="currentColor">
+      <circle cx="100" cy="100" r="80" strokeWidth="13" opacity="0.34" />
+      <circle cx="100" cy="100" r="58" strokeWidth="9" opacity="0.26" />
+      <circle cx="100" cy="100" r="39" strokeWidth="6" opacity="0.2" />
+    </g>
+    <g fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke">
+      {/* 每一層的上下緣，層與層之間才有交界 */}
+      <circle cx="100" cy="100" r="86.5" strokeWidth="1" />
+      <circle cx="100" cy="100" r="73.5" strokeWidth="0.7" opacity="0.72" />
+      <circle cx="100" cy="100" r="62.5" strokeWidth="1" />
+      {/* 八角：藻井之所以叫斗八，少了這一層就只剩同心圓、變成箭靶 */}
+      <polygon points={octagon(47)} strokeWidth="1" />
+      <polygon points={octagon(31)} strokeWidth="0.7" opacity="0.72" />
+      {/* 斗拱：只在最外那一圈帶子「之內」的短撐，長度剛好一個帶寬 */}
+      {Array.from({ length: 24 }, (_, k) => {
+        const a = ((-90 + k * 15) * Math.PI) / 180;
+        return (
+          <line
+            key={k} strokeWidth="1.3" opacity="0.5"
+            x1={(100 + 74 * Math.cos(a)).toFixed(2)} y1={(100 + 74 * Math.sin(a)).toFixed(2)}
+            x2={(100 + 86 * Math.cos(a)).toFixed(2)} y2={(100 + 86 * Math.sin(a)).toFixed(2)}
+          />
+        );
+      })}
+      {/* 明鏡：中央那面圓鏡，廟裡多半雕蓮花或蟠龍。八瓣蓮花 */}
+      <g opacity="0.85">
+        {Array.from({ length: 8 }, (_, k) => (
+          <ellipse key={k} cx="100" cy="84" rx="5.5" ry="12" strokeWidth="0.9"
+            transform={`rotate(${k * 45} 100 100)`} />
+        ))}
+        <circle cx="100" cy="100" r="6" strokeWidth="1.2" />
+      </g>
+    </g>
+  </svg>
+);
+
 /** 藻井用的正八邊形：頂點朝上，半徑 r，中心固定在 viewBox 的 (100,100) */
 const octagon = (r: number): string =>
   Array.from({ length: 8 }, (_, k) => {
@@ -846,60 +910,85 @@ const octagon = (r: number): string =>
  * 整層 `aria-hidden`，而且排在上緣那道深色遮罩**之前**——排在之後的話，
  * 藻井會壓在被壓暗的頂部比周圍亮，導覽列的字就讀不出來了（同 SilkSheen 反光層那條）。
  */
+/**
+ * 青花與泥金（`?hero=qinghua`，2026-10-20）。
+ *
+ * 廟方喜歡 `?hero=blue` 的方向，但回饋是「底圖太 AI」。那是真的：`hero-blue.jpg`
+ * 是一張生成的流體畫，而生成圖的特徵就是**糊掉的漸層與講不出名字的細節**——
+ * 看久了每個人都認得出來。
+ *
+ * **所以這一版一張圖都不用。** 底是 CSS 漸層，紋樣全部是手寫的 SVG 幾何：
+ * 線寬一致、左右對稱、每一個母題都叫得出名字。那正是生成圖做不到的事，
+ * 也是「看起來像設計過」與「看起來像算出來」的差別。
+ * 附帶的好處跟藻井那層一樣：零請求、零位元組，任何螢幕比例都不會裁到。
+ *
+ * **構成照青花瓷器本身的分層**，不是隨便找地方貼圖案：
+ *   口沿 → 回紋（泥金）        頂端一道，壓在導覽列下方
+ *   肩   → 纏枝蓮（青花）      上半部的捲草與蓮花
+ *   腹   → 藻井（泥金）        神尊背後，與金箔版共用同一組幾何
+ *
+ * **脛的那一圈仰蓮做過又拿掉了。** 底部是 `hero-bottom-fade` 的地盤——深色底
+ * 要 224px 才淡得不突兀，紋樣擺進去不是被洗掉就是得往上挪，而往上挪就會
+ * 橫過神尊的袍子。那裡本來就不需要裝飾：收邊是那道淡出的工作。
+ *
+ * 帶狀的三層**刻意不給 viewBox**：沒有 viewBox 時 SVG 的使用者單位就等於 CSS 像素，
+ * 回紋與蓮瓣因此在任何寬度的螢幕上都是同一個大小、一路平鋪過去。
+ * 給了 viewBox 的話圖案會跟著螢幕寬度縮放，手機上會變成一排看不清的小點。
+ */
+const HeroQinghua: React.FC = () => (
+  <div className="hero-qinghua absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div className="qh-ground" />
+    <div className="qh-glaze" />
+
+    {/* 口沿的回紋 */}
+    <svg className="qh-fret" width="100%" height="18">
+      <defs>
+        <pattern id="qh-fret-unit" width="26" height="18" patternUnits="userSpaceOnUse">
+          <path d="M1 17 V4 H20 V14 H8 V9 H15" fill="none" stroke="currentColor" strokeWidth="1.3" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="18" fill="url(#qh-fret-unit)" />
+    </svg>
+
+    {/* 肩上的纏枝蓮：一條波浪的藤，波峰上開蓮花、波谷配一對葉 */}
+    <svg className="qh-vine" width="100%" height="96">
+      <defs>
+        <pattern id="qh-vine-unit" width="180" height="96" patternUnits="userSpaceOnUse">
+          <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M0 62 C 24 18, 66 18, 90 62 C 114 106, 156 106, 180 62" />
+            {/*
+              波峰的蓮花。**花瓣要用尖頭的瓣形，不要用細長的橢圓。**
+              第一版是六個 rx4.5/ry9 的橢圓繞著中心轉，放大看就是一朵雪花——
+              從一個點放射出去的細長形狀，視覺上讀到的是「輻射」不是「花」。
+              改成兩端收尖、中段鼓起的瓣，八瓣相鄰處互相交疊，才像蓮。
+            */}
+            <g transform="translate(45 34)">
+              {Array.from({ length: 8 }, (_, k) => (
+                <path key={k} d="M0 0 C -6 -5, -7 -13, 0 -17 C 7 -13, 6 -5, 0 0" transform={`rotate(${k * 45})`} />
+              ))}
+              <circle cx="0" cy="0" r="3.4" />
+            </g>
+            {/* 波谷的捲草：一對葉子 */}
+            <g transform="translate(135 86)">
+              <path d="M0 0 C -14 -6, -18 -18, -6 -22" />
+              <path d="M0 0 C 14 -6, 18 -18, 6 -22" />
+            </g>
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="96" fill="url(#qh-vine-unit)" />
+    </svg>
+
+    {/* 腹：神尊背後的藻井，與金箔版同一組幾何 */}
+    <CaissonSvg className="qh-caisson" />
+
+  </div>
+);
+
 const HeroCaisson: React.FC = () => (
   <div className="hero-pattern absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
     <div className="hero-shaft" />
-    {/*
-      **不要畫成「同心圓＋從中心放射到外圈的長線」**（2026-10-20 第一版就是那樣，
-      廟方一眼認出來：「有一點像蜘蛛網，這樣很像蜘蛛人」）。那個組合在視覺上
-      就是蛛網的定義，跟藻井一點關係也沒有。
-
-      真的藻井是**一層一層往上收**的：外面一圈寬帶、收進八角、再收進圓，
-      最中間是明鏡。層次靠「帶子的寬窄與深淺」做，不是靠線。
-      所以這一版：寬帶 ＋ 交界的細線 ＋ 八角那一層 ＋ 中央的蓮花明鏡，
-      **一條貫穿半徑的線都沒有**；唯一的放射元素是最外圈帶子「裡面」的短撐
-      （斗拱），短到不會連成蛛網的輻條。
-
-      兩組分開的理由：`vectorEffect="non-scaling-stroke"` 會讓線寬變成**螢幕像素**，
-      細線要的正是這個（縮放都保持銳利），但寬帶要跟著元素一起縮放，
-      套上去的話 13 單位的帶子會變成 13px 的細線。
-    */}
-    <svg className="hero-caisson" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
-      {/* 寬帶：由外往內三層，越裡面越窄，看起來就是往上收的斗八 */}
-      <g fill="none" stroke="currentColor">
-        <circle cx="100" cy="100" r="80" strokeWidth="13" opacity="0.34" />
-        <circle cx="100" cy="100" r="58" strokeWidth="9" opacity="0.26" />
-        <circle cx="100" cy="100" r="39" strokeWidth="6" opacity="0.2" />
-      </g>
-      <g fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke">
-        {/* 每一層的上下緣，層與層之間才有交界 */}
-        <circle cx="100" cy="100" r="86.5" strokeWidth="1" />
-        <circle cx="100" cy="100" r="73.5" strokeWidth="0.7" opacity="0.72" />
-        <circle cx="100" cy="100" r="62.5" strokeWidth="1" />
-        {/* 八角：藻井之所以叫斗八，少了這一層就只剩同心圓、變成箭靶 */}
-        <polygon points={octagon(47)} strokeWidth="1" />
-        <polygon points={octagon(31)} strokeWidth="0.7" opacity="0.72" />
-        {/* 斗拱：只在最外那一圈帶子「之內」的短撐，長度剛好一個帶寬 */}
-        {Array.from({ length: 24 }, (_, k) => {
-          const a = ((-90 + k * 15) * Math.PI) / 180;
-          return (
-            <line
-              key={k} strokeWidth="1.3" opacity="0.5"
-              x1={(100 + 74 * Math.cos(a)).toFixed(2)} y1={(100 + 74 * Math.sin(a)).toFixed(2)}
-              x2={(100 + 86 * Math.cos(a)).toFixed(2)} y2={(100 + 86 * Math.sin(a)).toFixed(2)}
-            />
-          );
-        })}
-        {/* 明鏡：中央那面圓鏡，廟裡多半雕蓮花或蟠龍。八瓣蓮花 */}
-        <g opacity="0.85">
-          {Array.from({ length: 8 }, (_, k) => (
-            <ellipse key={k} cx="100" cy="84" rx="5.5" ry="12" strokeWidth="0.9"
-              transform={`rotate(${k * 45} 100 100)`} />
-          ))}
-          <circle cx="100" cy="100" r="6" strokeWidth="1.2" />
-        </g>
-      </g>
-    </svg>
+    <CaissonSvg className="hero-caisson" />
     {/* preserveAspectRatio="none" 會把線條橫向拉扁，所以每一條都要 non-scaling-stroke */}
     <svg className="hero-waves" viewBox="0 0 120 22" preserveAspectRatio="none">
       <g fill="none" stroke="currentColor" vectorEffect="non-scaling-stroke">
@@ -2801,7 +2890,9 @@ const App: React.FC = () => {
             注意排序：反光層必須在下面那道深色遮罩「之前」，
             否則翻面帶在被壓暗的頂部會比周圍亮，邊界接不起來。
             更早的金色祥雲織錦是 /hero-clouds.jpg（tone="silk"），檔案留著。 */}
-        {'studio' in HERO ? <HeroStudio /> : <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />}
+        {'qinghua' in HERO ? <HeroQinghua />
+          : 'studio' in HERO ? <HeroStudio />
+          : <SilkSheen src={heroSrc(HERO.file)} tone={HERO.tone} className="absolute inset-0 z-0 overflow-hidden" />}
         {'caisson' in HERO && <HeroCaisson />}
         {/* 深色遮罩只壓在「有字的地方」，而且只壓上緣：
             底圖很亮，白色的導覽列與「和聖壇」疊上去對比不足；但整片壓暗就把顏色壓濁了。
@@ -2868,11 +2959,21 @@ const App: React.FC = () => {
           金箔牆上用白字不用金字——金字壓在金箔上等於沒有字（同 hero-title 那條）。
         */}
         {'lockup' in HERO && (
-          <div className="hero-lockup absolute z-30 left-5 sm:left-10 top-6 land:top-1/2 land:-translate-y-1/2 max-w-[17rem] sm:max-w-[22rem] land:max-w-[26rem] text-white">
-            <h1 className="font-serif font-bold text-5xl sm:text-7xl tracking-[0.16em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]">和聖壇</h1>
-            <div aria-hidden="true" className="mt-4 sm:mt-5 w-14 sm:w-20 border-t-2 border-white/75" />
+          <div
+            className="hero-lockup absolute z-30 left-5 sm:left-10 top-6 land:top-1/2 land:-translate-y-1/2 max-w-[17rem] sm:max-w-[22rem] land:max-w-[26rem]"
+            style={{ color: 'dark' in HERO ? '#F0D9A4' : '#FFFFFF' }}
+          >
+            {/*
+              **桌機要直式**（廟方 2026-10-20：「桌機看和聖壇，字還是要直式，比較古典美」）。
+              手機維持橫式：直排三個字加上去會吃掉 200px 以上的高度，而手機的首屏
+              本來就要塞下字標、說明、兩顆按鈕與三尊神明。
+              `land:` 不是 `sm:`——平板直立的首屏跟手機一樣是高窄的，用寬度切會讓
+              直立的 iPad 也走直排（同下面神尊那一欄用 land: 的理由）。
+            */}
+            <h1 className="font-serif font-bold text-5xl sm:text-6xl land:text-7xl tracking-[0.16em] land:tracking-[0.25em] land:[writing-mode:vertical-rl] land:[text-orientation:upright] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]">和聖壇</h1>
+            <div aria-hidden="true" className="mt-4 sm:mt-5 w-14 sm:w-20 border-t-2" style={{ borderColor: 'dark' in HERO ? 'rgba(240,217,164,.75)' : 'rgba(255,255,255,.75)' }} />
             <p className="mt-4 font-serif text-base sm:text-xl tracking-[0.2em] [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">台北古亭　主祀天上聖母</p>
-            <p className="mt-1.5 text-sm sm:text-base tracking-[0.1em] text-white/85 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">創立於民國 73 年</p>
+            <p className="mt-1.5 text-sm sm:text-base tracking-[0.1em] opacity-85 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">創立於民國 73 年</p>
             <div className="mt-6 sm:mt-8 flex flex-wrap gap-3">
               {/* 主按鈕沿用 .btn-sutra（磁青底泥金字）：金底按鈕在金箔牆上會埋進背景，
                   那是 2026-10 已經換過一次的結論，不要走回去 */}
@@ -2974,7 +3075,13 @@ const App: React.FC = () => {
             用一道極短的漸層讓織錦自然過渡到下一段的米白，不做幾何造型。 */}
         <div
           className="hero-bottom-fade absolute bottom-0 inset-x-0 pointer-events-none"
-          style={{ '--hero-fade-rgb': HERO_FADE_RGB } as React.CSSProperties}
+          /* **深色底要更長的淡出。** 128px 從靛藍直接收到純白，在交界處是一道
+             很明顯的亮帶（廟方對青花版反映過「hero 與下一區塊間隔有點突兀」）；
+             金箔牆本來就接近米色，128px 綽綽有餘。 */
+          style={{
+            '--hero-fade-rgb': HERO_FADE_RGB,
+            ...('dark' in HERO ? { '--hero-fade': '224px' } : {}),
+          } as React.CSSProperties}
         />
       </section>
 
