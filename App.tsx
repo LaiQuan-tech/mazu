@@ -803,8 +803,10 @@ const HERO = (() => {
   if (typeof window === 'undefined') return HERO_VARIANTS[DEFAULT_HERO];
   const v = new URLSearchParams(window.location.search).get('hero');
   if (v && v in HERO_VARIANTS) return HERO_VARIANTS[v as keyof typeof HERO_VARIANTS];
-  // ?ink=1 沒有另外指定 hero 時，底圖跟著換成藍金（理由見 INK_MODE）
-  if (INK_MODE) return HERO_VARIANTS.blue;
+  // ?ink=1 沒有另外指定 hero 時，用墨流（理由見 INK_MODE：版面是深的，hero 也得是深的）。
+  // 本來指到 blue，但那張就是廟方說「底圖太 AI」的那一張；墨流本身就是青花紙＋泥金，
+  // 跟整站的主題同一套，且 dark: true 一樣吃得到 --hero-fade
+  if (INK_MODE) return HERO_VARIANTS.sumi;
   return HERO_VARIANTS[DEFAULT_HERO];
 })();
 
