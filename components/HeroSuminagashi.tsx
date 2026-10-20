@@ -209,6 +209,24 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
      * 視覺維持一模一樣。
      */
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /**
+     * 手機檔位（廟方 2026-10-20 回報「手機上泥金動畫很卡」）。
+     *
+     * 一幀要跑二十幾個全螢幕 pass，最貴的兩個是**壓力迭代**（20 次）與
+     * **display**（3 次 vnoise ＋ hash ＋ 4 次 dye 取樣，而且是以畫布全解析度跑）。
+     * 桌機吃得下，手機吃不下——iPhone dpr 3 被夾到 2 之後畫布還是接近
+     * 800×1400，等於每幀一百多萬個 fragment 跑那支很重的 shader。
+     *
+     * 用 `pointer: coarse` 當判斷：它問的是「這臺機器的指標準不準」，
+     * 剛好就是「是不是手機平板」，比抓 UA 可靠也不會隨機型過時。
+     * 四個值一起降，單降哪一個都不夠。
+     */
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const SIM_N = coarse ? 176 : 256;
+    const PRESSURE_ITERS = coarse ? 12 : 20;
+    const DPR_CAP = coarse ? 1.3 : 2;
+    const DYE_CAP = coarse ? 720 : 1024;
     const host = hostRef.current;
     const canvas = canvasRef.current;
     if (!host || !canvas) return;
@@ -292,7 +310,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       return { get read() { return a; }, get write() { return b; }, swap() { const t = a; a = b; b = t; } } as Double;
     };
 
-    const SIM = 256;
+    const SIM = SIM_N;
     let aspect = 1;
     let gw = 0;
     let gh = 0;
@@ -305,7 +323,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
     const allocate = () => {
       const r = host.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(DPR_CAP, window.devicePixelRatio || 1);
       const W = Math.max(1, Math.round(r.width * dpr));
       const H = Math.max(1, Math.round(r.height * dpr));
       canvas.width = W; canvas.height = H;
@@ -316,7 +334,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       if (sw === gw && shh === gh) return;
       gw = sw; gh = shh;
       // dye 跟著螢幕走、上限 1024。低解析度的 dye 放大就是一格一格的馬賽克。
-      const long = Math.min(1024, Math.max(640, Math.round(Math.max(W, H) * 0.75)));
+      const long = Math.min(DYE_CAP, Math.max(640, Math.round(Math.max(W, H) * 0.75)));
       const dw = aspect >= 1 ? long : Math.round(long * aspect);
       const dh = aspect >= 1 ? Math.round(long / aspect) : long;
       release();
@@ -425,7 +443,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       bind(0, velocity.read.tex); gl.uniform1i(u.uVelocity!, 0); blit(divergenceF);
 
       // 壓力場不清零：上一幀的解是這一幀很好的起點，疊代次數可以省一半
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < PRESSURE_ITERS; i++) {
         u = use(P.pressure!, v.w, v.h);
         bind(0, pressure.read.tex); bind(1, divergenceF.tex);
         gl.uniform1i(u.uPressure!, 0); gl.uniform1i(u.uDivergence!, 1);
@@ -469,14 +487,21 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
 
     let raf = 0;
     let liveUntil = 0;
+    /**
+     * Hero 捲出畫面就不要跑。**這在手機上比任何一個參數都有感**：
+     * 手指捲頁本身就是一連串 pointermove，等於「邊捲邊攪水」——
+     * 捲動與流體模擬搶同一幀，捲起來就是頓的。捲過去之後還會再跑七秒。
+     * 看不見就直接停，省下來的是整個模擬。
+     */
+    let onScreen = true;
     const loop = () => {
       raf = 0;
       step();
-      if (performance.now() < liveUntil && !document.hidden) raf = requestAnimationFrame(loop);
+      if (performance.now() < liveUntil && onScreen && !document.hidden) raf = requestAnimationFrame(loop);
     };
     const wake = (ms: number) => {
       liveUntil = Math.max(liveUntil, performance.now() + ms);
-      if (!raf && !document.hidden) raf = requestAnimationFrame(loop);
+      if (!raf && onScreen && !document.hidden) raf = requestAnimationFrame(loop);
     };
 
     let px = 0;
@@ -516,6 +541,14 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
     };
     const onVisible = () => { if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; } };
 
+    // 門檻給 0：只要露出一點點就算在畫面上，不然剛捲回來的那一下會是靜止的
+    const io = new IntersectionObserver(([e]) => {
+      onScreen = e.isIntersecting;
+      if (!onScreen && raf) { cancelAnimationFrame(raf); raf = 0; }
+      else if (onScreen) wake(600);   // 回到畫面上補畫幾幀，退場才接得上
+    }, { threshold: 0 });
+    io.observe(host);
+
     window.addEventListener('pointermove', onMove, { passive: true });
     document.addEventListener('visibilitychange', onVisible);
     const ro = new ResizeObserver(() => { allocate(); wake(400); });
@@ -527,6 +560,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       window.removeEventListener('pointermove', onMove);
       document.removeEventListener('visibilitychange', onVisible);
       ro.disconnect();
+      io.disconnect();
       if (raf) cancelAnimationFrame(raf);
       release();
       programs.forEach((p) => gl.deleteProgram(p));
