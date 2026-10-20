@@ -4219,7 +4219,6 @@ const App: React.FC = () => {
 
                     {/* 備註（共用） */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
                       <label className="block">
                         <span className="block text-xs font-medium text-gray-600 mb-1">匯款帳號後五碼（選填）</span>
                         <input value={lampNotes} onChange={e => setLampNotes(e.target.value)}
@@ -4540,7 +4539,6 @@ const App: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">姓名 *</label>
                             <label className="block">
                               <span className="block text-xs font-medium text-gray-600 mb-1">姓名 *</span>
                               <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
@@ -4548,7 +4546,6 @@ const App: React.FC = () => {
                             </label>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">性別</label>
                             <label className="block">
                               <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
                               <select value={p.gender} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, gender: e.target.value } : x))}
@@ -4559,7 +4556,6 @@ const App: React.FC = () => {
                             </label>
                           </div>
                           <div className="col-span-2">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</label>
                             <label className="block">
                               <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
                               <select value={p.contactLabel || ''}
@@ -4775,7 +4771,6 @@ const App: React.FC = () => {
 
                     {/* 備註（共用） */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼</label>
                       <label className="block">
                         <span className="block text-xs font-medium text-gray-600 mb-1">匯款帳號後五碼（選填）</span>
                         <input value={blessingNotes} onChange={e => setBlessingNotes(e.target.value)}
