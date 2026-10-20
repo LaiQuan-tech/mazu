@@ -3140,7 +3140,14 @@ const App: React.FC = () => {
             **兩個都畫會有兩個 h1**，而全站的驗收標準是每頁剛好一個。 */}
         {!('lockup' in HERO) && (
         <div
-          className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+          /* 兩層暗影，缺一不可。外面那層軟的是原本就有的「不發虛」；
+             **裡面那層硬的是給墨流用的**——金墨最亮處是 #F1D72E，而標題是
+             #F0D9A4，兩個疊在一起量到 1.05:1，等於宮壇名整個不見。
+             墨會不會掃到左上角完全看使用者，所以不能靠「通常不會」。
+             夾一圈幾乎不透明的暗邊，金就不必為了標題變暗（廟方 2026-10-20
+             要的是「再金一點」）。*/
+          className="hero-title absolute top-4 sm:top-6 left-5 sm:left-10 z-20
+                     drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
           style={{ color: 'dark' in HERO ? '#F0D9A4' : '#FFFFFF' }}
         >
           <h1

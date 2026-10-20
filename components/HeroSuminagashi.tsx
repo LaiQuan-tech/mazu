@@ -140,7 +140,7 @@ void main () {
 
 /** 青花紙 ＋ 有層次的泥金。色票與寫法見檔頭第 3、4 點 */
 const F_DISPLAY = HEAD + `
-uniform sampler2D uDye; uniform vec2 uRes; uniform vec2 uDyeTexel;
+uniform sampler2D uDye; uniform vec2 uRes; uniform vec2 uDyeTexel; uniform float uFade;
 float hash (vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise (vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -160,12 +160,16 @@ void main () {
 
   float amt = max(texture(uDye, vUv).a, 0.0);
   // 金泥也吃纖維：紙上有纖維的地方沾得多一點，邊緣才會毛
-  float cover = clamp(1.0 - exp(-amt * 3.0 * (1.0 + 0.30 * (f1 + f2 - 1.0))), 0.0, 1.0);
+  float raw = clamp(1.0 - exp(-amt * 4.2 * (1.0 + 0.30 * (f1 + f2 - 1.0))), 0.0, 1.0);
+  // **色帶吃 raw、混色吃 cover。** 兩個都吃 cover 的話，退場時色帶會一路走回
+  // 最暗那一階，金是「變褐」才消失的——廟方說的「化掉」就是這個。
+  // 分開之後金到最後一刻都還是金，只是越來越透。
+  float cover = raw * uFade;
 
-  vec3 gDeep = vec3(0.690, 0.470, 0.030);
+  vec3 gDeep = vec3(0.816, 0.565, 0.008);
   vec3 gMid  = vec3(0.769, 0.596, 0.125);
   vec3 gTop  = vec3(0.945, 0.843, 0.180);
-  vec3 metal = cover < 0.5 ? mix(gDeep, gMid, cover * 2.0) : mix(gMid, gTop, (cover - 0.5) * 2.0);
+  vec3 metal = raw < 0.5 ? mix(gDeep, gMid, raw * 2.0) : mix(gMid, gTop, (raw - 0.5) * 2.0);
   vec3 col = mix(base, metal, cover);
 
   // 褶子的反光。取樣位移要用 dye 自己的 texel——用畫布的 texel 會因為 dye 解析度
@@ -362,6 +366,15 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       blit(dye.write); dye.swap();
     };
 
+    const clearDye = (): void => {
+      for (const f of [dye.read, dye.write]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, f.fbo);
+        gl.viewport(0, 0, f.w, f.h);
+        gl.clearColor(0, 0, 0, 0);          // alpha 一樣要是 0（理由見檔頭第 2 點）
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+    };
+
     const DT = 0.016;
     let lastInput = 0;
 
@@ -375,6 +388,26 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       if (calm) return idle < 0.05 ? 0.20 : Math.min(12, 0.20 + idle * 14);
       if (idle < 1.2) return 0.20;
       return Math.min(4.0, 0.20 + (idle - 1.2) * 0.9);
+    };
+
+    /**
+     * 滑鼠停下來之後，金慢慢退掉（廟方 2026-10-20）。
+     *
+     * **不用 dye 的 dissipation 做這件事。** 那條是 `值 /= (1 + D·dt)`，而畫面看到的是
+     * `1 - exp(-濃度 · 4.2)`——濃度掉到剩三成畫面都還是滿的，再掉一點就整片一起崩，
+     * 看起來是「斷掉」不是「退掉」。退場要的是可預期的曲線，所以直接給一個係數。
+     * 墨本身維持幾乎不退（0.008）：墨流的紋路是留在水面上的。
+     *
+     * smoothstep 是為了頭尾都不要有硬邊——開始退與退完的那一瞬間都不該看得出來。
+     */
+    const FADE_HOLD = 1.2;
+    const FADE_SECS = 5.0;
+    const inkFade = (now: number): number => {
+      const idle = (now - lastInput) / 1000;
+      if (calm) return Math.max(0, 1 - idle / 0.55);
+      if (idle <= FADE_HOLD) return 1;
+      const k = Math.min(1, (idle - FADE_HOLD) / FADE_SECS);
+      return 1 - k * k * (3 - 2 * k);
     };
 
     const step = () => {
@@ -420,11 +453,17 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
       gl.uniform1f(u.uDt!, DT); gl.uniform1f(u.uDissipation!, 0.008);
       blit(dye.write); dye.swap();
 
+      const fade = inkFade(performance.now());
+      // 退乾淨之後把 dye 真的清掉。只淡顯示不清場的話，下次一動滑鼠
+      // uFade 跳回 1，剛剛「退掉」的那整片金會原封不動地跳出來。
+      if (fade <= 0) clearDye();
+
       u = use(P.display!, canvas.width, canvas.height);
       bind(0, dye.read.tex);
       gl.uniform1i(u.uDye!, 0);
       gl.uniform2f(u.uRes!, canvas.width, canvas.height);
       gl.uniform2f(u.uDyeTexel!, 1 / d.w, 1 / d.h);
+      gl.uniform1f(u.uFade!, fade);
       blit(null);
     };
 
@@ -473,7 +512,7 @@ const HeroSuminagashi: React.FC<{ fallback: React.ReactNode }> = ({ fallback }) 
         for (let i = 0; i < 2; i++) splat(x, y, 0, 0, 0.14 - i * 0.05, true, base * (1 + i * 1.8));
       }
       lastInput = performance.now();
-      wake(calm ? 900 : 9500);
+      wake(calm ? 900 : 7000);   // 退場在 6.2 秒結束，之後畫面已經沒東西了
     };
     const onVisible = () => { if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; } };
 

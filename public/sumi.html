@@ -221,7 +221,7 @@ void main () {
    * 會讓纖維變成一條條黑痕，看起來是髒不是紙。
    */
   var F_DISPLAY = HEAD + [
-    'uniform sampler2D uDye;uniform vec2 uRes;uniform vec2 uDyeTexel;',
+    'uniform sampler2D uDye;uniform vec2 uRes;uniform vec2 uDyeTexel;uniform float uFade;',
     // 不用 sin(dot(p,...)) 當雜湊：顆粒那層的輸入是 floor(vUv*uRes)，在 2560 寬的
     // 畫布上 dot 會到八十幾萬，而 GLSL 對這麼大的角度不保證精度，不同驅動結果不一樣。
     // 這個版本全程留在 [0,1)，多大的座標都穩定。
@@ -245,7 +245,13 @@ void main () {
     '  base*=1.0-0.30*smoothstep(0.30,0.85,v);',
     '  float amt=max(texture(uDye,vUv).a,0.0);',
     // 金泥也吃纖維：紙上有纖維的地方沾得多一點，邊緣才會毛
-    '  float cover=clamp(1.0-exp(-amt*3.0*(1.0+0.30*(f1+f2-1.0))),0.0,1.0);',
+    '  float raw=clamp(1.0-exp(-amt*4.2*(1.0+0.30*(f1+f2-1.0))),0.0,1.0);',
+    /*
+     * **色帶吃 raw、混色吃 cover。** 兩個都吃 cover 的話，退場時色帶會一路走回
+     * 最暗那一階，金是「變褐」才消失的——廟方說的「化掉」就是這個。
+     * 分開之後金到最後一刻都還是金，只是越來越透。
+     */
+    '  float cover=raw*uFade;',
     /*
      * **金要有層次，不能一個色到底**（廟方 2026-10-20）。
      * 色票是從首頁現在用的金箔牆 public/hero-gold.jpg 取樣出來的，不是憑感覺調的：
@@ -254,10 +260,10 @@ void main () {
      * 這樣既有層次，主色也還是官網那一支。
      * 對應到物理也說得通：泥金上得薄，紙色透出來就偏深；上得厚才是亮面。
      */
-    '  vec3 gDeep=vec3(0.690,0.470,0.030);',
+    '  vec3 gDeep=vec3(0.816,0.565,0.008);',
     '  vec3 gMid =vec3(0.769,0.596,0.125);',
     '  vec3 gTop =vec3(0.945,0.843,0.180);',
-    '  vec3 metal=cover<0.5?mix(gDeep,gMid,cover*2.0):mix(gMid,gTop,(cover-0.5)*2.0);',
+    '  vec3 metal=raw<0.5?mix(gDeep,gMid,raw*2.0):mix(gMid,gTop,(raw-0.5)*2.0);',
     '  vec3 col=mix(base,metal,cover);',
     /*
      * 褶子的反光。把墨的濃淡當成一個起伏的表面，取它的梯度當法線，
@@ -417,6 +423,34 @@ void main () {
     return Math.min(4.0, 0.20 + (idle - 1.2) * 0.9);
   }
 
+  /**
+   * 滑鼠停下來之後，金慢慢退掉（廟方 2026-10-20）。
+   *
+   * **不用 dye 的 dissipation 做這件事。** 那條是 `值 /= (1 + D·dt)`，而畫面看到的是
+   * `1 - exp(-濃度 · 4.2)`——濃度掉到剩三成畫面都還是滿的，再掉一點就整片一起崩，
+   * 看起來是「斷掉」不是「退掉」。退場要的是可預期的曲線，所以直接給一個係數。
+   * 墨本身維持幾乎不退（0.008）：墨流的紋路是留在水面上的。
+   *
+   * smoothstep 是為了頭尾都不要有硬邊——開始退與退完的那一瞬間都不該看得出來。
+   */
+  var FADE_HOLD = 1.2, FADE_SECS = 5.0;
+  function inkFade(now) {
+    var idle = (now - lastInput) / 1000;
+    if (idle <= FADE_HOLD) return 1;
+    var k = Math.min(1, (idle - FADE_HOLD) / FADE_SECS);
+    return 1 - k * k * (3 - 2 * k);
+  }
+
+  function clearDye() {
+    var a = [dye.read, dye.write];
+    for (var i = 0; i < a.length; i++) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, a[i].fbo);
+      gl.viewport(0, 0, a[i].w, a[i].h);
+      gl.clearColor(0, 0, 0, 0);          // alpha 一樣要是 0（理由見檔頭）
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+  }
+
   function step() {
     var v = velocity.read, u;
     u = use(P.curl, v.w, v.h); bind(0, v.tex); gl.uniform1i(u.uVelocity, 0); blit(curlF);
@@ -460,11 +494,18 @@ void main () {
     gl.uniform1f(u.uDissipation, performance.now() < washUntil ? 1.6 : 0.008);
     blit(dye.write); dye.swap();
 
+    // 洗い流す 按下去時不走閒置退場，交給 washUntil 那條把墨真的洗掉
+    var fade = performance.now() < washUntil ? 1 : inkFade(performance.now());
+    // 退乾淨之後把 dye 真的清掉。只淡顯示不清場的話，下次一動滑鼠
+    // uFade 跳回 1，剛剛「退掉」的那整片金會原封不動地跳出來。
+    if (fade <= 0) clearDye();
+
     u = use(P.display, canvas.width, canvas.height);
     bind(0, dye.read.tex);
     gl.uniform1i(u.uDye, 0);
     gl.uniform2f(u.uRes, canvas.width, canvas.height);
     gl.uniform2f(u.uDyeTexel, 1 / d.w, 1 / d.h);
+    gl.uniform1f(u.uFade, fade);
     blit(null);
   }
 
@@ -513,7 +554,7 @@ void main () {
       for (var i = 0; i < 2; i++) splat(x, y, 0, 0, 0.14 - i * 0.05, true, base * (1 + i * 1.8));
     }
     lastInput = performance.now();
-    wake(9500);
+    wake(7000);   // 退場在 6.2 秒結束，之後畫面已經沒東西了
   }, { passive: true });
 
   var raf = 0, liveUntil = 0;
