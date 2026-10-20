@@ -92,8 +92,12 @@ export const INK = {
  * 白卡上的陰影（shadow-lg）在深底上幾乎看不到，所以卡片的層次會比米黃版弱；
  * 真要上線得把陰影換成邊框或內發光。
  */
+/** 給 index.html 的 body 與手機網址列用（App.tsx 的 theme-color effect）。 */
+export const INK_PAPER_BG = INK.paper;
+
 export const INK_PAPER_CSS = `
   .ink-paper { background: ${INK.paper}; color-scheme: dark; }
+
 
   /* 版面底：米黃的區塊讓紙色透出來，白卡改成極淡的白疊色（深淺跟著紙色走） */
   .ink-paper .bg-temple-bg { background: transparent !important; }

@@ -46,7 +46,7 @@ import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, Bl
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
-import { INK_PAPER_CSS } from './components/inkTheme';
+import { INK_PAPER_CSS, INK_PAPER_BG } from './components/inkTheme';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
@@ -283,8 +283,14 @@ const ENABLE_INCENSE_SMOKE = false;
  *
  * 要採用的話不是把這個旗標打開就好——覆蓋層只適合拿來看，見 inkTheme.ts。
  */
-const INK_MODE = typeof window !== 'undefined'
-  && new URLSearchParams(window.location.search).get('ink') === '1';
+/**
+ * 青花紙＋泥金，2026-10-20 廟方拍板上線，**預設開**。
+ * 留 `?ink=0` 當退路：現場看到問題時不必重新部署就能退回米色站比對，
+ * 也是「是不是這一層造成的」最快的判斷方法。
+ * 要整個關掉就把這一行改成 false。
+ */
+const INK_MODE = typeof window === 'undefined'
+  || new URLSearchParams(window.location.search).get('ink') !== '0';
 
 /**
  * Hero 底部收邊要淡進的顏色 ＝ **Hero 下一個區塊的底色**。
@@ -1476,6 +1482,26 @@ const App: React.FC = () => {
   useEffect(() => {
     applyFavicons(showShower || showShowerCheckin);
   }, [showShower, showShowerCheckin]);
+
+  /**
+   * 青花紙要蓋掉靜態外殼的兩個淺色設定。兩個都在 index.html 寫死，而那份外殼
+   * 沐浴車與聖母經也在用，所以不能直接改那兩行，只能在這裡依頁面覆蓋：
+   *   1. body 的 #F8F5F0——不換的話 iOS 橡皮筋回彈會從上下緣露出一條米色。
+   *   2. theme-color 的 #7C5C1E（褐）——手機網址列接在靛藍紙上會是一條突兀的橫槓。
+   * **不套青花紙的三頁要維持原樣**：沐浴車有自己的粉色品牌，聖母經廟方交代不要動。
+   * 這個判斷跟 INK_PAPER_CSS 掛載的時機一致，**兩邊要一起改**。
+   * 用 JS 不用 CSS `:has()`：舊 iOS 不支援時整條規則會被丟掉，而那正是
+   * 最會看到橡皮筋回彈的機種。
+   */
+  useEffect(() => {
+    // 真正是淺色的只有沐浴車那兩頁。聖母經本來就是靛藍紙（它自己在 effect 裡
+    // 設 body，理由跟這裡一模一樣），所以**它算深色、但 body 不要跟它搶**——
+    // 兩邊都寫會變成誰後掛載誰贏，那是會隨 lazy chunk 載入順序飄的 bug。
+    const dark = INK_MODE && !(showShower || showShowerCheckin);
+    if (!showScripture) document.body.style.backgroundColor = dark ? INK_PAPER_BG : '';
+    const el = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (el) el.setAttribute('content', dark || showScripture ? INK_PAPER_BG : '#7C5C1E');
+  }, [showShower, showShowerCheckin, showScripture]);
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(adminEntry);

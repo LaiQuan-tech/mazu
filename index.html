@@ -833,6 +833,30 @@
 }
 </script>
 <link rel="stylesheet" href="/index.css">
+    <!--
+      青花紙上線（2026-10-20）之後，外殼若還是米色，每次載入都會先閃一下米白
+      才變深——#root 在 React 掛載前是空的，所以閃的是整個畫面。
+      這裡只搶在第一次繪製前把底色擺正，主題本身仍由 App.tsx 的 INK_MODE 決定。
+
+      **判斷條件是 App.tsx 的 isShowerUrl／isShowerCheckinUrl 的複寫，兩邊要一起改。**
+      （聖母經不必列：它自己在 effect 裡設 body，而且本來就是同一個靛藍紙。）
+      寫錯的代價只是閃錯顏色，不影響功能，所以不值得為它把路由邏輯搬進外殼。
+    -->
+    <script>
+      (function () {
+        try {
+          var p = location.pathname.replace(/\/+$/, '') || '/';
+          var bath = /^(www\.)?17bath\.org$/.test(location.hostname);
+          var light = p === '/shower' || p === '/shower/checkin'
+            || (bath && (p === '/' || p === '/checkin'))
+            || new URLSearchParams(location.search).get('ink') === '0';
+          if (light) return;
+          var el = document.createElement('style');
+          el.textContent = 'body{background-color:#16233F}';
+          document.head.appendChild(el);
+        } catch (e) { /* 失敗就維持米色：會閃一下，但不影響功能 */ }
+      })();
+    </script>
 </head>
   <body>
     <div id="root"></div>
