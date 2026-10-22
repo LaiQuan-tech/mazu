@@ -809,10 +809,20 @@ const HERO = (() => {
   if (typeof window === 'undefined') return HERO_VARIANTS[DEFAULT_HERO];
   const v = new URLSearchParams(window.location.search).get('hero');
   if (v && v in HERO_VARIANTS) return HERO_VARIANTS[v as keyof typeof HERO_VARIANTS];
-  // ?ink=1 沒有另外指定 hero 時，用墨流（理由見 INK_MODE：版面是深的，hero 也得是深的）。
-  // 本來指到 blue，但那張就是廟方說「底圖太 AI」的那一張；墨流本身就是青花紙＋泥金，
-  // 跟整站的主題同一套，且 dark: true 一樣吃得到 --hero-fade
-  if (INK_MODE) return HERO_VARIANTS.sumi;
+  /**
+   * 沒有另外指定 hero 時用青花紙（版面是深的，hero 也得是深的）。
+   *
+   * 這一行換過兩次，兩次都是廟方的回饋：
+   *   blue → sumi：那張底圖「太 AI」。
+   *   sumi → qinghua（2026-10-22）：墨流在手機上卡。降過檔、也加了「捲出畫面就停」，
+   *     但廟方說反應還是不好，討論後決定 hero 乾脆不要動畫。
+   *     中間試過祥雲撥開（雲紋描成向量當前景），廟方看了覺得不好看，已撤除。
+   *
+   * qinghua 是**純 CSS 畫的**：沒有 canvas、沒有 rAF、沒有模擬，
+   * 所以手機上不可能卡——這正是換過來的理由，不要再往這一支加動畫。
+   * 墨流沒有刪，`?hero=sumi` 還看得到；它是懶載入的，不當預設就不會進一般訪客的路徑。
+   */
+  if (INK_MODE) return HERO_VARIANTS.qinghua;
   return HERO_VARIANTS[DEFAULT_HERO];
 })();
 
