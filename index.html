@@ -399,10 +399,22 @@
         78%  { opacity: var(--lo); }
         100% { opacity: 0;          transform: translateY(calc(var(--rise) * -1)) scale(1); }
       }
-      /* 減少動態效果：不閃，但留在最亮的狀態——畫面一樣有星星，只是不動。
-         本站信眾以長者居多，開著那個設定的比例不低。 */
+      /* 減少動態效果：**不要整個凍住，改成更輕的版本。**
+         第一版是 animation: none，結果開著那個設定的人看到的是一片死掉的靜止
+         光點——廟方自己的電腦就開著，回報「星光要動」就是這個。
+         這一層是 2px 的點、二十幾秒才移動不到一成畫面高，跟視差捲動、自動播放
+         那種會引發前庭不適的動態完全不是同一個量級；該做的是「減量」不是「拿掉」。
+         所以行程收到三分之二、速度放慢一半（一般版約每秒 3.9px，這裡約 1.8px）。
+         **不要收過頭**：試過 4vh / 40 秒，換算每秒 0.85px，那等於又回到看不出
+         在動——「減量」的下限是「還看得出來在動」，不然跟整個關掉沒有差別。
+         **一定要 !important**：行程與秒數是逐顆寫在 inline style 上的，
+         沒有 !important 的話這裡一條都蓋不掉（自訂屬性也吃 !important）。
+         本站信眾以長者居多，開著那個設定的比例不低（CLAUDE.md 記過）。 */
       @media (prefers-reduced-motion: reduce) {
-        .qh-star { animation: none; opacity: var(--hi); transform: none; }
+        .qh-star {
+          --rise: 6vh !important;
+          animation-duration: 30s !important;
+        }
       }
 
 
