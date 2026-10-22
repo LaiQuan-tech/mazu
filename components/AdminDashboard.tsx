@@ -25,7 +25,7 @@ import {
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, Menu, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser, Settings, Share2,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby, ShowerHead,
-  Eye, EyeOff, ShoppingBag, Wrench, Receipt, Send} from 'lucide-react';
+  Eye, EyeOff, ShoppingBag, Wrench, Receipt, Send, Check} from 'lucide-react';
 
 type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables' | 'shower' | 'urgent';
 
@@ -5010,6 +5010,19 @@ const LampsTab = ({
 
 const BLESSING_EVENT_TYPES = ['法會', '進香', '祭典', '祈福', '其他'];
 
+/**
+ * 供品的基本款（廟方 2026-10-23：「目前供品品項都要手動打字，但其實內容不外乎⋯⋯
+ * 這幾個基本款式可以用勾選的會更方便」）。
+ *
+ * **這是捷徑不是限制**：不在這張清單上的照樣用「新增供品」手打，
+ * 勾選只是省掉最常打的那幾個字——勾完只剩名額與金額要填。
+ *
+ * 順序照廟方唸出來的排，不要自己重排成筆劃或分類，那是現場備供品的順序。
+ * **蛋糕放第一顆**：廟方 2026-10-23 補的時候講的是「還有最重要的蛋糕」，
+ * 祝壽場合它是主角，排第一是依這句話不是依他補充的先後。
+ */
+const OFFERING_PRESETS = ['蛋糕', '鮮花', '水果', '壽桃', '壽麵', '蠟燭', '金紙', '祝壽供香', '壽酒', '茶葉'] as const;
+
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
   startDate: '', endDate: '', registrationDeadline: '',
@@ -5054,6 +5067,33 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
     await Promise.all(sorted.map((e, i) => updateBlessingEvent(e.id, { sortOrder: i + 1 })));
     onRefresh();
   });
+
+  /**
+   * 基本款的勾選。**勾＝清單上有同名的那一項**，所以取消勾選就是把它移除。
+   *
+   * 已經設定過名額／費用／說明的那一列先問一次再刪：廟方可能先勾起來、
+   * 調好名額，之後手滑點到同一顆就把填好的東西靜靜刪掉了。
+   * 沒動過的（名額 1、免費、沒說明）直接移除，不要為了沒資訊的一列跳提示。
+   *
+   * 比對用 `trim()` 後的完整名稱：廟方若把「鮮花」改成「鮮花一束」，
+   * 那一顆就會顯示成未勾選——這是對的，那已經不是基本款那一項了，
+   * 再點一次會另外新增一列，而不是覆蓋掉他改的名字。
+   */
+  const toggleOfferingPreset = (name: string) => {
+    const list = form.offerings || [];
+    const hit = list.find(o => o.name.trim() === name);
+    if (!hit) {
+      setForm(f => ({
+        ...f,
+        offerings: [...(f.offerings || []), { id: Math.random().toString(36).slice(2), name, totalQty: 1, fee: 0 }],
+      }));
+      return;
+    }
+    const touched = hit.totalQty !== 1 || (hit.fee ?? 0) !== 0 || !!hit.description?.trim();
+    // confirm 要在 setState 外面叫：StrictMode 會把 updater 跑兩次，寫在裡面會跳兩次視窗
+    if (touched && !window.confirm(`「${name}」已經設定了名額或費用，確定要移除嗎？`)) return;
+    setForm(f => ({ ...f, offerings: (f.offerings || []).filter(o => o.id !== hit.id) }));
+  };
 
   const handleBlessingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -5457,9 +5497,30 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                     <Plus className="w-3.5 h-3.5" /> 新增供品
                   </button>
                 </div>
+                {/* 基本款：勾一下就長出一列，不必打字（理由見 OFFERING_PRESETS）。
+                    放在清單上方——要先挑才會有列可以調，順序要跟操作順序一致。 */}
+                <div className="flex flex-wrap gap-1.5">
+                  {OFFERING_PRESETS.map(name => {
+                    const on = (form.offerings || []).some(o => o.name.trim() === name);
+                    return (
+                      <button key={name} type="button"
+                        onClick={() => toggleOfferingPreset(name)}
+                        aria-pressed={on}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs transition-colors ${
+                          on ? 'bg-orange-100 border-orange-300 text-orange-800 font-medium'
+                             : 'bg-white border-gray-300 text-gray-600 hover:border-orange-300 hover:text-orange-700'}`}>
+                        {/* 方框／打勾用圖示而不是真的 checkbox：整顆要能點，
+                            真的 input 會讓點標籤與點方框變成兩種行為 */}
+                        {on ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 border border-current rounded-[3px]" />}
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 {(!form.offerings || form.offerings.length === 0) ? (
                   <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                    無供品名額。點擊「新增供品」可設定限量認領項目（如：五果一份、香爐一個）。
+                    無供品名額。上面勾選基本款，或點「新增供品」自己打（如：五果一份、香爐一個）。
                   </p>
                 ) : (
                   <div className="space-y-2">
