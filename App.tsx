@@ -33,7 +33,6 @@ import {
   ShoppingBag,
   Wrench,
   BookOpen,
-  Landmark,
   LoaderCircle,
   ArrowRight,
 } from 'lucide-react';
@@ -47,6 +46,7 @@ import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSes
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
 import { INK_PAPER_CSS, INK_PAPER_BG } from './components/inkTheme';
+import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
@@ -132,19 +132,6 @@ const BackToTop: React.FC<{ show: boolean; onClick: () => void }> = ({ show, onC
   >
     <ChevronUp className="w-7 h-7 sm:w-8 sm:h-8" aria-hidden="true" />
   </button>
-);
-
-const BankInfoBox: React.FC<{ tip?: string }> = ({ tip }) => (
-  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm space-y-0.5">
-    <p className="font-bold text-amber-800 mb-1 flex items-center gap-1.5"><Landmark className="w-4 h-4" aria-hidden="true" />匯款資訊</p>
-    <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
-    <p className="text-amber-900">分行：大安分行</p>
-    <p className="text-amber-900">帳號：<span className="font-semibold tracking-wider">6025-4035-6010</span></p>
-    <p className="text-amber-900">戶名：王順文</p>
-    <p className="text-amber-700 text-xs mt-1">
-      {tip ?? '匯款完成後請於備註填寫後五碼，收到款項即完成登記！'}
-    </p>
-  </div>
 );
 
 // ── 多人報名用本地型別 ──────────────────────────────────────────────────────────
@@ -4301,7 +4288,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* 匯款資訊 */}
-                    <BankInfoBox />
+                    <BankInfoBox account={BANK_GENERAL} />
 
                     {/* 備註（共用） */}
                     <div>
@@ -4853,7 +4840,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* 匯款資訊 */}
-                    <BankInfoBox />
+                    <BankInfoBox account={BANK_GENERAL} />
 
                     {/* 備註（共用） */}
                     <div>
@@ -5289,7 +5276,7 @@ const App: React.FC = () => {
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-300/30 focus:border-amber-400 transition-all outline-none" />
                     </label>
                   )}
-                  <BankInfoBox tip="匯款完成後請於下方備註填寫後五碼！" />
+                  <BankInfoBox account={BANK_GENERAL} tip="匯款完成後請於下方備註填寫後五碼！" />
                   <label className="block">
                     <span className="block text-xs font-medium text-gray-600 mb-1">備註 / 匯款帳號後五碼（選填）</span>
                     <input type="text" value={repairNotes}
@@ -5485,7 +5472,7 @@ const App: React.FC = () => {
                   </div>
 
                   {/* 匯款資訊 */}
-                  <BankInfoBox />
+                  <BankInfoBox account={BANK_GENERAL} />
 
                   <div>
                     <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>

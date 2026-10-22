@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import BankInfoBox, { BANK_RELOCATION } from './BankInfoBox';
 import StoryPage, { StoryBlock, splitParagraphs, renderInline } from './StoryPage';
 import { getAboutSections, getRelocationPlans, getSiteImagePublicUrl } from '../services/supabase';
 import { AboutSection, RelocationPlan } from '../types';
@@ -142,21 +143,21 @@ const PlanTable: React.FC<{ plan: RelocationPlan }> = ({ plan }) => {
 };
 
 /**
- * 頁尾收束：正式匯款資訊暫不提供（廟方 2026-09-12 要求）
+ * 頁尾收束：遷址募資的專屬匯款帳號（廟方 2026-10-23 提供）
  *
- * 遷址專款要等協會成立、專款帳戶設好才有正式帳號。這裡原本放第一銀行的帳號
- * 與複製鈕，先整個撤下——**舊帳號留在 git 歷史，之後的專款帳戶不一定是同一個，
- * 別直接拿回來用**，要放回來時跟廟方重新確認。
+ * 2026-09-12 曾經整個撤下（當時要等協會成立、專款帳戶設好），頁尾只放一段
+ * 「之後主動通知」的說明——**那段時間這一頁等於沒有行動點**：信眾看完方案表
+ * 想護持，畫面上沒有任何一個地方告訴他下一步做什麼。
  *
- * 這一段不是行動呼籲，是交代「為什麼還沒有帳號、之後怎麼通知」，所以不做
- * 標題色帶、語氣放輕。文案是廟方給的，逐字照放；每行各自一個 <p> 而不是用 <br>
- * 硬斷，手機上塞不下的那行才能自然折行、不會斷在奇怪的地方。
+ * 現在的帳號是廟方自己重新給的，不是從 git 歷史翻回來的。
+ * **下次再撤下又放回來時一樣要重新確認**，專款帳戶不保證是同一個。
+ *
+ * 帳號與「一般捐獻」是**兩個不同的帳戶，絕對不可混用**，所以這裡用
+ * BANK_RELOCATION 這個具名常數，而不是元件自己預設一個（見 BankInfoBox 檔頭）。
+ *
+ * 感恩那幾句是廟方的文案，逐字照放；每行各自一個 <p> 而不是用 <br> 硬斷，
+ * 手機上塞不下的那行才能自然折行、不會斷在奇怪的地方。
  */
-const NOTICE_LINES = [
-  '待協會成立、專款帳戶完成設立後',
-  '和聖壇將依您留下的聯絡資料主動通知',
-  '再提供正式匯款資訊',
-];
 const THANKS_LINES = [
   '感恩您的耐心與護持',
   '每一份願意同行的心意',
@@ -166,10 +167,9 @@ const THANKS_LINES = [
 const RemittanceNotice: React.FC = () => (
   <section className="mt-16 sr sr-up">
     <div className="rounded-2xl border-2 border-temple-gold bg-temple-gold/10 px-5 py-9 sm:px-10 sm:py-11 text-center">
-      <div className="space-y-1">
-        {NOTICE_LINES.map(line => (
-          <p key={line} className="font-serif text-lg sm:text-xl font-bold text-temple-dark leading-relaxed [text-wrap:balance]">{line}</p>
-        ))}
+      {/* 帳號靠左、寬度收住：匯款資訊是要照著抄的，置中的長數字很難對 */}
+      <div className="max-w-sm mx-auto text-left">
+        <BankInfoBox account={BANK_RELOCATION} />
       </div>
 
       <div className="flex items-center justify-center gap-3 my-7" aria-hidden="true">

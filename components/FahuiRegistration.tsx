@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { BANK_GENERAL } from './BankInfoBox';
 import { ArrowLeft, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import { submitFahuiRegistration } from '../services/supabase';
 import { getLineUrl, trackLine } from '../services/lineLink';
@@ -1151,15 +1152,19 @@ function SuccessScreen({
           </div>
         </div>
 
-        {/* Bank Info */}
+        {/* Bank Info
+            **版面是這一頁自己的**（中間要夾「應匯金額」、提示是走 LINE 告知），
+            所以沒有改用 BankInfoBox；但**數字一律取自 BANK_GENERAL**——
+            原本這裡抄了一份一模一樣的帳號，帳號哪天變了這一份會安靜地過期，
+            而這是法會的付款畫面。同一個事實只能有一個來源。 */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm space-y-1.5">
           <p className="font-bold text-amber-800 mb-2 text-base">請完成匯款</p>
-          <p className="text-amber-900">銀行：中國信託銀行　代碼 <span className="font-semibold">822</span></p>
-          <p className="text-amber-900">分行：大安分行</p>
+          <p className="text-amber-900">銀行：{BANK_GENERAL.bank}　代碼 <span className="font-semibold">{BANK_GENERAL.code}</span></p>
+          <p className="text-amber-900">分行：{BANK_GENERAL.branch}</p>
           <p className="text-amber-900">
-            帳號：<span className="font-semibold tracking-widest">6025-4035-6010</span>
+            帳號：<span className="font-semibold tracking-widest">{BANK_GENERAL.account}</span>
           </p>
-          <p className="text-amber-900">戶名：王順文</p>
+          <p className="text-amber-900">戶名：{BANK_GENERAL.holder}</p>
           <p className="text-amber-800 font-bold mt-2">應匯金額：$ {total.toLocaleString()} 元</p>
           <p className="text-amber-700 text-xs mt-2 leading-relaxed">
             匯款完成後，請於 LINE 官方帳號 @725utjch 告知帳號後五碼，
