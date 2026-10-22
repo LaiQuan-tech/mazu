@@ -151,6 +151,25 @@ export const INK_PAPER_CSS = `
   /* bg-temple-red 身兼兩職：整片的區塊底，以及按鈕。用標籤名分開——
      區塊變成更深的紙（不要變成一大塊金），按鈕才變金底深字 */
   .ink-paper section.bg-temple-red { background: ${INK.paperDeep} !important; }
+  /**
+   * 預約問事是全站**唯一**底色是深紅的區塊，所以當初配的是白字
+   * （text-white 掛在 section 上被繼承）、粉紅的說明（text-red-100），
+   * 小標也特地用 text-temple-gold 才看得見（CLAUDE.md 記著這個例外）。
+   *
+   * 青花紙把那個底換成靛藍之後，這三個就是舊設計的殘留——**而且不是看不見**：
+   * 白字在深底上對比很高，所以對比稽核一個都掃不出來。它壞的是一致性：
+   * 其他每一頁的標題都是泥金，只有這一頁是純白（廟方 2026-10-22 回報「標題顏色」）。
+   * 那個「唯一例外」的理由（底是紅的）在這一層底下已經不成立了。
+   *
+   * 範圍限定在這一個 section：實測那一區只有標題與說明兩處還是舊色，
+   * 其餘的字早就吃到泥金了，不必也不該整批改。
+   *
+   * **註解裡不可以有反引號**——這是模板字串，一個反引號就把它截斷，
+   * 而噴出來的型別錯誤會指到別的地方。這個坑 CLAUDE.md 記過，我又踩了一次。
+   */
+  .ink-paper section.bg-temple-red h1 { color: ${INK.ink} !important; }
+  .ink-paper section.bg-temple-red h2 { color: ${INK.gold} !important; }
+  .ink-paper section.bg-temple-red .text-red-100 { color: ${INK.inkBody} !important; }
   .ink-paper button.bg-temple-red,
   .ink-paper a.bg-temple-red { background: ${INK.gold} !important; color: ${INK.paper} !important; }
 
