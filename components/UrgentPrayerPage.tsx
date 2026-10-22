@@ -207,7 +207,10 @@ const UrgentPrayerPage: React.FC<Props> = ({ defaults, templePhone }) => {
 
   return (
     <Shell>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* **max-w-4xl 要跟 /booking、/blessing 一致**（廟方 2026-10-22：「等寬」）。
+          那兩頁也是服務表單，本來就都是 4xl；這一頁原本 3xl，窄了 128px。
+          /lamps 的 7xl 不在此列——那是燈種的卡片牆，不是表單。 */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
           <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
             <span className="w-8 h-1 bg-temple-gold" />
