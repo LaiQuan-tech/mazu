@@ -966,10 +966,62 @@ const octagon = (r: number): string =>
  * 那三個的畫法沒有刪掉：回紋與纏枝蓮在 git（本次提交的前一版），
  * 藻井還活著、在 `CaissonSvg`（`?hero=caisson` 還在用）。要加回來不必重畫。
  */
+/**
+ * 青花紙夜空的星光座標（樣式見 index.html 的 .qh-star）。
+ *
+ * **避的是文字，不是神尊。** 這一層在 z-0、神尊在 z-10，落在神尊身上的星星
+ * 會被擋掉——那是對的，天空本來就在人後面；桌機與手機被擋掉的各不相同，
+ * 看起來反而自然。所以規則只有兩條，兩種寬度都量過：
+ *   1. t >= 12：讓開導覽列（實測佔 t 0~10%）。
+ *   2. t < 42 的那幾顆，l 一律 >= 34：讓開左上角的直式宮壇名
+ *      （桌機 l 3~11% / t 3~37%，手機 l 5~27% / t 2~24%，取聯集再加緩衝）。
+ * 手機的天空只有上半（神尊從 t 46% 就開始），所以上帶刻意放得比下帶多。
+ *
+ * 座標寫死不用亂數：亂數每次重繪都會重排，而且調不動。
+ * l/t 百分比、s 直徑（px）、hi 最亮時的不透明度、d 延遲、dur 一輪秒數。
+ * 谷底是 hi 的 38%——只拉最亮值的話，每顆有一半的時間幾乎看不見，
+ * 整體印象不會變亮多少（明滅動畫特有的陷阱）。
+ */
+const HERO_STARS = [
+  // 上帶：手機唯一看得到天空的地方，所以放得密一點
+  { l: 36, t: 30, s: 2.5, hi: 0.78, d: 3.1, dur: 4.6 },
+  { l: 44, t: 17, s: 2,   hi: 0.52, d: 1.8, dur: 6.4 },
+  { l: 52, t: 36, s: 2,   hi: 0.49, d: 0.9, dur: 5.8 },
+  { l: 60, t: 14, s: 3,   hi: 0.95, d: 2.4, dur: 4.2 },
+  { l: 68, t: 27, s: 2,   hi: 0.45, d: 4.0, dur: 6.9 },
+  { l: 76, t: 19, s: 2.5, hi: 0.72, d: 1.2, dur: 5.5 },
+  { l: 84, t: 33, s: 2,   hi: 0.48, d: 3.6, dur: 6.1 },
+  { l: 92, t: 16, s: 2,   hi: 0.42, d: 5.0, dur: 7.2 },
+  { l: 40, t: 39, s: 2,   hi: 0.45, d: 4.4, dur: 5.1 },
+  { l: 96, t: 29, s: 2.5, hi: 0.70, d: 0.4, dur: 4.9 },
+  // 下帶：桌機左側那片空天（濟公從 l 39% 才開始），手機會被神尊擋掉
+  { l: 5,  t: 52, s: 2,   hi: 0.52, d: 2.9, dur: 6.6 },
+  { l: 13, t: 70, s: 2,   hi: 0.42, d: 5.4, dur: 7.5 },
+  { l: 8,  t: 86, s: 2.5, hi: 0.67, d: 1.6, dur: 5.0 },
+  { l: 20, t: 58, s: 2,   hi: 0.48, d: 3.3, dur: 6.2 },
+  { l: 27, t: 80, s: 2.5, hi: 0.74, d: 0.7, dur: 4.4 },
+  { l: 16, t: 44, s: 2,   hi: 0.45, d: 2.1, dur: 6.8 },
+  { l: 33, t: 66, s: 2,   hi: 0.64, d: 3.9, dur: 5.3 },
+  { l: 24, t: 90, s: 2,   hi: 0.45, d: 1.4, dur: 6.0 },
+];
+
 const HeroQinghua: React.FC = () => (
   <div className="hero-qinghua absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
     <div className="qh-ground" />
     <div className="qh-glaze" />
+    {HERO_STARS.map((st, i) => (
+      <div key={i} className="qh-star" style={{
+        left: `${st.l}%`,
+        top: `${st.t}%`,
+        width: st.s,
+        height: st.s,
+        boxShadow: `0 0 ${st.s * 3.6}px ${st.s * 0.7}px rgba(240,217,164,.45)`,
+        animationDelay: `${st.d}s`,
+        animationDuration: `${st.dur}s`,
+        ['--hi' as string]: String(st.hi),
+        ['--lo' as string]: String(+(st.hi * 0.38).toFixed(3)),
+      }} />
+    ))}
   </div>
 );
 

@@ -12,51 +12,6 @@ interface ScripturePageProps {
   onBack: () => void;
 }
 
-/**
- * Hero 的星光座標。
- *
- * **要避開的是一條橫帶，不是中央一個方塊。** 第一版留了中央 28~72% 的直欄，
- * 桌機看起來對，手機整個破功——窄螢幕上「天上聖母經」是**滿版一行**
- * （375px 的視窗裡量到 h1 橫跨 5%~95%），所謂的「兩側」根本不存在，
- * 側邊那幾顆直接壓在標題與副標上。
- * 現在只有上下兩帶（上 9~29%、下 72~89%），兩種寬度都成立。
- * 下帶的界線是**量出來的不是抓整數**：「全經共 136 節」那行到 t 67%
- * （橫跨 25~75%），所以下帶從 72% 起；「開始閱讀」與箭頭佔 45~55% × 87~96%，
- * 所以那個方塊也要避開——第一版有一顆正好落在箭頭上。
- *
- * 座標是**寫死的不是亂數**：亂數每次重繪都會重排，而且調不動。
- * 橫向刻意不等距、上下也錯開，等距排出來會被看成圖樣而不是星空。
- * 週期 4.2~7.5 秒各自錯開，同步了就看得出是迴圈。
- *
- * l/t 百分比、s 直徑（px）、hi 最亮時的不透明度、d 延遲、dur 一輪秒數。
- *
- * 亮度調過一次（廟方 2026-10-22「星光要再明顯一點」）：hi 整體 ×1.62、
- * 直徑各加 0.5px、暈從 .3 加到 .45。**谷底也跟著抬**（lo 從 hi 的 18% 改成 38%）——
- * 只拉最亮值的話，每顆有一半的時間still 幾乎看不見，整體印象不會變亮多少。
- */
-const STARS = [
-  // 上帶
-  { l: 9, t: 12, s: 2.5,   hi: 0.89, d: 0, dur: 5.2 },
-  { l: 21, t: 22, s: 2,   hi: 0.52, d: 1.8, dur: 6.4 },
-  { l: 33, t: 9, s: 2.5,   hi: 0.78, d: 3.1, dur: 4.6 },
-  { l: 44, t: 19, s: 2,   hi: 0.49, d: 0.9, dur: 5.8 },
-  { l: 56, t: 11, s: 3,   hi: 0.95, d: 2.4, dur: 4.2 },
-  { l: 67, t: 24, s: 2,   hi: 0.45, d: 4.0, dur: 6.9 },
-  { l: 79, t: 14, s: 2.5,   hi: 0.73, d: 1.2, dur: 5.5 },
-  { l: 90, t: 26, s: 2,   hi: 0.49, d: 3.6, dur: 6.1 },
-  { l: 15, t: 29, s: 2,   hi: 0.42, d: 5.0, dur: 7.2 },
-  // 下帶
-  { l: 7, t: 72, s: 2,   hi: 0.45, d: 4.4, dur: 5.1 },
-  { l: 19, t: 84, s: 2.5,   hi: 0.71, d: 0.4, dur: 4.9 },
-  { l: 31, t: 74, s: 2,   hi: 0.49, d: 2.9, dur: 6.6 },
-  { l: 43, t: 79, s: 2,   hi: 0.42, d: 5.4, dur: 7.5 },
-  { l: 64, t: 89, s: 2.5,   hi: 0.68, d: 1.6, dur: 5.0 },
-  { l: 70, t: 75, s: 2,   hi: 0.49, d: 3.3, dur: 6.2 },
-  { l: 77, t: 82, s: 2.5,   hi: 0.75, d: 0.7, dur: 4.4 },
-  { l: 88, t: 72, s: 2,   hi: 0.49, d: 2.1, dur: 6.8 },
-  { l: 95, t: 78, s: 2.5,   hi: 0.65, d: 3.9, dur: 5.3 },
-];
-
 const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
   const [atTop, setAtTop] = useState(true);
   const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
@@ -339,35 +294,6 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           85%  { opacity:.15; }
           100% { opacity:0; transform:translateY(-90px); }
         }
-        /*
-          星光（廟方 2026-10-22：「hero 加一點點像聖母經的封面的一點點星光動畫」）。
-          封面上其實沒有星星，那圈光是媽祖頭後的金色佛光；hero 中央的 .hero-glow
-          已經在呼應它，星光是把那份光擴散到整片夜空。
-
-          **與 .sp-particle 是兩件事，不要做得像**：那個是一柱往上飄的香煙
-          （集中在中線 41~58%、會位移 90px、三秒一輪）；這個散佈在整片、
-          原地明滅、週期慢一倍以上。兩者長得像的話等於白加一層。
-
-          只動 opacity 與 transform，所以全程在合成器層級——不是 canvas 也沒有
-          rAF，手機上不會有負擔（首頁墨流那一輪的教訓）。
-          亮度分兩段：--hi 是最亮、--lo 是最暗，由各顆自己帶。
-        */
-        .sp-star {
-          position:absolute; border-radius:50%; pointer-events:none;
-          background:rgba(240,217,164,.95);
-          animation: sp-twinkle ease-in-out infinite;
-          will-change: opacity, transform;
-        }
-        @keyframes sp-twinkle {
-          0%, 100% { opacity:var(--lo); transform:scale(.8); }
-          50%      { opacity:var(--hi); transform:scale(1); }
-        }
-        /* 這一頁原本沒有處理「減少動態效果」。至少新加的這一層要做對——
-           本站信眾以長者居多，開著那個設定的比例不低（CLAUDE.md 記過）。
-           星光留在最亮的狀態不閃，畫面一樣有，只是不動。 */
-        @media (prefers-reduced-motion: reduce) {
-          .sp-star { animation:none; opacity:var(--hi); transform:none; }
-        }
         /* ── 豎排經文逐字飄入 ── */
         .verse-char {
           display:inline-block; opacity:0; transform:translateY(10px);
@@ -488,21 +414,6 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
       {/* ── Hero（無獨立背景 div，與內文頁同色，自然銜接） ── */}
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <div className="hero-glow" style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translateX(-50%)', width: 480, height: 480, background: `radial-gradient(ellipse, ${INK.glow}, transparent 70%)`, borderRadius: '50%', pointerEvents: 'none' }} />
-        {/* 星光。分佈與避讓的理由見 STARS 的說明（**避的是橫帶不是中央方塊**）。 */}
-        {STARS.map((st, i) => (
-          <div key={i} className="sp-star" style={{
-            left: `${st.l}%`,
-            top: `${st.t}%`,
-            width: st.s,
-            height: st.s,
-            boxShadow: `0 0 ${st.s * 3.6}px ${st.s * 0.7}px rgba(240,217,164,.45)`,
-            animationDelay: `${st.d}s`,
-            animationDuration: `${st.dur}s`,
-            ['--hi' as string]: String(st.hi),
-            ['--lo' as string]: String(+(st.hi * 0.38).toFixed(3)),
-          }} />
-        ))}
-
         {/* 香煙粒子 — 模擬香爐輕煙上升 */}
         {[0,1,2,3,4,5,6].map(i => (
           <div key={i} className="sp-particle" style={{

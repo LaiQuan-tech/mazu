@@ -373,6 +373,30 @@
           rgba(226, 240, 255, 0.05) 58%,
           transparent 76%);
       }
+      /* 星光（廟方 2026-10-22：「hero 加一點點像聖母經的封面的一點點星光動畫」）。
+         封面上其實沒有星星——那圈光是媽祖頭後的金色佛光；星光做的是把那份光
+         擴散到整片夜空。
+         **在 z-0 的底層，也就是神尊後面**：落在神尊身上的會被擋掉，那是對的，
+         天空本來就在人後面。所以只要避開文字（導覽列與左上角的宮壇名）。
+         只動 opacity 與 transform，全程合成器層級——沒有 canvas 也沒有 rAF。
+         首頁的教訓已經夠多了，這一層不該再有任何執行時的運算。 */
+      .qh-star {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(240, 217, 164, .95);
+        pointer-events: none;
+        will-change: opacity, transform;
+        animation: qh-twinkle ease-in-out infinite;
+      }
+      @keyframes qh-twinkle {
+        0%, 100% { opacity: var(--lo); transform: scale(.8); }
+        50%      { opacity: var(--hi); transform: scale(1); }
+      }
+      /* 減少動態效果：不閃，但留在最亮的狀態——畫面一樣有星星，只是不動。
+         本站信眾以長者居多，開著那個設定的比例不低。 */
+      @media (prefers-reduced-motion: reduce) {
+        .qh-star { animation: none; opacity: var(--hi); transform: none; }
+      }
 
       /* 泥金渲染的畫布（?hero=inkgold，見 App.tsx 的 HeroInkGold）。
          **一定要 pointer-events: none**：它鋪滿整個首屏，不關掉的話導覽列、
