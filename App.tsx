@@ -478,6 +478,13 @@ const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMont
  * 要加一項就得先拿掉一項，詳見 NAV_MORE 與緊急祈願那兩段註解。
  * 重排不影響寬度——同一組項目換位置而已。
  */
+/**
+ * 隨喜的常見金額。取自本壇自己的價目（方案與供品落在 200~1200 之間），
+ * 不是憑空訂的；改這裡就會改前台那排快選鈕。
+ * **一定要留「自填」那一格**——隨喜的意義就是不拘金額，只給選項等於變成定價。
+ */
+const VOLUNTARY_PRESETS = [300, 600, 1200] as const;
+
 const NAV_PRIMARY: NavItem[] = [
   { id: 'home', label: '首頁', kind: 'section' },
   /**
@@ -4696,14 +4703,16 @@ const App: React.FC = () => {
                             .reduce((s, a) => s + (p.voluntaryFees?.[a.id] || 0), 0);
                           const total = pkgFee + fixedTotal + volTotal;
                           return (
-                            <div className="border border-temple-gold/30 rounded-xl p-3 bg-temple-bg/30">
+                            <>
+                            {fixedAddons.length > 0 && (
+                            <div className="border border-temple-gold/30 rounded-xl p-3 bg-temple-gold/5">
                               <p className="text-xs font-semibold text-temple-dark mb-2 flex items-center gap-1.5">
                                 <ShoppingBag className="w-3.5 h-3.5" /> 加購項目（可多選）
                               </p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                                 {/* 固定費用品項：勾選框 */}
                                 {fixedAddons.map(addon => (
-                                  <label key={addon.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 cursor-pointer hover:border-temple-gold/60 hover:bg-temple-gold/5 transition-all">
+                                  <label key={addon.id} className="flex items-center gap-2 p-2.5 rounded-lg border border-temple-gold/35 bg-temple-gold/5 cursor-pointer hover:border-temple-gold hover:bg-temple-gold/15 transition-all">
                                     <input type="checkbox" className="accent-temple-red w-4 h-4"
                                       checked={(p.selectedAddonIds || []).includes(addon.id)}
                                       onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
@@ -4716,32 +4725,80 @@ const App: React.FC = () => {
                                     <span className="text-xs font-semibold text-temple-red">NT${addon.fee.toLocaleString()}</span>
                                   </label>
                                 ))}
-                                {/* 隨喜品項：直接顯示金額輸入 */}
-                                {voluntaryAddons.map(addon => (
-                                  <div key={addon.id} className="flex items-center gap-2 p-2 rounded-lg border border-green-200 bg-green-50/40 sm:col-span-2">
-                                    <HeartHandshake className="w-4 h-4 text-green-600 shrink-0" />
-                                    <span className="text-sm text-gray-700 flex-1">{addon.name}</span>
-                                    <span className="text-xs text-gray-500 font-medium shrink-0">NT$</span>
-                                    <label className="block">
-                                      <span className="block text-xs font-medium text-gray-600 mb-1">金額（選填）</span>
-                                      <input type="number" min="1"
-                                      value={p.voluntaryFees?.[addon.id] || ''}
-                                      onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
-                                        ...x,
-                                        voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: e.target.value ? Number(e.target.value) : 0 }
-                                      } : x))}
-                                      className="w-full w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-temple-gold" />
-                                    </label>
-                                  </div>
-                                ))}
                               </div>
-                              {/* 小計 */}
+                              {/* 小計。**要講清楚它含方案費**：這個數字長在「加購項目」的框裡，
+                                  而 total = 方案費 + 加購 + 隨喜，所以一個加購都沒勾也會顯示
+                                  一個金額（廟方的截圖裡是「小計 NT$200」而上面一個都沒勾）。
+                                  在付款的畫面上，看不懂的數字比沒有數字糟。 */}
                               {total > 0 && (
-                                <p className="text-right text-xs font-semibold text-temple-red mt-2">
-                                  小計 NT${total.toLocaleString()}
+                                <p className="text-right text-xs mt-2">
+                                  <span className="font-semibold text-temple-red">此人合計 NT${total.toLocaleString()}</span>
+                                  {pkgFee > 0 && (
+                                    <span className="text-gray-500 ml-1">（含方案 NT${pkgFee.toLocaleString()}）</span>
+                                  )}
                                 </p>
                               )}
                             </div>
+                            )}
+
+                            {/**
+                             * 隨喜。**自己一塊，不混在加購裡**（廟方 2026-10-23：「隨喜是很重要的！」）。
+                             *
+                             * 原本它是「加購項目（可多選）」裡的最後一列，等於把它框成一件可以買的
+                             * 商品——而隨喜不是商品是心意，擺在購物清單的尾巴，語意與份量都不對。
+                             *
+                             * 顏色也整個換掉：原本是 Tailwind 的綠（border-green-200／bg-green-50／
+                             * text-green-600），全站規則是「綠色只留給送出成功的勾勾與進度條」，
+                             * 而且 inkTheme 根本沒有 green 的規則，青花紙底下整塊掉成灰濁的藍，
+                             * 廟方的原話是「配色真的很讓人沒感覺，不想報名」。
+                             *
+                             * **常見金額是給長者用的**：全站主要使用者是長輩，在手機上叫出數字鍵盤
+                             * 再打四位數是真實的門檻。那三個數字取自本壇自己的價目（300／600／1200），
+                             * 不是憑空訂的；要改就改 VOLUNTARY_PRESETS。按一下填入、再按一下清掉，
+                             * 旁邊永遠留著可以自己打的欄位。
+                             */}
+                            {voluntaryAddons.length > 0 && (
+                              <div className="border-2 border-temple-gold/60 rounded-xl p-4 bg-gradient-to-br from-temple-gold/15 to-temple-gold/5">
+                                {voluntaryAddons.map((addon, vi) => {
+                                  const cur = p.voluntaryFees?.[addon.id] || 0;
+                                  const setVol = (v: number) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
+                                    ...x, voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: v },
+                                  } : x));
+                                  return (
+                                    <div key={addon.id} className={vi > 0 ? 'mt-4 pt-4 border-t border-temple-gold/30' : ''}>
+                                      <p className="flex items-center gap-2 text-sm font-bold text-temple-red">
+                                        <HeartHandshake className="w-4.5 h-4.5 shrink-0" aria-hidden="true" />
+                                        {addon.name || '隨喜'}
+                                      </p>
+                                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                        {addon.description || '不拘金額，一分心意即是一分功德。'}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                                        {VOLUNTARY_PRESETS.map(amt => (
+                                          <button key={amt} type="button"
+                                            onClick={() => setVol(cur === amt ? 0 : amt)}
+                                            aria-pressed={cur === amt}
+                                            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
+                                              cur === amt
+                                                ? 'bg-temple-red border-temple-red text-white'
+                                                : 'bg-white border-temple-gold/50 text-temple-red hover:border-temple-gold hover:bg-temple-gold/10'}`}>
+                                            NT${amt.toLocaleString()}
+                                          </button>
+                                        ))}
+                                        <label className="flex items-center gap-1.5 ml-auto">
+                                          <span className="text-xs text-temple-red font-semibold">NT$</span>
+                                          <input type="number" min="1" inputMode="numeric" placeholder="自填"
+                                            value={cur || ''}
+                                            onChange={e => setVol(e.target.value ? Number(e.target.value) : 0)}
+                                            className="w-24 px-3 py-1.5 rounded-lg border border-temple-gold/50 bg-white text-sm text-right focus:outline-none focus:ring-1 focus:ring-temple-gold" />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            </>
                           );
                         })()}
                         {/* 供品名額認領（有設定時才顯示） */}
@@ -4749,9 +4806,13 @@ const App: React.FC = () => {
                           // 每個供品實際已認領數（來自統計 RPC）
                           const offeringClaimedMap = eventStats.offeringCounts;
                           return (
-                            <div className="border border-orange-300/60 rounded-xl p-3 bg-orange-50/40">
-                              <p className="text-xs font-semibold text-orange-800 mb-2 flex items-center gap-1.5">
-                                🕯 法會供品認領（限量，先到先得）
+                            /* **整塊原本是 Tailwind 的橘**（orange-300／50／800／500／700），
+                               跟加購的綠一樣不在站上的色票裡，而 inkTheme 也沒有 orange 的規則——
+                               青花紙底下整塊掉成灰的，廟方 2026-10-23 回報「配色很讓人沒感覺」。
+                               **標題原本還掛著 🕯 emoji**，而全站規則是不用 emoji、裝飾用線條與色塊。 */
+                            <div className="border border-temple-gold/40 rounded-xl p-3 bg-temple-gold/5">
+                              <p className="text-xs font-semibold text-temple-red mb-2 flex items-center gap-1.5">
+                                <Flame className="w-3.5 h-3.5" aria-hidden="true" /> 法會供品認領（限量，先到先得）
                               </p>
                               <div className="space-y-1.5">
                                 {blessingModal.offerings.map(off => {
@@ -4762,8 +4823,8 @@ const App: React.FC = () => {
                                   return (
                                     <label key={off.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all select-none ${
                                       isFull && !isChecked ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
-                                      : isChecked ? 'border-orange-400 bg-orange-100/60 cursor-pointer'
-                                      : 'border-gray-200 bg-white hover:border-orange-300 cursor-pointer'
+                                      : isChecked ? 'border-temple-gold bg-temple-gold/20 cursor-pointer'
+                                      : 'border-temple-gold/30 bg-white hover:border-temple-gold hover:bg-temple-gold/10 cursor-pointer'
                                     }`}>
                                       <input type="checkbox"
                                         disabled={isFull && !isChecked}
@@ -4774,16 +4835,16 @@ const App: React.FC = () => {
                                             ? [...(x.claimedOfferingIds || []), off.id]
                                             : (x.claimedOfferingIds || []).filter(id => id !== off.id)
                                         } : x))}
-                                        className="accent-orange-500 w-4 h-4 shrink-0" />
+                                        className="accent-temple-red w-4 h-4 shrink-0" />
                                       <div className="flex-1 min-w-0">
                                         <span className="text-sm text-gray-800 font-medium">{off.name}</span>
                                         {off.description && <span className="text-xs text-gray-400 ml-1.5">{off.description}</span>}
                                       </div>
                                       <div className="shrink-0 text-right">
                                         {off.fee && off.fee > 0
-                                          ? <span className="text-xs font-semibold text-orange-700">NT${off.fee.toLocaleString()}</span>
+                                          ? <span className="text-xs font-semibold text-temple-red">NT${off.fee.toLocaleString()}</span>
                                           : <span className="text-xs text-gray-400">免費認領</span>}
-                                        <div className={`text-[11px] mt-0.5 ${isFull ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                                        <div className={`text-[11px] mt-0.5 ${isFull ? 'text-gray-500 font-semibold' : 'text-gray-400'}`}>
                                           {isFull ? '已全數認領' : `剩餘 ${remaining} 份`}
                                         </div>
                                       </div>

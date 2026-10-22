@@ -185,6 +185,13 @@ export const INK_PAPER_CSS = `
   .ink-paper .text-gray-400,
   .ink-paper .text-gray-300    { color: ${INK.inkFaint} !important; }
   .ink-paper .text-temple-red  { color: ${INK.gold} !important; }
+  /**
+   * **金色淡底的卡片上要再亮一階。** temple-red 平常映到 INK.gold，那在紙色上
+   * 沒問題；但祈福報名的加購／隨喜／供品是金色淡底（bg-temple-gold/5~/20），
+   * 底一亮，12px 的金字就掉到 4.07:1。而那幾個位置放的正是**金額**——
+   * 跟法會報名表那次的結論一樣，金額是整張表最不能看錯的字。
+   */
+  .ink-paper [class*="bg-temple-gold/"] .text-temple-red { color: ${INK.ink} !important; }
   .ink-paper .text-temple-red\\/70 { color: ${INK.inkSoft} !important; }
 
   /* 框線。灰框在深底上會消失，一律換成金的細框 */
