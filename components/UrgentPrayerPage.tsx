@@ -40,9 +40,16 @@ import { UrgentPrayerData, UrgentPrayerKind, ZodiacSign } from '../types';
  * （見 PatternMedallion 的檔頭）。
  */
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <section className="py-20 bg-temple-bg relative overflow-hidden">
+  /* **pt-20 讓出固定導覽列的高度，py-16 sm:py-20 才是這一頁自己的上下留白**——
+     兩件事不能合成一個 py-20。原本只有 py-20，等於完全沒有替導覽列讓位，
+     標題就黏在導覽列底下：實測 h1 離頁頂 116px，而 /booking、/lamps、
+     /relocation 全是 196px（廟方 2026-10-22 回報「版型跟其他頁不同」）。
+     數字要對得起來的是這個，不是字級——字級本來三頁就都是 48px。
+     團紋是絕對定位並往外推四成，所以外層要 relative overflow-hidden、
+     內容要 relative z-10（見 PatternMedallion 的檔頭）。 */
+  <section className="pt-20 bg-temple-bg relative overflow-hidden">
     <PatternMedallion motif="phoenix" side="r" />
-    <div className="relative z-10">{children}</div>
+    <div className="relative z-10 py-16 sm:py-20">{children}</div>
   </section>
 );
 
