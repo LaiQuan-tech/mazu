@@ -474,6 +474,23 @@ const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMont
  * 第四格是點燈／祈福互換的那一格（見 isLampSeason）。順序改了寬度沒變——
  * 整列仍是 849px／可用 849px。
  */
+/**
+ * 桌機頂層那一列。**順序是廟方定的優先序，不是版面考量**（2026-10-23）：
+ *   緊急祈願 → 遷址捐款 → 最新活動 → 其餘
+ * 廟方的原話：「緊急祈願是服務緊急的信眾，永遠最重要，次重要就是遷址，
+ * 然後最新的活動公布」。改動前三項之前要先問過他們。
+ *
+ * 其餘的順序（由我建議）：預約問事排在祈福／點燈之前——問事是全年常設、
+ * 也是最多人用的那張表，祈福活動是一場一場的；祀奉神尊與關於我們是認識性的
+ * 內容，急迫性最低，擺最後。
+ *
+ * **首頁仍然排第一**：那是回首頁的錨點不是一項服務，各家慣例都在最左邊；
+ * 廟方講的「最前面」指的是服務項目之間的先後。
+ *
+ * **這一列沒有空間再加東西**（1024px 時用掉 949px、可用 945px）。
+ * 要加一項就得先拿掉一項，詳見 NAV_MORE 與緊急祈願那兩段註解。
+ * 重排不影響寬度——同一組項目換位置而已。
+ */
 const NAV_PRIMARY: NavItem[] = [
   { id: 'home', label: '首頁', kind: 'section' },
   /**
@@ -487,11 +504,11 @@ const NAV_PRIMARY: NavItem[] = [
    * 收一層就變成兩個動作，而這一頁存在的理由就是「馬上」。
    */
   { id: 'urgent', label: '緊急祈願', kind: 'page' },
-  { id: 'booking', label: '預約問事', kind: 'page' },
-  isLampSeason() ? LAMP_NAV : BLESSING_NAV,
   { id: 'relocation', label: '遷址捐款', kind: 'page' },
   // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
   ...(ENABLE_BULLETIN ? [{ id: 'bulletin', label: '最新活動', kind: 'section' } as NavItem] : []),
+  { id: 'booking', label: '預約問事', kind: 'page' },
+  isLampSeason() ? LAMP_NAV : BLESSING_NAV,
   { id: 'deities', label: '祀奉神尊', kind: 'section' },
   { id: 'about', label: '關於我們', kind: 'section' },
 ];

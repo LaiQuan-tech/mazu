@@ -5023,6 +5023,14 @@ const BLESSING_EVENT_TYPES = ['法會', '進香', '祭典', '祈福', '其他'];
  */
 const OFFERING_PRESETS = ['蛋糕', '鮮花', '水果', '壽桃', '壽麵', '蠟燭', '金紙', '祝壽供香', '壽酒', '茶葉'] as const;
 
+/**
+ * 加購品項的基本款（廟方 2026-10-23：「加購品項，通常是元寶、蓮花，也幫我設定
+ * 可勾選，方便設定」）。與供品那組是**兩份清單不是一份**——加購是信眾報名時
+ * 自己加買的（元寶、蓮花這類紙錢），供品是法會現場要備的，兩邊的品項不重疊。
+ * 同樣是捷徑不是限制：其餘用「新增加購品項」手打。
+ */
+const ADDON_PRESETS = ['元寶', '蓮花'] as const;
+
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
   startDate: '', endDate: '', registrationDeadline: '',
@@ -5093,6 +5101,23 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
     // confirm 要在 setState 外面叫：StrictMode 會把 updater 跑兩次，寫在裡面會跳兩次視窗
     if (touched && !window.confirm(`「${name}」已經設定了名額或費用，確定要移除嗎？`)) return;
     setForm(f => ({ ...f, offerings: (f.offerings || []).filter(o => o.id !== hit.id) }));
+  };
+
+  /** 加購的勾選。規則與 toggleOfferingPreset 相同，差別只在「動過」的判定：
+      加購沒有名額欄，所以看的是費用／隨喜／說明。 */
+  const toggleAddonPreset = (name: string) => {
+    const list = form.addons || [];
+    const hit = list.find(a => a.name.trim() === name);
+    if (!hit) {
+      setForm(f => ({
+        ...f,
+        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0, voluntary: false }],
+      }));
+      return;
+    }
+    const touched = (hit.fee ?? 0) !== 0 || !!hit.voluntary || !!hit.description?.trim();
+    if (touched && !window.confirm(`「${name}」已經設定了費用，確定要移除嗎？`)) return;
+    setForm(f => ({ ...f, addons: (f.addons || []).filter(a => a.id !== hit.id) }));
   };
 
   const handleBlessingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5445,9 +5470,27 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                     <Plus className="w-3.5 h-3.5" /> 新增加購品項
                   </button>
                 </div>
+                {/* 基本款：勾一下就長出一列，只剩金額要填（同供品那組） */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {ADDON_PRESETS.map(name => {
+                    const on = (form.addons || []).some(a => a.name.trim() === name);
+                    return (
+                      <button key={name} type="button"
+                        onClick={() => toggleAddonPreset(name)}
+                        aria-pressed={on}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs transition-colors ${
+                          on ? 'bg-temple-gold/20 border-temple-gold text-temple-red font-medium'
+                             : 'bg-white border-gray-300 text-gray-600 hover:border-temple-gold hover:text-temple-red'}`}>
+                        {on ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 border border-current rounded-[3px]" />}
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 {(!form.addons || form.addons.length === 0) ? (
                   <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                    無加購品項。點擊「新增加購品項」可設定固定費用品項或隨喜敬獻。
+                    無加購品項。上面勾選基本款，或點「新增加購品項」自己打（固定費用或隨喜敬獻）。
                   </p>
                 ) : (
                   <div className="space-y-2">
