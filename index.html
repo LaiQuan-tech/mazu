@@ -386,17 +386,25 @@
         background: rgba(240, 217, 164, .95);
         pointer-events: none;
         will-change: opacity, transform;
-        animation: qh-twinkle ease-in-out infinite;
+        animation: qh-rise linear infinite;
       }
-      @keyframes qh-twinkle {
-        0%, 100% { opacity: var(--lo); transform: scale(.8); }
-        50%      { opacity: var(--hi); transform: scale(1); }
+      /* 淡入 → 上升 → 淡出，同聖母經那頁的 sp-rise（廟方 2026-10-22 指定）。
+         **比 sp-rise 亮得多也撐得久**：那邊是 .5 一路掉到 .15，這邊 15% 就到
+         最亮、撐到 78% 才開始收——廟方前一輪才要求「星光要再明顯一點」。
+         位移用 vh 不用 px：translateY 的百分比是對自己的高度算的（才 2px），
+         寫 % 等於沒動；而 hero 是 100svh，用 vh 才跟得上不同高度的螢幕。 */
+      @keyframes qh-rise {
+        0%   { opacity: 0;          transform: translateY(0) scale(.85); }
+        15%  { opacity: var(--hi); }
+        78%  { opacity: var(--lo); }
+        100% { opacity: 0;          transform: translateY(calc(var(--rise) * -1)) scale(1); }
       }
       /* 減少動態效果：不閃，但留在最亮的狀態——畫面一樣有星星，只是不動。
          本站信眾以長者居多，開著那個設定的比例不低。 */
       @media (prefers-reduced-motion: reduce) {
         .qh-star { animation: none; opacity: var(--hi); transform: none; }
       }
+
 
       /* 泥金渲染的畫布（?hero=inkgold，見 App.tsx 的 HeroInkGold）。
          **一定要 pointer-events: none**：它鋪滿整個首屏，不關掉的話導覽列、
