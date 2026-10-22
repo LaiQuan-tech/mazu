@@ -313,6 +313,22 @@ const SERVICE_PAGE: Record<string, SitePage> = {
 };
 
 /**
+ * 這一場祈福活動還收不收報名。
+ *
+ * **全站只能有這一份。** 2026-10-23 公佈欄那顆按鈕改成直接開報名彈窗時，
+ * 判斷「已截止」的那行只寫在祈福頁的清單裡（那裡會把按鈕變灰、字樣改成
+ * 「已截止」），新的捷徑繞過了整段清單，於是**已截止的場次從公佈欄點進去
+ * 照樣開得了報名表**——廟方當天就看到了：「過期的祈福卡也照舊換頁」。
+ *
+ * 所以判斷抽到這裡，兩個入口共用；要加新的關閉條件（例如名額滿）也只有這一處。
+ *
+ * 後台 `AdminDashboard.tsx` 有自己的 `isDeadlinePassed`：那支是給廟方看的狀態
+ * 徽章，不是報名的門，刻意不共用——後台要能看到並編輯已截止的場次。
+ */
+const isBlessingClosed = (ev: BlessingEventRecord, now: Date = new Date()) =>
+  !!ev.registrationDeadline && new Date(ev.registrationDeadline) < now;
+
+/**
  * 首頁公佈欄最多列幾則（**置頂的不算在內，一律全列**）。
  * 廟方 2026-10-11 先定 5 則，2026-10-12 看到實際畫面後改為 4 則——
  * 當時線上有 1 則置頂＋5 則，首頁一口氣 6 張公告，比預期長。
@@ -2507,8 +2523,9 @@ const App: React.FC = () => {
    * 底下，不換頁的話 state 設了也不會渲染。換頁不會清掉 blessingModal，
    * 所以兩件事一起做就好，不必另外做 pending ref。
    *
-   * 找不到那一場（已下架、資料還沒載完）就退回原本的行為——寧可多一次點擊，
-   * 也不要按了沒反應。
+   * 找不到那一場（已下架、資料還沒載完）**或是已經截止**就退回原本的行為，
+   * 落在 /blessing 讓那一場自己顯示「已截止」（廟方 2026-10-23：「過期的祈福卡
+   * 也照舊換頁」）——寧可多一次點擊，也不要讓人填完一張收不了的表。
    */
   const openServiceFromBulletin = (
     svc: NonNullable<BulletinRecord['linkedService']>,
@@ -2518,7 +2535,7 @@ const App: React.FC = () => {
     if (svc === 'blessing' && eventId) {
       const ev = blessingEvents.find(e => e.id === eventId);
       // externalForm 的活動不會產生衍生卡，所以這裡不必再擋一次
-      if (ev) { goToPage('blessing'); openBlessingModal(ev); return; }
+      if (ev && !isBlessingClosed(ev)) { goToPage('blessing'); openBlessingModal(ev); return; }
     }
     const target = SERVICE_PAGE[svc];
     if (target) goToPage(target);
@@ -4430,7 +4447,7 @@ const App: React.FC = () => {
             <div className="space-y-5">
               {blessingEventsSorted.map(ev => {
                 const now = new Date();
-                const deadlinePassed = ev.registrationDeadline ? new Date(ev.registrationDeadline) < now : false;
+                const deadlinePassed = isBlessingClosed(ev, now);
                 const daysLeft = ev.registrationDeadline
                   ? Math.ceil((new Date(ev.registrationDeadline).getTime() - now.getTime()) / 86400000)
                   : null;
