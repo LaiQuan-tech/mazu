@@ -612,6 +612,15 @@ export interface BlessingOffering {
 export interface ClaimedOffering {
   id:   string;  // 對應 BlessingOffering.id
   name: string;  // 冗餘存名稱，方便顯示
+  /**
+   * 認領費用。**冗餘存一份是刻意的**（同 addon 的 fee）：活動的供品價錢日後
+   * 會被廟方改，報名當下收多少必須留在這筆紀錄上，不能回頭去活動設定裡撈。
+   *
+   * 2026-10-23 新增（廟方：「供品要進合計」）。**在那之前的紀錄沒有這一欄**，
+   * 算出來是 0——那正是當時的實際行為（供品從不進金額），
+   * 不要為了「補齊」去回頭改舊資料的金額，那是財務紀錄。
+   */
+  fee?: number;
 }
 
 export interface BlessingEventPackage {

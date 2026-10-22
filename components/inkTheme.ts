@@ -192,6 +192,11 @@ export const INK_PAPER_CSS = `
    * 跟法會報名表那次的結論一樣，金額是整張表最不能看錯的字。
    */
   .ink-paper [class*="bg-temple-gold/"] .text-temple-red { color: ${INK.ink} !important; }
+  /* 同一個理由往下延伸：金底卡是這個主題裡**最亮的背景**，淡的那兩階在上面
+     都不夠（實測勾選後的供品卡上，「剩餘 3 份」只有 4.15:1）。
+     在這種卡片上把 faint／soft 都提到 inkBody。 */
+  .ink-paper [class*="bg-temple-gold/"] .text-gray-400,
+  .ink-paper [class*="bg-temple-gold/"] .text-gray-500 { color: ${INK.inkBody} !important; }
   .ink-paper .text-temple-red\\/70 { color: ${INK.inkSoft} !important; }
 
   /* 框線。灰框在深底上會消失，一律換成金的細框 */

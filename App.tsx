@@ -2447,9 +2447,10 @@ const App: React.FC = () => {
           .filter(a => a.voluntary && (p.voluntaryFees?.[a.id] ?? 0) >= 1)
           .map(a => ({ ...a, fee: p.voluntaryFees![a.id] })),
       ];
+      // fee 要一起存：活動的供品價錢日後會被改，報名當下收多少得留在這一筆上
       const claimedOfferings = (blessingModal.offerings || [])
         .filter(o => (p.claimedOfferingIds || []).includes(o.id))
-        .map(o => ({ id: o.id, name: o.name }));
+        .map(o => ({ id: o.id, name: o.name, fee: o.fee ?? 0 }));
       return createBlessingRegistration({
         eventId: blessingModal.id,
         name: p.name.trim(),
@@ -4694,14 +4695,8 @@ const App: React.FC = () => {
                         {blessingModal.addons && blessingModal.addons.length > 0 && (() => {
                           const fixedAddons = blessingModal.addons.filter(a => !a.voluntary);
                           const voluntaryAddons = blessingModal.addons.filter(a => a.voluntary);
-                          const pkg = blessingModal.packages?.find(pk => pk.id === p.packageId);
-                          const pkgFee = pkg?.fee ?? (blessingModal.packages?.length ? 0 : (blessingModal.fee ?? 0));
-                          const fixedTotal = fixedAddons
-                            .filter(a => (p.selectedAddonIds || []).includes(a.id))
-                            .reduce((s, a) => s + a.fee, 0);
-                          const volTotal = voluntaryAddons
-                            .reduce((s, a) => s + (p.voluntaryFees?.[a.id] || 0), 0);
-                          const total = pkgFee + fixedTotal + volTotal;
+                          // 金額一律在下面那塊「此人合計」算，這裡只畫項目——
+                          // 算兩次就是兩份會各自走樣的算式（同 serviceAmount.ts 那條教訓）
                           return (
                             <>
                             {/**
@@ -4805,21 +4800,6 @@ const App: React.FC = () => {
                               </div>
                             </div>
                             )}
-
-                            {/* 合計。**放在兩個框之外**：它原本長在加購框裡，而加購框有
-                                「沒有固定品項就整個不顯示」的條件——只設了隨喜的活動，信眾填了金額
-                                卻看不到任何合計。它是「這個人要付多少」，本來就該在所有項目之後。
-                                **要講清楚含方案費**：total = 方案費 + 加購 + 隨喜，所以什麼都沒勾也會
-                                有數字（廟方的截圖是「小計 NT$200」而上面一個都沒勾）。
-                                注意供品的費用不在裡面——送出時 claimedOfferings 只存 id 與名稱。 */}
-                            {total > 0 && (
-                              <p className="text-right text-xs">
-                                <span className="font-semibold text-temple-red">此人合計 NT${total.toLocaleString()}</span>
-                                {pkgFee > 0 && (
-                                  <span className="text-gray-500 ml-1">（含方案 NT${pkgFee.toLocaleString()}）</span>
-                                )}
-                              </p>
-                            )}
                             </>
                           );
                         })()}
@@ -4877,6 +4857,45 @@ const App: React.FC = () => {
                             </div>
                           );
                         })()}
+                        {/**
+                         * 此人合計。**放在所有項目之後**（廟方 2026-10-23：「應該要放到最後」）。
+                         * 它是「這個人要付多少」，排在方案／隨喜／加購／供品全部挑完之後才合理；
+                         * 原本夾在加購與供品中間，等於清單還沒列完就先報一個總數。
+                         *
+                         * **算式只有這一份**。加購那一塊以前也算一次，兩份遲早各自走樣——
+                         * 祈福的金額就因為算式被複製了三份而錯了三個月（見 serviceAmount.ts）。
+                         * 搬到外面也順便修掉一個 bug：「只設隨喜、沒有固定加購」的活動，
+                         * 合計以前長在加購框裡，而那個框沒有固定品項就整個不顯示。
+                         *
+                         * **要與後台算的一致**：方案 ＋ 加購 ＋ 隨喜 ＋ 供品，與
+                         * services/serviceAmount.ts 的 blessingAmount 同一套規則。
+                         * 前台少算一項，信眾就會匯錯錢。
+                         */}
+                        {(() => {
+                          const pkg = blessingModal.packages?.find(pk => pk.id === p.packageId);
+                          const pkgFee = pkg?.fee ?? (blessingModal.packages?.length ? 0 : (blessingModal.fee ?? 0));
+                          const addons = blessingModal.addons || [];
+                          const fixedTotal = addons
+                            .filter(a => !a.voluntary && (p.selectedAddonIds || []).includes(a.id))
+                            .reduce((sum, a) => sum + a.fee, 0);
+                          const volTotal = addons
+                            .filter(a => a.voluntary)
+                            .reduce((sum, a) => sum + (p.voluntaryFees?.[a.id] || 0), 0);
+                          const offerTotal = (blessingModal.offerings || [])
+                            .filter(o => (p.claimedOfferingIds || []).includes(o.id))
+                            .reduce((sum, o) => sum + (o.fee || 0), 0);
+                          const total = pkgFee + fixedTotal + volTotal + offerTotal;
+                          if (total <= 0) return null;
+                          return (
+                            <p className="text-right text-sm border-t border-temple-gold/40 pt-2.5">
+                              <span className="font-bold text-temple-red">此人合計 NT${total.toLocaleString()}</span>
+                              {pkgFee > 0 && (
+                                <span className="text-xs text-gray-500 ml-1.5">（含方案 NT${pkgFee.toLocaleString()}）</span>
+                              )}
+                            </p>
+                          );
+                        })()}
+
                         {/* 生日選擇器 */}
                         <BirthDatePicker
                           key={`blessing-${p.id}-${p._bKey ?? 0}`}

@@ -30,18 +30,23 @@ export const lampAmount = (
 ): number => configs.find(c => c.id === reg.serviceId)?.fee || 0;
 
 /**
- * 祈福：**方案費優先，沒有方案才用活動本身的統一費用**，再加上所有加購。
+ * 祈福：**方案費優先，沒有方案才用活動本身的統一費用**，再加上所有加購與供品。
  *
- * 兩段都不可以省：
+ * 三段都不可以省：
  *   有方案的活動，每個方案各有價錢，`fee` 可能被設成 0（見欄位註解）；
  *   沒有方案的活動，價錢只存在 `fee` 裡。
  * 加購的 `fee` 存的就是信眾自填的實際金額（隨喜品項也一樣）。
+ *
+ * **供品 2026-10-23 才開始計入**（廟方：「供品要進合計」）。在那之前供品只存
+ * id 與名稱、完全不進金額，所以舊紀錄的 `fee` 是 undefined、算出來是 0——
+ * **那正是當時的實際行為，不要去補**。要補就是回頭改財務紀錄。
  */
 export const blessingAmount = (
-  reg: Pick<BlessingRegistrationRecord, 'eventId' | 'packageFee' | 'selectedAddons'>,
+  reg: Pick<BlessingRegistrationRecord, 'eventId' | 'packageFee' | 'selectedAddons' | 'claimedOfferings'>,
   events: Pick<BlessingEventRecord, 'id' | 'fee'>[],
 ): number => {
   const base = reg.packageFee ?? events.find(e => e.id === reg.eventId)?.fee ?? 0;
   const addons = (reg.selectedAddons ?? []).reduce((sum, a) => sum + (Number(a.fee) || 0), 0);
-  return (Number(base) || 0) + addons;
+  const offerings = (reg.claimedOfferings ?? []).reduce((sum, o) => sum + (Number(o.fee) || 0), 0);
+  return (Number(base) || 0) + addons + offerings;
 };

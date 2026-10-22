@@ -220,14 +220,20 @@ const URGENT_KIND: Record<string, string> = {
  * 這裡不能直接 import——那會把 supabase client 整包拉進這支無伺服器函式）。
  * 改任何一邊都要同時改另一邊，理由寫在 serviceAmount.ts 的檔頭。
  *
+ * **2026-10-23 加上供品**（廟方：「供品要進合計」）。在那之前供品只存 id 與名稱、
+ * 不進金額，所以舊紀錄的 fee 是 undefined、算出來是 0——那正是當時的實際行為。
+ *
  * **2026-10-16 修**：原本只讀 `package_fee`，而本壇的祈福活動一個都沒有設方案
  * （費用直接填在活動的 `fee` 上），所以金額永遠是 0——廟方收到的 LINE 通知寫
  * 「NT$0」就是這個。隨喜加購的 fee 存的就是信眾自填的實際金額。
  */
 const blessingTotal = (r: Row, ctx: Ctx): number => {
   const addons: { fee?: number }[] = Array.isArray(r.selected_addons) ? r.selected_addons : [];
+  const offerings: { fee?: number }[] = Array.isArray(r.claimed_offerings) ? r.claimed_offerings : [];
   const base = r.package_fee ?? ctx.event.get(clean(r.event_id))?.fee ?? 0;
-  return (Number(base) || 0) + addons.reduce((sum, a) => sum + Number(a.fee ?? 0), 0);
+  return (Number(base) || 0)
+    + addons.reduce((sum, a) => sum + Number(a.fee ?? 0), 0)
+    + offerings.reduce((sum, o) => sum + Number(o.fee ?? 0), 0);
 };
 
 /** 一次最多處理幾筆。同一團再多也不會到這個數，這是防灌不是業務限制 */
