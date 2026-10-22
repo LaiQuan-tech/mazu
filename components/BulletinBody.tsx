@@ -195,8 +195,12 @@ export const BulletinCard: React.FC<{
   bulletin: BulletinRecord;
   open: boolean;
   onToggle: () => void;
-  /** 「前往○○登記」要去哪。首頁是捲到區塊、獨立頁是換頁，所以交給呼叫端決定 */
-  onService: (service: NonNullable<BulletinRecord['linkedService']>) => void;
+  /**
+   * 「前往○○登記」要去哪。首頁是捲到區塊、獨立頁是換頁，所以交給呼叫端決定。
+   * 第二個參數是祈福活動的 id（只有衍生卡會有）——帶著它呼叫端才能**直接開
+   * 那一場的報名表**，而不是把人丟到祈福活動頁自己再找一次。
+   */
+  onService: (service: NonNullable<BulletinRecord['linkedService']>, eventId?: string) => void;
 }> = ({ bulletin, open, onToggle, onService }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(open);
@@ -277,7 +281,7 @@ export const BulletinCard: React.FC<{
         <BulletinBody content={bulletin.content} />
         {bulletin.linkedService && (
           <button
-            onClick={e => { e.stopPropagation(); onService(bulletin.linkedService!); }}
+            onClick={e => { e.stopPropagation(); onService(bulletin.linkedService!, bulletin.linkedEventId); }}
             className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
           >
             前往{SERVICE_LABEL[bulletin.linkedService] ?? ''}登記 →

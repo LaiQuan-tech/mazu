@@ -33,7 +33,7 @@ interface Props {
   /** 進站時網址指定的那一則（/bulletins/<id>），沒有就是空字串 */
   initialId?: string;
   onBack: () => void;
-  onService: (service: NonNullable<BulletinRecord['linkedService']>) => void;
+  onService: (service: NonNullable<BulletinRecord['linkedService']>, eventId?: string) => void;
 }
 
 const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onService }) => {

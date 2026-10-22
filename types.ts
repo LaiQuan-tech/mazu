@@ -301,6 +301,14 @@ export interface BulletinData {
   isPinned: boolean;
   publishAt?: string | null;
   linkedService?: 'lamp' | 'blessing' | 'booking' | 'donation' | null;
+  /**
+   * 這則公告對應的祈福活動 id。**只有衍生卡會帶，不是資料庫欄位**
+   * （廟方手寫的公告沒有、也不該有——它不知道自己在講哪一場）。
+   *
+   * 有它的話「前往祈福登記」就能**直接開那一場的報名表**，而不是把人丟到
+   * 祈福活動頁自己再找一次（廟方 2026-10-23：「直接進入報名表單，增加轉化率」）。
+   */
+  linkedEventId?: string;
   /** 活動照片：存完整公開 URL，與 RepairProject.imageUrl 同慣例 */
   imageUrl?: string | null;
 }

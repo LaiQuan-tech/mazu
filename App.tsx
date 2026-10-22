@@ -2497,6 +2497,36 @@ const App: React.FC = () => {
   };
 
   /**
+   * 公佈欄那顆「前往○○登記」。
+   *
+   * **帶得到活動 id 就直接開那一場的報名表**（廟方 2026-10-23：「不要到祈福活動頁，
+   * 直接進入報名表單，增加轉化率」）。原本一律只是換到 /blessing，信眾落在一整頁
+   * 活動清單上還要自己認出剛才看的是哪一場——公告裡明明已經寫著是哪一場了。
+   *
+   * **還是要先 goToPage('blessing')**：報名彈窗的 JSX 掛在 `page === 'blessing'`
+   * 底下，不換頁的話 state 設了也不會渲染。換頁不會清掉 blessingModal，
+   * 所以兩件事一起做就好，不必另外做 pending ref。
+   *
+   * 找不到那一場（已下架、資料還沒載完）就退回原本的行為——寧可多一次點擊，
+   * 也不要按了沒反應。
+   */
+  const openServiceFromBulletin = (
+    svc: NonNullable<BulletinRecord['linkedService']>,
+    eventId?: string,
+    onNonPage?: () => void,
+  ) => {
+    if (svc === 'blessing' && eventId) {
+      const ev = blessingEvents.find(e => e.id === eventId);
+      // externalForm 的活動不會產生衍生卡，所以這裡不必再擋一次
+      if (ev) { goToPage('blessing'); openBlessingModal(ev); return; }
+    }
+    const target = SERVICE_PAGE[svc];
+    if (target) goToPage(target);
+    else onNonPage?.();
+  };
+
+
+  /**
    * 平滑捲到某個元素，並在捲動期間鎖住捲動高亮。
    * 鎖的長度依距離估算（Chrome 的平滑捲動距離越遠花越久），寧可多鎖一點：
    * 鎖太短會讓中途的捲動事件把高亮改掉，鎖太長只是高亮晚幾百毫秒才跟著使用者的捲動走。
@@ -3423,10 +3453,7 @@ const App: React.FC = () => {
                     bulletin={bulletin}
                     open={expandedBulletin === bulletin.id}
                     onToggle={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
-                    onService={svc => {
-                      const target = SERVICE_PAGE[svc];
-                      if (target) goToPage(target); else scrollToSection('donation');
-                    }}
+                    onService={(svc, eventId) => openServiceFromBulletin(svc, eventId, () => scrollToSection('donation'))}
                   />
                 </div>
               ))}
@@ -5020,11 +5047,10 @@ const App: React.FC = () => {
             bulletins={feedBulletins}
             initialId={bulletinIdFromPath()}
             onBack={() => goToPage('home')}
-            onService={svc => {
-              const target = SERVICE_PAGE[svc];
-              if (target) goToPage(target);
-              else { pendingScrollRef.current = 'donation'; goToPage('home'); }
-            }}
+            onService={(svc, eventId) => openServiceFromBulletin(svc, eventId, () => {
+              pendingScrollRef.current = 'donation';
+              goToPage('home');
+            })}
           />
         </Suspense>
       )}

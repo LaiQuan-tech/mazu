@@ -57,6 +57,8 @@ const card = (
   createdAt: string,
   linkedService: BulletinRecord['linkedService'],
   imageUrl?: string | null,
+  /** 祈福活動才有：讓公佈欄的那顆鈕直接開這一場的報名表（見 BulletinRecord） */
+  linkedEventId?: string,
 ): BulletinRecord => ({
   id: `${DERIVED_PREFIX}${key}`,
   title,
@@ -65,6 +67,7 @@ const card = (
   isPinned: false,
   publishAt: null,
   linkedService,
+  linkedEventId,
   imageUrl: imageUrl ?? null,
   createdAt,
   updatedAt: createdAt,
@@ -115,6 +118,7 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
         ev.createdAt,
         'blessing',
         ev.imageUrl,
+        ev.id,
       ));
     });
 
