@@ -4704,13 +4704,90 @@ const App: React.FC = () => {
                           const total = pkgFee + fixedTotal + volTotal;
                           return (
                             <>
+                            {/**
+                             * 隨喜。**排在加購之前，而且是整個區塊裡最顯眼的一塊**
+                             * （廟方 2026-10-23：「隨喜是很重要的！」「隨喜再明顯，放在加購上面」）。
+                             *
+                             * 它原本是「加購項目（可多選）」裡的最後一列，等於把它框成一件可以買的
+                             * 商品——而隨喜不是商品是心意，擺在購物清單的尾巴，語意與份量都不對。
+                             *
+                             * 顏色也整個換掉：原本是 Tailwind 的綠（border-green-200／bg-green-50／
+                             * text-green-600），全站規則是「綠色只留給送出成功的勾勾與進度條」，
+                             * 而且 inkTheme 根本沒有 green 的規則，青花紙底下整塊掉成灰濁的藍，
+                             * 廟方的原話是「配色真的很讓人沒感覺，不想報名」。
+                             *
+                             * **常見金額是給長者用的**：全站主要使用者是長輩，在手機上叫出數字鍵盤
+                             * 再打四位數是真實的門檻。那三個數字取自本壇自己的價目（300／600／1200），
+                             * 不是憑空訂的；要改就改 VOLUNTARY_PRESETS。按一下填入、再按一下清掉，
+                             * 旁邊永遠留著可以自己打的欄位——隨喜的意義就是不拘金額。
+                             */}
+                            {voluntaryAddons.length > 0 && (
+                              /* **單色底不要漸層。** 漸層會讓這一塊對對比稽核整個隱形——量法遇到
+                                  backgroundImage 就跳過（那是刻意的，漸層讀不出單一顏色），
+                                  於是新加的這塊完全沒被檢查，實測「NT$」在漸層亮端只有 3.91:1。
+                                  換成 bg-temple-gold/15 之後，既有那條「金底上的 temple-red 要亮
+                                  一階」也接得到（選擇器比對的是 bg-temple-gold/，漸層的
+                                  from-temple-gold/ 比對不到）。 */
+                              <div className="border-2 border-temple-gold rounded-xl overflow-hidden bg-temple-gold/15 shadow-sm">
+                                {/* 標頭：整個報名流程裡只有這一塊有，份量就是靠它拉開的。
+                                    **深底配白字，不要金底配白字**——金底（#C49820）上的白字量到只有
+                                    3.17:1，正是本專案記過的「金字壓在金箔上等於沒有字」。
+                                    深字在金底上雖有 4.92:1，但 inkTheme 會把品牌深色翻成亮色
+                                    （它假設背景是深的），兩套主題顧不了。
+                                    改成 temple-red 深底：白字在深褐上 6 倍以上，而且 div 不會被
+                                    inkTheme 的 section/button 規則碰到，深淺兩套長得一樣。 */}
+                                <div className="bg-temple-red px-4 py-2.5 flex items-center gap-2">
+                                  <HeartHandshake className="w-5 h-5 text-white shrink-0" aria-hidden="true" />
+                                  <span className="text-sm font-bold text-white tracking-wide">隨喜功德</span>
+                                </div>
+                                <div className="p-4">
+                                  {voluntaryAddons.map((addon, vi) => {
+                                    const cur = p.voluntaryFees?.[addon.id] || 0;
+                                    const setVol = (v: number) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
+                                      ...x, voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: v },
+                                    } : x));
+                                    return (
+                                      <div key={addon.id} className={vi > 0 ? 'mt-4 pt-4 border-t border-temple-gold/30' : ''}>
+                                        {/* 只有一項隨喜時不再印一次名稱——標頭已經寫了，兩行一樣的字是重複 */}
+                                        {(voluntaryAddons.length > 1 || (addon.name && addon.name !== '隨喜')) && (
+                                          <p className="text-sm font-bold text-temple-red mb-1">{addon.name || '隨喜'}</p>
+                                        )}
+                                        <p className="text-sm text-gray-700 leading-relaxed">
+                                          {addon.description || '不拘金額，一分心意即是一分功德。'}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                                          {VOLUNTARY_PRESETS.map(amt => (
+                                            <button key={amt} type="button"
+                                              onClick={() => setVol(cur === amt ? 0 : amt)}
+                                              aria-pressed={cur === amt}
+                                              className={`px-4 py-2 rounded-full border-2 text-sm font-bold transition-colors ${
+                                                cur === amt
+                                                  ? 'bg-temple-red border-temple-red text-white'
+                                                  : 'bg-white border-temple-gold/60 text-temple-red hover:border-temple-gold hover:bg-temple-gold/15'}`}>
+                                              NT${amt.toLocaleString()}
+                                            </button>
+                                          ))}
+                                          <label className="flex items-center gap-1.5">
+                                            <span className="text-sm text-temple-red font-bold">NT$</span>
+                                            <input type="number" min="1" inputMode="numeric" placeholder="自填"
+                                              value={cur || ''}
+                                              onChange={e => setVol(e.target.value ? Number(e.target.value) : 0)}
+                                              className="w-24 px-3 py-2 rounded-lg border-2 border-temple-gold/50 bg-white text-sm font-semibold text-right focus:outline-none focus:ring-2 focus:ring-temple-gold" />
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
                             {fixedAddons.length > 0 && (
                             <div className="border border-temple-gold/30 rounded-xl p-3 bg-temple-gold/5">
                               <p className="text-xs font-semibold text-temple-dark mb-2 flex items-center gap-1.5">
                                 <ShoppingBag className="w-3.5 h-3.5" /> 加購項目（可多選）
                               </p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                {/* 固定費用品項：勾選框 */}
                                 {fixedAddons.map(addon => (
                                   <label key={addon.id} className="flex items-center gap-2 p-2.5 rounded-lg border border-temple-gold/35 bg-temple-gold/5 cursor-pointer hover:border-temple-gold hover:bg-temple-gold/15 transition-all">
                                     <input type="checkbox" className="accent-temple-red w-4 h-4"
@@ -4726,77 +4803,22 @@ const App: React.FC = () => {
                                   </label>
                                 ))}
                               </div>
-                              {/* 小計。**要講清楚它含方案費**：這個數字長在「加購項目」的框裡，
-                                  而 total = 方案費 + 加購 + 隨喜，所以一個加購都沒勾也會顯示
-                                  一個金額（廟方的截圖裡是「小計 NT$200」而上面一個都沒勾）。
-                                  在付款的畫面上，看不懂的數字比沒有數字糟。 */}
-                              {total > 0 && (
-                                <p className="text-right text-xs mt-2">
-                                  <span className="font-semibold text-temple-red">此人合計 NT${total.toLocaleString()}</span>
-                                  {pkgFee > 0 && (
-                                    <span className="text-gray-500 ml-1">（含方案 NT${pkgFee.toLocaleString()}）</span>
-                                  )}
-                                </p>
-                              )}
                             </div>
                             )}
 
-                            {/**
-                             * 隨喜。**自己一塊，不混在加購裡**（廟方 2026-10-23：「隨喜是很重要的！」）。
-                             *
-                             * 原本它是「加購項目（可多選）」裡的最後一列，等於把它框成一件可以買的
-                             * 商品——而隨喜不是商品是心意，擺在購物清單的尾巴，語意與份量都不對。
-                             *
-                             * 顏色也整個換掉：原本是 Tailwind 的綠（border-green-200／bg-green-50／
-                             * text-green-600），全站規則是「綠色只留給送出成功的勾勾與進度條」，
-                             * 而且 inkTheme 根本沒有 green 的規則，青花紙底下整塊掉成灰濁的藍，
-                             * 廟方的原話是「配色真的很讓人沒感覺，不想報名」。
-                             *
-                             * **常見金額是給長者用的**：全站主要使用者是長輩，在手機上叫出數字鍵盤
-                             * 再打四位數是真實的門檻。那三個數字取自本壇自己的價目（300／600／1200），
-                             * 不是憑空訂的；要改就改 VOLUNTARY_PRESETS。按一下填入、再按一下清掉，
-                             * 旁邊永遠留著可以自己打的欄位。
-                             */}
-                            {voluntaryAddons.length > 0 && (
-                              <div className="border-2 border-temple-gold/60 rounded-xl p-4 bg-gradient-to-br from-temple-gold/15 to-temple-gold/5">
-                                {voluntaryAddons.map((addon, vi) => {
-                                  const cur = p.voluntaryFees?.[addon.id] || 0;
-                                  const setVol = (v: number) => setBlessingPersons(prev => prev.map(x => x.id === p.id ? {
-                                    ...x, voluntaryFees: { ...(x.voluntaryFees || {}), [addon.id]: v },
-                                  } : x));
-                                  return (
-                                    <div key={addon.id} className={vi > 0 ? 'mt-4 pt-4 border-t border-temple-gold/30' : ''}>
-                                      <p className="flex items-center gap-2 text-sm font-bold text-temple-red">
-                                        <HeartHandshake className="w-4.5 h-4.5 shrink-0" aria-hidden="true" />
-                                        {addon.name || '隨喜'}
-                                      </p>
-                                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                                        {addon.description || '不拘金額，一分心意即是一分功德。'}
-                                      </p>
-                                      <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                                        {VOLUNTARY_PRESETS.map(amt => (
-                                          <button key={amt} type="button"
-                                            onClick={() => setVol(cur === amt ? 0 : amt)}
-                                            aria-pressed={cur === amt}
-                                            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
-                                              cur === amt
-                                                ? 'bg-temple-red border-temple-red text-white'
-                                                : 'bg-white border-temple-gold/50 text-temple-red hover:border-temple-gold hover:bg-temple-gold/10'}`}>
-                                            NT${amt.toLocaleString()}
-                                          </button>
-                                        ))}
-                                        <label className="flex items-center gap-1.5 ml-auto">
-                                          <span className="text-xs text-temple-red font-semibold">NT$</span>
-                                          <input type="number" min="1" inputMode="numeric" placeholder="自填"
-                                            value={cur || ''}
-                                            onChange={e => setVol(e.target.value ? Number(e.target.value) : 0)}
-                                            className="w-24 px-3 py-1.5 rounded-lg border border-temple-gold/50 bg-white text-sm text-right focus:outline-none focus:ring-1 focus:ring-temple-gold" />
-                                        </label>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                            {/* 合計。**放在兩個框之外**：它原本長在加購框裡，而加購框有
+                                「沒有固定品項就整個不顯示」的條件——只設了隨喜的活動，信眾填了金額
+                                卻看不到任何合計。它是「這個人要付多少」，本來就該在所有項目之後。
+                                **要講清楚含方案費**：total = 方案費 + 加購 + 隨喜，所以什麼都沒勾也會
+                                有數字（廟方的截圖是「小計 NT$200」而上面一個都沒勾）。
+                                注意供品的費用不在裡面——送出時 claimedOfferings 只存 id 與名稱。 */}
+                            {total > 0 && (
+                              <p className="text-right text-xs">
+                                <span className="font-semibold text-temple-red">此人合計 NT${total.toLocaleString()}</span>
+                                {pkgFee > 0 && (
+                                  <span className="text-gray-500 ml-1">（含方案 NT${pkgFee.toLocaleString()}）</span>
+                                )}
+                              </p>
                             )}
                             </>
                           );
