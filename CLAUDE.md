@@ -554,6 +554,9 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **heshengtan.tw 被 HiNet 上網守衛誤判封鎖**（2026-09-02 發現）：`safebrowsing.hinet.net` 把 `*.heshengtan.tw` 的 DNS 全導到 `202.39.161.53`，那台沒有本站憑證，Safari 直接跳「此連線並非私人連線」。**網站與憑證都正常**（Let's Encrypt，走正確 IP 是 HTTP 200、TLS 驗證 0）。
   怎麼分辨這類問題：權威 NS 與 DoH 都回正確 IP，但明文 UDP 查詢回別的 IP、TTL 固定不倒數、**連不存在的子網域也回同一個 IP**＝有人現場合成假回答，不是設定錯也不是快取。
   攔截頁的「仍要前往」按鈕對 HTTPS 網站沒用——瀏覽器在 TLS 階段就先失敗，使用者只會看到憑證警告。申訴管道：中華電信客服 0800-080-123。Google Search Console 確認過沒有安全性問題，只有 HiNet 這一家。
+  **2026-10-23 第二次發生**（這次攔到 `202.39.161.59`）。申訴要講的內容、完整證據與驗證指令整理在 **`docs/hinet-dns-申訴.md`**，再發生直接開那一份。
+  這次多抓到一個比上次更有力的事實：**本機 DNS 設的是 8.8.8.8 仍然被導走**，所以攔截在**網路路徑上**（明文 53 埠被透明攔截）不是在 HiNet 的解析器。
+  由此推論出**給信眾的臨時解法要分清楚**：手動把 DNS 改成 1.1.1.1 這次**沒有用**（還是走明文），Android 的「私人 DNS」（DoT，填 `one.one.one.one`）與改用行動網路才一定繞得過。上次那份「改 DNS 就好」的說法在這次是錯的。
 - ~~**法會 Event 結構化資料要制度化**~~（**2026-10-13 已完成**，保留此條說明背景）：`scripts/prerender.js` 的 `fetchUpcomingEvents()` ＋ `toEventNode()` 從 `blessing_events` 產生，只輸出 `end_date >= 今天`（日期釘 `Asia/Taipei`，建置機跑 UTC）；辦完的自動消失、新辦的不必改程式；一場都沒有就整個不輸出——**沒有標記好過一個騙人的標記**。寫死在 index.html 的那段已移除。
   **當時的症狀值得記著**：那段寫死的 Event 掛著一場 2026-09-13、早就辦完的法會，Search Console 回報過期活動，而 AI 檢索器讀到的是「這間廟即將舉辦的活動」是一場結束一個月的法會。**過期的結構化資料比沒有結構化資料更糟。**
   `offers` 要嘛不給要嘛完整：一場以上用 `AggregateOffer`＋`lowPrice`／`highPrice`，單一價用 `Offer`＋`price`，缺 `priceCurrency` Search Console 會直接報錯。
