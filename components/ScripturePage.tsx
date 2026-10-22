@@ -29,28 +29,32 @@ interface ScripturePageProps {
  * 週期 4.2~7.5 秒各自錯開，同步了就看得出是迴圈。
  *
  * l/t 百分比、s 直徑（px）、hi 最亮時的不透明度、d 延遲、dur 一輪秒數。
+ *
+ * 亮度調過一次（廟方 2026-10-22「星光要再明顯一點」）：hi 整體 ×1.62、
+ * 直徑各加 0.5px、暈從 .3 加到 .45。**谷底也跟著抬**（lo 從 hi 的 18% 改成 38%）——
+ * 只拉最亮值的話，每顆有一半的時間still 幾乎看不見，整體印象不會變亮多少。
  */
 const STARS = [
   // 上帶
-  { l: 9,  t: 12, s: 2,   hi: 0.55, d: 0,   dur: 5.2 },
-  { l: 21, t: 22, s: 1.5, hi: 0.32, d: 1.8, dur: 6.4 },
-  { l: 33, t: 9,  s: 2,   hi: 0.48, d: 3.1, dur: 4.6 },
-  { l: 44, t: 19, s: 1.5, hi: 0.30, d: 0.9, dur: 5.8 },
-  { l: 56, t: 11, s: 2.5, hi: 0.60, d: 2.4, dur: 4.2 },
-  { l: 67, t: 24, s: 1.5, hi: 0.28, d: 4.0, dur: 6.9 },
-  { l: 79, t: 14, s: 2,   hi: 0.45, d: 1.2, dur: 5.5 },
-  { l: 90, t: 26, s: 1.5, hi: 0.30, d: 3.6, dur: 6.1 },
-  { l: 15, t: 29, s: 1.5, hi: 0.26, d: 5.0, dur: 7.2 },
+  { l: 9, t: 12, s: 2.5,   hi: 0.89, d: 0, dur: 5.2 },
+  { l: 21, t: 22, s: 2,   hi: 0.52, d: 1.8, dur: 6.4 },
+  { l: 33, t: 9, s: 2.5,   hi: 0.78, d: 3.1, dur: 4.6 },
+  { l: 44, t: 19, s: 2,   hi: 0.49, d: 0.9, dur: 5.8 },
+  { l: 56, t: 11, s: 3,   hi: 0.95, d: 2.4, dur: 4.2 },
+  { l: 67, t: 24, s: 2,   hi: 0.45, d: 4.0, dur: 6.9 },
+  { l: 79, t: 14, s: 2.5,   hi: 0.73, d: 1.2, dur: 5.5 },
+  { l: 90, t: 26, s: 2,   hi: 0.49, d: 3.6, dur: 6.1 },
+  { l: 15, t: 29, s: 2,   hi: 0.42, d: 5.0, dur: 7.2 },
   // 下帶
-  { l: 7,  t: 72, s: 1.5, hi: 0.28, d: 4.4, dur: 5.1 },
-  { l: 19, t: 84, s: 2,   hi: 0.44, d: 0.4, dur: 4.9 },
-  { l: 31, t: 74, s: 1.5, hi: 0.30, d: 2.9, dur: 6.6 },
-  { l: 43, t: 79, s: 1.5, hi: 0.26, d: 5.4, dur: 7.5 },
-  { l: 64, t: 89, s: 2,   hi: 0.42, d: 1.6, dur: 5.0 },
-  { l: 70, t: 75, s: 1.5, hi: 0.30, d: 3.3, dur: 6.2 },
-  { l: 77, t: 82, s: 2,   hi: 0.46, d: 0.7, dur: 4.4 },
-  { l: 88, t: 72, s: 1.5, hi: 0.30, d: 2.1, dur: 6.8 },
-  { l: 95, t: 78, s: 2,   hi: 0.40, d: 3.9, dur: 5.3 },
+  { l: 7, t: 72, s: 2,   hi: 0.45, d: 4.4, dur: 5.1 },
+  { l: 19, t: 84, s: 2.5,   hi: 0.71, d: 0.4, dur: 4.9 },
+  { l: 31, t: 74, s: 2,   hi: 0.49, d: 2.9, dur: 6.6 },
+  { l: 43, t: 79, s: 2,   hi: 0.42, d: 5.4, dur: 7.5 },
+  { l: 64, t: 89, s: 2.5,   hi: 0.68, d: 1.6, dur: 5.0 },
+  { l: 70, t: 75, s: 2,   hi: 0.49, d: 3.3, dur: 6.2 },
+  { l: 77, t: 82, s: 2.5,   hi: 0.75, d: 0.7, dur: 4.4 },
+  { l: 88, t: 72, s: 2,   hi: 0.49, d: 2.1, dur: 6.8 },
+  { l: 95, t: 78, s: 2.5,   hi: 0.65, d: 3.9, dur: 5.3 },
 ];
 
 const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
@@ -491,11 +495,11 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
             top: `${st.t}%`,
             width: st.s,
             height: st.s,
-            boxShadow: `0 0 ${st.s * 3}px ${st.s * 0.5}px rgba(240,217,164,.3)`,
+            boxShadow: `0 0 ${st.s * 3.6}px ${st.s * 0.7}px rgba(240,217,164,.45)`,
             animationDelay: `${st.d}s`,
             animationDuration: `${st.dur}s`,
             ['--hi' as string]: String(st.hi),
-            ['--lo' as string]: String(+(st.hi * 0.18).toFixed(3)),
+            ['--lo' as string]: String(+(st.hi * 0.38).toFixed(3)),
           }} />
         ))}
 
