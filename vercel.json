@@ -50,6 +50,10 @@
       "destination": "/relocation.html"
     },
     {
+      "source": "/donation",
+      "destination": "/donation.html"
+    },
+    {
       "source": "/deities",
       "destination": "/deities.html"
     },

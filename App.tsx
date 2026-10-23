@@ -164,7 +164,7 @@ const ENABLE_GROUP_BOOKING = true;
 // ── 頁面路由 ─────────────────────────────────────────────────────────────────
 // 四項服務各自獨立成頁（有自己的網址、可單獨分享、瀏覽器上一頁可返回），
 // 其餘內容仍是首頁上的區塊，靠捲動抵達。
-type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'urgent' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins' | 'privacy';
+type SitePage = 'home' | 'booking' | 'lamps' | 'blessing' | 'urgent' | 'repair' | 'about' | 'relocation' | 'deitiesAll' | 'calendar' | 'bulletins' | 'privacy' | 'donation';
 
 const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   booking: '/booking',
@@ -177,6 +177,13 @@ const PAGE_PATHS: Record<Exclude<SitePage, 'home'>, string> = {
   // 導覽列的「關於我們」仍然捲到首頁區塊，不換頁
   about: '/about',
   relocation: '/relocation',
+  /**
+   * 隨喜捐獻。2026-10-23 從首頁區塊搬成獨立分頁——那張表單在手機上 1,084px、
+   * 桌機 1,239px，是整個首頁最長的一塊，而**真正要捐的人會自己找入口**。
+   * 首頁留一張 CTA 卡（同 id，導覽高亮與捲動定位照舊），按下去換到這裡。
+   * 遷址有自己的專款帳戶與自己的頁（/relocation），兩者不要混。
+   */
+  donation: '/donation',
   // 祀奉神尊的完整版。首頁區塊只放前幾尊，按「看全部神尊」換到這一頁——
   // 舊版是在首頁一次展開四尊、再四尊，尊數一多整個首頁被神尊灌爆，
   // 而且捲很久也回不到別的區塊。導覽列的「祀奉神尊」仍然捲到首頁區塊，不換頁。
@@ -308,8 +315,15 @@ const HERO_FADE_RGB = INK_MODE
     : '245 240 232';  // #about 的 bg-temple-bg
 
 /** 點燈／祈福／問事各自獨立成頁，捐獻仍是首頁上的區塊 */
-const SERVICE_PAGE: Record<string, SitePage> = {
-  lamp: 'lamps', blessing: 'blessing', booking: 'booking',
+/**
+ * 公佈欄卡片的 `linkedService` → 要換到哪一頁。
+ *
+ * **型別刻意寫死成「每一種 linkedService 都要有一頁」**（不是 `Record<string, …>`）：
+ * 以前 donation 不在這裡，呼叫端得另外傳一個 `onNonPage` 退路去捲首頁區塊；
+ * 日後再多一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
+ */
+const SERVICE_PAGE: Record<NonNullable<BulletinRecord['linkedService']>, SitePage> = {
+  lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation',
 };
 
 /**
@@ -532,7 +546,12 @@ const NAV_PRIMARY: NavItem[] = [
  * 整齊的網格比錯落的動態重要。
  * 卡片高度靠 grid 的 stretch ＋ 內層 h-full 撐成等高，不要拿掉 h-full。
  */
-const DeityCard: React.FC<{ deity: DeityRecord; index: number }> = ({ deity, index }) => (
+/**
+ * `compact` 是首頁兩欄用的：卡片只剩約 155px 寬，`p-6` 的左右內距就吃掉 40%，
+ * 六行介紹在那個寬度是每行八個字的碎塊。首頁本來就只放四尊、底下接「看全部神尊」，
+ * 讀完整介紹是 /deities 的事——所以窄的時候收一點，桌機（sm 以上）與 /deities 完全照舊。
+ */
+const DeityCard: React.FC<{ deity: DeityRecord; index: number; compact?: boolean }> = ({ deity, index, compact }) => (
   <div className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][index % 4]}`}>
     <div className="h-full bg-temple-bg rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-temple-gold/20 group">
       {/* 直式 3:4：神尊立像是直的，原本固定高 192px 的橫幅會把頭冠與衣袍下擺切掉。
@@ -548,12 +567,12 @@ const DeityCard: React.FC<{ deity: DeityRecord; index: number }> = ({ deity, ind
         )}
       </div>
       {/* 名號置中、介紹靠左：介紹是多行敘述，置中的多行文字每行起點都不同，讀起來很吃力 */}
-      <div className="p-6">
-        <h4 className="text-xl font-bold text-temple-dark font-serif mb-1 text-center">{deity.name}</h4>
+      <div className={compact ? 'p-4 sm:p-6' : 'p-6'}>
+        <h4 className={`font-bold text-temple-dark font-serif mb-1 text-center ${compact ? 'text-lg sm:text-xl' : 'text-xl'}`}>{deity.name}</h4>
         {deity.title && <p className="text-temple-red text-sm font-medium mb-3 text-center">{deity.title}</p>}
         {/* line-clamp-6：卡片一行約 16 字，六行約 96 字，確保 60 字的介紹一定完整顯示。
             這是上限不是固定高度，短介紹仍然只佔它需要的行數。 */}
-        <p className="text-gray-600 text-sm leading-relaxed line-clamp-6">{deity.description}</p>
+        <p className={`text-gray-600 text-sm leading-relaxed ${compact ? 'line-clamp-3 sm:line-clamp-6' : 'line-clamp-6'}`}>{deity.description}</p>
       </div>
     </div>
   </div>
@@ -1438,7 +1457,7 @@ const NAV_MORE: NavItem[] = [
   isLampSeason() ? BLESSING_NAV : LAMP_NAV,
   // 神尊修復由 ENABLE_REPAIR 控制；關閉時整個項目不出現在導覽列（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_REPAIR ? [{ id: 'repair', label: '神尊修復', kind: 'page' } as NavItem] : []),
-  { id: 'donation', label: '隨喜捐獻', kind: 'section' },
+  { id: 'donation', label: '隨喜捐獻', kind: 'page' },
   { id: 'faq', label: '常見問題', kind: 'section' },
 ];
 
@@ -1553,6 +1572,7 @@ const App: React.FC = () => {
       blessing:   '祈福法會報名｜台北古亭和聖壇',
       urgent:     '緊急祈願燈｜急難代為稟告祈福，不收費｜台北古亭和聖壇',
       relocation: '遷址捐款｜護持和聖壇道場遷址',
+      donation:   '隨喜捐獻｜護持台北古亭和聖壇壇務',
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
       calendar:   '歲時節慶｜神明聖誕、辦事日與誦經祈福｜台北古亭和聖壇',
@@ -2530,16 +2550,13 @@ const App: React.FC = () => {
   const openServiceFromBulletin = (
     svc: NonNullable<BulletinRecord['linkedService']>,
     eventId?: string,
-    onNonPage?: () => void,
   ) => {
     if (svc === 'blessing' && eventId) {
       const ev = blessingEvents.find(e => e.id === eventId);
       // externalForm 的活動不會產生衍生卡，所以這裡不必再擋一次
       if (ev && !isBlessingClosed(ev)) { goToPage('blessing'); openBlessingModal(ev); return; }
     }
-    const target = SERVICE_PAGE[svc];
-    if (target) goToPage(target);
-    else onNonPage?.();
+    goToPage(SERVICE_PAGE[svc]);
   };
 
 
@@ -3433,7 +3450,7 @@ const App: React.FC = () => {
 
 {/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
       {ENABLE_BULLETIN && (
-      <section id="bulletin" className="py-20 bg-white relative overflow-hidden">
+      <section id="bulletin" className="py-12 sm:py-20 bg-white relative overflow-hidden">
         {/* 龍在鳳之上——這是首頁 Hero 之後的第一個區塊 */}
         <PatternMedallion motif="dragon" side="r" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -3470,7 +3487,7 @@ const App: React.FC = () => {
                     bulletin={bulletin}
                     open={expandedBulletin === bulletin.id}
                     onToggle={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
-                    onService={(svc, eventId) => openServiceFromBulletin(svc, eventId, () => scrollToSection('donation'))}
+                    onService={openServiceFromBulletin}
                   />
                 </div>
               ))}
@@ -3496,7 +3513,7 @@ const App: React.FC = () => {
       )}
 
 {/* About Section */}
-      <section id="about" className="py-20 bg-temple-bg relative">
+      <section id="about" className="py-12 sm:py-20 bg-temple-bg relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* 三層各司其職，不能疊在同一個元素上：
@@ -3510,12 +3527,12 @@ const App: React.FC = () => {
                     <img
                       src={aboutImageUrl}
                       alt="和聖壇介紹"
-                      className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
+                      className="relative z-10 rounded-lg shadow-2xl w-full h-64 sm:h-[500px] object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
                     // 同尺寸佔位：還沒決定要載哪一張時先撐住高度，避免版面跳動
-                    <div className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] bg-temple-gold/10" aria-hidden="true" />
+                    <div className="relative z-10 rounded-lg shadow-2xl w-full h-64 sm:h-[500px] bg-temple-gold/10" aria-hidden="true" />
                   )}
                 </div>
               </div>
@@ -3568,7 +3585,7 @@ const App: React.FC = () => {
       </section>
 
 {/* Deities Section */}
-      <section id="deities" className="py-20 bg-white">
+      <section id="deities" className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="sr sr-up text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
@@ -3618,13 +3635,16 @@ const App: React.FC = () => {
             const remaining = filteredDeities.length - shownDeities.length;
             return filteredDeities.length > 0 ? (
             <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* 手機兩欄：一欄時一張卡 628px（3:4 照片 455 ＋ 文字 171），四張就是 2,584px、
+                整個區塊佔掉首頁 26%。兩欄之後照片縮到約 207px，同樣四尊少掉約 1,700px。
+                桌機本來就是四欄一列，lg 以上一個像素都沒變。 */}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 sm:gap-8">
               {shownDeities.map((deity, di) => (
                 // 只做進場（逐張錯開），**不要加視差**。
                 // 曾經給單數欄 30px 的視差做高低錯落，結果捲動時四張卡上緣會差到 18px，
                 // 廟方看到的是「牌卡沒有排整齊」——整齊的網格比錯落的動態重要。
                 // 卡片高度靠 grid 的 stretch ＋ 內層 h-full 撐成等高，不要拿掉 h-full。
-                <DeityCard key={deity.id} deity={deity} index={di} />
+                <DeityCard key={deity.id} deity={deity} index={di} compact />
               ))}
             </div>
             {/*
@@ -3657,7 +3677,7 @@ const App: React.FC = () => {
           版型比照「關於和聖壇」，但不放數字卡——那兩張是關於我們專屬的。
           後台還沒有任何段落時整區不渲染，首頁不會出現空殼。 */}
       {relocationLead && (
-      <section id="relocation-intro" className="py-20 bg-white">
+      <section id="relocation-intro" className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 照片在右、文字在左，與上方「關於和聖壇」左右相反，版面才不會一成不變 */}
           <div className={`grid gap-12 items-center ${relocationLead.imagePath ? 'md:grid-cols-2' : ''}`}>
@@ -3671,7 +3691,7 @@ const App: React.FC = () => {
                       src={getSiteImagePublicUrl(relocationLead.imagePath)}
                       alt={relocationLead.heading || '遷址'}
                       loading="lazy"
-                      className="relative z-10 rounded-lg shadow-2xl w-full h-[500px] object-cover"
+                      className="relative z-10 rounded-lg shadow-2xl w-full h-64 sm:h-[500px] object-cover"
                     />
                   </div>
                 </div>
@@ -3707,7 +3727,7 @@ const App: React.FC = () => {
       )}
 
       {/* Services Section */}
-      <section id="services" className="py-20 bg-white">
+      <section id="services" className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="sr sr-up text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
             <span className="w-8 h-1 bg-temple-gold" />
@@ -5064,10 +5084,7 @@ const App: React.FC = () => {
             bulletins={feedBulletins}
             initialId={bulletinIdFromPath()}
             onBack={() => goToPage('home')}
-            onService={(svc, eventId) => openServiceFromBulletin(svc, eventId, () => {
-              pendingScrollRef.current = 'donation';
-              goToPage('home');
-            })}
+            onService={openServiceFromBulletin}
           />
         </Suspense>
       )}
@@ -5451,9 +5468,52 @@ const App: React.FC = () => {
       </div>
       )}
 
-      {/* 隨喜捐獻仍留在首頁 */}
+      {/* ── 隨喜捐獻：首頁只留入口，表單在 /donation（2026-10-23）──
+          那張表單手機上 1,084px、桌機 1,239px，是整個首頁最長的一塊，
+          而首頁的任務是讓人知道「可以隨喜護持」，不是當場填完。
+          **id 仍然是 donation**：捲動高亮的對照表與導覽列靠它，換掉等於那一項永遠不亮。
+          導覽列的「隨喜捐獻」已改成 kind: 'page' 直接到表單，不必先捲到這裡再按一次。 */}
       {page === 'home' && (
-      <section id="donation" className="py-20 bg-temple-bg relative overflow-hidden">
+      <section id="donation" className="py-12 sm:py-20 bg-temple-bg relative overflow-hidden">
+        <PatternMedallion motif="phoenix" side="l" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+            <span className="w-8 h-1 bg-temple-gold" />
+            功德無量
+            <span className="w-8 h-1 bg-temple-gold" />
+          </h2>
+          <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+            隨喜捐獻 / 護持項目
+          </h3>
+          <div className="flex items-center justify-center gap-3 mt-3 mb-4">
+            <span className="w-12 h-px bg-temple-gold/70" />
+            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+            <span className="w-12 h-px bg-temple-gold/70" />
+          </div>
+          <p className="text-gray-600 max-w-2xl mx-auto mb-8">
+            您的每一分心意，都是支持和聖壇持續弘揚神恩、服務大眾的力量。
+          </p>
+          {/* 實心主色鈕：這是首頁捐獻唯一的行動點，做成描邊的次要鈕等於把它藏起來 */}
+          <button
+            type="button"
+            onClick={() => goToPage('donation')}
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-temple-red text-white text-lg font-bold shadow-lg hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 transition-all"
+          >
+            <HeartHandshake className="w-5 h-5" />
+            我要隨喜護持
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </section>
+      )}
+
+      {/* ── 隨喜捐獻表單（獨立分頁 /donation，2026-10-23 從首頁搬過來）──
+          **遷址有自己的專款帳戶與自己的頁（/relocation），兩者不要混**（見 BankInfoBox）。
+          大標用 h1：獨立頁每頁剛好一個 h1，這是 2026-09-04 那次「四個服務頁一個 h1 都沒有」
+          的教訓（CLAUDE.md 區塊標題那節）。 */}
+      {page === 'donation' && (
+      <div className="pt-20">
+      <section className="py-12 sm:py-20 bg-temple-bg relative overflow-hidden">
         <PatternMedallion motif="phoenix" side="l" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
@@ -5462,9 +5522,9 @@ const App: React.FC = () => {
               功德無量
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
+            <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
               隨喜捐獻 / 護持項目
-            </h3>
+            </h1>
             <div className="flex items-center justify-center gap-3 mt-3 mb-4">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -5653,11 +5713,12 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+      </div>
       )}
 
       {/* ── 常見問題（首頁；內容來自 content/faq.json，與結構化資料共用同一份）── */}
       {page === 'home' && (
-      <section id="faq" className="py-20 bg-white relative overflow-hidden">
+      <section id="faq" className="py-12 sm:py-20 bg-white relative overflow-hidden">
         {/* 兩側各 240px 空邊界。接在 #donation（鳳左）之下，
             往下捲是龍右 → 鳳左 → 龍右 */}
         <PatternMedallion motif="dragon" side="r" />
