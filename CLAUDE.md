@@ -17,7 +17,7 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 - **法會報名表在官網的網址是 `/fahui`**（`FAHUI_PATH`，2026-09-02 新增）。原本報名表只在「非官方網域的根路徑」顯示，所以 heshengtan.tw 上沒有任何網址能直接開它，og:url 與 Event 只好填測試網域。現在 `shouldShowFahui()` 是「`isFahuiUrl()` **或** 原本那條非官方網域規則」，舊分享連結行為完全不變。兩顆「報名普渡法會」按鈕走 `openFahui()`，會把網址推成 `/fahui`——報名表因此可分享、重新整理不會掉回首頁。
   **改這段一定要兩種網域身分各測一遍**：把 `localhost` 暫時加進 `OFFICIAL_HOSTS` 就能在本機驗官方網域那一半，測完務必撤掉（我用 `TEMP-HOSTTEST` 標記並在部署前 grep 確認為 0）。要測的路徑：`/`、`/fahui`、`/booking`、`/volunteer`、`/?admin=1`，外加「點報名鈕→網址變 /fahui→按上一頁」。
 - **志工報名表也上線了**（VolunteerRegistration.tsx，migration：`supabase/migrations/volunteer_registration.sql`）。入口只在**法會報名成功頁**（刻意不放主表單，避免拉低法會報名轉換率）。點入口會把法會表已填的聯絡資料自動帶入（precedence：連結帶入 > 志工草稿 > 法會草稿）。後台「志工報名」分頁可看名單、標記已聯絡、匯出 Excel。只收 5 項基本資料（姓名/電話/地址/生日/LINE），無排班。
-- **四項服務已各自獨立成分頁**（2026-08-05）：`/booking` 預約問事、`/lamps` **點燈服務**（2026-10-01 從「祈福點燈」改名，見下）、`/blessing` 祈福活動、`/repair` 神尊修復。首頁只剩 Hero／最新活動／關於我們／祀奉神尊／遷址捐款／宮廟服務／隨喜捐獻（只有入口）／常見問題。
+- **四項服務已各自獨立成分頁**（2026-08-05）：`/booking` 預約問事、`/lamps` **點燈服務**（2026-10-01 從「祈福點燈」改名，見下）、`/blessing` 祈福活動、`/repair` 神尊修復。首頁只剩 Hero／最新活動／關於我們／祀奉神尊／遷址捐款／宮廟服務／常見問題——**隨喜捐獻 2026-10-23 整區移除**，只剩分頁 `/donation` 與導覽列「更多」那一項。
   路由是 `page` state ＋ `history.pushState`，設定在 `PAGE_PATHS`；`NAV_PRIMARY`／`NAV_MORE` 的 `kind` 區分「分頁」與「首頁區塊」，統一走 `navTo()`。
   從分頁點首頁區塊時，區塊還沒掛上 DOM，先把目標存進 `pendingScrollRef`，等 `page` 變 home 的 effect 再捲。
   新增分頁時：加進 `PAGE_PATHS`、`SitePage`、對應的 `{page === '…' && (…)}` 區塊，`vercel.json` 的 SPA rewrite 已涵蓋任意路徑不必改。
@@ -26,17 +26,19 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
   | 改了什麼 | 手機省下 |
   |---|---|
   | 祀奉神尊手機改兩欄（`grid-cols-2 lg:grid-cols-4`，卡片傳 `compact`） | 1,933px |
-  | 隨喜捐獻表單搬去 `/donation`，首頁只留 CTA | 1,104px |
+  | 隨喜捐獻整區移出首頁，獨立成 `/donation` | 1,445px |
   | 關於我們／遷址的照片 `h-[500px]` → `h-64 sm:h-[500px]` | 616px |
   | 七個首頁區塊 `py-20` → `py-12 sm:py-20` | 448px |
 
   **`lg` 以上一個像素都沒變**（除了捐獻那一塊）：桌機神尊本來就是四欄一列，照片與內距都走 `sm:` 保留原值。
   **量的時候要用 in-app 導覽走到首頁**：localhost 與 machu-five 都不是 `OFFICIAL_HOSTS`，直接開 `/` 會被法會著陸頁蓋掉（見 `shouldShowFahui()`），量到的是另一頁。
   **神尊卡片的 `compact` 只給首頁**：卡片是與 `/deities` 共用的，首頁兩欄時只剩 163px 寬，`p-6` 吃掉四成、六行介紹變成每行八個字的碎塊；`/deities` 是「把 38 尊看完」的那一頁，不能跟著收。
-  **隨喜捐獻搬頁要連帶五件事**，少一件就有一個入口會斷：`SitePage`／`PAGE_PATHS`／`titles` 三處登記、`NAV_MORE` 的 `kind` 從 `section` 改成 `page`（不改的話點選單只會捲到 CTA，要按兩次才到得了表單）、`SERVICE_PAGE` 補 `donation`。
-  **首頁那一塊的 `id` 仍然是 `donation`**：捲動高亮的對照表（`pairs`）與導覽列靠它，換掉等於那一項永遠不亮。
+  **隨喜捐獻先搬頁、再整區移除，分兩步做的**。中間那一版首頁留了一張 CTA 卡（標題＋一句話＋「我要隨喜護持」，341px），廟方看了之後說「直接從首頁刪除」——**現在首頁一個字都沒有**。
+  **搬頁要連帶五件事**，少一件就有一個入口會斷：`SitePage`／`PAGE_PATHS`／`titles` 三處登記、`NAV_MORE` 的 `kind` 從 `section` 改成 `page`、`SERVICE_PAGE` 補 `donation`。
+  **整區移除之後還要收三個尾**：捲動高亮的對照表（`pairs`）裡那一筆要拿掉（首頁已經沒有 `#donation` 這個元素）；`#faq` 的紋樣從龍右換成**鳳左**——它原本接在隨喜捐獻（鳳左）之後，上一塊沒了就直接接 `#bulletin`（龍右），不換邊就連兩塊同一側；還有兩處註解裡指名 `#donation` 當範例的要改掉。
+  **首頁現在唯一的捐獻入口是導覽列「更多」裡那一項**（＋ `/donation` 這個網址、sitemap 與 llms.txt）。這是廟方 2026-10-23 明確的決定，不是漏做——我提過轉化率的疑慮，廟方兩次都選了移除。
   **`SERVICE_PAGE` 的型別順手改成 `Record<NonNullable<BulletinRecord['linkedService']>, SitePage>`**：四種 linkedService 現在都有自己的頁，呼叫端那條 `onNonPage` 退路（捲去首頁 `#donation`）已經移除；日後再加一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
-  **獨立頁的大標要用 `h1`**（2026-09-04 那次「四個服務頁一個 h1 都沒有」的教訓）：`/donation` 用 `h1`，首頁那張 CTA 維持 `h3`。實測兩頁各剛好一個 h1。
+  **獨立頁的大標要用 `h1`**（2026-09-04 那次「四個服務頁一個 h1 都沒有」的教訓）：`/donation` 用 `h1`。實測首頁與 `/donation` 各剛好一個 h1。
   **llms.txt 與 prerender ROUTES 都要補一筆**，而且要寫明「捐獻有兩種、帳戶不同」——AI 被問到「要捐錢給和聖壇」時會把遷址專款與一般護持混在一起答。
 - 導覽列：主要七項＋「更多」下拉（祈福活動／隨喜捐獻／常見問題；神尊修復由 `ENABLE_REPAIR=false` 隱藏中）。手機選單不做下拉，用分隔線區隔；展開上限是 `max-h-[80vh]`＋內層 `overflow-y-auto`（固定 px 會裁掉最後幾項）。
 - 後台入口：`https://heshengtan.tw/?admin=1`（會自動跳管理員登入；`?admin=1` 會讓 `FAHUI_LANDING` 失效，所以這也是收件期間預覽官網首頁的方法）。管理員只有 armand7951@gmail.com 與 lqtech2026@gmail.com（admin_profiles 表控管）。
@@ -564,7 +566,7 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   小標 `<h2>` → 大標 `<h3>`（獨立頁是 `<h1>`）→ 分隔飾 → 說明。
 
   **「獨立頁是 h1」這條 2026-09-04 才補齊**：`/booking`／`/lamps`／`/blessing`／`/repair` 是 2026-08-05 從首頁區塊拆成獨立頁的，標題卻留著區塊版的 `<h3> text-4xl`——結果那幾頁**一個 h1 都沒有**（SEO 與螢幕閱讀器都靠 h1 判斷「這頁在講什麼」），字級也比 `/about`／`/relocation`／`/deities` 的 48px 小一級（廟方回報「標題字大小跟其他頁不同」）。
-  改動時要分清楚：`#bulletin`／`#deities`／`#donation`／`#faq` 仍是**首頁區塊**，維持 `<h3>`；只有 `{page === '…'}` 包住的才是獨立頁。驗收方法：每頁 `document.querySelectorAll('h1')` 應該剛好 1 個。
+  改動時要分清楚：`#bulletin`／`#deities`／`#faq` 仍是**首頁區塊**，維持 `<h3>`；只有 `{page === '…'}` 包住的才是獨立頁（`#donation` 2026-10-23 已整區移出首頁，現在是獨立頁 `/donation`、用 `<h1>`）。驗收方法：每頁 `document.querySelectorAll('h1')` 應該剛好 1 個。
 
   | | 小標 | 短棒 |
   |---|---|---|

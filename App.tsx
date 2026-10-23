@@ -2101,11 +2101,13 @@ const App: React.FC = () => {
       // 或圖片載入把版面往下推）高亮就會退回上一個區塊。這正是「點祀奉神尊卻亮關於我們」的成因。
       const line = Math.max(120, Math.min(window.innerHeight * 0.35, 300));
       // relocation-intro／services 是首頁區塊：前者對應導覽的「遷址捐款」，
-      // 後者沒有對應項目，就讓高亮停在「遷址捐款」直到捲進隨喜捐獻。
+      // 後者沒有對應項目，就讓高亮停在「遷址捐款」直到捲進常見問題。
       // 由下往上排，取第一個已捲過判定線的區塊，所以順序必須與頁面由下而上一致。
       // bulletin 夾在 about 與 home 之間（頁面上它在 hero 之下、關於我們之上）。
+      // **沒有 donation**：2026-10-23 廟方要求那一區整個從首頁移除，現在只剩分頁 /donation，
+      // 而分頁的高亮是 goToPage 直接設 activeSection，不走這張表。
       const pairs: [string, string][] = [
-        ['faq', 'faq'], ['donation', 'donation'], ['relocation-intro', 'relocation'], ['deities', 'deities'],
+        ['faq', 'faq'], ['relocation-intro', 'relocation'], ['deities', 'deities'],
         ['about', 'about'],
         ...(ENABLE_BULLETIN ? [['bulletin', 'bulletin'] as [string, string]] : []),
         ['home', 'home'],
@@ -5468,45 +5470,6 @@ const App: React.FC = () => {
       </div>
       )}
 
-      {/* ── 隨喜捐獻：首頁只留入口，表單在 /donation（2026-10-23）──
-          那張表單手機上 1,084px、桌機 1,239px，是整個首頁最長的一塊，
-          而首頁的任務是讓人知道「可以隨喜護持」，不是當場填完。
-          **id 仍然是 donation**：捲動高亮的對照表與導覽列靠它，換掉等於那一項永遠不亮。
-          導覽列的「隨喜捐獻」已改成 kind: 'page' 直接到表單，不必先捲到這裡再按一次。 */}
-      {page === 'home' && (
-      <section id="donation" className="py-12 sm:py-20 bg-temple-bg relative overflow-hidden">
-        <PatternMedallion motif="phoenix" side="l" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
-            <span className="w-8 h-1 bg-temple-gold" />
-            功德無量
-            <span className="w-8 h-1 bg-temple-gold" />
-          </h2>
-          <h3 className="text-4xl font-bold text-temple-dark mb-2 font-serif">
-            隨喜捐獻 / 護持項目
-          </h3>
-          <div className="flex items-center justify-center gap-3 mt-3 mb-4">
-            <span className="w-12 h-px bg-temple-gold/70" />
-            <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
-            <span className="w-12 h-px bg-temple-gold/70" />
-          </div>
-          <p className="text-gray-600 max-w-2xl mx-auto mb-8">
-            您的每一分心意，都是支持和聖壇持續弘揚神恩、服務大眾的力量。
-          </p>
-          {/* 實心主色鈕：這是首頁捐獻唯一的行動點，做成描邊的次要鈕等於把它藏起來 */}
-          <button
-            type="button"
-            onClick={() => goToPage('donation')}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-temple-red text-white text-lg font-bold shadow-lg hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 transition-all"
-          >
-            <HeartHandshake className="w-5 h-5" />
-            我要隨喜護持
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      </section>
-      )}
-
       {/* ── 隨喜捐獻表單（獨立分頁 /donation，2026-10-23 從首頁搬過來）──
           **遷址有自己的專款帳戶與自己的頁（/relocation），兩者不要混**（見 BankInfoBox）。
           大標用 h1：獨立頁每頁剛好一個 h1，這是 2026-09-04 那次「四個服務頁一個 h1 都沒有」
@@ -5719,11 +5682,11 @@ const App: React.FC = () => {
       {/* ── 常見問題（首頁；內容來自 content/faq.json，與結構化資料共用同一份）── */}
       {page === 'home' && (
       <section id="faq" className="py-12 sm:py-20 bg-white relative overflow-hidden">
-        {/* 兩側各 240px 空邊界。接在 #donation（鳳左）之下，
-            往下捲是龍右 → 鳳左 → 龍右 */}
-        <PatternMedallion motif="dragon" side="r" />
+        {/* 兩側各 240px 空邊界。2026-10-23 隨喜捐獻那一塊（鳳左）從首頁移除之後，
+            這一塊直接接在 #bulletin（龍右）之後，所以換成鳳左才維持左右交錯。 */}
+        <PatternMedallion motif="phoenix" side="l" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          {/* 標題結構與其他區塊一致：小標＋大標＋菱形分隔飾＋說明（見 #deities、#donation） */}
+          {/* 標題結構與其他區塊一致：小標＋大標＋菱形分隔飾＋說明（見 #deities、#bulletin） */}
           <div className="text-center mb-12 sr sr-up">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
