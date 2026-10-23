@@ -66,6 +66,10 @@ const FIELDS: { key: string; label: string }[] = [
   { key: 'phone',         label: '電話' },
   { key: 'type',          label: '項目' },
   { key: 'package_name',  label: '方案' },
+  // 遷址護持（donations，type = '遷址護持'）專用。這兩欄只有那一種捐獻有值，
+  // 其餘的捐獻是 null 就不會印出來——而廟方第一眼要知道的就是「選了哪一級」。
+  { key: 'relocation_plan', label: '遷址方案' },
+  { key: 'relocation_tier', label: '級距' },
   { key: 'amount',        label: '金額' },
   { key: 'total_amount',  label: '金額' },
   { key: 'booking_date',  label: '預約日期' },

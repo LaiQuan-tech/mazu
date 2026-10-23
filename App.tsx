@@ -1752,10 +1752,14 @@ const App: React.FC = () => {
   /**
    * 捐款類別。後台可增刪改（donation_types），這裡先用 `DonationType` 列舉當保底，
    * 資料表沒建或讀取失敗時前台仍有選項可選，不會變成空的下拉。
-   * 「神尊修復」永遠排除：那一項走神尊修復專頁、金額綁定專案。
+   * **「神尊修復」與「遷址護持」永遠排除**：兩項都走自己的專頁、金額綁在那一頁的
+   * 方案上，而且遷址收的是另一個銀行帳戶——出現在這個下拉就是讓人把遷址的錢
+   * 匯進一般捐獻的帳戶（同 BankInfoBox 檔頭那條）。
+   * 資料庫的 donation_types 本來就沒有這兩筆，這裡擋的是「讀取失敗退回列舉」那一條路。
    */
+  const EXCLUDED_TYPES: string[] = [DonationType.REPAIR, DonationType.RELOCATION];
   const [donationTypes, setDonationTypes] = useState<string[]>(
-    Object.values(DonationType).filter(t => t !== DonationType.REPAIR)
+    Object.values(DonationType).filter(t => !EXCLUDED_TYPES.includes(t))
   );
 
   /**
@@ -1986,7 +1990,12 @@ const App: React.FC = () => {
       .then(rows => { if (rows.length) setFaqItems(rows.map(r => ({ q: r.question, a: r.answer }))); })
       .catch(() => {});
     getDonationTypes()
-      .then(rows => { if (rows.length) setDonationTypes(rows.map(r => r.name)); })
+      // 資料庫那邊也濾一次：廟方哪天在後台把「遷址護持」建成一個類別，
+      // 它就會出現在一般捐獻的下拉上，而那一項收的是另一個銀行帳戶（見 EXCLUDED_TYPES）
+      .then(rows => {
+        const names = rows.map(r => r.name).filter(n => !EXCLUDED_TYPES.includes(n));
+        if (names.length) setDonationTypes(names);
+      })
       .catch(() => {});
     getSiteInfo().then(setSiteInfo).catch(() => {});
     getBulletins().then(setBulletins).catch(console.error);
@@ -5130,7 +5139,14 @@ const App: React.FC = () => {
 
       {/* ── 遷址捐款（獨立分頁 /relocation）──
           入口在導覽列的「更多」下拉 */}
-      {page === 'relocation' && <RelocationPage onBack={() => goToPage('home')} />}
+      {/* donorDefaults 是單向往下傳的（這一頁懶載入，不能反向 import App）：
+          已登入的人不必在遷址登記表重打自己的姓名生日地址，規則同四個表單——只補空欄位。 */}
+      {page === 'relocation' && (
+        <RelocationPage
+          onBack={() => goToPage('home')}
+          donorDefaults={{ ...selfWithBirth, phone: memberProfile?.phone ?? '' }}
+        />
+      )}
 
       {/* ── 祀奉神尊（獨立分頁 /deities）──
           首頁區塊只放前 DEITY_PAGE 尊，這裡列出全部。殿別篩選與首頁共用

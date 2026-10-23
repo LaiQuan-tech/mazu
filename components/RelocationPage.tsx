@@ -1,8 +1,20 @@
 import React, { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, HeartHandshake } from 'lucide-react';
 import BankInfoBox, { BANK_RELOCATION } from './BankInfoBox';
 import StoryPage, { StoryBlock, splitParagraphs, renderInline } from './StoryPage';
-import { getAboutSections, getRelocationPlans, getSiteImagePublicUrl } from '../services/supabase';
-import { AboutSection, RelocationPlan } from '../types';
+import BirthDatePicker from './BirthDatePicker';
+import { getAboutSections, getRelocationPlans, getSiteImagePublicUrl, submitDonation } from '../services/supabase';
+import { sendDonationThanks } from '../services/notifyConfirm';
+import { AboutSection, DonationType, RelocationPlan } from '../types';
+
+/** 會員已填過的資料，由 App 往下傳（這一頁是懶載入的，不能反向 import App） */
+export interface RelocationDonorDefaults {
+  name?: string;
+  gender?: string;
+  address?: string;
+  birthDate?: string;
+  phone?: string;
+}
 
 /**
  * 遷址捐款（獨立頁）
@@ -164,6 +176,247 @@ const THANKS_LINES = [
   '都是陪伴和聖壇走向新家的重要力量',
 ];
 
+/**
+ * 遷址護持登記表（廟方 2026-10-23：「遷址捐款，最後面的捐款也要填寫姓名、性別、
+ * 出生年月日、地址，還有要哪個捐款方案」）
+ *
+ * 在這之前這一頁只有一組匯款帳號：信眾匯了款，廟方只看得到一筆入帳，
+ * 不知道是誰、選的是月供養還是單次供養——而方案裡寫著「誦經祈福」與
+ * 「遷址功德簿」，兩樣都要姓名生辰地址才做得出來。
+ *
+ * **寫進既有的 donations 表，type = '遷址護持'**（同「神尊修復」那一套）。
+ * 不另開一張表：後台的捐獻管理、應收、流量來源、信眾名冊與感謝信全部已經讀
+ * donations，另開一張等於那五個地方各漏一塊。
+ * 收款帳戶仍然是遷址專款（BANK_RELOCATION），與一般捐獻**不是同一個帳戶**。
+ *
+ * **金額跟著方案走，不讓人自己打**——方案表上就是那幾級，自由輸入只會出現
+ * 對不上任何一級的金額，廟方得回頭一個一個問。只有「隨喜」與「以上」這兩種
+ * 級距本來就沒有固定數字，那時才開一格讓他填。
+ */
+const GENDERS = ['信士', '信女', '小兒（16歲以下）', '小女兒（16歲以下）'];
+
+const inputCls = 'w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none';
+const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+
+/** 這一級是不是「沒有固定金額」——隨喜，或是「100,000 以上」這種開放級距 */
+const isOpenTier = (tier: string): boolean => !/^[\d,]+$/.test(tier.trim());
+/** 級距的數字部分，用來當開放級距的下限（抓不到就不設限） */
+const tierFloor = (tier: string): number | undefined => {
+  const m = tier.trim().match(/^([\d,]+)/);
+  return m ? Number(m[1].replace(/,/g, '')) : undefined;
+};
+
+const RelocationDonationForm: React.FC<{
+  plans: RelocationPlan[];
+  defaults?: RelocationDonorDefaults;
+}> = ({ plans, defaults }) => {
+  const [name, setName]         = useState('');
+  const [phone, setPhone]       = useState('');
+  const [gender, setGender]     = useState('');
+  const [birthDate, setBirth]   = useState('');
+  const [address, setAddress]   = useState('');
+  /** 選到哪一級：`方案索引:級距索引`，沒選是空字串 */
+  const [pick, setPick]         = useState('');
+  const [openAmount, setOpen]   = useState('');
+  const [email, setEmail]       = useState('');
+  const [notes, setNotes]       = useState('');
+  const [status, setStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  /** 送出成功時的金額與方案，成功畫面要照著講 */
+  const [done, setDone]         = useState<{ amount: number; label: string } | null>(null);
+  /**
+   * BirthDatePicker 的年月日是內部 state、只在掛載時讀一次 value，
+   * 所以帶入會員生日時要換 key 強迫重新掛載（同四個表單的 `_bKey`）。
+   */
+  const [bKey, setBKey]         = useState(0);
+
+  /**
+   * 會員資料自動帶入：**只補空欄位**，使用者改過的一律不動（同四個表單的規則）。
+   * 依賴只放 defaults 的各欄位值，不放整個物件——App 每次渲染都會給一個新物件。
+   */
+  useEffect(() => {
+    if (!defaults) return;
+    let gotBirth = false;
+    setName(v => v || defaults.name || '');
+    setGender(v => v || defaults.gender || '');
+    setAddress(v => v || defaults.address || '');
+    setPhone(v => v || defaults.phone || '');
+    setBirth(v => { if (v || !defaults.birthDate) return v; gotBirth = true; return defaults.birthDate; });
+    if (gotBirth) setBKey(k => k + 1);
+  }, [defaults?.name, defaults?.gender, defaults?.address, defaults?.phone, defaults?.birthDate]);
+
+  const visible = plans.filter(p => p.tiers.length > 0);
+  const [pi, ti] = pick.split(':').map(Number);
+  const plan = pick ? visible[pi] : undefined;
+  const tier = plan ? plan.tiers[ti] : undefined;
+  const open = tier ? isOpenTier(tier) : false;
+  const floor = tier && open ? tierFloor(tier) : undefined;
+  const amount = tier ? (open ? Number(openAmount || 0) : Number(tier.replace(/,/g, ''))) : 0;
+
+  if (visible.length === 0) return null;   // 方案還沒建好就不顯示表單，不要給一張選不了的表
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!plan || !tier) return;
+    if (amount <= 0) { alert('請填寫護持金額。'); return; }
+    if (floor && amount < floor) { alert(`這一級的金額要 ${floor.toLocaleString()} 元以上。`); return; }
+    setStatus('loading');
+    try {
+      const label = `${plan.title}　${withCurrency(tier)}`;
+      const id = await submitDonation({
+        name: name.trim(), phone: phone.trim(),
+        gender: gender || undefined,
+        birthDate: birthDate || undefined,
+        address: address.trim() || undefined,
+        amount,
+        type: DonationType.RELOCATION,
+        relocationPlan: plan.title,
+        relocationTier: withCurrency(tier),
+        notes: notes.trim() || undefined,
+        email: email.trim() || undefined,
+      });
+      // 捐獻不等廟方確認，送出當下就寄感謝信（廟方 2026-10-13）。
+      // 沒填信箱、電話也對不上會員帳號時後端會安靜跳過，這裡不必判斷。
+      sendDonationThanks([id]);
+      setDone({ amount, label });
+      setStatus('success');
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  if (status === 'success' && done) {
+    return (
+      <section className="mt-16 sr sr-up">
+        <div className="rounded-2xl border-2 border-temple-gold bg-temple-gold/10 px-5 py-9 sm:px-10 sm:py-11 text-center">
+          <div className="w-16 h-16 rounded-full bg-temple-gold/25 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="w-9 h-9 text-temple-red" aria-hidden="true" />
+          </div>
+          <h3 className="text-2xl font-bold text-temple-dark font-serif mb-2">已收到您的護持登記</h3>
+          <p className="text-gray-700 mb-1">{done.label}</p>
+          <p className="text-2xl font-bold text-temple-red font-serif mb-5">NT$ {done.amount.toLocaleString()}</p>
+          {/* **這裡刻意不再放一次匯款帳號。** 登記只是告訴廟方「是誰、要哪一個方案」，
+              錢還沒匯——所以金額一定要講；但帳號就在下一塊（RemittanceNotice），
+              兩塊緊鄰著各印一次帳號與「請填後五碼」，同一件事講了兩遍。
+              要講的是「錢還沒付、往下看」，不是把帳號複製一份。 */}
+          <p className="text-gray-700">請依<span className="font-semibold text-temple-red">下方的遷址募資專屬帳號</span>完成匯款，金額如上。</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-16 sr sr-up">
+      <h3 className="balance-text text-2xl sm:text-3xl font-bold text-temple-dark font-serif text-center">
+        我要護持遷址
+      </h3>
+      <div className="flex items-center justify-center gap-3 mt-3 mb-4" aria-hidden="true">
+        <span className="w-12 h-px bg-temple-gold/70" />
+        <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+        <span className="w-12 h-px bg-temple-gold/70" />
+      </div>
+      <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
+        方案中的誦經祈福與遷址功德簿都要用到您的姓名與生辰，請一併填寫。
+      </p>
+
+      <form onSubmit={submit} className="bg-white rounded-2xl shadow-xl border border-temple-gold/20 p-6 sm:p-10 space-y-5">
+        <div className="grid sm:grid-cols-2 gap-5">
+          <label className="block">
+            <span className={labelCls}>姓名 *</span>
+            <input required value={name} onChange={e => setName(e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            {/* 電話是必填不是順便加的：全站的報名紀錄都以電話為鍵（見 my_phone()），
+                會員日後要在會員中心看到這一筆、廟方要回頭聯絡，都靠它 */}
+            <span className={labelCls}>聯絡電話 *</span>
+            <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="請留下方便聯繫的電話" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className={labelCls}>性別 *</span>
+            <select required value={gender} onChange={e => setGender(e.target.value)} className={`${inputCls} bg-white`}>
+              <option value="">請選擇</option>
+              {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className={labelCls}>現居地址 *</span>
+            <input required value={address} onChange={e => setAddress(e.target.value)} className={inputCls} />
+          </label>
+        </div>
+
+        {/* 生日走全站共用的那一支：預設國曆、旁邊一行「我只知道農曆」給長者。
+            兩條路徑輸出同一種合併字串，資料庫裡只有一種格式（見 CLAUDE.md） */}
+        <div>
+          <span className={labelCls}>出生年月日 *</span>
+          <BirthDatePicker key={bKey} birthDate={birthDate} onChange={setBirth} hideLabel />
+        </div>
+
+        <label className="block">
+          <span className={labelCls}>護持方案 *</span>
+          <select required value={pick} onChange={e => { setPick(e.target.value); setOpen(''); }}
+            className={`${inputCls} bg-white`}>
+            <option value="">請選擇方案與級距</option>
+            {visible.map((p, i) => (
+              <optgroup key={p.id} label={p.title}>
+                {p.tiers.map((t, j) => (
+                  <option key={`${i}:${j}`} value={`${i}:${j}`}>{withCurrency(t)}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+
+        {/* 「隨喜」與「100,000 以上」本來就沒有固定數字，只有這兩種才開一格讓人填；
+            其餘級距金額就是級距本身，不給改——自由輸入只會出現對不上任何一級的金額 */}
+        {open && (
+          <label className="block">
+            <span className={labelCls}>護持金額（NTD）*</span>
+            <input required type="number" min={floor ?? 1} value={openAmount}
+              onChange={e => setOpen(e.target.value)}
+              placeholder={floor ? `${floor.toLocaleString()} 元以上` : '金額隨喜'}
+              className={inputCls} />
+          </label>
+        )}
+
+        {tier && amount > 0 && (
+          <div className="rounded-xl bg-temple-gold/15 border border-temple-gold/40 px-4 py-3 flex items-baseline justify-between gap-3">
+            <span className="text-sm text-gray-700">{plan!.title}　{withCurrency(tier)}</span>
+            <span className="text-lg font-bold text-temple-red font-serif whitespace-nowrap">NT$ {amount.toLocaleString()}</span>
+          </div>
+        )}
+
+        {/* 電子信箱：**不加 required、不加格式以外的任何阻擋**——這是送出路徑，
+            擋下來的那一刻就是一筆護持沒了，一個打錯的信箱遠比那輕微 */}
+        <label className="block">
+          <span className={labelCls}>電子信箱（選填）</span>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="example@gmail.com" className={inputCls} />
+          <span className="block text-xs text-gray-400 mt-1">填了就會收到本壇的感謝信；不填也可以護持。</span>
+        </label>
+
+        <label className="block">
+          <span className={labelCls}>備註 / 匯款帳號後五碼（選填）</span>
+          <input value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="已完成匯款請填寫帳號後五碼，以利核對" className={inputCls} />
+        </label>
+
+        {status === 'error' && (
+          <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" aria-hidden="true" />
+            <span>送出失敗，請檢查網路或稍後再試。</span>
+          </div>
+        )}
+
+        <button type="submit" disabled={status === 'loading'}
+          className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
+          <HeartHandshake className="w-5 h-5" aria-hidden="true" />
+          {status === 'loading' ? '送出中...' : '送出護持登記'}
+        </button>
+      </form>
+    </section>
+  );
+};
+
 const RemittanceNotice: React.FC = () => (
   <section className="mt-16 sr sr-up">
     <div className="rounded-2xl border-2 border-temple-gold bg-temple-gold/10 px-5 py-9 sm:px-10 sm:py-11 text-center">
@@ -187,7 +440,11 @@ const RemittanceNotice: React.FC = () => (
   </section>
 );
 
-const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const RelocationPage: React.FC<{
+  onBack: () => void;
+  /** 已登入會員填過的資料，用來自動帶入登記表（只補空欄位） */
+  donorDefaults?: RelocationDonorDefaults;
+}> = ({ onBack, donorDefaults }) => {
   const [blocks, setBlocks] = useState<StoryBlock[]>([]);
   const [plans, setPlans] = useState<RelocationPlan[]>([]);
 
@@ -205,6 +462,10 @@ const RelocationPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <StoryPage eyebrow="護持遷址" title="遷址捐款" blocks={blocks} onBack={onBack} medallion="dragon">
       {plans.map(p => <PlanTable key={p.id} plan={p} />)}
+      {/* 順序是：看方案 → 填登記 → 匯款。
+          登記表排在匯款資訊之前，因為要先知道選哪一級才知道要匯多少；
+          成功畫面會把帳號與金額再講一次，不必往回捲。 */}
+      <RelocationDonationForm plans={plans} defaults={donorDefaults} />
       <RemittanceNotice />
     </StoryPage>
   );

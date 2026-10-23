@@ -212,7 +212,14 @@ export enum DonationType {
   CHARITY = '慈善救助',
   EDUCATION = '教育文化',
   EVENT = '法會活動',
-  REPAIR = '神尊修復'
+  REPAIR = '神尊修復',
+  /**
+   * 遷址護持。**與 REPAIR 同一種用法**：有自己的專頁、金額綁在那一頁的方案上，
+   * 所以一般捐獻頁的下拉**一律排除**（見 App.tsx 的 donationTypes），
+   * 只有 /relocation 的表單會寫入這個值。
+   * 收款帳戶也不一樣（BANK_RELOCATION），不要把這兩種混在一起看。
+   */
+  RELOCATION = '遷址護持'
 }
 
 export interface DonationData {
@@ -228,11 +235,26 @@ export interface DonationData {
   gender?: string;
   address?: string;
   contactLabel?: string;
+  /**
+   * 出生年月日。格式是全站唯一那一種合併字串
+   * （`民國72年6月20日（農曆五月初十）`，由 BirthDatePicker 產生）。
+   * 一般捐獻沒有這一格；**遷址護持才收**——那邊的方案含「誦經祈福」與
+   * 「遷址功德簿」，疏文與功德簿都要寫生辰（廟方 2026-10-23）。
+   */
+  birthDate?: string;
   amount: number;
   type: DonationType;
   notes?: string;
   repairProjectId?:   string;
   repairProjectName?: string;
+  /**
+   * 遷址護持選的方案與級距，例如「每月同行｜月供養」＋「600 元」。
+   * **存文字不存 id**（同 `type` 那條原則）：方案表在後台改得動，
+   * 改了之後歷史紀錄要維持當初登記的樣子，那是財務事實。
+   * 級距單獨存一欄而不是併進方案名，廟方才統計得出各級各幾人。
+   */
+  relocationPlan?: string;
+  relocationTier?: string;
   createdAt?: any;
 }
 

@@ -130,20 +130,42 @@ const insertOptional = async (
    * 真正缺的若是必填欄位（表根本沒建、或改了欄位名），第二次照樣失敗，
    * 但錯誤訊息已經換成第二次那個，查起來會指向錯的方向。
    */
-  const named = optional.filter(k => text.includes(`'${k}'`) || new RegExp(`\\b${k}\\b`).test(text));
-  if (!schemaMiss || named.length === 0) {
-    console.error(`Error inserting into ${table}:`, error);
-    throw error;
+  /**
+   * **一輪只退一欄是不夠的，要一直退到送得出去為止**（2026-10-23 修）。
+   * PostgREST 的 PGRST204 一次只指名**一個**欄位，所以原本「退一次就放棄」的寫法
+   * 在「資料庫同時缺兩欄以上」時必然失敗——遷址護持一口氣加了
+   * `birth_date`／`relocation_plan`／`relocation_tier` 三欄，migration 還沒跑的話
+   * 整張表單會整個送不出去，而這支函式存在的理由正好就是不要發生那件事。
+   * 在那之前只有 `email` 一欄是選填的，所以這個缺陷一直沒有顯現。
+   * 迴圈上限就是選填欄位的數目：每一輪至少刪掉一欄，不會空轉。
+   */
+  let attempt: Record<string, unknown> = row;
+  let last = error;
+  const dropped: string[] = [];
+  for (let i = 0; i < optional.length; i++) {
+    const t = `${last.code ?? ''} ${last.message ?? ''}`;
+    const miss = /PGRST204/.test(t) || /schema cache|column .* does not exist/i.test(t);
+    /**
+     * **只捨棄錯誤訊息真的指名的那幾欄。**
+     * 不比對名字就等於「schema 一有問題就把選填欄位全丟掉再送」——
+     * 真正缺的若是必填欄位（表根本沒建、或改了欄位名），第二次照樣失敗，
+     * 但錯誤訊息已經換成第二次那個，查起來會指向錯的方向。
+     */
+    const named = optional.filter(k =>
+      !dropped.includes(k) && (t.includes(`'${k}'`) || new RegExp(`\\b${k}\\b`).test(t)));
+    if (!miss || named.length === 0) break;
+    attempt = { ...attempt };
+    named.forEach(k => { delete attempt[k]; dropped.push(k); });
+    const again = await supabase.from(table).insert([attempt]);
+    if (!again.error) {
+      console.warn(`${table}: 資料庫還沒有 ${dropped.join('／')} 欄位，這一筆先不帶那幾欄送出`
+        + '（請執行 supabase/migrations/ 底下對應的那一支）');
+      return;
+    }
+    last = again.error;
   }
-  const retry = { ...row };
-  named.forEach(k => { delete retry[k]; });
-  console.warn(`${table}: 資料庫還沒有 ${named.join('／')} 欄位，這一筆先不帶那幾欄送出`
-    + '（請執行 supabase/migrations/registration_email.sql）');
-  const second = await supabase.from(table).insert([retry]);
-  if (second.error) {
-    console.error(`Error inserting into ${table} (retry):`, second.error);
-    throw second.error;
-  }
+  console.error(`Error inserting into ${table}:`, last);
+  throw last;
 };
 
 export const submitBooking = async (data: BookingData, opts?: SubmitOptions): Promise<string> => {
@@ -305,9 +327,12 @@ export const submitDonation = async (data: DonationData, opts?: SubmitOptions): 
     notes: data.notes || null,
     repair_project_id:   data.repairProjectId   || null,
     repair_project_name: data.repairProjectName || null,
+    birth_date:      data.birthDate      || null,
+    relocation_plan: data.relocationPlan || null,
+    relocation_tier: data.relocationTier || null,
     email: data.email?.trim() || null,
     source: getSource(),
-  }, ['email']);
+  }, ['email', 'birth_date', 'relocation_plan', 'relocation_tier']);
   if (opts?.notify !== false) notifyRegistration('donations', id);
   return id;
 };
@@ -335,6 +360,10 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     notes: row.notes,
     repairProjectId:   row.repair_project_id   || undefined,
     repairProjectName: row.repair_project_name || undefined,
+    // 遷址護持才有值；migration 還沒跑時整欄不存在，讀回來是 undefined 而不是爆掉
+    birthDate:       row.birth_date      || undefined,
+    relocationPlan:  row.relocation_plan || undefined,
+    relocationTier:  row.relocation_tier || undefined,
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     email: row.email || undefined,

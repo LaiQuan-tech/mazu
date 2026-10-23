@@ -25,7 +25,7 @@ import {
   Megaphone, Plus, Edit2, Trash2, Pin, PinOff, X, Menu, UserPlus, ClipboardList, ArrowRight,
   Image as ImageIcon, Upload, Flame, GripVertical, Save, BookOpenCheck, List, BookUser, Settings, Share2,
   ChevronUp, ChevronsUpDown, CalendarClock, Activity, Sparkles, MapPin, Baby, ShowerHead,
-  Eye, EyeOff, ShoppingBag, Wrench, Receipt, Send, Check} from 'lucide-react';
+  Eye, EyeOff, ShoppingBag, Wrench, Receipt, Send, Check, Home} from 'lucide-react';
 
 type Tab = 'vouchers' | 'traffic' | 'feasts' | 'analytics' | 'social' | 'siteinfo' | 'about' | 'relocation' | 'faq' | 'overview' | 'fahui' | 'volunteer' | 'roster' | 'bookings' | 'donations' | 'repairs' | 'members' | 'bulletins' | 'photos' | 'deities' | 'scripture' | 'lamps' | 'blessings' | 'receivables' | 'shower' | 'urgent';
 
@@ -2393,9 +2393,14 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
   const types = [...new Set(donations.map(d => d.type))];
 
   const handleExport = () => {
+    // 生日與遷址方案 2026-10-23 加入：遷址護持的方案含誦經祈福與功德簿，
+    // 廟方要拿這份去寫疏文與功德簿，少了生辰就得回頭一個一個問。
     exportExcel('捐款資料.xlsx', filtered.map(d => [
-      d.name, d.phone, d.gender || '', d.address || '', Number(d.amount), d.type, d.repairProjectName || '', d.notes || '', fmtDate(d.createdAt), d.source || ''
-    ]), ['姓名', '電話', '性別', '現居地址', '金額', '捐款類型', '修復神尊', '備註', '建立時間', '報名來源']);
+      d.name, d.phone, d.gender || '', d.birthDate || '', d.address || '', Number(d.amount), d.type,
+      d.repairProjectName || '', d.relocationPlan || '', d.relocationTier || '',
+      d.notes || '', fmtDate(d.createdAt), d.source || ''
+    ]), ['姓名', '電話', '性別', '出生年月日', '現居地址', '金額', '捐款類型',
+      '修復神尊', '遷址方案', '遷址級距', '備註', '建立時間', '報名來源']);
   };
 
   return (
@@ -2468,7 +2473,9 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
             <table className="admin-table min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '捐款金額', '類型', '修復神尊', '備註', '時間'].map(h => (
+                  {/* 「指定項目」一欄兩用：神尊修復的專案、遷址護持的方案。
+                      兩者都是「這筆錢指定給哪一件事」，而且互斥，不必各開一欄 */}
+                  {['信眾資訊', '捐款金額', '類型', '指定項目', '備註', '時間'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -2491,6 +2498,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{d.phone}</p>
                           {d.gender && <span className="text-xs text-gray-400">{d.gender}</span>}
+                          {d.birthDate && <p className="text-xs text-gray-400 mt-0.5">生日：{d.birthDate}</p>}
                           {d.address && <p className="text-xs text-gray-400 mt-0.5">地址：{d.address}</p>}
                         </div>
                       </div>
@@ -2501,12 +2509,18 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     <td data-label="類型" className="px-5 py-4">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
                     </td>
-                    <td data-label="修復神尊" className="px-4 py-3 text-sm text-gray-500">
-                      {d.repairProjectName
-                        ? <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
-                            <Wrench className="w-3 h-3" />{d.repairProjectName}
-                          </span>
-                        : <span className="text-gray-300">—</span>}
+                    <td data-label="指定項目" className="px-4 py-3 text-sm text-gray-500">
+                      {d.repairProjectName ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                          <Wrench className="w-3 h-3" />{d.repairProjectName}
+                        </span>
+                      ) : d.relocationPlan ? (
+                        // 方案與級距分兩行：方案名最長十個字，跟級距擠一行在手機的卡片版會換行換得很醜
+                        <span className="inline-flex flex-col gap-0.5 text-xs px-2 py-1 rounded-lg bg-temple-gold/15 border border-temple-gold/40 text-temple-dark">
+                          <span className="inline-flex items-center gap-1"><Home className="w-3 h-3" />{d.relocationPlan}</span>
+                          {d.relocationTier && <span className="font-semibold">{d.relocationTier}</span>}
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
                     </td>
                     <td data-label="備註" className="px-5 py-4 max-w-[180px]">
                       <p className="text-sm text-gray-700 truncate">{d.notes || <span className="text-gray-300 italic">無備註</span>}</p>
