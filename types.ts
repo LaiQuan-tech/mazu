@@ -322,7 +322,12 @@ export interface BulletinData {
   category: BulletinCategory;
   isPinned: boolean;
   publishAt?: string | null;
-  linkedService?: 'lamp' | 'blessing' | 'booking' | 'donation' | null;
+  /**
+   * 展開公告時那顆「前往○○」要連到哪一個服務。
+   * **加新的值時 `SERVICE_PAGE`（App.tsx）一定要跟著補**——那張表的型別綁死成
+   * 「每一種都要有自己的頁」，漏補就是編譯錯誤，不會變成按了沒反應。
+   */
+  linkedService?: 'lamp' | 'blessing' | 'booking' | 'donation' | 'relocation' | null;
   /**
    * 這則公告對應的祈福活動 id。**只有衍生卡會帶，不是資料庫欄位**
    * （廟方手寫的公告沒有、也不該有——它不知道自己在講哪一場）。

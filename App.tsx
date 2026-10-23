@@ -323,7 +323,7 @@ const HERO_FADE_RGB = INK_MODE
  * 日後再多一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
  */
 const SERVICE_PAGE: Record<NonNullable<BulletinRecord['linkedService']>, SitePage> = {
-  lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation',
+  lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation', relocation: 'relocation',
 };
 
 /**

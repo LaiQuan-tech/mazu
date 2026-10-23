@@ -3448,7 +3448,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
   };
 
   const serviceLabel: Record<string, string> = {
-    lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻',
+    lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻', relocation: '遷址募資',
   };
 
   const publishStatus = (b: BulletinRecord) => {
@@ -3626,6 +3626,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                   <option value="blessing">祈福</option>
                   <option value="booking">問事</option>
                   <option value="donation">捐獻</option>
+                  <option value="relocation">遷址募資</option>
                 </select>
                 <p className="text-xs text-gray-400 mt-1">設定後，信眾展開公告時可直接點擊按鈕前往該服務登記表單</p>
               </div>

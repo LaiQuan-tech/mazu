@@ -284,7 +284,7 @@ export const BulletinCard: React.FC<{
             onClick={e => { e.stopPropagation(); onService(bulletin.linkedService!, bulletin.linkedEventId); }}
             className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-temple-red text-white rounded-lg font-medium hover:bg-[#5C1A04] transition-colors shadow-sm"
           >
-            前往{SERVICE_LABEL[bulletin.linkedService] ?? ''}登記 →
+            {SERVICE_CTA[bulletin.linkedService] ?? '前往登記'} →
           </button>
         )}
       </div>
@@ -293,6 +293,12 @@ export const BulletinCard: React.FC<{
   );
 };
 
-const SERVICE_LABEL: Record<string, string> = {
-  lamp: '點燈', blessing: '祈福', booking: '問事', donation: '捐獻',
+/**
+  * 那顆鈕整句話各寫一份，不要用「前往」＋標籤拼。
+  * 拼字串的寫法在「遷址募資」這一項就破了——拼出來是「前往遷址登記」，
+  * 而那一頁要做的事叫護持不叫登記。一個服務一句話，各自讀得通。
+  */
+const SERVICE_CTA: Record<string, string> = {
+  lamp: '前往點燈登記', blessing: '前往祈福登記', booking: '前往問事登記',
+  donation: '前往捐獻登記', relocation: '前往護持遷址',
 };
