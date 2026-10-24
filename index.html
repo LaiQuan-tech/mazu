@@ -880,22 +880,31 @@
 </script>
 <link rel="stylesheet" href="/index.css">
     <!--
-      青花紙上線（2026-10-20）之後，外殼若還是米色，每次載入都會先閃一下米白
-      才變深——#root 在 React 掛載前是空的，所以閃的是整個畫面。
-      這裡只搶在第一次繪製前把底色擺正，主題本身仍由 App.tsx 的 INK_MODE 決定。
+      深底的頁面若用米色外殼，每次載入都會先閃一下米白才變深——#root 在 React
+      掛載前是空的，所以閃的是整個畫面。這裡只搶在第一次繪製前把底色擺正，
+      主題本身仍由 App.tsx 的 INK_MODE 決定。
 
-      **判斷條件是 App.tsx 的 isShowerUrl／isShowerCheckinUrl 的複寫，兩邊要一起改。**
-      （聖母經不必列：它自己在 effect 裡設 body，而且本來就是同一個靛藍紙。）
+      **這段的條件必須跟著 App.tsx 的 INK_MODE 翻面。** 2026-10-24 廟方要求
+      換回黃色與金色，青花紙改成 `?ink=1` 才開，所以這裡也只在 `?ink=1` 時塗深；
+      翻錯邊的症狀是整站載入時閃一下靛藍，而且 body 會留在深色（頁尾下方、
+      手機回彈時看得到一條深帶）。
+
+      **天上聖母經是唯一永遠深色的頁**（廟方 2026-10-24 指名維持原樣），
+      所以它要單獨列進來——它雖然自己在 effect 裡設 body，但那是 React 掛載
+      之後的事，不列的話那一頁反而會閃一下米色。
+      沐浴車那兩頁永遠是淺色，維持排除。
       寫錯的代價只是閃錯顏色，不影響功能，所以不值得為它把路由邏輯搬進外殼。
     -->
     <script>
       (function () {
         try {
           var p = location.pathname.replace(/\/+$/, '') || '/';
+          var ink = new URLSearchParams(location.search).get('ink') === '1';
+          // 聖母經永遠是靛藍紙；其餘頁面只有開了 ?ink=1 才是深的
+          if (!ink && p !== '/scripture') return;
           var bath = /^(www\.)?17bath\.org$/.test(location.hostname);
           var light = p === '/shower' || p === '/shower/checkin'
-            || (bath && (p === '/' || p === '/checkin'))
-            || new URLSearchParams(location.search).get('ink') === '0';
+            || (bath && (p === '/' || p === '/checkin'));
           if (light) return;
           var el = document.createElement('style');
           el.textContent = 'body{background-color:#16233F}';
