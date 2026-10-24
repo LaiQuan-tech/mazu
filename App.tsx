@@ -45,6 +45,7 @@ import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, Bl
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
+import VideoFacade from './components/VideoFacade';
 import { INK_PAPER_CSS, INK_PAPER_BG } from './components/inkTheme';
 import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
@@ -322,6 +323,27 @@ const HERO_FADE_RGB = INK_MODE
  * 以前 donation 不在這裡，呼叫端得另外傳一個 `onNonPage` 退路去捲首頁區塊；
  * 日後再多一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
  */
+/**
+ * 首頁那一支影片（廟方 2026-10-24 給連結）。
+ *
+ * 封面是自己存的 `public/home-video-<id>.webp|jpg`，由
+ * `node scripts/build-shower-covers.js <sharp 路徑> --prefix=home-video- --width=1280 <id>` 產生，
+ * **檔名也要加進 `vite.config.ts` 的 `HERO_FILES`**（換影片時網址才會跟著變）。
+ *
+ * `heading` 是這一區的名字，與封面上印的字刻意不同：封面寫的是片頭設計
+ * 「薪火相傳　承前啟後」，而使用者在清單上要看懂的是「這是哪一年、什麼事」。
+ * `author` 照 oEmbed 回的頻道名，**不是我們自己拍的就要標出來**。
+ *
+ * 換影片要做三件事：改這裡的 id／heading、重跑上面那支腳本產封面、
+ * 把新檔名換進 HERO_FILES。舊的兩個檔可以一起刪掉。
+ */
+const HOME_VIDEO = {
+  id: 'UxMaZ5WRrdE',
+  heading: '2025 進香回顧',
+  title: '2025古亭和聖壇進香回顧',
+  author: '拾九影像創作',
+};
+
 const SERVICE_PAGE: Record<NonNullable<BulletinRecord['linkedService']>, SitePage> = {
   lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation', relocation: 'relocation',
 };
@@ -3459,7 +3481,57 @@ const App: React.FC = () => {
         />
       </section>
 
-{/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
+{/* ── 進香回顧影片（廟方 2026-10-24 提供）──
+          **刻意不放進 Hero。** 廟方問的是「hero 左邊的空間可不可以放」，桌機確實空著
+          （量過：字標右緣 100px 到最左那尊濟公的 547px 之間有 447×550 的空白），
+          但手機上沒有那個空間——三尊神尊橫跨整個寬度（x −6 到 381），
+          字標下緣 151px 到神尊頂端 372px 之間只剩一條 221px 高的橫帶，
+          而 16:9 的影片在 375px 寬就是 193px 高，等於**整個卡死在主神的冠帽上面**。
+          何況 Hero 這一支換過三輪才定在「不動」（見 CLAUDE.md），
+          放一顆播放鈕上去是往反方向走。
+          所以改放在 Hero 正下方：捲一下就看到，是「首頁最上面」的誠實版本，
+          而且不必動 Hero 那層已經調好的疊放順序。
+          手機量到整區約 430px（0.53 屏），首頁 7,605 → 8,035px。 */}
+      {page === 'home' && (
+      <section id="story-video" className="py-12 sm:py-20 bg-temple-bg">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="sr sr-up text-center mb-8">
+            <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
+              <span className="w-8 h-1 bg-temple-gold" />
+              影像紀錄
+              <span className="w-8 h-1 bg-temple-gold" />
+            </h2>
+            <h3 className="text-4xl font-bold text-temple-dark font-serif">{HOME_VIDEO.heading}</h3>
+            <div className="flex items-center justify-center gap-3 mt-3" aria-hidden="true">
+              <span className="w-12 h-px bg-temple-gold/70" />
+              <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
+              <span className="w-12 h-px bg-temple-gold/70" />
+            </div>
+          </div>
+          <figure className="sr sr-up sr-d1">
+            <VideoFacade
+              id={HOME_VIDEO.id}
+              title={HOME_VIDEO.title}
+              cover={`home-video-${HOME_VIDEO.id}`}
+              /* **播放鈕的兩個顏色都要用方括號寫死，不能用 temple 色票。**
+                 青花紙主題會把 .bg-white 壓成 rgba(255,255,255,.07)（鈕會消失），
+                 也會把 text-temple-red 映成泥金 #C9A86A——泥金壓在米白的鈕上
+                 實測只有 2.17:1，三角形幾乎看不見。
+                 #FDFBF7／#6B4A14 都不在 inkTheme 的名單上，兩套主題長得一樣。 */
+              accent={{ box: 'bg-temple-red', btn: 'bg-[#FDFBF7]', icon: 'text-[#6B4A14]' }}
+            />
+            {/* 拍攝者要標出來（同沐浴車那幾則新聞的 `source`）：這不是我們自己拍的。
+                標題不再印一次——封面上自己就寫著「薪火相傳　承前啟後」，
+                上面的大標是這一區的名字，兩者不是同一件事（同 ShowerPage 那條）。 */}
+            <figcaption className="mt-3 text-center text-sm text-gray-500">
+              影片：{HOME_VIDEO.author}
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+      )}
+
+      {/* Bulletin Section (公佈欄)。ENABLE_BULLETIN 關閉時整區不渲染 */}
       {ENABLE_BULLETIN && (
       <section id="bulletin" className="py-12 sm:py-20 bg-white relative overflow-hidden">
         {/* 龍在鳳之上——這是首頁 Hero 之後的第一個區塊 */}

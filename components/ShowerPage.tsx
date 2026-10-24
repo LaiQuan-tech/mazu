@@ -26,12 +26,13 @@
  * 顯示「18:42」他還要自己算。超過兩小時另外加一句提醒，因為那時位置很可能已經過期。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, Play, ArrowRight } from 'lucide-react';
+import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, ArrowRight } from 'lucide-react';
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
 import { formatShowerNote } from '../services/showerNote';
 import showerFaq from '../content/shower-faq.json';
 import { FacebookIcon } from './SocialLinks';
+import VideoFacade from './VideoFacade';
 import { ShowerTruckLocation } from '../types';
 
 /** 位置超過這麼久就提醒香客可能已經移動 */
@@ -270,53 +271,19 @@ const VIDEOS: {
 
 const VideoCard: React.FC<{
   id: string; title: string; portrait?: boolean; source?: string;
-}> = ({ id, title, portrait, source }) => {
-  const [playing, setPlaying] = useState(false);
-
-  return (
+}> = ({ id, title, portrait, source }) => (
     <figure className={portrait ? 'max-w-[260px] sm:max-w-[288px] mx-auto' : undefined}>
-      {/*
-        長寬比兩種狀態共用，換成播放器時版面不會跳。
-        **直式一定要給寬度上限**（上面那層 figure）：9:16 攤滿手機的欄寬就是 667px 高、
-        比一個螢幕還長，香客得滑過一整屏才看得到下一支。260 大約就是手機握在手上的樣子。
-      */}
-      <div className={`relative overflow-hidden rounded-2xl bg-[#B01350] ${portrait ? 'aspect-[9/16]' : 'aspect-video'}`}>
-        {playing ? (
-          <iframe
-            className="absolute inset-0 w-full h-full"
-            src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
-            title={title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setPlaying(true)}
-            aria-label={`播放影片：${title}`}
-            className="group absolute inset-0 w-full h-full"
-          >
-            <picture>
-              <source srcSet={heroSrc(`shower-video-${id}.webp`)} type="image/webp" />
-              <img
-                src={heroSrc(`shower-video-${id}.jpg`)}
-                alt=""
-                width={portrait ? 480 : 640}
-                height={portrait ? 854 : 360}
-                loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            </picture>
-            <span className="absolute inset-0 flex items-center justify-center">
-              {/* 小卡片上 64px 的圓鈕會佔掉四成高度，窄螢幕縮一號 */}
-              <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110">
-                <Play className="w-6 h-6 sm:w-7 sm:h-7 text-[#B01350] translate-x-0.5" fill="currentColor" aria-hidden="true" />
-              </span>
-            </span>
-          </button>
-        )}
-      </div>
+      {/* facade 的機制（長寬比框／封面／播放鈕／按下去才載 iframe）抽到 VideoFacade
+          共用，首頁那一支用的是同一支；這一頁自己的只剩粉色與下面那段圖說。
+          **直式一定要給寬度上限**（上面那層 figure）：9:16 攤滿手機的欄寬就是 667px 高、
+          比一個螢幕還長，香客得滑過一整屏才看得到下一支。260 大約就是手機握在手上的樣子。 */}
+      <VideoFacade
+        id={id}
+        title={title}
+        cover={`shower-video-${id}`}
+        portrait={portrait}
+        accent={{ box: 'bg-[#B01350]', btn: 'bg-[#FDFBF7]', icon: 'text-[#B01350]' }}
+      />
       {/* 標題在圖的下面不壓在圖上（理由見 VIDEOS 上面那段）。
           媒體名稱排在片名之上、小一號：它是出處不是標題，
           但兩則新聞的片名一模一樣，沒有它就分不出哪一台。 */}
@@ -329,8 +296,7 @@ const VideoCard: React.FC<{
         </span>
       </figcaption>
     </figure>
-  );
-};
+);
 
 /**
  * 志工招募（廟方 2026-10-17 提供橫幅與 Google 表單）。

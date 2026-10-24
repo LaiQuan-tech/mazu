@@ -1,10 +1,14 @@
-// 產生 /shower 影片卡的封面 public/shower-video-<id>.webp|jpg。
+// 產生影片卡的封面 public/<前綴><id>.webp|jpg。
 //
 // 用法（廟方加影片、或上傳者換了預覽圖時重跑）：
 //   cd /tmp && npm i sharp && cd -
 //   node scripts/build-shower-covers.js /tmp/node_modules rEZZV5X6VHo Ub9tUWn4Jfw
+//   node scripts/build-shower-covers.js /tmp/node_modules --prefix=home-video- --width=1280 UxMaZ5WRrdE
 // 第一個參數是 sharp 所在的 node_modules 路徑，後面是 YouTube 的影片 id
 // （就是 components/ShowerPage.tsx 的 VIDEOS 裡那一串）。
+// `--prefix=` 預設 `shower-video-`；首頁那一支（App.tsx 的 HOME_VIDEO）用 `home-video-`。
+// `--width=` 覆寫橫式的輸出寬度，給版面比較寬的卡片用（直式不受影響）。
+// **產出的檔名要加進 vite.config.ts 的 HERO_FILES**，否則換圖時網址不變、信眾會拿到舊快取。
 // 刻意不寫進 package.json：理由同 scripts/build-icons.js。
 //
 // ── 為什麼要自己存一份，不直接連 i.ytimg.com ──
@@ -26,9 +30,16 @@ import { createRequire } from 'node:module';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = resolve(ROOT, 'public');
 
-const [, , modulesPath, ...ids] = process.argv;
+const [, , modulesPath, ...rest] = process.argv;
+const flag = (name, fallback) => {
+  const hit = rest.find(a => a.startsWith(`--${name}=`));
+  return hit ? hit.slice(name.length + 3) : fallback;
+};
+const PREFIX = flag('prefix', 'shower-video-');
+const WIDTH_OVERRIDE = Number(flag('width', 0)) || 0;
+const ids = rest.filter(a => !a.startsWith('--'));
 if (!modulesPath || ids.length === 0) {
-  console.error('用法：node scripts/build-shower-covers.js <sharp 所在的 node_modules 路徑> <影片 id>...');
+  console.error('用法：node scripts/build-shower-covers.js <sharp 所在的 node_modules 路徑> [--prefix=…] [--width=…] <影片 id>...');
   process.exit(1);
 }
 // NODE_PATH 對 ESM 的 import 沒有作用，要用 createRequire（CLAUDE.md 記過這條）
@@ -57,13 +68,13 @@ async function fetchThumb(id) {
 for (const id of ids) {
   const { name, buf, meta } = await fetchThumb(id);
   const portrait = meta.height > meta.width;
-  const width = portrait ? WIDTH_PORTRAIT : WIDTH_LANDSCAPE;
+  const width = portrait ? WIDTH_PORTRAIT : (WIDTH_OVERRIDE || WIDTH_LANDSCAPE);
   const base = sharp(buf).resize({ width, withoutEnlargement: true });
 
   const webp = await base.clone().webp({ quality: 82 }).toBuffer();
   const jpg = await base.clone().jpeg({ quality: 82, mozjpeg: true }).toBuffer();
-  writeFileSync(resolve(PUBLIC, `shower-video-${id}.webp`), webp);
-  writeFileSync(resolve(PUBLIC, `shower-video-${id}.jpg`), jpg);
+  writeFileSync(resolve(PUBLIC, `${PREFIX}${id}.webp`), webp);
+  writeFileSync(resolve(PUBLIC, `${PREFIX}${id}.jpg`), jpg);
 
   const out = await sharp(webp).metadata();
   console.log(

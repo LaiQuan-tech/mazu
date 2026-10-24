@@ -40,6 +40,26 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
   **`SERVICE_PAGE` 的型別順手改成 `Record<NonNullable<BulletinRecord['linkedService']>, SitePage>`**：四種 linkedService 現在都有自己的頁，呼叫端那條 `onNonPage` 退路（捲去首頁 `#donation`）已經移除；日後再加一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
   **獨立頁的大標要用 `h1`**（2026-09-04 那次「四個服務頁一個 h1 都沒有」的教訓）：`/donation` 用 `h1`。實測首頁與 `/donation` 各剛好一個 h1。
   **llms.txt 與 prerender ROUTES 都要補一筆**，而且要寫明「捐獻有兩種、帳戶不同」——AI 被問到「要捐錢給和聖壇」時會把遷址專款與一般護持混在一起答。
+- **首頁 Hero 正下方有一支進香回顧影片**（`HOME_VIDEO`，App.tsx，2026-10-24 廟方提供）。
+  **刻意不放進 Hero**——廟方問的是「hero 左邊的空間可不可以放」，桌機確實空著（量過：
+  字標右緣 100px 到最左那尊濟公的 547px 之間有 447×550 的空白），但**手機上沒有那個空間**：
+  三尊神尊橫跨整個寬度（x −6 到 381），字標下緣 151 到神尊頂端 372 之間只剩一條 221px 的橫帶，
+  而 16:9 的影片在 375px 寬就是 193px 高，等於整個卡死在主神的冠帽上面。
+  何況 Hero 換過三輪才定在「不動」，放一顆播放鈕上去是往反方向走。
+  放在 Hero 正下方是「首頁最上面」的誠實版本：捲一下就看到，也不必動 Hero 那層疊放順序。
+  **代價量過**：手機整區 442px（0.54 屏），首頁 7,605 → 8,075px（9.4 → 9.9 屏）。
+  **影片一律走 `components/VideoFacade.tsx`**（2026-10-24 從 ShowerPage 抽出來共用）：
+  預設只畫封面、按下去才載 iframe，網域用 `youtube-nocookie`。首頁與 /shower 共用這一支，
+  各頁自己的只有配色與圖說。封面自己存 `public/`，由
+  `scripts/build-shower-covers.js --prefix=home-video- --width=1280 <id>` 產生，
+  **檔名要加進 `vite.config.ts` 的 `HERO_FILES`**。
+  **播放鈕的兩個顏色都要用方括號寫死**：青花紙主題會把 `.bg-white` 壓成
+  `rgba(255,255,255,.07)`（鈕直接消失），也會把 `text-temple-red` 映成泥金——
+  泥金壓在米白的鈕上實測只有 **2.17:1**，三角形幾乎看不見。現在是
+  `bg-[#FDFBF7]` ＋ `text-[#6B4A14]`，兩個都不在 inkTheme 的名單上，量到 7.77:1。
+  **區塊大標與封面上的字刻意不同**：封面印的是片頭設計「薪火相傳　承前啟後」，
+  大標寫「2025 進香回顧」——前者是美術，後者是這一區的名字（同 ShowerPage 那條）。
+  拍攝者（拾九影像創作）要標出來，不是我們自己拍的。
 - 導覽列：主要七項＋「更多」下拉（祈福活動／隨喜捐獻／常見問題；神尊修復由 `ENABLE_REPAIR=false` 隱藏中）。手機選單不做下拉，用分隔線區隔；展開上限是 `max-h-[80vh]`＋內層 `overflow-y-auto`（固定 px 會裁掉最後幾項）。
 - 後台入口：`https://heshengtan.tw/?admin=1`（會自動跳管理員登入；`?admin=1` 會讓 `FAHUI_LANDING` 失效，所以這也是收件期間預覽官網首頁的方法）。管理員只有 armand7951@gmail.com 與 lqtech2026@gmail.com（admin_profiles 表控管）。
 - 全部資料表已啟用 RLS（migration：`supabase/migrations/mainsite_rls.sql`）。訪客只能 INSERT 報名、讀公開內容；統計數字走 SECURITY DEFINER RPC。
