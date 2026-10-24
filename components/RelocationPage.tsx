@@ -319,38 +319,16 @@ const RelocationDonationForm: React.FC<{
       </p>
 
       <form onSubmit={submit} className="bg-white rounded-2xl shadow-xl border border-temple-gold/20 p-6 sm:p-10 space-y-5">
-        <div className="grid sm:grid-cols-2 gap-5">
-          <label className="block">
-            <span className={labelCls}>姓名 *</span>
-            <input required value={name} onChange={e => setName(e.target.value)} className={inputCls} />
-          </label>
-          <label className="block">
-            {/* 電話是必填不是順便加的：全站的報名紀錄都以電話為鍵（見 my_phone()），
-                會員日後要在會員中心看到這一筆、廟方要回頭聯絡，都靠它 */}
-            <span className={labelCls}>聯絡電話 *</span>
-            <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-              placeholder="請留下方便聯繫的電話" className={inputCls} />
-          </label>
-          <label className="block">
-            <span className={labelCls}>性別 *</span>
-            <select required value={gender} onChange={e => setGender(e.target.value)} className={`${inputCls} bg-white`}>
-              <option value="">請選擇</option>
-              {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className={labelCls}>現居地址 *</span>
-            <input required value={address} onChange={e => setAddress(e.target.value)} className={inputCls} />
-          </label>
-        </div>
-
-        {/* 生日走全站共用的那一支：預設國曆、旁邊一行「我只知道農曆」給長者。
-            兩條路徑輸出同一種合併字串，資料庫裡只有一種格式（見 CLAUDE.md） */}
-        <div>
-          <span className={labelCls}>出生年月日 *</span>
-          <BirthDatePicker key={bKey} birthDate={birthDate} onChange={setBirth} hideLabel />
-        </div>
-
+        {/* **方案選在最前面**（廟方 2026-10-24）。先決定「要哪一個方案」再填「我是誰」
+            才是信眾腦中的順序；而且金額是跟著方案走的，填完一整頁姓名生辰才發現
+            這一級不是自己要的，等於白填。同問事表單把場次移到人員卡片之前那一次
+            （2026-10-12，見 CLAUDE.md）。
+            **金額與小計要跟著方案一起搬**：金額只有「隨喜」「10 萬以上」那兩種級距
+            才出現，小計也只由方案與級距算出來——它們與方案是同一件事，拆開就會
+            變成「在畫面上方選方案、在下方某處才看得到自己選了多少錢」。
+            這不牴觸祈福報名表那條「合計放到最後」：那一頁的合計由方案、隨喜、加購、
+            供品四樣加總，所以得等全部選完；這裡的金額只由方案決定，底下的欄位
+            一個都不會改變它。 */}
         <label className="block">
           <span className={labelCls}>護持方案 *</span>
           <select required value={pick} onChange={e => { setPick(e.target.value); setOpen(''); }}
@@ -384,6 +362,38 @@ const RelocationDonationForm: React.FC<{
             <span className="text-lg font-bold text-temple-red font-serif whitespace-nowrap">NT$ {amount.toLocaleString()}</span>
           </div>
         )}
+
+        <div className="grid sm:grid-cols-2 gap-5">
+          <label className="block">
+            <span className={labelCls}>姓名 *</span>
+            <input required value={name} onChange={e => setName(e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            {/* 電話是必填不是順便加的：全站的報名紀錄都以電話為鍵（見 my_phone()），
+                會員日後要在會員中心看到這一筆、廟方要回頭聯絡，都靠它 */}
+            <span className={labelCls}>聯絡電話 *</span>
+            <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="請留下方便聯繫的電話" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className={labelCls}>性別 *</span>
+            <select required value={gender} onChange={e => setGender(e.target.value)} className={`${inputCls} bg-white`}>
+              <option value="">請選擇</option>
+              {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className={labelCls}>現居地址 *</span>
+            <input required value={address} onChange={e => setAddress(e.target.value)} className={inputCls} />
+          </label>
+        </div>
+
+        {/* 生日走全站共用的那一支：預設國曆、旁邊一行「我只知道農曆」給長者。
+            兩條路徑輸出同一種合併字串，資料庫裡只有一種格式（見 CLAUDE.md） */}
+        <div>
+          <span className={labelCls}>出生年月日 *</span>
+          <BirthDatePicker key={bKey} birthDate={birthDate} onChange={setBirth} hideLabel />
+        </div>
 
         {/* 電子信箱：**不加 required、不加格式以外的任何阻擋**——這是送出路徑，
             擋下來的那一刻就是一筆護持沒了，一個打錯的信箱遠比那輕微 */}
