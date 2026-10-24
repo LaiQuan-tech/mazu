@@ -86,6 +86,10 @@ const BRAND = {
   facebook: 'https://www.facebook.com/profile.php?id=61574029464178',
   /** 志工招募報名表（Google 表單，廟方 2026-10-17 提供） */
   volunteerForm: 'https://forms.gle/P46M9nt7Dzh4125z6',
+  /** 愛心捐贈表單（Google 表單「17沐浴車愛心捐贈」，廟方 2026-10-24 提供）。
+   *  **收款的是協會不是和聖壇**——這一頁掛在兩個網域上，文案與 aria-label
+   *  都要指名協會，不然在 heshengtan.tw/shower 上會被當成宮廟在募款。 */
+  donateForm: 'https://forms.gle/ZVwrpyRLzKnMmWcaA',
   /** 橫幅底下那一句，講的是「這一頁現在能幫你什麼」，不是品牌故事 */
   lead: '免費提供隨香香燈腳盥洗。位置由現場志工回報，車會隨隊伍移動，出發前請再確認一次。',
 };
@@ -335,6 +339,50 @@ const VolunteerBanner: React.FC = () => (
     </picture>
     <span className="flex items-center justify-center gap-2 bg-[#B01350] px-4 py-3 text-white font-bold group-hover:bg-[#8E0F41] transition-colors">
       我要報名
+      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+    </span>
+  </a>
+);
+
+/**
+ * 愛心捐贈（廟方 2026-10-24 提供 Google 表單「17沐浴車愛心捐贈」）。
+ *
+ * **接在志工招募後面**：兩者都是「你可以怎麼幫忙」，並排才一眼看得完兩條路；
+ * 會想幫忙的人同樣是讀完四段故事、看完影片才被打動的（理由同 VolunteerBanner，
+ * 不重述）。**沒有放進上面那排目錄**：四顆已經量過剛好填滿（四項 306px／
+ * 可用 343px），第五顆會把整列擠成兩行。
+ *
+ * **刻意沒有用廟方給的那張按鈕圖**：那張把「我要捐款」四個字燒進點陣裡，
+ * 而這一頁的規矩是**圖放美術、字用真的字**——志工那一塊也是圖歸圖，
+ * 「我要報名」是底下那條桃紅色的真文字。真文字讀得出來、選得起來、
+ * 在任何螢幕上都不糊；何況這一頁要在訊號一格的山區載入，一張兩千像素寬的
+ * 裝飾圖正是它最付不起的東西（同「泡泡用 SVG 畫、不用圖檔」那條）。
+ * 要改用圖的話，請協會提供**橫幅**而不是按鈕——按鈕上已經有「我要捐款」，
+ * 配上底下那條一樣的字就是同一件事講兩次。
+ *
+ * 表單在 Google，所以開新分頁並在 aria-label 裡講明白——
+ * 正要離開這個網站這件事，應該讓人事先知道。
+ */
+const DonationBanner: React.FC = () => (
+  <a
+    href={BRAND.donateForm}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={`愛心捐贈：捐款給${BRAND.org}。開啟 Google 表單（另開新分頁）`}
+    id="shower-donate"
+    className="group block mt-6 scroll-mt-20 rounded-2xl overflow-hidden border border-[#D6246B]/20 hover:border-[#D6246B]/50 transition-colors"
+  >
+    {/* 不透明度一律用 Tailwind 的級距（5 的倍數）：寫 /8 這種整條規則會靜默消失，
+        底色直接不見（見 CLAUDE.md 手機選單那條）。 */}
+    <span className="block bg-[#D6246B]/10 px-5 py-6 text-center">
+      <span className="block font-serif text-xl font-bold text-[#B01350]">愛心捐贈</span>
+      <span className="mt-2 block text-sm text-gray-600 leading-relaxed">
+        {'一台沐浴車走完一趟進香，用掉的是水、電、油料與備品。您的一份心意，讓下一位走到這裡的香燈腳，也能洗上一次熱水澡。'}
+      </span>
+    </span>
+    {/* 與志工那一塊同一條桃紅色橫槓：兩個行動長得一樣，才看得出是並列的兩條路 */}
+    <span className="flex items-center justify-center gap-2 bg-[#B01350] px-4 py-3 text-white font-bold group-hover:bg-[#8E0F41] transition-colors">
+      我要捐款
       <ArrowRight className="w-4 h-4" aria-hidden="true" />
     </span>
   </a>
@@ -591,6 +639,7 @@ const ShowerPage: React.FC = () => {
         </div>
 
         <VolunteerBanner />
+        <DonationBanner />
 
         {/* 收尾只留主辦單位，而且要大、要置中（廟方 2026-10-16）。
             這一頁是協會的服務，和聖壇做的只是查詢頁——署名權是協會的。
