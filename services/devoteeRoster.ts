@@ -3,6 +3,13 @@
 // 識別方式：以「姓名」為主（去除空白後比對），**不以電話合併**。
 //   同一支電話常是一家人共用，用電話合併會把家人併成同一人。
 //   電話改為保留成屬性，並用來提示「可能的親屬」（同電話的其他姓名）。
+//
+// ── 會員與信眾的關係：**會員一定是信眾，信眾不一定是會員**（廟方 2026-10-24）──
+//   報名與點燈都不需要登入，所以名冊上絕大多數的人沒有帳號；`member_profiles`
+//   本身也被當成一個管道（`'會員'`）餵進來，所以**每一個會員都會出現在名冊裡**。
+//   **「是不是會員」要看 `isMemberSelf`，不要看有沒有編號**——`member_number`
+//   是廟方自己給的、程式不產，沒編號的帳號照樣是會員（會員管理那邊本來就印得出
+//   「（無編號）」）。拿編號當判準會讓那些人在這一頁上看起來不是會員。
 
 import type {
   FahuiRegistrationRecord,
@@ -31,11 +38,22 @@ export interface DevoteeRecord {
   lineId: string;
   amount: number;
   /**
-   * 這筆紀錄**自己**就是某個會員帳號的資料（只有「會員」這個管道會有值）。
+   * 這筆紀錄**自己**就是某個會員帳號的資料（只有「會員」這個管道會是 true）。
    * 其餘管道的報名根本不需要帳號（見 CLAUDE.md：報名不需要會員帳號），
    * 資料庫裡沒有任何欄位記著「這筆是誰登入時送的」。
+   *
+   * **判斷「是不是會員」一律用這一欄，不要用 `memberNumber`**：編號是廟方給的、
+   * 程式不產，沒編號的帳號照樣是會員，拿編號判斷會讓他在這一頁憑空消失。
    */
+  isMemberSelf: boolean;
+  /** 上面那個帳號的編號，例如 `#007`。**帳號還沒編號時是空字串**，見 `isMemberSelf`。 */
   memberNumber: string;
+  /**
+   * 這個人出現在哪一個帳號的通訊錄裡（`#007`，沒編號時是「未編號會員」）。
+   * 通訊錄是綁 `user_id` 的，所以**這是事實不是推測**——與 `linkedMembers` 的
+   * 可信度完全不同，呼叫端要分開顯示。注意他**不是**那個帳號本人（是家人）。
+   */
+  contactOf: string;
   /**
    * **用電話對應到的**會員帳號，可能不只一個（同一個人常有信箱帳號＋LINE 帳號）。
    * 這是推測不是事實：一家人共用一支號碼時會對到親屬的帳號——名冊那一句
@@ -64,8 +82,21 @@ export interface DevoteeRow {
   /** 最近一次參與（yyyy-mm-dd，本地時區） */
   lastSeen: string;
   firstSeen: string;
-  /** 會員編號（此人若同時是註冊會員才有值）——合併「信眾資訊」分頁時帶進來的欄位 */
+  /** 會員編號（此人若同時是註冊會員**且廟方給過編號**才有值） */
   memberNumbers: string[];
+  /**
+   * 這一列底下有幾個會員帳號（同一個人可能有好幾個，見 AdminDashboard 的 `toPersonKey`）。
+   * **判斷「這個人是不是會員」要用這一個，不要用 `memberNumbers.length`**——
+   * 沒編號的帳號不會進那個陣列，用它判斷會把未編號會員顯示成非會員。
+   */
+  memberAccounts: number;
+  /**
+   * 這一列自己那幾個帳號的代稱（`#007`，沒編號的是「未編號會員」）。
+   * 用來分辨電話對到的是「自己的帳號」還是「別人的帳號」——後者才是要警告的那一種。
+   * **已知限制**：好幾個未編號帳號會共用「未編號會員」這個代稱，分不出是哪一個；
+   * 要分得出來就得去會員管理把編號補上，而那正是這一欄想促成的事。
+   */
+  memberTags: string[];
   /** 可能的親屬：與本人有共同電話的其他姓名 */
   relatives: string[];
   /** 由拆分產生的列，記下原始姓名（顯示名稱會加上生日以資區別） */
@@ -87,7 +118,12 @@ interface Sighting {
   zodiac?: string;
   lineId?: string;
   amount?: number;
+  isMemberSelf?: boolean;
   memberNumber?: string;
+  contactOf?: string;
+  /** 這一筆自己那個帳號的代稱，`linkMembersByPhone()` 用來排除「自己對到自己」。
+   *  沒編號的帳號也要有代稱，否則它在電話比對裡會變成空字串、把別人的也濾掉。 */
+  accountTag?: string;
   /** 由 linkMembersByPhone() 事後補上；見 DevoteeRecord.linkedMembers */
   linkedMembers?: string[];
 }
@@ -108,6 +144,14 @@ const nameKey = (s: string): string => s.replace(/[\s　]/g, '');
 /** 生日正規化：去掉括號內的農曆說明，只留數字，讓不同來源的寫法可以比對
  *  例：「民國72年6月20日（農曆五月初十）」與「民國72年6月20日」→ 皆為 72620 */
 const birthKey = (s: string): string => s.replace(/[（(].*?[）)]/g, '').replace(/\D/g, '');
+
+/** 會員編號，`#007` 這種格式；還沒編號回空字串 */
+const memberNo = (m: MemberProfileRecord): string =>
+  m.memberNumber == null ? '' : `#${String(m.memberNumber).padStart(3, '0')}`;
+
+/** 會員帳號在畫面上的代稱。**沒編號也一定要給得出一個名字**——不然那個帳號
+ *  在「帳號」這一欄會整個不存在，看起來就像這個人不是會員。 */
+const memberTag = (m: MemberProfileRecord): string => memberNo(m) || '未編號會員';
 
 function pushUnique(arr: string[], v?: string): void {
   const x = clean(v);
@@ -158,12 +202,19 @@ function collectSightings(src: RosterSources): Sighting[] {
   (src.members ?? []).forEach(m => out.push({
     name: m.name, source: '會員', at: localDate(m.createdAt), gender: m.gender,
     phone: m.phone, address: m.address, birthDate: m.birthDate, zodiac: m.zodiac,
-    memberNumber: m.memberNumber == null ? undefined : `#${String(m.memberNumber).padStart(3, "0")}`,
+    isMemberSelf: true, memberNumber: memberNo(m) || undefined, accountTag: memberTag(m),
   }));
 
+  // 通訊錄綁 `user_id`，所以「這是誰的通訊錄」是**查得到的事實**，不必拿電話去猜
+  // （而且家人那幾筆本來就沒有電話，猜也猜不到）。
+  const ownerTag = new Map<string, string>();
+  (src.members ?? []).forEach(m => ownerTag.set(m.userId, memberTag(m)));
   (src.contacts ?? []).forEach(c => out.push({
     name: c.name, source: '通訊錄', at: localDate(c.createdAt), gender: c.gender,
     phone: c.phone, address: c.address, birthDate: c.birthDate, zodiac: c.zodiac,
+    // 抓不到那個帳號的資料（有通訊錄卻沒有 member_profiles 那一列）時也要說得出
+    // 「這是某個帳號的通訊錄」，那比留白誠實
+    contactOf: ownerTag.get(c.userId) ?? '未編號會員',
   }));
 
   (src.bookings ?? []).forEach(b => out.push({
@@ -206,8 +257,10 @@ function linkMembersByPhone(list: Sighting[], members: MemberProfileRecord[]): S
   const byPhone = new Map<string, string[]>();
   members.forEach(m => {
     const phone = clean(m.phone);
-    if (!phone || m.memberNumber == null) return;
-    const no = `#${String(m.memberNumber).padStart(3, '0')}`;
+    if (!phone) return;
+    // **沒編號的帳號也要收進來**：原本這裡 `m.memberNumber == null` 就跳過，
+    // 於是未編號會員的電話永遠對不到任何東西——而那個帳號是真的存在的。
+    const no = memberTag(m);
     const arr = byPhone.get(phone) ?? [];
     if (!arr.includes(no)) arr.push(no);
     byPhone.set(phone, arr);
@@ -216,7 +269,7 @@ function linkMembersByPhone(list: Sighting[], members: MemberProfileRecord[]): S
     const phone = clean(s.phone);
     const hit = phone ? byPhone.get(phone) : undefined;
     // 自己就是那個帳號的那一筆不必再對一次（會變成「#020（以電話對應 #020）」）
-    const linked = hit?.filter(no => no !== s.memberNumber) ?? [];
+    const linked = hit?.filter(no => no !== s.accountTag) ?? [];
     return linked.length > 0 ? { ...s, linkedMembers: linked } : s;
   });
 }
@@ -240,7 +293,7 @@ export const toBirthKey = (s: string): string => birthKey(s);
 
 const emptyRow = (name: string): DevoteeRow => ({
   name, records: [], genders: [], phones: [], addresses: [], birthDates: [], zodiacs: [], lineIds: [], memberNumbers: [],
-  counts: {}, totalAmount: 0, lastSeen: '', firstSeen: '', relatives: [],
+  memberAccounts: 0, memberTags: [], counts: {}, totalAmount: 0, lastSeen: '', firstSeen: '', relatives: [],
   nameConflict: false, conflictHint: '',
 });
 
@@ -254,7 +307,9 @@ const toRecord = (s: Sighting): DevoteeRecord => ({
   zodiac: clean(s.zodiac),
   lineId: clean(s.lineId),
   amount: s.amount ?? 0,
+  isMemberSelf: s.isMemberSelf ?? false,
   memberNumber: s.memberNumber ?? '',
+  contactOf: s.contactOf ?? '',
   linkedMembers: s.linkedMembers ?? [],
   birthKey: birthKey(s.birthDate ?? ''),
 });
@@ -271,6 +326,7 @@ function foldSightings(name: string, list: Sighting[]): DevoteeRow {
     pushUnique(row.zodiacs, s.zodiac);
     pushUnique(row.lineIds, s.lineId);
     pushUnique(row.memberNumbers, s.memberNumber);
+    if (s.isMemberSelf) { row.memberAccounts += 1; pushUnique(row.memberTags, s.accountTag); }
     row.counts[s.source] = (row.counts[s.source] ?? 0) + 1;
     row.totalAmount += s.amount ?? 0;
     if (s.at) {

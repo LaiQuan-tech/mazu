@@ -513,8 +513,65 @@ const DateRangeFilter = ({ from, to, onFrom, onTo }: { from: string; to: string;
 
 // ─── 信眾名冊 Tab ─────────────────────────────────────────────────────────────
 
-/** 並列比對用的紀錄表：把一個人底下的每一筆原始紀錄攤開，人才判斷得出是不是同一個人 */
-const RecordTable = ({ records }: { records: DevoteeRecord[] }) => (
+/**
+ * 一筆紀錄與會員帳號的關係。**三種的可信度完全不同，畫面上一定要分得出來**：
+ *
+ * | 來源 | 可信度 | 樣子 |
+ * |---|---|---|
+ * | 這一筆就是帳號自己的資料（`會員` 管道） | 事實 | 實心 |
+ * | 這個人在某個帳號的通訊錄裡（綁 `user_id`） | 事實，但他不是帳號本人 | 實線框＋「的通訊錄」 |
+ * | 只用電話對到的 | **推測** | 虛線框＋「同電話」 |
+ *
+ * 最後那一種是真正危險的：一家人常共用一支號碼，兒子的報名會對到母親的帳號。
+ * **所以「對到的正是這一列自己的帳號」要另外講**（標「本人」）——不分開的話，
+ * 「他自己的點燈」與「兒子借媽媽電話報名」在畫面上長得一模一樣，
+ * 虛線想警告的那一種就被稀釋掉了。
+ */
+const AccountCell = ({ rec, own }: { rec: DevoteeRecord; own: string[] }) => {
+  const dim = <span className="text-gray-300">—</span>;
+
+  // 事實一：這一筆就是那個帳號自己的資料。**沒編號也還是會員**，所以不能靠編號判斷
+  if (rec.isMemberSelf) return (
+    <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium"
+      title="這一筆就是這個會員帳號自己的資料">
+      {rec.memberNumber || '會員（未編號）'}
+    </span>
+  );
+
+  // 事實二：通訊錄綁 user_id，知道是誰的通訊錄（這個人是那位會員的家人，不是本人）
+  if (rec.contactOf) return (
+    <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"
+      title="他出現在這個會員的通訊錄裡（通訊錄綁帳號，這是查得到的事實）；他本人不一定有帳號">
+      {rec.contactOf} 的通訊錄
+    </span>
+  );
+
+  if (rec.linkedMembers.length > 0) {
+    const mine = rec.linkedMembers.filter(n => own.includes(n));
+    const others = rec.linkedMembers.filter(n => !own.includes(n));
+    return (
+      <span className="inline-flex flex-wrap gap-1">
+        {mine.length > 0 && (
+          <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"
+            title="這支電話對到的正是這一列自己的會員帳號，所以這筆報名幾乎確定是他本人送的">
+            {mine.join('、')}<span className="ml-1 text-[10px] text-blue-400">本人</span>
+          </span>
+        )}
+        {others.length > 0 && (
+          <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-dashed border-blue-200"
+            title="只靠電話對到的，報名本身沒有記帳號；一家人共用一支號碼時會對到親屬的帳號，僅供參考">
+            {others.join('、')}<span className="ml-1 text-[10px] text-blue-400">同電話</span>
+          </span>
+        )}
+      </span>
+    );
+  }
+  return dim;
+};
+
+/** 並列比對用的紀錄表：把一個人底下的每一筆原始紀錄攤開，人才判斷得出是不是同一個人。
+ *  `own` 是這一列自己那幾個帳號的代稱，用來分辨「對到自己的帳號」與「對到別人的帳號」。 */
+const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[] }) => (
   <div className="overflow-x-auto rounded-lg border border-gray-200">
     <table className="admin-table w-full text-xs">
       <thead className="bg-gray-50 text-gray-500">
@@ -531,21 +588,8 @@ const RecordTable = ({ records }: { records: DevoteeRecord[] }) => (
             <td data-label="管道" className="px-2.5 py-2 whitespace-nowrap">
               <span className="px-1.5 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E]">{rec.source}</span>
             </td>
-            {/* 帳號：**兩種來源要分得出來**。
-                實心＝這一筆就是那個會員帳號自己的資料（只有「會員」這個管道會有）；
-                淡的＝拿電話對到的，是推測——一家人共用一支號碼時會對到親屬的帳號，
-                所以標上「以電話對應」，不要讓人把它當成「這筆是他登入時送的」。 */}
             <td data-label="帳號" className="px-2.5 py-2 whitespace-nowrap">
-              {rec.memberNumber ? (
-                <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium"
-                  title="這一筆就是這個會員帳號的資料">{rec.memberNumber}</span>
-              ) : rec.linkedMembers.length > 0 ? (
-                <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-dashed border-blue-200"
-                  title="以電話對應到的帳號，報名本身沒有記帳號；同電話的家人也會對到，僅供參考">
-                  {rec.linkedMembers.join('、')}
-                  <span className="ml-1 text-[10px] text-blue-400">電話</span>
-                </span>
-              ) : <span className="text-gray-300">—</span>}
+              <AccountCell rec={rec} own={own} />
             </td>
             <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>
             <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>
@@ -657,12 +701,16 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
     fahui: rows.filter(r => (r.counts['法會報名'] ?? 0) > 0 || (r.counts['法會陽上'] ?? 0) > 0).length,
     repeat: rows.filter(r => rosterTotalCount(r.counts) > 1).length,
     conflicts: rows.filter(r => r.nameConflict).length,
+    // 會員一定是信眾，所以這個數字一定 <= total；拿它跟「會員資訊」那一頁的人數對照，
+    // 對不起來就表示有會員的姓名與他報名時填的不一樣（去那一頁用「比對併入」處理）
+    members: rows.filter(r => r.memberAccounts > 0).length,
   }), [rows]);
 
   const handleExport = () => {
     exportExcel('和聖壇信眾名冊.xlsx', filtered.map(r => [
       r.name,
-      r.memberNumbers.join('、'),
+      // 空白＝不是會員；未編號的會員要講出來，否則廟方照這一欄篩就會漏掉他們
+      r.memberAccounts > 0 ? (r.memberNumbers.join('、') || '（未編號）') : '',
       r.genders.join('／'),
       r.phones.join('、'),
       r.addresses.join('；'),
@@ -686,6 +734,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">信眾人數</p>
           <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">其中 {stats.members} 位有會員帳號</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">曾參與法會</p>
@@ -815,11 +864,13 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
                 <tr key={r.name} className="hover:bg-gray-50/60">
                   <td data-label="姓名" className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                     {r.name}
-                    {/* 有會員編號＝此人同時是註冊會員，可回「會員資訊」看登入紀錄 */}
-                    {r.memberNumbers.length > 0 && (
+                    {/* 此人同時是註冊會員，可回「會員資訊」看登入紀錄。
+                        **判斷用 memberAccounts 不是 memberNumbers**：編號是廟方給的，
+                        沒編號的帳號照樣是會員，用編號判斷會讓他顯示成非會員。 */}
+                    {r.memberAccounts > 0 && (
                       <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"
                         title="此信眾同時是註冊會員">
-                        會員 {r.memberNumbers.join('、')}
+                        {r.memberNumbers.length > 0 ? `會員 ${r.memberNumbers.join('、')}` : '會員（未編號）'}
                       </span>
                     )}
                     {r.nameConflict && (
@@ -926,7 +977,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
                           </button>
                         )}
                       </div>
-                      <RecordTable records={g.records} />
+                      <RecordTable records={g.records} own={inspect.memberTags} />
                     </div>
                   ))}
                 </div>
@@ -980,7 +1031,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
                       <p>地址：{p.addresses.join('；') || '—'}</p>
                       <p>生日：{p.birthDates.join('；') || '—'}　生肖：{p.zodiacs.join('／') || '—'}</p>
                     </div>
-                    <RecordTable records={p.records} />
+                    <RecordTable records={p.records} own={p.memberTags} />
                   </div>
                 ))}
               </div>
