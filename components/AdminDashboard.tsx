@@ -519,7 +519,7 @@ const RecordTable = ({ records }: { records: DevoteeRecord[] }) => (
     <table className="admin-table w-full text-xs">
       <thead className="bg-gray-50 text-gray-500">
         <tr>
-          {['日期', '管道', '性別', '生日', '生肖', '電話', '地址', '金額'].map(h => (
+          {['日期', '管道', '帳號', '性別', '生日', '生肖', '電話', '地址', '金額'].map(h => (
             <th key={h} className="px-2.5 py-2 text-left font-medium whitespace-nowrap">{h}</th>
           ))}
         </tr>
@@ -530,6 +530,22 @@ const RecordTable = ({ records }: { records: DevoteeRecord[] }) => (
             <td data-label="日期" className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || '—'}</td>
             <td data-label="管道" className="px-2.5 py-2 whitespace-nowrap">
               <span className="px-1.5 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E]">{rec.source}</span>
+            </td>
+            {/* 帳號：**兩種來源要分得出來**。
+                實心＝這一筆就是那個會員帳號自己的資料（只有「會員」這個管道會有）；
+                淡的＝拿電話對到的，是推測——一家人共用一支號碼時會對到親屬的帳號，
+                所以標上「以電話對應」，不要讓人把它當成「這筆是他登入時送的」。 */}
+            <td data-label="帳號" className="px-2.5 py-2 whitespace-nowrap">
+              {rec.memberNumber ? (
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium"
+                  title="這一筆就是這個會員帳號的資料">{rec.memberNumber}</span>
+              ) : rec.linkedMembers.length > 0 ? (
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-dashed border-blue-200"
+                  title="以電話對應到的帳號，報名本身沒有記帳號；同電話的家人也會對到，僅供參考">
+                  {rec.linkedMembers.join('、')}
+                  <span className="ml-1 text-[10px] text-blue-400">電話</span>
+                </span>
+              ) : <span className="text-gray-300">—</span>}
             </td>
             <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>
             <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>

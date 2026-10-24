@@ -30,6 +30,19 @@ export interface DevoteeRecord {
   zodiac: string;
   lineId: string;
   amount: number;
+  /**
+   * 這筆紀錄**自己**就是某個會員帳號的資料（只有「會員」這個管道會有值）。
+   * 其餘管道的報名根本不需要帳號（見 CLAUDE.md：報名不需要會員帳號），
+   * 資料庫裡沒有任何欄位記著「這筆是誰登入時送的」。
+   */
+  memberNumber: string;
+  /**
+   * **用電話對應到的**會員帳號，可能不只一個（同一個人常有信箱帳號＋LINE 帳號）。
+   * 這是推測不是事實：一家人共用一支號碼時會對到親屬的帳號——名冊那一句
+   * 「同電話者僅提示可能親屬，不會合併成同一人」講的就是這件事。
+   * 所以它**只進檢視視窗、而且要標示出來**，不進列表的「會員 #」徽章、不進匯出。
+   */
+  linkedMembers: string[];
   /** 生日正規化後的值，拆分時用來分群 */
   birthKey: string;
 }
@@ -75,6 +88,8 @@ interface Sighting {
   lineId?: string;
   amount?: number;
   memberNumber?: string;
+  /** 由 linkMembersByPhone() 事後補上；見 DevoteeRecord.linkedMembers */
+  linkedMembers?: string[];
 }
 
 /** ISO 時間 → 本地時區 yyyy-mm-dd（不可用 toISOString，台灣早上 8 點前會差一天） */
@@ -170,7 +185,40 @@ function collectSightings(src: RosterSources): Sighting[] {
     name: r.name, source: '活動報名', at: localDate(r.createdAt), phone: r.phone,
   }));
 
-  return out.filter(s => clean(s.name) !== '');
+  return linkMembersByPhone(out.filter(s => clean(s.name) !== ''), src.members ?? []);
+}
+
+/**
+ * 替每一筆紀錄補上「這支電話對得到哪些會員帳號」。
+ *
+ * **為什麼只能用電話**：全站的報名都不需要登入（見 CLAUDE.md），資料庫裡
+ * 沒有任何欄位記著「這筆是哪個帳號送的」。後台既有的統計也是這樣對的
+ * （MembersTab 的 `l.phone === p.phone`、確認信拿電話回頭對 member_profiles），
+ * 這裡沿用同一套，沒有擴大暴露面。
+ *
+ * **這是推測不是事實**，所以呼叫端要把它跟 `memberNumber`（紀錄自己就是帳號資料）
+ * 分開顯示：一家人共用一支號碼時，兒子的報名會對到母親的帳號。
+ *
+ * **空電話一律不對**——不擋的話所有沒留電話的紀錄會跟所有沒填電話的帳號
+ * 互相對上，整欄變成雜訊。
+ */
+function linkMembersByPhone(list: Sighting[], members: MemberProfileRecord[]): Sighting[] {
+  const byPhone = new Map<string, string[]>();
+  members.forEach(m => {
+    const phone = clean(m.phone);
+    if (!phone || m.memberNumber == null) return;
+    const no = `#${String(m.memberNumber).padStart(3, '0')}`;
+    const arr = byPhone.get(phone) ?? [];
+    if (!arr.includes(no)) arr.push(no);
+    byPhone.set(phone, arr);
+  });
+  return list.map(s => {
+    const phone = clean(s.phone);
+    const hit = phone ? byPhone.get(phone) : undefined;
+    // 自己就是那個帳號的那一筆不必再對一次（會變成「#020（以電話對應 #020）」）
+    const linked = hit?.filter(no => no !== s.memberNumber) ?? [];
+    return linked.length > 0 ? { ...s, linkedMembers: linked } : s;
+  });
 }
 
 /** 人工校正規則（存在 devotee_overrides 表） */
@@ -206,6 +254,8 @@ const toRecord = (s: Sighting): DevoteeRecord => ({
   zodiac: clean(s.zodiac),
   lineId: clean(s.lineId),
   amount: s.amount ?? 0,
+  memberNumber: s.memberNumber ?? '',
+  linkedMembers: s.linkedMembers ?? [],
   birthKey: birthKey(s.birthDate ?? ''),
 });
 
