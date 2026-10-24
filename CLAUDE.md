@@ -468,7 +468,12 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 ## 流量追蹤與 UTM（2026-09-09 建置）
 
 - **追蹤碼掛載在 `components/Analytics.tsx`，編號填在後台「追蹤碼」分頁**（`site_settings` 的 `ga4_id`／`meta_pixel_id`／`gtm_id`）。刻意只存編號不存整段 `<script>`：後台一被盜就能對所有訪客植入任意腳本。
-  **2026-10-13 實測：已經改好了**——`gtm_id` 清空、`ga4_id` 填了 `G-LHGFX80NXY`、`meta_pixel_id` 也填了，線上確認只載入 `gtag/js?id=G-LHGFX80NXY`，沒有再載 GTM。下面那段是當時的問題與建議，保留說明經過。
+  **2026-10-13 的設定是對的**——`gtm_id` 清空、`ga4_id` 填了 `G-LHGFX80NXY`、`meta_pixel_id` 也填了，線上確認只載入 `gtag/js?id=G-LHGFX80NXY`，沒有再載 GTM。
+  **但當時那句「實測通過」是假的通過**（2026-10-24 廟方回報 GA4 沒有資料才查出來）：`loadGa4()` 的 gtag 墊片把命令推成**真陣列**而不是 `arguments` 物件，Google 的 gtag/js 是用 `Object.prototype.toString` 認出 Arguments 才把那一筆當成命令，真陣列會被當成 GTM 式的資料推送而**靜靜地忽略**。所以 GA4 **從上線到 2026-10-24 一筆資料都沒有收到**，而且補不回來。
+  **這個 bug 的隱蔽程度值得記住**：腳本照樣載入、`window.gtag` 照樣是函式、dataLayer 照樣長大、console 一個錯都沒有。**「有沒有載入 gtag/js」這一關它是過的**——當時驗的正是這一關。
+  **要驗 GA4 只有兩個指標算數**：(1) 有沒有 `_ga` 與 `_ga_<ID>` cookie；(2) `performance.getEntriesByType('resource')` 裡有沒有 `google-analytics.com/g/collect`。兩者都是前端就看得到的，不必登入 GA4。`gtag('get', id, 'client_id', cb)` 的 callback 回不來也是同一個症狀。
+  **判斷是不是環境擋掉的**：看同一頁的 Meta Pixel。它有自己的載入器，不走 gtag——`_fbp` cookie 與 `/tr/` 請求都正常就表示網路沒被擋，是 GA4 自己的問題。
+  **Meta Pixel 不受影響**，那一路一直都是通的；本站自己那套「報名來源」（六張表的 `source` 欄）也與 GA4 無關、一直在記，所以這段期間的轉換來源查得到，只是沒有流量面的數字。
   ~~**2026-09-09 實測：GTM 容器 `GTM-NW9Z5NWQ` 是空的**~~——`curl 'https://www.googletagmanager.com/gtm.js?id=GTM-NW9Z5NWQ'` 回 `"tags":[]`、`"predicates":[]`、`"rules":[]`，GA4 與像素兩欄也空白。**等於整站沒有在收任何流量資料**，卻讓每個訪客白載 331KB 的 GTM。容器內容是公開的，要確認廟方到底掛了什麼直接 curl 那支 gtm.js 抓 `"tags":`，不必登入 GTM 後台。
   建議改成後台直接填 GA4 ID、清空 GTM 欄：`Analytics.tsx` 本來就內建 SPA 換頁的 page_view，走 GTM 反而要在容器裡自己建 `spa_page_view` 觸發器（現在沒有），多一層就是多一個沒人維護的地方。
 - **`<Analytics>` 掛在 App 的四個 return 分支**（首頁／法會／聖母經／志工），那四個分支的根節點型別不同，**切換分支時 React 會整個卸載再重新掛載**。所以它的狀態（`loaded`／`settings`／`lastSentPath`／`entryViewSent`）**一律放模組層級，不要用 useRef**——放 ref 就會每切一次分支重新注入一次 GTM／GA4 腳本，並且把那一次當成「進站第一次」再送一遍 UTM。
