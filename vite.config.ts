@@ -53,7 +53,7 @@ const HERO_FILES = [
   'shower-video-Ub9tUWn4Jfw.webp', 'shower-video-Ub9tUWn4Jfw.jpg',
   'shower-video-rEZZV5X6VHo.webp', 'shower-video-rEZZV5X6VHo.jpg',
   'shower-volunteer.webp', 'shower-volunteer.jpg',
-  'shower-donate.webp', 'shower-donate.jpg',
+  'shower-donate.webp', 'shower-donate.png',
   // 首頁那一支進香回顧的封面（App.tsx 的 HOME_VIDEO，同一支腳本加 --prefix=home-video- 產生）
   'home-video-UxMaZ5WRrdE.webp', 'home-video-UxMaZ5WRrdE.jpg',
   // LINE 官方提供的「加入好友」按鈕圖（/shower 的協會帳號在用）

@@ -345,62 +345,49 @@ const VolunteerBanner: React.FC = () => (
 );
 
 /**
- * 愛心捐贈（廟方 2026-10-24 提供 Google 表單「17沐浴車愛心捐贈」）。
+ * 愛心捐贈（廟方 2026-10-24 提供表單與按鈕圖）。
  *
- * **接在志工招募後面**：兩者都是「你可以怎麼幫忙」，並排才一眼看得完兩條路；
- * 會想幫忙的人同樣是讀完四段故事、看完影片才被打動的（理由同 VolunteerBanner，
- * 不重述）。**沒有放進上面那排目錄**：四顆已經量過剛好填滿（四項 306px／
- * 可用 343px），第五顆會把整列擠成兩行。
+ * **就是一顆按鈕，沒有卡片、沒有標題、沒有說明文字**（廟方 2026-10-24：
+ * 「換這個按鈕就好，不要做成 banner 不用有其他文字說明」）。
+ * 中間做過一版「白卡＋標題＋一句說明＋按鈕圖」，廟方看了之後要的是單純一顆鈕。
  *
- * **按鈕是廟方給的圖**（2026-10-24）。我原本做成「文字＋桃紅橫槓」並建議不要
- * 用圖，廟方重申要用，就用。
+ * **圖是去背的（真的 alpha，四成像素全透明），所以直接壓在米色頁面上就好**——
+ * 不要替它加底色或卡片，加了反而會在圓角藥丸外圍框出一塊方的底。
+ * 產圖時也**不可以 flatten**：壓成白底就會在米色頁面上出現一塊白方塊。
  *
- * **用了圖就不可以再放那條「我要捐款」的橫槓**：圖上已經有那四個字與箭頭，
- * 配上一條一樣的字就是同一件事講兩次。所以這一塊的分工與志工那塊**剛好相反**——
- * 志工是「圖給標題、橫槓給動作」，這裡是「圖給動作、上面的字給標題與說明」。
+ * 寬度收在 `max-w-sm`（384px）並置中：它是一顆按鈕不是橫幅，攤到整欄寬就會
+ * 變成第二張海報，跟上面志工那張打架。圖只有 802px 寬，剛好夠 384 的兩倍。
  *
- * **卡片底色是白的，因為圖的底是白的**。圖是一顆圓角藥丸、四角與周圍都是白底，
- * 疊在粉色淡底上會露出一圈白方塊。去背也不行——藥丸外圍有一層柔光暈，
- * 摳掉會留下毛邊（同神尊去背那條：寧可留一點背景也不要咬掉主體）。
- * 底色一致就什麼都不必處理，而白卡本來就是這一頁既有的語彙（位置卡、目錄）。
- * **所以改這一塊的底色之前要先想到那張圖**，白底是跟著圖走的、不是隨便挑的。
+ * **畫面上一個字都沒有，但 aria-label 要講滿**：讀屏軟體與 SEO 只看得到它，
+ * 而「捐給誰」「會離開這個網站」是按下去之前該知道的事。
+ * 這一頁同時掛在 heshengtan.tw 與 17bath.org 上，所以要指名協會，
+ * 不然在宮廟的網域上會被當成宮廟在募款。
  *
- * 圖已裁掉多餘白邊（原圖 2000x750、內容只有 1929x606，上方空了 97px）並縮到
- * 1200 寬——顯示最寬 544，1200 夠兩倍解析度，再大只是讓山區的訊號多等一秒。
  * 檔名要列進 `vite.config.ts` 的 `HERO_FILES`，換圖時網址才會跟著變。
- *
- * 表單在 Google，所以開新分頁並在 aria-label 裡講明白——
- * 正要離開這個網站這件事，應該讓人事先知道。
  */
 const DonationBanner: React.FC = () => (
-  <a
-    href={BRAND.donateForm}
-    target="_blank"
-    rel="noopener noreferrer"
-    aria-label={`愛心捐贈：捐款給${BRAND.org}。開啟 Google 表單（另開新分頁）`}
-    id="shower-donate"
-    className="group block mt-6 scroll-mt-20 rounded-2xl overflow-hidden bg-white border border-[#D6246B]/20 hover:border-[#D6246B]/50 transition-colors"
-  >
-    <span className="block px-5 pt-6 text-center">
-      <span className="block font-serif text-xl font-bold text-[#B01350]">愛心捐贈</span>
-      <span className="mt-2 block text-sm text-gray-600 leading-relaxed">
-        {'一台沐浴車走完一趟進香，用掉的是水、電、油料與備品。您的一份心意，讓下一位走到這裡的香燈腳，也能洗上一次熱水澡。'}
-      </span>
-    </span>
-    {/* 這張圖**就是按鈕**（上面印著「我要捐款」與箭頭），所以底下不再放文字橫槓。
-        alt 留空：按鈕的名字由 <a> 的 aria-label 給，讀屏軟體念一次就夠。 */}
-    <picture>
-      <source srcSet={heroSrc('shower-donate.webp')} type="image/webp" />
-      <img
-        src={heroSrc('shower-donate.jpg')}
-        alt=""
-        width={1200}
-        height={397}
-        loading="lazy"
-        className="block w-full h-auto group-hover:opacity-90 transition-opacity"
-      />
-    </picture>
-  </a>
+  <div className="mt-8 flex justify-center">
+    <a
+      href={BRAND.donateForm}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`我要捐款：愛心捐贈給${BRAND.org}。開啟 Google 表單（另開新分頁）`}
+      id="shower-donate"
+      className="block w-full max-w-sm scroll-mt-20 transition-transform hover:scale-[1.03] active:scale-[0.99]"
+    >
+      <picture>
+        <source srcSet={heroSrc('shower-donate.webp')} type="image/webp" />
+        <img
+          src={heroSrc('shower-donate.png')}
+          alt=""
+          width={802}
+          height={247}
+          loading="lazy"
+          className="block w-full h-auto"
+        />
+      </picture>
+    </a>
+  </div>
 );
 
 /**
