@@ -352,13 +352,22 @@ const VolunteerBanner: React.FC = () => (
  * 不重述）。**沒有放進上面那排目錄**：四顆已經量過剛好填滿（四項 306px／
  * 可用 343px），第五顆會把整列擠成兩行。
  *
- * **刻意沒有用廟方給的那張按鈕圖**：那張把「我要捐款」四個字燒進點陣裡，
- * 而這一頁的規矩是**圖放美術、字用真的字**——志工那一塊也是圖歸圖，
- * 「我要報名」是底下那條桃紅色的真文字。真文字讀得出來、選得起來、
- * 在任何螢幕上都不糊；何況這一頁要在訊號一格的山區載入，一張兩千像素寬的
- * 裝飾圖正是它最付不起的東西（同「泡泡用 SVG 畫、不用圖檔」那條）。
- * 要改用圖的話，請協會提供**橫幅**而不是按鈕——按鈕上已經有「我要捐款」，
- * 配上底下那條一樣的字就是同一件事講兩次。
+ * **按鈕是廟方給的圖**（2026-10-24）。我原本做成「文字＋桃紅橫槓」並建議不要
+ * 用圖，廟方重申要用，就用。
+ *
+ * **用了圖就不可以再放那條「我要捐款」的橫槓**：圖上已經有那四個字與箭頭，
+ * 配上一條一樣的字就是同一件事講兩次。所以這一塊的分工與志工那塊**剛好相反**——
+ * 志工是「圖給標題、橫槓給動作」，這裡是「圖給動作、上面的字給標題與說明」。
+ *
+ * **卡片底色是白的，因為圖的底是白的**。圖是一顆圓角藥丸、四角與周圍都是白底，
+ * 疊在粉色淡底上會露出一圈白方塊。去背也不行——藥丸外圍有一層柔光暈，
+ * 摳掉會留下毛邊（同神尊去背那條：寧可留一點背景也不要咬掉主體）。
+ * 底色一致就什麼都不必處理，而白卡本來就是這一頁既有的語彙（位置卡、目錄）。
+ * **所以改這一塊的底色之前要先想到那張圖**，白底是跟著圖走的、不是隨便挑的。
+ *
+ * 圖已裁掉多餘白邊（原圖 2000x750、內容只有 1929x606，上方空了 97px）並縮到
+ * 1200 寬——顯示最寬 544，1200 夠兩倍解析度，再大只是讓山區的訊號多等一秒。
+ * 檔名要列進 `vite.config.ts` 的 `HERO_FILES`，換圖時網址才會跟著變。
  *
  * 表單在 Google，所以開新分頁並在 aria-label 裡講明白——
  * 正要離開這個網站這件事，應該讓人事先知道。
@@ -370,21 +379,27 @@ const DonationBanner: React.FC = () => (
     rel="noopener noreferrer"
     aria-label={`愛心捐贈：捐款給${BRAND.org}。開啟 Google 表單（另開新分頁）`}
     id="shower-donate"
-    className="group block mt-6 scroll-mt-20 rounded-2xl overflow-hidden border border-[#D6246B]/20 hover:border-[#D6246B]/50 transition-colors"
+    className="group block mt-6 scroll-mt-20 rounded-2xl overflow-hidden bg-white border border-[#D6246B]/20 hover:border-[#D6246B]/50 transition-colors"
   >
-    {/* 不透明度一律用 Tailwind 的級距（5 的倍數）：寫 /8 這種整條規則會靜默消失，
-        底色直接不見（見 CLAUDE.md 手機選單那條）。 */}
-    <span className="block bg-[#D6246B]/10 px-5 py-6 text-center">
+    <span className="block px-5 pt-6 text-center">
       <span className="block font-serif text-xl font-bold text-[#B01350]">愛心捐贈</span>
       <span className="mt-2 block text-sm text-gray-600 leading-relaxed">
         {'一台沐浴車走完一趟進香，用掉的是水、電、油料與備品。您的一份心意，讓下一位走到這裡的香燈腳，也能洗上一次熱水澡。'}
       </span>
     </span>
-    {/* 與志工那一塊同一條桃紅色橫槓：兩個行動長得一樣，才看得出是並列的兩條路 */}
-    <span className="flex items-center justify-center gap-2 bg-[#B01350] px-4 py-3 text-white font-bold group-hover:bg-[#8E0F41] transition-colors">
-      我要捐款
-      <ArrowRight className="w-4 h-4" aria-hidden="true" />
-    </span>
+    {/* 這張圖**就是按鈕**（上面印著「我要捐款」與箭頭），所以底下不再放文字橫槓。
+        alt 留空：按鈕的名字由 <a> 的 aria-label 給，讀屏軟體念一次就夠。 */}
+    <picture>
+      <source srcSet={heroSrc('shower-donate.webp')} type="image/webp" />
+      <img
+        src={heroSrc('shower-donate.jpg')}
+        alt=""
+        width={1200}
+        height={397}
+        loading="lazy"
+        className="block w-full h-auto group-hover:opacity-90 transition-opacity"
+      />
+    </picture>
   </a>
 );
 
