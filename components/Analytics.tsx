@@ -40,8 +40,21 @@ const appendScript = (src: string, async = true): void => {
 
 const loadGa4 = (id: string): void => {
   window.dataLayer = window.dataLayer || [];
-  // 用 arguments 物件推進 dataLayer 是 gtag 的官方寫法，不可改成展開陣列
-  function gtag(...args: unknown[]) { window.dataLayer!.push(args); }
+  /**
+   * **一定要推 `arguments` 物件，不可以推展開成的真陣列。**
+   *
+   * Google 的 gtag/js 是用 `Object.prototype.toString` 認出 Arguments 才把那一筆
+   * 當成「命令」處理；真陣列會被當成 GTM 式的資料推送而**靜靜地被忽略**。
+   * 症狀極隱蔽：腳本照樣載入、`window.gtag` 照樣是個函式、dataLayer 照樣長大、
+   * console 一個錯都沒有——但 GA4 從頭到尾沒有初始化，**沒有 `_ga` cookie、
+   * 一個 `/g/collect` 都不送**，報表上永遠是零。
+   *
+   * 2026-10-24 查出來的：這一行原本的註解就寫著「不可改成展開陣列」，
+   * 程式卻正是那樣寫的。驗的方法是在線上把同一組命令改用 arguments 推一次——
+   * `_ga` 與 `_ga_LHGFX80NXY` 立刻出現、collect 立刻送出。
+   * **不要只驗「有沒有載入 gtag/js」**，那一關這個 bug 是過的。
+   */
+  const gtag = function () { window.dataLayer!.push(arguments); } as (...args: unknown[]) => void;
   window.gtag = gtag;
   gtag('js', new Date());
   // SPA 自行送 page_view：預設的自動送出只會在首次載入觸發，換分頁不會再送
