@@ -3398,11 +3398,22 @@ const App: React.FC = () => {
             <img
               src={heroSrc('hero-calligraphy.png')}
               alt=""
-              width={540}
-              height={742}
+              width={680}
+              height={934}
               loading="lazy"
               aria-hidden="true"
-              className="hidden lg:block absolute z-20 left-10 bottom-[17%] w-[min(17vw,232px)] h-auto
+              /* **尺寸用「高度」鎖不是寬度**（廟方 2026-10-25「字大一點」）。
+                 擋住它的從來不是左右而是上下：左邊到最左那尊神尊之間很寬（1280 時還有
+                 480px），真正的上限是「字標下緣」到「Hero 底部收邊」那一段，而那一段
+                 跟著視窗**高度**走、不跟寬度走。原本寫 `min(17vw,…)` 等於拿寬度去猜
+                 高度，螢幕一矮就會頂到字標、一寬又長不大。
+                 三個上限缺一不可：
+                 `42vh` 是一般情況、`460px` 擋住超大螢幕上長到誇張，
+                 **`calc(85vh - 340px)` 是「不可以蓋到字標」這條**——字標是文字，
+                 高度固定在 340px 上下、**不跟著視窗縮**，所以視窗一矮它就佔掉大半個
+                 Hero。實測 1366x640 那種矮視窗，少了這一條會壓到字標 1482px²。
+                 （85vh ＝ `bottom-[15%]` 之後那一段，340 ＝ 字標下緣 315 ＋ 留白。） */
+              className="hidden lg:block absolute z-20 left-10 bottom-[15%] h-[min(42vh,460px,calc(85vh_-_340px))] w-auto
                          drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
             />
           </picture>
