@@ -3427,8 +3427,16 @@ const App: React.FC = () => {
 
                  `max-w-[30vw]` 擋的是神尊：神尊的左緣會隨視窗移動，CSS 算不出來，
                  所以用一個量過的保守比例卡住，再靠實測確認（見 CLAUDE.md 那五個尺寸）。 */
-              className="hidden lg:block absolute z-20 left-10 bottom-[15%] h-[min(46vh,calc(85vh_-_280px))] max-w-[24vw] w-auto
-                         xl:left-32 xl:bottom-[max(14%,130px)] xl:h-[min(78vh,calc(100vh_-_210px))] xl:max-w-[30vw]
+              /* **用 `max-h` ＋ `max-w` 兩個上限，不要給固定 `h`。**
+                 替換元素同時吃到「固定高度」與 `max-width` 時，瀏覽器會把寬度裁掉而
+                 **高度照留——圖就被橫向壓扁**。2026-10-25 第一版就是這樣，1440 實測
+                 長寬比 0.626、原圖是 0.728，窄了 14%，而且光看畫面看不太出來。
+                 兩個都給上限、寬高都 auto，瀏覽器才會等比縮到框內。
+                 **驗收要量長寬比**，不是只量有沒有疊到別人。 */
+              className="hidden lg:block absolute z-20 left-10 bottom-[15%] w-auto h-auto
+                         max-h-[min(50vh,calc(85vh_-_270px))] max-w-[25vw]
+                         xl:left-32 xl:bottom-[max(12%,130px)] xl:max-h-[calc(100vh_-_200px)] xl:max-w-[31vw]
+                         2xl:max-w-[41vw]
                          drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
             />
           </picture>
