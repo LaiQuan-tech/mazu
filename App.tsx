@@ -1589,7 +1589,7 @@ const App: React.FC = () => {
   // 注意：這只影響瀏覽器分頁。分享預覽是爬蟲讀靜態 HTML、不跑 JS，由 og:title 決定。
   useEffect(() => {
     const titles: Record<SitePage, string> = {
-      home:       '台北古亭和聖壇｜問事、點燈與法會服務',
+      home:       '台北和聖壇｜像家就是家｜問事、點燈與法會服務',
       about:      '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
       booking:    '預約問事｜台北古亭和聖壇',
       lamps:      '點燈服務｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
@@ -3400,7 +3400,9 @@ const App: React.FC = () => {
             <source srcSet={heroSrc('hero-calligraphy.webp')} type="image/webp" />
             <img
               src={heroSrc('hero-calligraphy.png')}
-              alt=""
+              /* 2026-10-25 廟方把「像家就是家」放進分頁標題，它已經是品牌標語
+                 不只是裝飾，所以給真的 alt、也不再 aria-hidden。 */
+              alt="書法：像家就是家"
               width={1337}
               height={1836}
               loading="lazy"
