@@ -3475,12 +3475,16 @@ const App: React.FC = () => {
                  所以不必整幅塞進那條空檔：擺大一點、讓下襬自然沉到神尊後面
                  （書法是 `z-0`、神尊是 `z-10`，本來就會被擋住），露出來的上面那截
                  反而像字從神尊後面長出來。
-                 **桌機那組要用 `lg:left-auto` 把手機的 `left` 關掉**：絕對定位的替換元素
-                 同時給了 `left` 與 `right` 時，`right` 會被忽略——不關掉的話桌機的
-                 「右緣貼著神尊」整個失效，而且畫面上只是位置怪，不會報錯。 */
+                 手機是**置中**的（廟方 2026-10-25「字，也是大一點，置中」），
+                 所以用 `left-1/2 -translate-x-1/2`。
+                 **桌機那組要把這兩個都關掉（`lg:left-auto lg:translate-x-0`）**：
+                 絕對定位的替換元素同時給了 `left` 與 `right` 時 `right` 會被忽略——
+                 不關 `left`，桌機「右緣貼著神尊」整個失效；不關 `translate`，
+                 整幅會再往左位移一半的寬度。兩者在畫面上都只是位置怪，不會報錯。 */
               className="block absolute z-0 w-auto h-auto
-                         left-[18%] bottom-[38%] max-h-[min(42vh,340px)] max-w-[66vw]
-                         lg:left-auto lg:bottom-0
+                         left-1/2 -translate-x-1/2 bottom-[34%]
+                         max-h-[min(52vh,430px)] max-w-[86vw]
+                         lg:left-auto lg:translate-x-0 lg:bottom-0
                          lg:right-[calc(0.886*min(100vh,110vw)_+_30px)]
                          lg:max-h-[calc(100vh_-_70px)]
                          lg:max-w-[max(0px,calc(100vw_-_0.886*min(100vh,110vw)_-_40px))]

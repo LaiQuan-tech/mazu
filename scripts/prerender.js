@@ -30,8 +30,20 @@ const require = createRequire(import.meta.url);
 
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-/** Supabase 公開儲存桶。資料庫存的是相對路徑，要自己接成完整網址 */
-const STORAGE = (p) => (/^https?:\/\//.test(p) ? p : `${process.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-images/${p}`);
+/**
+ * Supabase 的網址。**一定要 `.trim()`。**
+ *
+ * Vercel 上那個環境變數的值結尾帶了一個換行字元。REST 查詢沒事——`fetch()` 會把
+ * 網址正規化，所以神尊、公告、經文都抓得到——但**把它串成字串寫進 sitemap 就是
+ * 一個中間帶換行的壞網址**，實測那些 `<image:loc>` 全部 404。
+ * 症狀很賊：建置不會錯、XML 也解析得過、頁面完全正常，只有真的去抓那些圖才會發現。
+ * 順手也把結尾的斜線去掉，免得哪天變成 `…co//storage/…`。
+ */
+const SUPA_URL = (process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+
+/** 公開儲存桶。資料庫存的是相對路徑，要自己接成完整網址 */
+const STORAGE = (p) => (/^https?:\/\//.test(String(p).trim()) ? String(p).trim()
+  : `${SUPA_URL}/storage/v1/object/public/site-images/${String(p).trim()}`);
 const ORIGIN = 'https://heshengtan.tw';
 
 /**
@@ -763,8 +775,13 @@ const imagesFor = (r) => {
     }
   }
   if (r.images) out.push(...r.images.map((i) => ({ loc: ORIGIN + i.src, alt: i.alt })));
-  // 沒有 Supabase 網址時 STORAGE() 會組出 undefined 開頭的字串，寧可不給也不要給壞的
-  return out.filter((i) => i.loc && !i.loc.includes('undefined'));
+  /**
+   * **壞網址一律不要進 sitemap。** 指到 404 的圖比沒有圖更糟——Search Console 會
+   * 一直回報抓取失敗，而且是整批。所以這裡不只擋「沒有 Supabase 網址」那種
+   * （會組出 `undefined/storage/…`），也擋任何含空白或換行的（見 SUPA_URL 的註解，
+   * 那個環境變數真的帶過換行，而且一路到線上才被抓到）。
+   */
+  return out.filter((i) => i.loc && /^https:\/\/[^\s]+$/.test(i.loc) && !i.loc.includes('undefined'));
 };
 
 /** 把一份 HTML 裡的地址／電話／開放時間換成後台設定的值 */
