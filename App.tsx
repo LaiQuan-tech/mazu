@@ -3469,10 +3469,21 @@ const App: React.FC = () => {
                  `max-w` 擋的是「左邊跑出畫面」，外面包 `max(0px, …)`：極端直立視窗
                  （實測 1100×1200）算出來是負的，而**負的 max-width 是無效宣告、整條
                  會被丟掉**＝完全沒有上限，剛好是最糟的結果；包起來就退化成不顯示。 */
-              className="hidden lg:block absolute z-0 bottom-0 w-auto h-auto
-                         right-[calc(0.886*min(100vh,110vw)_+_30px)]
-                         max-h-[calc(100vh_-_70px)]
-                         max-w-[max(0px,calc(100vw_-_0.886*min(100vh,110vw)_-_40px))]
+              /* **手機與桌機是兩套擺法**（廟方 2026-10-25：「手機也要有」「神尊可以遮到」）。
+                 手機沒有「神尊左邊」那塊空間——三尊橫跨整個寬度（x −6 到 381），
+                 字標下緣 151 到神尊頂端 372 之間只有 221px。但廟方說**神尊可以蓋過去**，
+                 所以不必整幅塞進那條空檔：擺大一點、讓下襬自然沉到神尊後面
+                 （書法是 `z-0`、神尊是 `z-10`，本來就會被擋住），露出來的上面那截
+                 反而像字從神尊後面長出來。
+                 **桌機那組要用 `lg:left-auto` 把手機的 `left` 關掉**：絕對定位的替換元素
+                 同時給了 `left` 與 `right` 時，`right` 會被忽略——不關掉的話桌機的
+                 「右緣貼著神尊」整個失效，而且畫面上只是位置怪，不會報錯。 */
+              className="block absolute z-0 w-auto h-auto
+                         left-[18%] bottom-[38%] max-h-[min(42vh,340px)] max-w-[66vw]
+                         lg:left-auto lg:bottom-0
+                         lg:right-[calc(0.886*min(100vh,110vw)_+_30px)]
+                         lg:max-h-[calc(100vh_-_70px)]
+                         lg:max-w-[max(0px,calc(100vw_-_0.886*min(100vh,110vw)_-_40px))]
                          drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
             />
           </picture>
