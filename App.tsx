@@ -311,9 +311,11 @@ const HERO_FADE_RGB = INK_MODE
   // 青花版：下一區是 bg-white 疊 4.5% 在靛藍紙上，實際是 rgb(33,45,72)。
   // **淡進白色就是那道突兀的亮帶**——規則就是上面那一句，顏色要等於下一區的底色。
   ? '33 45 72'
-  : ENABLE_BULLETIN
-    ? '255 255 255'   // #bulletin 的 bg-white
-    : '245 240 232';  // #about 的 bg-temple-bg
+  // 米色版：Hero 下面現在是 #story-video（`bg-temple-bg`），不是公佈欄。
+  // 2026-10-24 把影片區插進 Hero 與公佈欄之間時漏了這一行，於是 Hero 收邊淡進
+  // 純白、底下卻是 #F5F0E8，交界多出一條白帶（廟方 2026-10-25 回報「切到很突兀」）。
+  // **這個相依靠註解提醒已經失敗兩次**，所以底下多了一支開發模式的檢查會出聲。
+  : '245 240 232';  // #story-video 的 bg-temple-bg
 
 /** 點燈／祈福／問事各自獨立成頁，捐獻仍是首頁上的區塊 */
 /**
@@ -1640,6 +1642,34 @@ const App: React.FC = () => {
     const el = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (el) el.setAttribute('content', dark || showScripture ? INK_PAPER_BG : '#7C5C1E');
   }, [showShower, showShowerCheckin, showScripture]);
+  /**
+   * 開發模式的防呆：**Hero 收邊淡進的顏色必須等於它下一個區塊的底色**
+   * （規則與理由見 `HERO_FADE_RGB`）。
+   *
+   * 這條規則本來只寫在註解裡，而它已經被漏掉兩次——一次是公佈欄改成白底，
+   * 一次是 2026-10-24 把影片區插進 Hero 與公佈欄之間。兩次的症狀都一樣：
+   * 交界多出一條色帶，程式不會報錯、型別也查不出來，只能靠人眼發現。
+   * 所以改成會出聲的：**在開發時比對實際算出來的兩個顏色**，不一致就印一行。
+   * 正式站不跑（`import.meta.env.DEV`），而且只讀樣式、不動畫面。
+   */
+  useEffect(() => {
+    if (!import.meta.env.DEV || page !== 'home') return;
+    const t = window.setTimeout(() => {
+      const fade = document.querySelector('.hero-bottom-fade');
+      const next = fade?.closest('section')?.nextElementSibling;
+      if (!fade || !(next instanceof HTMLElement)) return;
+      const got  = getComputedStyle(fade).getPropertyValue('--hero-fade-rgb').trim();
+      const want = getComputedStyle(next).backgroundColor.match(/\d+/g)?.slice(0, 3).join(' ');
+      // 下一區是透明（沒有自己的底色）時比不出東西來，不要亂報
+      if (!want || want === got || getComputedStyle(next).backgroundColor === 'rgba(0, 0, 0, 0)') return;
+      console.warn(
+        `[hero] 收邊色「${got}」與下一區「${next.id || next.tagName}」的底色「${want}」不一致，`
+        + '交界會出現一條色帶。請改 App.tsx 的 HERO_FADE_RGB。',
+      );
+    }, 400);   // 等版面穩定（字型、懶載入的圖都會改變底下那一區）
+    return () => window.clearTimeout(t);
+  }, [page]);
+
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
   const [showLoginModal, setShowLoginModal] = useState(adminEntry);
