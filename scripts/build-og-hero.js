@@ -45,6 +45,39 @@ const W = 1200, H = 630;
 const STRIP = 440;            // 字標帶寬度；三尊都在這條線右邊，不會互相干擾
 const CLEAN = [300, 430];     // 字標帶裡沒有字的乾淨區間，用來反推暗化比例
 
+/**
+ * 字標帶只取到這一列為止（2026-10-25）。
+ *
+ * 網站上的「台北古亭」與它上面那條短線已依廟方要求移除，卡片要跟著。
+ * **但不要重排文字**——素材與網站的字型若有一點差異，分享卡就會變成
+ * 「很像但不是」那張（這也是當初直接沿用素材的理由）。作法是**只裁不改**：
+ * 掃素材量出三個字與其餘元素的位置（440×630）：
+ *     和 y 49–129、聖 y 165–239、壇 y 272–351
+ *     短線 y 420–422、台北古亭 y 458–482
+ * 取 400 這一刀落在「壇」之下 49px、短線之上 18px，兩邊都留得夠。
+ *
+ * **裁掉的部分不會露餡**：底下那層 `bg` 就是 `金底 × keep`，而 `keep` 正是從
+ * 這條字標帶反推出來的，所以非文字處兩者本來就同色，接縫看不出來。
+ */
+const STRIP_H = 400;
+
+/**
+ * 書法（2026-10-25 上站）。**位置與尺寸照網站同一套算式算**，卡片才會跟首屏
+ * 是同一個版面——這是這支腳本從頭到尾的原則（見檔頭 DEITIES 那段）。
+ *
+ *     神尊左緣 = 100vw − 24px − 0.886 × min(100vh, 110vw)
+ *
+ * 右緣貼在神尊左緣前 6px，上緣留 70（網站上那是導覽列的位置），下緣吃到卡片底。
+ * 1200×630 代進去：神尊左緣 618——**與上面 DEITIES 量到的濟公 left 618 完全一致**，
+ * 等於這條算式與實際量測互相驗證過。
+ */
+const U = Math.min(H, 1.1 * W);
+const DEITY_LEFT = W - 24 - 0.886 * U;
+const CAL_TOP = 70;
+const CAL_H = H - CAL_TOP;
+const CAL_W = Math.round(CAL_H * (1337 / 1836));   // 書法原圖的長寬比
+const CAL_LEFT = Math.round(DEITY_LEFT - 6 - CAL_W);
+
 // 量自首頁在 1200×630 下的實際渲染（2026-09-02；濟公 2026-09-12 換照片後重量，
 // 坐姿帶椅背那張比較寬，只有他的 left 與 w 變了，另外兩尊沒動）。
 // draw 是繪製順序＝z-index 由小到大：三媽在最底（廟方要「二媽與濟公站在她面前」，
@@ -84,9 +117,18 @@ const raw = (img) => img.raw().toBuffer({ resolveWithObject: true });
     }
   }
 
+  // 疊放順序＝網站的 z：書法（z-0）最底，字標（z-20）與神尊（z-10）在它之上。
+  // **字標帶必須疊在書法之前**——它是不透明的 JPEG，順序反了會把書法蓋掉。
+  // 1200×630 下兩者其實不重疊（字在 x<150，書法從 x=204 起），但順序照 z 寫才不會
+  // 在日後改尺寸時變成一個看不出原因的 bug。
   const layers = [{
-    input: await sharp(path.join(ROOT, 'scripts/assets/og-hero-wordmark.jpg')).png().toBuffer(),
+    input: await sharp(path.join(ROOT, 'scripts/assets/og-hero-wordmark.jpg'))
+      .extract({ left: 0, top: 0, width: STRIP, height: STRIP_H }).png().toBuffer(),
     left: 0, top: 0,
+  }, {
+    input: await sharp(path.join(PUB, 'hero-calligraphy.png'))
+      .resize(CAL_W, CAL_H).png().toBuffer(),
+    left: CAL_LEFT, top: CAL_TOP,
   }];
   for (const d of DEITIES) {
     // 超出畫布的部分要先裁掉——sharp 的 composite 不接受超界的圖層
@@ -107,6 +149,8 @@ const raw = (img) => img.raw().toBuffer({ resolveWithObject: true });
 
   console.log(`og-hero.jpg  ${W}x${H}  ${(statSync(dest).size / 1024) | 0}KB  →  ${dest}`);
   console.log(`  頂端保留 ${keep[0].toFixed(3)}、y=300 保留 ${keep[300].toFixed(3)}（由字標帶反推）`);
+  console.log(`  字標帶    只取 y 0–${STRIP_H}（短線 420 與「台北古亭」458 已裁掉）`);
+  console.log(`  書法      x ${CAL_LEFT}–${CAL_LEFT + CAL_W}  y ${CAL_TOP}–${H}（神尊左緣 ${Math.round(DEITY_LEFT)}）`);
   for (const d of DEITIES) console.log(`  ${d.file.padEnd(12)} x ${d.left}–${d.left + d.w}  y ${d.top}–${d.top + d.h}`);
 })();
 
