@@ -924,6 +924,15 @@
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
         <h1 style="font-size:1.75rem;margin:0 0 .25rem">台北古亭和聖壇</h1>
         <p style="color:#7C5C1E;margin:0 0 1.5rem">主祀天上聖母．創立於民國 73 年</p>
+        <!-- 不執行 JS 的檢索器只讀得到這裡。站上的照片全是 React 插入且 loading="lazy"，
+             算繪時不捲動就不會載入，所以至少把三尊與品牌標語留在靜態 HTML 裡。
+             真正讓 Google 圖片搜尋看得到的是 sitemap 的 image 項目（見 prerender.js）。 -->
+        <p style="margin:0 0 1.5rem">
+          <img src="/hero-sanma.png" alt="天上聖母三媽（本壇主神）｜台北古亭和聖壇" style="max-width:32%;height:auto" />
+          <img src="/hero-erma.png" alt="天上聖母二媽｜台北古亭和聖壇" style="max-width:32%;height:auto" />
+          <img src="/hero-jigong.png" alt="濟公活佛｜台北古亭和聖壇" style="max-width:32%;height:auto" />
+          <img src="/hero-calligraphy.png" alt="書法：像家就是家｜台北古亭和聖壇" style="max-width:48%;height:auto" />
+        </p>
         <p>
           地址：100 臺北市中正區晉江街 72 巷 9 號<br />
           電話：<a href="tel:0953945349" style="color:#7C5C1E">0953-945-349</a><br />

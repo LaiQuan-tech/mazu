@@ -29,6 +29,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+/** Supabase 公開儲存桶。資料庫存的是相對路徑，要自己接成完整網址 */
+const STORAGE = (p) => (/^https?:\/\//.test(p) ? p : `${process.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-images/${p}`);
 const ORIGIN = 'https://heshengtan.tw';
 
 /**
@@ -380,16 +383,19 @@ const fetchDeities = async () => {
   if (!url || !key) return null;
   try {
     const res = await fetch(
-      `${url}/rest/v1/deities?select=name,is_visible,display_order&order=display_order`,
+      `${url}/rest/v1/deities?select=name,title,description,image_path,is_visible,display_order&order=display_order`,
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
     if (!Array.isArray(rows) || rows.length === 0) throw new Error('沒有資料');
-    const names = rows.filter((r) => r.is_visible !== false).map((r) => (r.name || '').trim()).filter(Boolean);
-    if (names.length === 0) throw new Error('沒有顯示中的神尊');
-    console.log(`prerender  神尊名單來源：資料庫（${names.length} 尊）`);
-    return names;
+    const list = rows.filter((r) => r.is_visible !== false)
+      .map((r) => ({ name: (r.name || '').trim(), title: (r.title || '').trim(),
+        desc: (r.description || '').trim(), image: r.image_path || null }))
+      .filter((r) => r.name);
+    if (list.length === 0) throw new Error('沒有顯示中的神尊');
+    console.log(`prerender  神尊名單來源：資料庫（${list.length} 尊，${list.filter((d) => d.image).length} 尊有照片）`);
+    return list;
   } catch (e) {
     console.log(`prerender  神尊名單來源：ROUTES 手寫內容（讀資料庫失敗：${e.message}）`);
     return null;
@@ -466,7 +472,7 @@ const fetchBulletins = async () => {
   if (!url || !key) return [];
   try {
     const res = await fetch(
-      `${url}/rest/v1/bulletins?select=title,category,content,created_at,is_pinned&order=is_pinned.desc,created_at.desc&limit=10`,
+      `${url}/rest/v1/bulletins?select=title,category,content,image_url,created_at,is_pinned&order=is_pinned.desc,created_at.desc&limit=10`,
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -475,6 +481,48 @@ const fetchBulletins = async () => {
     return Array.isArray(rows) ? rows : [];
   } catch (e) {
     console.log(`prerender  公告快照：略過（${e.message}）`);
+    return [];
+  }
+};
+
+/**
+ * 天上聖母經的 136 段（2026-10-25 補）。
+ *
+ * **為什麼非做不可**：`/scripture` 是全站最有價值的一頁——長文、獨特、有人真的
+ * 在搜「天上聖母經」——但它的內容是 React 跑起來才去 `scripture_verses` 抓的，
+ * 所以靜態 HTML 只有 ROUTES 裡那兩句手寫介紹。實測線上 `/scripture` 的 noscript
+ * 只有 **264 個字**，而且搜不到「爾時」這種經文詞。不執行 JS 的 AI 檢索器看到的
+ * 就是一頁空殼；Google 雖然會跑 JS，但那是排隊、延後的第二輪處理，對一個今年
+ * 才上線的新站不該指望它。
+ *
+ * 資料庫優先、`scripture-data.json` 保底——與點燈價格、FAQ、神尊名單同一套作法：
+ * 廟方在後台改了經文，下次部署就跟上；讀不到資料庫也不會開天窗。
+ */
+const fetchScripture = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (url && key) {
+    try {
+      const res = await fetch(
+        `${url}/rest/v1/scripture_verses?select=section_number,verse,annotation,image_path,display_order&order=display_order`,
+        { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) throw new Error('沒有資料');
+      console.log(`prerender  聖母經來源：資料庫（${rows.length} 段，${rows.filter((r) => r.image_path).length} 段有插圖）`);
+      return rows.map((r) => ({ n: r.section_number, verse: r.verse || '', ann: r.annotation || '', image: r.image_path || null }));
+    } catch (e) {
+      console.log(`prerender  聖母經來源：scripture-data.json（讀資料庫失敗：${e.message}）`);
+    }
+  } else {
+    console.log('prerender  聖母經來源：scripture-data.json（沒有 Supabase 環境變數）');
+  }
+  try {
+    const raw = JSON.parse(readFileSync(resolve(ROOT, 'scripture-data.json'), 'utf8'));
+    return raw.map((r) => ({ n: r.id, verse: r.verse || '', ann: r.annotation || '', image: null }));
+  } catch (e) {
+    console.log(`prerender  聖母經：連保底檔都讀不到（${e.message}），這一頁維持只有介紹`);
     return [];
   }
 };
@@ -519,11 +567,18 @@ const fetchFeasts = async () => {
 };
 
 const bulletinSnapshot = await fetchBulletins();
+const scriptureRows = await fetchScripture();
 const feastSnapshot = await fetchFeasts();
 
 const bodyOf = (r) => {
-  if (r.path === '/deities' && deityNames && deityNames.length) {
-    return [...r.body, `本壇目前奉祀的神尊共 ${deityNames.length} 尊：${deityNames.join('、')}。`];
+  if (r.path === '/deities' && deityCards && deityCards.length) {
+    // 名單之外再把每一尊的稱號與簡介接上——原本只有一串名字，
+    // 而「這尊是誰、管什麼」才是信眾與 AI 真正會問的（2026-10-25 補）
+    return [...r.body,
+      `本壇目前奉祀的神尊共 ${deityCards.length} 尊：${deityCards.map((d) => d.name).join('、')}。`,
+      ...deityCards.filter((d) => d.title || d.desc)
+        .map((d) => [d.name, d.title, d.desc].filter(Boolean).join('　')),
+    ];
   }
   if (r.path === '/bulletins' && bulletinSnapshot.length > 0) {
     return [...r.body, ...bulletinSnapshot.map((b) => {
@@ -664,7 +719,53 @@ const toEventNode = (ev) => {
 };
 
 const site = await fetchSiteInfo();
-const deityNames = await fetchDeities();
+const deityCards = await fetchDeities();
+
+/**
+ * 首頁有哪些圖。首頁的 noscript 寫在 index.html 裡（不是這支產的），
+ * 所以這裡只服務圖片 sitemap。三尊神尊是全站最該被搜到的照片，
+ * 書法是 2026-10-25 上的品牌標語。
+ */
+const HOME_IMAGES = [
+  { src: '/hero-sanma.png', alt: '天上聖母三媽（本壇主神）｜台北古亭和聖壇' },
+  { src: '/hero-erma.png', alt: '天上聖母二媽｜台北古亭和聖壇' },
+  { src: '/hero-jigong.png', alt: '濟公活佛｜台北古亭和聖壇' },
+  { src: '/hero-calligraphy.png', alt: '書法：像家就是家｜台北古亭和聖壇' },
+];
+
+/**
+ * 這一頁有哪些圖片（2026-10-25 補）。給 `<noscript>` 與**圖片 sitemap** 共用，
+ * 兩邊同一份來源，不會一邊有一邊沒有。
+ *
+ * **為什麼要做**：實測線上每一頁的靜態 HTML 裡 `<img>` 都是 **0**——神尊照片、
+ * 經文插圖、公告海報全部是 React 插進去的。Google 圖片搜尋雖然會跑 JS，但站上
+ * 幾乎所有圖都是 `loading="lazy"`，而算繪時並不會捲動頁面，折線以下的圖很可能
+ * 從頭到尾沒被載入過。**圖片 sitemap 是唯一不依賴算繪的管道**，所以它才是重點；
+ * noscript 裡那幾張是順便給不執行 JS 的 AI 檢索器看的。
+ *
+ * 只收「這一頁真的有、而且說得出是什麼」的圖：說不出 alt 的不要放進來。
+ */
+const imagesFor = (r) => {
+  const out = [];
+  if (r.path === '/deities' && deityCards) {
+    for (const d of deityCards) {
+      if (d.image) out.push({ loc: STORAGE(d.image), alt: [d.name, d.title].filter(Boolean).join('　') });
+    }
+  }
+  if (r.path === '/bulletins') {
+    for (const b of bulletinSnapshot) {
+      if (b.image_url) out.push({ loc: STORAGE(b.image_url), alt: `${(b.title || '公告').trim()}｜台北古亭和聖壇` });
+    }
+  }
+  if (r.path === '/scripture') {
+    for (const v of scriptureRows) {
+      if (v.image) out.push({ loc: STORAGE(v.image), alt: `天上聖母經 第 ${v.n} 段 插圖` });
+    }
+  }
+  if (r.images) out.push(...r.images.map((i) => ({ loc: ORIGIN + i.src, alt: i.alt })));
+  // 沒有 Supabase 網址時 STORAGE() 會組出 undefined 開頭的字串，寧可不給也不要給壞的
+  return out.filter((i) => i.loc && !i.loc.includes('undefined'));
+};
 
 /** 把一份 HTML 裡的地址／電話／開放時間換成後台設定的值 */
 const applySiteInfo = (html) => {
@@ -865,17 +966,45 @@ for (const r of ACTIVE_ROUTES) {
    * 各有一套一模一樣的內容，誰是正本就說不清楚了。
    */
   const linkBase = r.org ? ORIGIN : '';
+
+  /**
+   * 經文全文。**只有 `/scripture` 有**，而且是整整 136 段——這一頁的價值就在這裡，
+   * 只摘要幾段等於把最該被索引的內容留在 JS 裡。`verse` 的換行是刻意的斷句，
+   * 轉成 `<br />`（**先 esc 再換**，順序反了會把標籤自己跳脫掉）。
+   */
+  const scriptureText = r.path !== '/scripture' || scriptureRows.length === 0 ? '' :
+    '\n' + scriptureRows.map((v) => {
+      const verse = esc(v.verse).replace(/\n/g, '<br />');
+      const ann = v.ann ? `\n        <p style="margin:0 0 .75rem;color:#5C4310">${esc(v.ann)}</p>` : '';
+      return `        <h2 style="font-size:1rem;margin:1.25rem 0 .35rem;color:#7C5C1E">第 ${esc(String(v.n))} 段</h2>\n`
+           + `        <p style="margin:0 0 .35rem">${verse}</p>${ann}`;
+    }).join('\n');
+
+  const pageImgs = imagesFor(r);
+  const imgText = pageImgs.length === 0 ? '' :
+    '\n' + pageImgs.map((i) =>
+      `        <img src="${i.loc}" alt="${esc(i.alt)}" style="max-width:100%;height:auto;margin:.5rem 0" />`).join('\n');
+
   const noscript = `
     <noscript>
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
         <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
-${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${faqText}
+${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${imgText}${faqText}
         <p style="margin-top:1.5rem">${footerText}</p>
         <p style="margin-top:1.25rem">${NAV_LINKS.filter((l) => l.path !== r.path)
           .map((l) => `<a href="${linkBase}${l.path}" style="color:#7C5C1E;margin-right:1rem">${esc(l.label)}</a>`).join('')}</p>
         <p style="color:#7C5C1E">${r.org ? '本頁的沐浴車位置查詢需要啟用 JavaScript。' : '本頁的線上登記功能需要啟用 JavaScript。'}</p>
       </div>
     </noscript>`;
+  /**
+   * **先拿掉模板自己那份 noscript，再放這一頁的。**
+   * 模板是 index.html，它的 noscript 寫的是首頁（宮壇簡介、地址電話、神尊照片）。
+   * 原本只「加一份」，結果每個分頁都夾帶著首頁那 726 字——13 頁各複製一份同樣的
+   * 內容，對不執行 JS 的檢索器來說，每一頁的獨特內容都被這段稀釋掉
+   * （2026-10-25 發現，是既有問題不是這次改出來的）。
+   * 首頁那一份不受影響：它走下面另一個區塊、直接用 template 產。
+   */
+  html = html.replace(/<noscript>[\s\S]*?<\/noscript>/, '');
   html = html.replace('<div id="root"></div>', '<div id="root"></div>\n' + noscript);
 
   const out = resolve(DIST, r.path.slice(1) + '.html');
@@ -1029,19 +1158,36 @@ ${templePaths.map((p) => `Disallow: ${p}`).join('\n')}
   // 才看得出來（實測踩到）。前端的日期規則講的是使用者的裝置（在台灣），
   // 建置腳本沒有這個前提，必須自己指定時區。
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-  const entries = [{ path: '/', priority: '1.0' }, ...ACTIVE_ROUTES];
+  const entries = [{ path: '/', priority: '1.0', images: HOME_IMAGES }, ...ACTIVE_ROUTES];
+  /**
+   * **圖片 sitemap（2026-10-25 補）。** 這是讓 Google 圖片搜尋看得到本站照片的
+   * 主要管道——站上的圖幾乎都是 `loading="lazy"` 且由 React 插入，算繪時不捲動
+   * 就不會載入，光靠爬蟲自己發現很不可靠（實測靜態 HTML 裡 `<img>` 是 0）。
+   * 命名空間 `xmlns:image` 一定要宣告在 `<urlset>` 上，少了它**整份 sitemap**
+   * 會被判成格式錯誤，不是只有圖片那幾行失效。
+   */
+  let imgCount = 0;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${entries.map((r) => `  <url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${entries.map((r) => {
+    const imgs = imagesFor(r);
+    imgCount += imgs.length;
+    return `  <url>
     <loc>${ORIGIN}${r.path === '/' ? '/' : r.path}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>${r.priority || '0.8'}</priority>
-  </url>`).join('\n')}
+    <priority>${r.priority || '0.8'}</priority>${imgs.map((i) => `
+    <image:image>
+      <image:loc>${esc(i.loc)}</image:loc>
+      <image:title>${esc(i.alt)}</image:title>
+    </image:image>`).join('')}
+  </url>`;
+  }).join('\n')}
 </urlset>
 `;
   writeFileSync(resolve(DIST, 'sitemap.xml'), xml, 'utf8');
-  console.log(`prerender  sitemap.xml   ${entries.length} 筆（lastmod ${today}）`);
+  console.log(`prerender  sitemap.xml   ${entries.length} 筆、${imgCount} 張圖（lastmod ${today}）`);
 }
 
 console.log(`prerender  完成 ${ACTIVE_ROUTES.length} 頁`);
