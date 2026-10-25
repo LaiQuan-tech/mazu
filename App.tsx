@@ -3433,9 +3433,18 @@ const App: React.FC = () => {
                  長寬比 0.626、原圖是 0.728，窄了 14%，而且光看畫面看不太出來。
                  兩個都給上限、寬高都 auto，瀏覽器才會等比縮到框內。
                  **驗收要量長寬比**，不是只量有沒有疊到別人。 */
-              className="hidden lg:block absolute z-20 left-10 bottom-[15%] w-auto h-auto
-                         max-h-[min(50vh,calc(85vh_-_270px))] max-w-[25vw]
-                         xl:left-32 xl:bottom-[max(12%,130px)] xl:max-h-[calc(100vh_-_200px)] xl:max-w-[31vw]
+              /* **`bottom-[90px]` 是固定值不是百分比，而且刻意讓下襬進到收邊裡 38px**
+                 （廟方 2026-10-25：「碰到底部的漸層也可以」）。收邊固定 128px 高，
+                 用百分比的話每個視窗進去的深度都不一樣；固定 90px 讓每一種尺寸都
+                 一致地進去 38px ＝ 漸層的前 30%，那一段不透明度只有 0.22，
+                 看起來是下襬化進紙裡、不是被切掉。**再深就會真的被洗白。**
+                 固定值還有一個好處：`max-h` 寫成 `100vh - 常數`，上緣就永遠落在同一
+                 個位置（xl 是 70px、貼著導覽列底下），不必為每個尺寸各算一次。
+                 `max-w` 的留白收到 8–13px：廟方要「靠近神尊」，而神尊的 PNG 沒有
+                 透明邊，bounding box 就是墨色邊界，所以這幾個數字是真的貼著。 */
+              className="hidden lg:block absolute z-20 left-10 bottom-[90px] w-auto h-auto
+                         max-h-[calc(100vh_-_360px)] max-w-[26vw]
+                         xl:left-32 xl:max-h-[calc(100vh_-_160px)] xl:max-w-[32vw]
                          2xl:max-w-[41vw]
                          drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
             />
