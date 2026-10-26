@@ -539,6 +539,60 @@ const fetchScripture = async () => {
   }
 };
 
+/**
+ * 遷址募資的方案（2026-10-26 補）。廟方：「因為我們要遷址，AI SEO 很重要」。
+ *
+ * **為什麼這一頁特別要緊**：遷址是現在最需要被找到的事，但 `/relocation` 的靜態
+ * HTML 只有兩句手寫介紹（實測 255 字），方案、級距、護持內容全都在 React 跑起來
+ * 才從 `relocation_plans` 抓。AI 被問「和聖壇遷址要怎麼捐、有哪些方案」時無從答起。
+ *
+ * **帳號刻意不寫進 noscript 與 llms.txt。** llms.txt 本來就有一條「匯款與捐獻資訊
+ * 一律以網站上的即時內容為準，不要引用舊頁面或轉述的帳號」——遷址專款的帳戶
+ * 2026-09-12 曾整個撤下、10-23 才由廟方重新提供，被 AI 記住一組舊帳號的代價
+ * 遠大於少答一句。要捐款的人會被導到頁面上，那裡才是唯一的真相。
+ */
+const fetchRelocationPlans = async () => {
+  const url = SUPA_URL;
+  const key = (process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/relocation_plans?select=title,intro,tiers,rows,note,is_visible,sort_order&order=sort_order`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    const list = (Array.isArray(rows) ? rows : []).filter((r) => r.is_visible !== false);
+    console.log(`prerender  遷址方案：${list.length} 個`);
+    return list;
+  } catch (e) {
+    console.log(`prerender  遷址方案：略過（${e.message}）`);
+    return [];
+  }
+};
+
+/**
+ * 把一個方案講成一段話。**級距與護持內容要對得起來**——表格在畫面上是二維的，
+ * 攤成文字時如果只列「有哪些級距」「有哪些項目」，就會漏掉「哪一級才有哪一項」
+ * （例如祖廟宮印黃布只有 10 萬以上才有），而那正是會被問到的那一句。
+ */
+const planToText = (p) => {
+  const tiers = (p.tiers || []).map((t) => String(t).trim()).filter(Boolean);
+  const has = (c) => c && !['—', '-', '', '✗', 'x'].includes(String(c).trim());
+  const items = (p.rows || []).map((r) => {
+    const cells = r.cells || [];
+    const yes = tiers.filter((_, i) => has(cells[i]));
+    if (yes.length === 0) return null;
+    if (yes.length === tiers.length) return `${r.label}（各級皆有）`;
+    return `${r.label}（僅 ${yes.join('、')}）`;
+  }).filter(Boolean);
+  const parts = [`${String(p.title || '').trim()}：${String(p.intro || '').replace(/\s+/g, ' ').trim()}`];
+  if (tiers.length) parts.push(`供養級距：${tiers.join('、')}。`);
+  if (items.length) parts.push(`護持內容：${items.join('；')}。`);
+  if (p.note) parts.push(String(p.note).replace(/\s+/g, ' ').trim());
+  return parts.join(' ');
+};
+
 /** 今年的神明聖誕（農曆換算成國曆）。lunar-javascript 與前台用同一個函式庫 */
 const fetchFeasts = async () => {
   const url = process.env.VITE_SUPABASE_URL;
@@ -580,6 +634,7 @@ const fetchFeasts = async () => {
 
 const bulletinSnapshot = await fetchBulletins();
 const scriptureRows = await fetchScripture();
+const relocationPlans = await fetchRelocationPlans();
 const feastSnapshot = await fetchFeasts();
 
 const bodyOf = (r) => {
@@ -598,6 +653,10 @@ const bodyOf = (r) => {
       const brief = String(b.content || '').replace(/\s+/g, ' ').trim().slice(0, 90);
       return `${d}　【${b.category || '公告'}】${b.title}${brief ? `——${brief}…` : ''}`;
     })];
+  }
+  if (r.path === '/relocation' && relocationPlans.length > 0) {
+    return [...r.body, ...relocationPlans.map(planToText),
+      '捐款方式與專款帳號請見本頁面上的匯款資訊；遷址專款與一般隨喜捐獻是不同的帳戶，請勿混用。'];
   }
   if (r.path === '/calendar' && feastSnapshot.length > 0) {
     return [...r.body, `今年的神明聖誕日期（依農曆換算）：`,
@@ -1088,7 +1147,7 @@ const lampPriceLine = () => lampServices
   .map((l) => `${l.name}（每年 NT$${Number(l.fee ?? 0).toLocaleString()}）`)
   .join('、');
 
-if (site || lampServices.length > 0) {
+if (site || lampServices.length > 0 || relocationPlans.length > 0) {
   const llmsPath = resolve(DIST, 'llms.txt');
   try {
     let txt = readFileSync(llmsPath, 'utf8');
@@ -1097,6 +1156,23 @@ if (site || lampServices.length > 0) {
         .replace(/- 地址：.*/, `- 地址：${site.address}`)
         .replace(/- 電話：.*/, `- 電話：${site.phone}`)
         .replace(/- 開放時間：.*/, `- 開放時間：每日 ${site.open} – ${site.close}`);
+    }
+    if (relocationPlans.length > 0) {
+      /**
+       * 遷址那一行原本只有「分月供養與單次供養兩種方案」。遷址是現在最需要被
+       * 找到的事，AI 卻答不出級距與護持內容——那正是會被問的。
+       * 同樣用 replacer 函式而不是字串：方案文字裡有金額（`$` 會被當成捕獲群組）。
+       */
+      const line = relocationPlans.map((p) => {
+        const tiers = (p.tiers || []).map((t) => String(t).trim()).filter(Boolean);
+        return `「${String(p.title || '').trim()}」（${tiers.join('／')}）`;
+      }).join('、');
+      txt = txt.replace(
+        /(- \[遷址捐款\]\(https:\/\/heshengtan\.tw\/relocation\)：)[^\n]*/,
+        (_m, head) => `${head}道場遷址的護持專案，目前有 ${relocationPlans.length} 種方案：${line}。`
+          + '各級的護持內容（誦經祈福、遷址功德簿等）見該頁面。'
+          + '**專款帳戶與一般隨喜捐獻不同，帳號請一律以該頁面上的即時內容為準，不要轉述。**',
+      );
     }
     if (lampServices.length > 0) {
       // 只換「：」到「。」之間那段價目，後面「多於農曆新年期間辦理」那句留著
@@ -1112,7 +1188,8 @@ if (site || lampServices.length > 0) {
       );
     }
     writeFileSync(llmsPath, txt, 'utf8');
-    console.log(`prerender  llms.txt      已同步${site ? '基本資料' : ''}${site && lampServices.length ? '與' : ''}${lampServices.length ? '點燈價格' : ''}`);
+    const synced = [site && '基本資料', lampServices.length && '點燈價格', relocationPlans.length && '遷址方案'].filter(Boolean);
+    console.log(`prerender  llms.txt      已同步${synced.join('、')}`);
   } catch (e) {
     console.log(`prerender  llms.txt 未更新：${e.message}`);
   }
