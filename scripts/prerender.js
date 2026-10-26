@@ -593,6 +593,54 @@ const planToText = (p) => {
   return parts.join(' ');
 };
 
+/**
+ * UTC 時間戳 → 台北時間的字串。
+ *
+ * **資料庫存的是 UTC，直接印出來會差八小時而且看起來像前一天**：
+ * 實測某場活動的 `registration_deadline` 是 `2026-10-26T16:00:00+00:00`，
+ * 那其實是台灣的 **10/27 00:00**，照著印就變成「報名截止 10-26」——
+ * 對報名的人來說是少了一整天。同 CLAUDE.md「日期一律本地時區組字串」那條，
+ * 差別在於**建置機跑在 UTC**，所以不能用機器的本地時間，要明寫 Asia/Taipei。
+ */
+const twTime = (iso) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const f = new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return `${f.year}-${f.month}-${f.day} ${f.hour}:${f.minute}`;
+};
+
+/**
+ * 近期的問事場次（2026-10-26 補）。「這個月哪幾天可以問事」是信眾最常問的一件事，
+ * 而 `/booking` 的 noscript 原本只有一句手寫概括——場次全在 React 跑起來才抓。
+ *
+ * **只取今天以後、而且還開放的場次**（`is_active`）：快照會過期（下次部署才更新），
+ * 所以寧可少列也不要列出已經關閉的場次，叫人白跑一趟比沒有資訊糟。
+ * 上限 12 場，再多對爬蟲也只是雜訊。
+ */
+const fetchBookingSessions = async () => {
+  const url = SUPA_URL;
+  const key = (process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  if (!url || !key) return [];
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/booking_sessions?select=session_date,session_time,is_active&is_active=eq.true&session_date=gte.${today}`
+      + '&order=session_date,session_time&limit=12',
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    console.log(`prerender  問事場次：${Array.isArray(rows) ? rows.length : 0} 場`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    console.log(`prerender  問事場次：略過（${e.message}）`);
+    return [];
+  }
+};
+
 /** 今年的神明聖誕（農曆換算成國曆）。lunar-javascript 與前台用同一個函式庫 */
 const fetchFeasts = async () => {
   const url = process.env.VITE_SUPABASE_URL;
@@ -635,6 +683,7 @@ const fetchFeasts = async () => {
 const bulletinSnapshot = await fetchBulletins();
 const scriptureRows = await fetchScripture();
 const relocationPlans = await fetchRelocationPlans();
+const bookingSessions = await fetchBookingSessions();
 const feastSnapshot = await fetchFeasts();
 
 const bodyOf = (r) => {
@@ -653,6 +702,39 @@ const bodyOf = (r) => {
       const brief = String(b.content || '').replace(/\s+/g, ' ').trim().slice(0, 90);
       return `${d}　【${b.category || '公告'}】${b.title}${brief ? `——${brief}…` : ''}`;
     })];
+  }
+  if (r.path === '/blessing' && upcomingEvents.length > 0) {
+    /**
+     * 即將舉行的祈福活動。`upcomingEvents` 是 Event 標記本來就在抓的那一份，
+     * **不要另外抓一次**——兩份來源遲早會不一致（同行事曆直接讀 booking_sessions
+     * 而不另建一份的理由）。
+     * 費用的規則與全站一致：**有方案就用方案、沒有方案才用活動本身的 fee**
+     * （見 CLAUDE.md 那條漏了三個月、把每一筆都算成 0 的 bug）。
+     */
+    return [...r.body, ...upcomingEvents.map((ev) => {
+      const pkgs = Array.isArray(ev.packages) ? ev.packages : [];
+      const fees = pkgs.map((p) => Number(p?.fee ?? 0)).filter((n) => n > 0);
+      const fee = fees.length ? `${Math.min(...fees).toLocaleString()}–${Math.max(...fees).toLocaleString()} 元`
+        : (Number(ev.fee) > 0 ? `${Number(ev.fee).toLocaleString()} 元` : '');
+      const when = ev.end_date && ev.end_date !== ev.start_date ? `${ev.start_date}～${ev.end_date}` : ev.start_date;
+      const desc = String(ev.description || '').replace(/\s+/g, ' ').trim();
+      return [`${String(ev.title || '').trim()}（${when}）`, fee && `費用 ${fee}`,
+        ev.registration_deadline && `報名截止 ${twTime(ev.registration_deadline)}`, desc].filter(Boolean).join('　');
+    })];
+  }
+  if (r.path === '/booking' && bookingSessions.length > 0) {
+    // 同一天可能有好幾個時段，合成一行才不會變成一串重複的日期
+    const byDate = new Map();
+    for (const s2 of bookingSessions) {
+      // **`session_time` 是自由文字不是時間**（實際值長這樣：「晚上 19:00–21:00」），
+      // 所以不可以 slice——切過會變成「晚上 19」。原樣用就好。
+      const t = String(s2.session_time || '').trim();
+      byDate.set(s2.session_date, [...(byDate.get(s2.session_date) || []), t].filter(Boolean));
+    }
+    return [...r.body,
+      `近期可預約的辦事日（問事）共 ${byDate.size} 天：`
+      + [...byDate.entries()].map(([d, ts]) => `${d}${ts.length ? `（${ts.join('、')}）` : ''}`).join('、')
+      + '。實際名額與是否額滿請以本頁的線上預約為準。'];
   }
   if (r.path === '/relocation' && relocationPlans.length > 0) {
     return [...r.body, ...relocationPlans.map(planToText),
