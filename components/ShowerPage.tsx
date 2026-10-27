@@ -356,7 +356,9 @@ const VolunteerBanner: React.FC = () => (
  * 產圖時也**不可以 flatten**：壓成白底就會在米色頁面上出現一塊白方塊。
  *
  * 寬度收在 `max-w-sm`（384px）並置中：它是一顆按鈕不是橫幅，攤到整欄寬就會
- * 變成第二張海報，跟上面志工那張打架。圖只有 802px 寬，剛好夠 384 的兩倍。
+ * 變成第二張海報，跟上面志工那張打架。
+ * 圖是 861x290（2026-10-27 廟方換過一張，左邊多了一尊人物，長寬比從 3.25 變 2.97，
+ * 所以同寬之下比舊的高一點點）。顯示最寬 384，861 夠兩倍有餘。
  *
  * **畫面上一個字都沒有，但 aria-label 要講滿**：讀屏軟體與 SEO 只看得到它，
  * 而「捐給誰」「會離開這個網站」是按下去之前該知道的事。
@@ -380,8 +382,8 @@ const DonationBanner: React.FC = () => (
         <img
           src={heroSrc('shower-donate.png')}
           alt=""
-          width={802}
-          height={247}
+          width={861}
+          height={290}
           loading="lazy"
           className="block w-full h-auto"
         />
