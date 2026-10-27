@@ -45,6 +45,8 @@ const SUPA_URL = (process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, ''
 const STORAGE = (p) => (/^https?:\/\//.test(String(p).trim()) ? String(p).trim()
   : `${SUPA_URL}/storage/v1/object/public/site-images/${String(p).trim()}`);
 const ORIGIN = 'https://heshengtan.tw';
+/** 沐浴車自己的網域。`org` 路由的正本在這裡，不在宮廟那邊（見下方 origin 的註解） */
+const BATH_ORIGIN = 'https://17bath.org';
 
 /**
  * 每條路由的靜態身分。
@@ -167,7 +169,12 @@ const ROUTES = [
       // 大甲媽走到嘉義新港，只列到雲林就把一半的行程漏掉了。
       areaServed: ['苗栗縣', '臺中市', '彰化縣', '雲林縣', '嘉義縣'],
     },
-    faq: 'shower',
+images: [
+      { src: '/shower-banner.jpg', alt: '17 沐浴車｜臺中市媽祖聖沐慈善協會在媽祖進香沿線提供免費沐浴服務' },
+      { src: '/shower-volunteer.jpg', alt: '17 沐浴車志工招募｜替媽祖服務每一位香燈腳' },
+      { src: '/shower-donate.png', alt: '17 沐浴車愛心捐贈' },
+    ],
+        faq: 'shower',
     /**
      * 不執行 JS 的檢索器只讀得到 noscript，所以這一頁的實際內容要在這裡講完。
      * 位置是即時的、不可能寫進靜態檔（也不該——它每小時都在變），
@@ -457,7 +464,17 @@ const fetchSiteInfo = async () => {
  */
 const ACTIVE_ROUTES = ROUTES.filter((r) => r.enabled !== false);
 
-const NAV_LINKS = [{ path: '/', label: '首頁' }, ...ACTIVE_ROUTES.map((r) => ({ path: r.path, label: r.h1 }))];
+/**
+ * noscript 裡的站內連結，**兩個網域各自成一份**（2026-10-27 廟方：「和聖壇不要有
+ * 沐浴車的資訊，因為目前搜尋會混淆了」）。
+ *
+ * 原本是一份共用清單，於是**每一個和聖壇的頁面都在 noscript 裡連到 /shower**，
+ * 而沐浴車那一頁又反過來連回十幾個宮廟頁面——等於主動告訴檢索器「這兩個是同一
+ * 個站」。搜尋「和聖壇」會跑出沐浴車、搜「沐浴車」會跑出宮廟，正是廟方看到的症狀。
+ * 現在宮廟的清單不含 `org` 路由，`org` 路由也不連回宮廟。
+ */
+const TEMPLE_NAV = [{ path: '/', label: '首頁' },
+  ...ACTIVE_ROUTES.filter((r) => !r.org).map((r) => ({ path: r.path, label: r.h1 }))];
 
 /**
  * 這一頁 noscript 的段落。預設是 ROUTES 裡手寫的 body；
@@ -915,7 +932,8 @@ const imagesFor = (r) => {
       if (v.image) out.push({ loc: STORAGE(v.image), alt: `天上聖母經 第 ${v.n} 段 插圖` });
     }
   }
-  if (r.images) out.push(...r.images.map((i) => ({ loc: ORIGIN + i.src, alt: i.alt })));
+  // `org` 路由的圖掛在它自己的網域底下，不要掛回宮廟（同 canonical 的理由）
+  if (r.images) out.push(...r.images.map((i) => ({ loc: (r.org ? BATH_ORIGIN : ORIGIN) + i.src, alt: i.alt })));
   /**
    * **壞網址一律不要進 sitemap。** 指到 404 的圖比沒有圖更糟——Search Console 會
    * 一直回報抓取失敗，而且是整批。所以這裡不只擋「沒有 Supabase 網址」那種
@@ -950,7 +968,14 @@ const applySiteInfo = (html) => {
 
 for (const r of ACTIVE_ROUTES) {
   let html = template;
-  const url = ORIGIN + r.path;
+  /**
+   * **`org` 路由的正本網址是它自己的網域。**（2026-10-27 改；在那之前 canonical
+   * 指向 heshengtan.tw/shower，等於跟 Google 宣告「沐浴車是和聖壇的頁面」，
+   * 而那正是搜尋結果互相混淆的根源。）
+   * canonical、og:url、JSON-LD 的 @id 與麵包屑都跟著走這個網址，不能只改其中一個。
+   */
+  const origin = r.org ? BATH_ORIGIN : ORIGIN;
+  const url = origin + r.path;
 
   html = swap(html, /<title>[^<]*<\/title>/, `<title>${esc(r.title)}</title>`, '<title>');
   html = swap(html, /<meta name="description" content="[^"]*" \/>/,
@@ -1123,7 +1148,8 @@ for (const r of ACTIVE_ROUTES) {
    * 整個和聖壇網站在沐浴車的網域底下再長一份出來。爬蟲照著爬就是兩個網域
    * 各有一套一模一樣的內容，誰是正本就說不清楚了。
    */
-  const linkBase = r.org ? ORIGIN : '';
+  // `org` 路由不連回宮廟（理由見 TEMPLE_NAV）；宮廟的連結用相對路徑即可
+  const navLinks = r.org ? [] : TEMPLE_NAV;
 
   /**
    * 經文全文。**只有 `/scripture` 有**，而且是整整 136 段——這一頁的價值就在這裡，
@@ -1149,8 +1175,8 @@ for (const r of ACTIVE_ROUTES) {
         <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
 ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${imgText}${faqText}
         <p style="margin-top:1.5rem">${footerText}</p>
-        <p style="margin-top:1.25rem">${NAV_LINKS.filter((l) => l.path !== r.path)
-          .map((l) => `<a href="${linkBase}${l.path}" style="color:#7C5C1E;margin-right:1rem">${esc(l.label)}</a>`).join('')}</p>
+        <p style="margin-top:1.25rem">${navLinks.filter((l) => l.path !== r.path)
+          .map((l) => `<a href="${l.path}" style="color:#7C5C1E;margin-right:1rem">${esc(l.label)}</a>`).join('')}</p>
         <p style="color:#7C5C1E">${r.org ? '本頁的沐浴車位置查詢需要啟用 JavaScript。' : '本頁的線上登記功能需要啟用 JavaScript。'}</p>
       </div>
     </noscript>`;
@@ -1299,6 +1325,8 @@ if (site || lampServices.length > 0 || relocationPlans.length > 0) {
 # 臺中市媽祖聖沐慈善協會。歡迎搜尋引擎與 AI 助理索引與引用。
 # 說明文件：https://17bath.org/llms.txt
 
+Sitemap: https://17bath.org/sitemap.xml
+
 User-agent: *
 Allow: /
 
@@ -1334,7 +1362,13 @@ ${templePaths.map((p) => `Disallow: ${p}`).join('\n')}
   // 才看得出來（實測踩到）。前端的日期規則講的是使用者的裝置（在台灣），
   // 建置腳本沒有這個前提，必須自己指定時區。
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-  const entries = [{ path: '/', priority: '1.0', images: HOME_IMAGES }, ...ACTIVE_ROUTES];
+  /**
+   * **宮廟的 sitemap 不收 `org` 路由**（2026-10-27）。沐浴車的正本在 17bath.org，
+   * 在這裡再收一次等於兩個網域都宣稱擁有同一頁，與 canonical 自相矛盾。
+   * 它有自己的 sitemap-bath.xml（見下一個區塊）。
+   */
+  const entries = [{ path: '/', priority: '1.0', images: HOME_IMAGES },
+    ...ACTIVE_ROUTES.filter((r) => !r.org)];
   /**
    * **圖片 sitemap（2026-10-25 補）。** 這是讓 Google 圖片搜尋看得到本站照片的
    * 主要管道——站上的圖幾乎都是 `loading="lazy"` 且由 React 插入，算繪時不捲動
@@ -1364,6 +1398,38 @@ ${entries.map((r) => {
 `;
   writeFileSync(resolve(DIST, 'sitemap.xml'), xml, 'utf8');
   console.log(`prerender  sitemap.xml   ${entries.length} 筆、${imgCount} 張圖（lastmod ${today}）`);
+
+  /**
+   * 沐浴車自己的 sitemap（2026-10-27 新增）。
+   * 它是獨立的網域與獨立的單位，沒有自己的 sitemap 等於只能靠爬蟲自己摸索。
+   * `vercel.json` 把 `17bath.org/sitemap.xml` 轉到這一份——**只能用 redirects
+   * 不能用 rewrites**：dist 裡真的有 sitemap.xml，檔案系統會先命中（見 CLAUDE.md）。
+   */
+  const bathRoutes = ACTIVE_ROUTES.filter((r) => r.org);
+  if (bathRoutes.length > 0) {
+    let bathImgs = 0;
+    const bathXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${bathRoutes.map((r) => {
+      const imgs = imagesFor(r);
+      bathImgs += imgs.length;
+      return `  <url>
+    <loc>${BATH_ORIGIN}${r.path}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>${imgs.map((i) => `
+    <image:image>
+      <image:loc>${esc(i.loc)}</image:loc>
+      <image:title>${esc(i.alt)}</image:title>
+    </image:image>`).join('')}
+  </url>`;
+    }).join('\n')}
+</urlset>
+`;
+    writeFileSync(resolve(DIST, 'sitemap-bath.xml'), bathXml, 'utf8');
+    console.log(`prerender  sitemap-bath.xml  ${bathRoutes.length} 筆、${bathImgs} 張圖`);
+  }
 }
 
 console.log(`prerender  完成 ${ACTIVE_ROUTES.length} 頁`);

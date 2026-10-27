@@ -2,19 +2,45 @@
   "redirects": [
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
       "destination": "/shower",
       "permanent": false
     },
     {
       "source": "/robots.txt",
-      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
       "destination": "/robots-bath.txt",
       "permanent": false
     },
     {
+      "source": "/sitemap.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
+      "destination": "/sitemap-bath.xml",
+      "permanent": false
+    },
+    {
       "source": "/llms.txt",
-      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
       "destination": "/llms-bath.txt",
       "permanent": false
     }
@@ -42,7 +68,12 @@
     },
     {
       "source": "/checkin",
-      "has": [{ "type": "host", "value": "(www\\.)?17bath\\.org" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
       "destination": "/index.html"
     },
     {

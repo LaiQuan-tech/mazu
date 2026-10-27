@@ -600,7 +600,14 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   網址：`17bath.org/` → 307 轉到 `/shower`（理由見上面那條 (2)）、`17bath.org/checkin` → 志工打卡、`www` → 308 轉 apex。**`heshengtan.tw/shower` 與 `/shower/checkin` 照舊有效**，現場海報與 LINE 上發出去的 QR code 指的是舊網址。
   程式端是 `SHOWER_HOSTS`（App.tsx）：這個網域的根路徑回傳 `isShowerUrl() === true`，**同時就把法會著陸頁擋掉了**——`shouldShowFahui()` 的規則是「非官方網域的根路徑顯示法會報名」，而 17bath.org 正好符合。少了這一段，新網域打開會是普渡法會的報名表。
   **先上程式再指 DNS**，順序反了就會出現上面那個畫面。
-  canonical 目前仍指向 `heshengtan.tw/shower`（廟方 2026-10-20 決定維持現狀，不做轉址與正本對調）。
+  **canonical 2026-10-27 改指 `17bath.org/shower`**（廟方：「和聖壇不要有沐浴車的資訊，因為目前搜尋會混淆了」）。在那之前指向 `heshengtan.tw/shower`，等於跟 Google 宣告「沐浴車是和聖壇的頁面」——**那就是兩邊搜尋結果互相混淆的根源**，不是文案問題。（這推翻了 2026-10-20「維持現狀」那個決定。）
+  **切開要動五個地方，少一個就還是連在一起**：
+  1. `canonical` 與 `og:url`（`org` 路由改用 `BATH_ORIGIN`；JSON-LD 的 `@id` 與麵包屑跟著同一個 `url` 變數走，不能只改其中一個）。
+  2. **noscript 的站內連結**：原本是一份共用清單，於是**每一個和聖壇頁面都在 noscript 裡連到 `/shower`**，而沐浴車那頁又反過來連回十幾個宮廟頁——等於主動告訴檢索器「這是同一個站」。現在 `TEMPLE_NAV` 不含 `org` 路由，`org` 路由也不連回宮廟（實測宮廟頁 13 條連結、0 條指向 /shower；沐浴車頁 0 條連結）。
+  3. **sitemap 各自一份**：`sitemap.xml` 不再收 `org` 路由，另產 `sitemap-bath.xml`（含沐浴車自己的三張圖，網址也掛在 17bath.org 底下）。`vercel.json` 把 `17bath.org/sitemap.xml` 轉過去，**只能用 `redirects` 不能用 `rewrites`**——dist 裡真的有 `sitemap.xml`，檔案系統會先命中。`robots-bath.txt` 也補了 `Sitemap:` 那一行。
+  4. **和聖壇的 `llms.txt` 整節移除**（原本有「## 17 沐浴車」一整節加底部三條說明）。**但刻意留一句明確的切割聲明**——完全不提更糟：`heshengtan.tw/shower` 實體上就掛在宮廟網域下，AI 沒有指引時會自己猜成宮廟辦的。那一句講明「不是和聖壇的服務、本文件不描述它、去 17bath.org」。
+  5. **`llms-bath.txt` 反過來也要講**：「不是台北古亭和聖壇辦的」「這個網域只有沐浴車這一件事」，並補了一節「常被問到的幾件事（簡答）」。
+  **`heshengtan.tw/shower` 仍然打得開而且照常服務**（現場海報與 LINE 上發出去的 QR code 指的是舊網址），只是不再宣稱自己是正本。**不要為了「乾淨」去 robots 擋掉它**——擋了 Google 就讀不到 canonical，反而永遠整併不了。
   **網站圖示是沐浴車自己那組 `public/bath-*`**（2026-10-20 廟方：「17bath.org 的 Favicon，不要用和聖壇的」），
   由 `scripts/build-bath-icons.js` 產生（用法在檔頭，sharp 裝在暫存資料夾、別寫進 package.json）。
   **刻意不用海報**：favicon 只有 16px，人、車、廟、泡泡縮到那個尺寸會糊成一團粉紅色塊，
