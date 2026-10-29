@@ -7110,13 +7110,48 @@ const ReceivablesTab: React.FC<{
               placeholder="搜尋姓名 / 電話"
               className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red w-56" />
           </div>
+          {/* **這顆要永遠看得見。** 原本只在勾選之後才浮出底部那一條——
+              而沒發現左邊有勾選框的人，永遠不會知道有這個功能。
+              藏在一個「你必須先知道」的動作後面，等於沒有。 */}
+          <button onClick={() => pickedRows.length > 0 && setIssuing(true)}
+            disabled={pickedRows.length === 0}
+            title={pickedRows.length === 0 ? '先勾選左邊的方框選取要開收據的項目' : ''}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              pickedRows.length > 0
+                ? 'bg-temple-red text-white hover:bg-temple-red/90'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}>
+            開立收據{pickedRows.length > 0 ? ` (${pickedRows.length})` : ''}
+          </button>
         </div>
+
+        {/* 沒勾選時講一句，不要讓人對著一顆灰掉的按鈕猜 */}
+        {pickedRows.length === 0 && filtered.length > 0 && (
+          <p className="px-4 py-2 bg-amber-50/60 border-b border-amber-100 text-xs text-amber-800">
+            要開收據請先<strong>勾選最左邊的方框</strong>（可以跨類型一起勾，點燈＋捐款會開在同一張收據上）。
+          </p>
+        )}
 
         <div className="overflow-x-auto">
           <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
-                <th className="px-4 py-3 w-10"></th>
+                <th className="px-4 py-3 w-10">
+                  {/* 全選只作用在「目前篩選出來的」那幾列，不是整份資料——
+                      按一下就勾了幾百筆是沒有人想要的結果 */}
+                  <input type="checkbox"
+                    checked={filtered.length > 0 && filtered.every(r => r.pay === 'cancelled' || picked.has(r.id))}
+                    onChange={e => setPicked(prev => {
+                      const next = new Set(prev);
+                      filtered.forEach(r => {
+                        if (r.pay === 'cancelled') return;
+                        if (e.target.checked) next.add(r.id); else next.delete(r.id);
+                      });
+                      return next;
+                    })}
+                    title="全選目前篩選出來的"
+                    className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
+                </th>
                 {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員', '操作'].map(h => (
                   <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
                 ))}
