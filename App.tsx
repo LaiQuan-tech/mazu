@@ -469,10 +469,16 @@ const FAQ_FALLBACK: { q: string; a: string }[] = faqContent.items;
  * setState 拿到同一個參考就不會觸發重新渲染，避免打字打到一半被無謂地重繪。
  *
  * 泛型寫成 function 宣告而不是箭頭函式：本專案的 TSX 對泛型箭頭函式推導失敗（參數會變 unknown）。
+ *
+ * **限制是 `object` 不是 `Record<string, unknown>`**：interface 沒有隱含的索引簽章，
+ * 所以 `DonationPersonEntry` 這種 interface 永遠不滿足後者（2026-10-30 補上
+ * @types/react 之後才看得見這個錯）。`Object.keys` 與展開對任何物件都成立，
+ * 收緊到 Record 沒有換到任何安全性，只是把呼叫端擋掉。
  */
-function fillEmptyFields<T extends Record<string, unknown>>(entry: T, defaults: Record<string, unknown>): T {
+function fillEmptyFields<T extends object>(entry: T, defaults: Record<string, unknown>): T {
   let changed = false;
-  const next: Record<string, unknown> = { ...entry };
+  // 斷言而不是型別標註：`T extends object` 展開之後 TS 不認為它有字串索引
+  const next = { ...entry } as Record<string, unknown>;
   for (const key of Object.keys(defaults)) {
     const value = defaults[key];
     if (value && !next[key]) { next[key] = value; changed = true; }

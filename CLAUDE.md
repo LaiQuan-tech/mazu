@@ -705,6 +705,14 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **收起不是刪掉**：點「檢視」照樣看得到每一筆原始紀錄，**匯出 Excel 也一律是全欄位**，不跟著開關走——匯出是拿去對帳與列印的，少一欄比多一欄糟。
   改欄位時**表頭與表身是兩個地方、順序必須一致**，而且兩者都包在同一個 `{showMore && <>…</>}` 裡；只改一邊的話整張表會錯位一格，而 React 不會報錯。
 
+- **`@types/react` 以前沒有裝，所以 JSX 的屬性從來沒被檢查過**（2026-10-30 補上）。`React.FC<Props>` 裡的 `React` 解析成 `any`，整個型別就塌了——**`tsc --noEmit` 通過對元件屬性完全沒有保證**。
+  查出來的經過：把 `ReceiptIssueDialog` 的參數從 `items`／`preset` 改成 `groups`，呼叫端一行都沒改，`tsc` 卻一聲不吭；但故意寫 `const x: number = '字串'` 它立刻就抓。所以不是檢查器沒跑，是 React 的型別不存在。
+  **判斷「型別檢查有沒有在保護我」要用對照實驗**，不要看 exit code——那只證明「沒有它看得懂的錯」。
+
+  裝上去之後只冒出 3 個錯，其中**一個是真的 bug**：
+  - `<button onClick={fetchAll}>` ——`fetchAll(initial = false)` 會收到 React 傳進來的滑鼠事件當第一個參數，而事件物件是 **truthy**，於是 `initial` 永遠是真、那個判斷等於沒寫。**所有「參數有預設值的函式」直接當 `onClick` 都踩得到這個坑**，要包一層箭頭函式。
+  - `fillEmptyFields<T extends Record<string, unknown>>` ——interface 沒有隱含的索引簽章，所以 `DonationPersonEntry` 這種 interface 永遠不滿足那個限制。限制放寬成 `T extends object`（`Object.keys` 與展開對任何物件都成立），函式內部的 `{ ...entry }` 改用斷言而不是型別標註。
+
 - **收據（一式三聯，2026-10-30）**：`services/receipts.ts`、`components/ReceiptPrint.tsx`、`components/AdminReceipts.tsx`，資料表 `supabase/migrations/receipts.sql`。入口在「應收管理」（財務作業頁）。
 
   **廟方的四個決定**：可以事後補印／重印；一張收據可以合開多筆報名、金額由明細加總；收據自己一套連號、不跟財務憑證的傳票編號共用；一式三聯印在同一張 A4（收執聯／財務憑證聯／存根聯），沿裁切線剪開。

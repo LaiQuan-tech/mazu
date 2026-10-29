@@ -7948,7 +7948,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
           ) : error ? (
             <div className="text-center text-red-500 py-20">
               <p>{error}</p>
-              <button onClick={fetchAll} className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg">重試</button>
+              {/* **要包一層箭頭函式**：直接寫 `onClick={fetchAll}` 的話，React 會把
+                  滑鼠事件當成第一個參數傳進去，而事件物件是 truthy——於是
+                  `initial` 永遠是真，判斷就失效了。這裡從錯誤畫面重載，整頁
+                  loading 才是對的，所以明寫 true。
+                  （2026-10-30 補上 @types/react 之後才看得見這個錯。） */}
+              <button onClick={() => fetchAll(true)} className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg">重試</button>
             </div>
           ) : (
             <>
