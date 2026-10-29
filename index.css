@@ -253,3 +253,100 @@ select:not([multiple]):not([size]) {
   background-size: 1rem 1rem;
   padding-right: 2.5rem;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   收據（一式三聯）
+
+   **放在 index.css 而不是 index.html 的 inline style**（傳票那一套在 inline）：
+   列印版面唯一的驗證方法是畫出來看，而預覽頁是另一個 HTML 入口，
+   樣式在 inline style 裡它就吃不到。放成獨立檔案兩邊才共用同一份、不會各自演化。
+   ──────────────────────────────────────────────────────────────────────────── */
+/* ── 收據（一式三聯，一張 A4）──────────────────────────────────────
+   A4 直式 297mm 切三等份＝每聯 99mm。`@page` 的 margin 設 0，留白由每一聯
+   自己的 padding 負責——交給印表機的話三等份會被它的不可列印邊界吃掉，
+   三聯就對不齊裁切線了。
+
+   **`.rc-screen` 讓它在螢幕上也看得到**：列印版面沒有別的方法可以驗證，
+   不給預覽就只能印出來才知道有沒有跑版。 */
+.receipt-print-root { display: none; }
+.receipt-print-root.rc-screen {
+  display: block;
+  width: 210mm; min-height: 297mm; margin: 0 auto;
+  background: #fff; color: #000;
+  box-shadow: 0 2px 24px rgba(0,0,0,.18);
+}
+
+.receipt-print-root .rc-copy {
+  box-sizing: border-box;
+  height: 99mm; padding: 6mm 7mm 5mm;
+  position: relative; overflow: hidden;
+  font-family: "Noto Serif TC", "Noto Sans TC", serif;
+  display: flex; flex-direction: column;
+}
+/* 裁切線。最後一聯不畫——紙的邊緣本來就是邊界 */
+.receipt-print-root .rc-cut { border-bottom: 0.3mm dashed #999; }
+
+.receipt-print-root .rc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 2mm;
+}
+.receipt-print-root .rc-temple { font-size: 10pt; font-weight: 700; white-space: nowrap; }
+.receipt-print-root .rc-title  { font-size: 17pt; font-weight: 700; letter-spacing: 3px; }
+.receipt-print-root .rc-no     { font-size: 9pt; white-space: nowrap; }
+/* 編號是這張紙的身分，印紅色與紙本一致，也讓它在一疊收據裡找得到 */
+.receipt-print-root .rc-no-v   { font-size: 13pt; font-weight: 700; color: #c00; letter-spacing: 1px; }
+
+.receipt-print-root .rc-body { display: flex; gap: 2mm; flex: 1; min-height: 0; }
+.receipt-print-root .rc-table {
+  flex: 1; border-collapse: collapse; table-layout: fixed;
+}
+.receipt-print-root .rc-table td {
+  border: 0.3mm solid #000; padding: 1.2mm 2mm;
+  font-size: 9pt; line-height: 1.35; vertical-align: middle;
+}
+/* 標籤欄固定寬度，四個字剛好不折行 */
+.receipt-print-root .rc-l {
+  width: 20mm; text-align: center; white-space: nowrap; font-size: 9pt;
+}
+.receipt-print-root .rc-v    { word-break: break-all; }
+.receipt-print-root .rc-big  { font-size: 12pt; font-weight: 700; }
+.receipt-print-root .rc-nt   { width: 12mm; text-align: center; white-space: nowrap; }
+.receipt-print-root .rc-amt  { width: 24mm; text-align: right; font-size: 12pt; font-weight: 700; white-space: nowrap; }
+.receipt-print-root .rc-time { font-size: 8pt; margin-left: 4mm; }
+/* 附註那一格字小、行密——它要塞下感謝詞加三行廟方資料 */
+.receipt-print-root .rc-foot { font-size: 7.5pt; line-height: 1.3; }
+
+.receipt-print-root .rc-memo {
+  width: 34mm; border: 0.3mm solid #000; display: flex; flex-direction: column;
+}
+.receipt-print-root .rc-memo-h {
+  border-bottom: 0.3mm solid #000; text-align: center;
+  font-size: 9pt; padding: 1.2mm 0;
+}
+.receipt-print-root .rc-memo-b { flex: 1; padding: 1.5mm 2mm; font-size: 8pt; word-break: break-all; }
+
+.receipt-print-root .rc-sign {
+  display: flex; align-items: center; gap: 4mm;
+  margin-top: 1.5mm; font-size: 8.5pt; white-space: nowrap;
+}
+.receipt-print-root .rc-copy-label { margin-left: auto; font-weight: 700; }
+
+/* 作廢：斜蓋在整聯上，印得出來但一眼看得出不能用 */
+.receipt-print-root .rc-void-mark {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 40pt; font-weight: 700; color: rgba(200,0,0,.18);
+  letter-spacing: 8px; transform: rotate(-16deg); pointer-events: none;
+}
+
+@media print {
+  body * { visibility: hidden; }
+  .receipt-print-root, .receipt-print-root * { visibility: visible; }
+  .receipt-print-root {
+    display: block;
+    position: absolute; left: 0; top: 0;
+    width: 210mm; margin: 0; box-shadow: none;
+  }
+  /* 每一聯都不要被分頁切開 */
+  .receipt-print-root .rc-copy { break-inside: avoid; page-break-inside: avoid; }
+  @page { size: A4 portrait; margin: 0; }
+}

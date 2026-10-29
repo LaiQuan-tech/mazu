@@ -8,6 +8,8 @@ import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminVouchersTab from './AdminVouchersTab';
+import { ReceiptIssueDialog, ReceiptListPanel, useTempleInfo } from './AdminReceipts';
+import { ReceiptItem, ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import AdminShowerTab from './AdminShowerTab';
 import AdminUrgentTab from './AdminUrgentTab';
@@ -6877,6 +6879,24 @@ const ReceivablesTab: React.FC<{
   const [busyId, setBusyId] = useState<string | null>(null);
   /** 法會展開對帳欄位的那一列 */
   const [openReconcile, setOpenReconcile] = useState<string | null>(null);
+  /** 畫面：待辦清單 ↔ 已開立的收據 */
+  const [view, setView] = useState<'work' | 'receipts'>('work');
+  /** 勾選要開收據的列。key 是 IncomeRow.id（`lamp:uuid` 這種） */
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [issuing, setIssuing] = useState(false);
+  const [receipts, setReceipts] = useState<ReceiptRecord[]>([]);
+  /** 開完收據要讓列表重抓 */
+  const [receiptKey, setReceiptKey] = useState(0);
+  const temple = useTempleInfo();
+
+  useEffect(() => { getReceipts().then(setReceipts).catch(() => {}); }, [receiptKey]);
+  const already = useMemo(() => receiptsBySource(receipts), [receipts]);
+
+  /** IncomeRow 的 typeKey → 資料表名。收據明細靠這個指回報名紀錄 */
+  const SOURCE_TABLE = {
+    lamp: 'lamp_registrations', blessing: 'blessing_registrations',
+    fahui: 'fahui_registrations', donation: 'donations',
+  } as const;
 
   type PayState = 'pending' | 'paid' | 'cancelled' | 'unchecked';
   type IncomeRow = {
@@ -6939,6 +6959,22 @@ const ReceivablesTab: React.FC<{
     }
     return r;
   }, [rows, filter, payFilter, search]);
+
+  /** 勾起來的那幾列。**從 rows 取不是從 filtered 取**：換了篩選條件之後，
+   *  已經勾好的列不該因為暫時被篩掉就消失，否則勾到一半改個篩選就全沒了。 */
+  const pickedRows = useMemo(() => rows.filter(r => picked.has(r.id)), [rows, picked]);
+  const pickedItems: ReceiptItem[] = pickedRows.map(r => ({
+    sourceTable: SOURCE_TABLE[r.typeKey],
+    sourceId: r.id.split(':')[1],
+    // 項目名稱與金額是**快照**：收據印出去之後，活動改名或改價都不該動到那張紙
+    label: r.typeKey === 'donation' ? r.detail : `${r.type}－${r.detail}`,
+    amount: r.amount,
+  }));
+  const togglePick = (id: string) => setPicked(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const sum = (pred: (r: IncomeRow) => boolean) =>
     rows.filter(pred).reduce((s, r) => s + r.amount, 0);
@@ -7024,6 +7060,19 @@ const ReceivablesTab: React.FC<{
         </div>
       </div>
 
+      <div className="flex gap-1">
+        {(['work', 'receipts'] as const).map(k => (
+          <button key={k} onClick={() => setView(k)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              view === k ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+            }`}>
+            {k === 'work' ? '待辦清單' : `收據 ${receipts.length}`}
+          </button>
+        ))}
+      </div>
+
+      {view === 'receipts' ? <ReceiptListPanel temple={temple} refreshKey={receiptKey} /> : (
+      <>
       {/* 篩選 + 搜尋 + 表格 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
@@ -7061,6 +7110,7 @@ const ReceivablesTab: React.FC<{
           <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
+                <th className="px-4 py-3 w-10"></th>
                 {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員', '操作'].map(h => (
                   <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
                 ))}
@@ -7068,7 +7118,7 @@ const ReceivablesTab: React.FC<{
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="text-center text-gray-400 py-16">
+                <tr><td colSpan={10} className="text-center text-gray-400 py-16">
                   {payFilter === 'pending' ? '待收款的都處理完了' : '暫無資料'}
                 </td></tr>
               ) : filtered.map(row => {
@@ -7077,6 +7127,13 @@ const ReceivablesTab: React.FC<{
                 return (
                   <React.Fragment key={row.id}>
                     <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td data-label="選取" className="px-4 py-3">
+                        {/* 已取消的開不了收據 */}
+                        {row.pay !== 'cancelled' && (
+                          <input type="checkbox" checked={picked.has(row.id)} onChange={() => togglePick(row.id)}
+                            className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
+                        )}
+                      </td>
                       <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
                       <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
                       <td data-label="電話" className="px-5 py-3 text-gray-500">{row.phone}</td>
@@ -7121,7 +7178,7 @@ const ReceivablesTab: React.FC<{
                     </tr>
                     {row.fahui && openReconcile === row.id && (
                       <tr className="bg-gray-50/70">
-                        <td colSpan={9} className="px-5 py-4">
+                        <td colSpan={10} className="px-5 py-4">
                           <FahuiReconcileBlock r={row.fahui} onSaved={onRefresh} />
                         </td>
                       </tr>
@@ -7142,6 +7199,36 @@ const ReceivablesTab: React.FC<{
           </div>
         )}
       </div>
+
+      {/* 勾了才出現。合計由明細加總，與收據上印的是同一個算法 */}
+      {pickedRows.length > 0 && (
+        <div className="sticky bottom-4 z-20 bg-gray-900 text-white rounded-2xl shadow-xl px-5 py-3.5 flex flex-wrap items-center gap-3">
+          <span className="text-sm">已選 <strong>{pickedRows.length}</strong> 筆</span>
+          <span className="text-sm text-gray-300">合計 NT$ {pickedRows.reduce((s, r) => s + r.amount, 0).toLocaleString()}</span>
+          <button onClick={() => setPicked(new Set())}
+            className="text-xs text-gray-400 hover:text-white underline">清除</button>
+          <button onClick={() => setIssuing(true)}
+            className="ml-auto px-4 py-2 rounded-xl bg-temple-red text-white text-sm font-medium hover:bg-temple-red/90">
+            開立收據
+          </button>
+        </div>
+      )}
+
+      {issuing && (
+        <ReceiptIssueDialog
+          items={pickedItems}
+          preset={{
+            title: pickedRows[0]?.name ?? '',
+            phone: pickedRows[0]?.phone,
+          }}
+          already={already}
+          temple={temple}
+          onClose={() => setIssuing(false)}
+          onIssued={() => { setPicked(new Set()); setReceiptKey(k => k + 1); }}
+        />
+      )}
+      </>
+      )}
 
       <p className="text-xs text-gray-400 leading-relaxed">
         按「標記已收款」時，<strong className="text-gray-500">點燈／祈福／法會會自動寄一封「款項已收到」給信眾</strong>

@@ -1,0 +1,317 @@
+/**
+ * 收據的開立、補印與作廢。資料層見 services/receipts.ts，版面見 ReceiptPrint.tsx。
+ *
+ * ── 為什麼開立對話框要能改抬頭／電話／地址 ──
+ * 預設帶報名人的資料，但**收據抬頭不一定等於報名人**：女兒幫父親點燈，收據要開給
+ * 父親；也常見開給「○○家族」或公司行號。所以三個欄位都可以改，改的是這張收據，
+ * 不會回頭動到報名紀錄。
+ *
+ * ── 已經開過收據的要擋在眼前，但不能擋死 ──
+ * 同一筆報名開兩張收據是重大的帳務錯誤，但「作廢後重開」是正常流程，
+ * 所以是**警告不是禁止**（同 voucher_items_source_idx 刻意不做 UNIQUE 的理由）。
+ */
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, Printer, Search, Ban } from 'lucide-react';
+import {
+  ReceiptItem, ReceiptRecord, receiptTotal, amountToChinese,
+  createReceipt, getReceipts, voidReceipt, getReceiptSettings, DEFAULT_RECEIPT_SETTINGS,
+} from '../services/receipts';
+import { getSiteInfo, DEFAULT_SITE_INFO } from '../services/supabase';
+import ReceiptPrint, { ReceiptTempleInfo } from './ReceiptPrint';
+
+const money = (n: number) => `NT$ ${n.toLocaleString()}`;
+
+/** 把廟方基本資料與收據設定併成列印要的那一包 */
+export const useTempleInfo = (): ReceiptTempleInfo => {
+  const [info, setInfo] = useState(DEFAULT_SITE_INFO);
+  const [rs, setRs] = useState(DEFAULT_RECEIPT_SETTINGS);
+  useEffect(() => {
+    getSiteInfo().then(setInfo).catch(() => {});
+    getReceiptSettings().then(setRs).catch(() => {});
+  }, []);
+  return {
+    name: '台北和聖壇',
+    thanksText: rs.thanksText,
+    certNo: rs.certNo,
+    address: info.address,
+    phone: info.phone,
+    taxId: rs.taxId,
+    signTitles: [rs.signTitle1, rs.signTitle2],
+  };
+};
+
+const field = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red';
+
+// ── 開立 ──────────────────────────────────────────────────────────────────
+
+export const ReceiptIssueDialog: React.FC<{
+  items: ReceiptItem[];
+  /** 預帶的抬頭與聯絡資料（通常取第一筆報名人的） */
+  preset: { title: string; phone?: string; address?: string };
+  /** 這幾筆裡已經開過收據的，key 是 `table:id` */
+  already: Map<string, ReceiptRecord>;
+  temple: ReceiptTempleInfo;
+  onClose: () => void;
+  onIssued: () => void;
+}> = ({ items, preset, already, temple, onClose, onIssued }) => {
+  /**
+   * 經手人要印在收據上，而 `admin_profiles` 沒有姓名欄位（只有 user_id 與 role），
+   * auth 的信箱又不是人名。所以讓財務自己填，**記在這台電腦上**下次自動帶入——
+   * 每天要開幾十張，每張都重打姓名不合理。
+   * 用 localStorage 不是資料庫：這是「這台電腦前面坐的是誰」，不是廟方的設定。
+   */
+  const [operator, setOperator] = useState(() => {
+    try { return localStorage.getItem('receipt_operator') ?? ''; } catch { return ''; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('receipt_operator', operator); } catch { /* 無痕視窗會丟錯，不影響開立 */ }
+  }, [operator]);
+  const [title, setTitle] = useState(preset.title);
+  const [phone, setPhone] = useState(preset.phone ?? '');
+  const [address, setAddress] = useState(preset.address ?? '');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  /** 開完之後要印的那一張。印完才關對話框，不然元件被卸載就印不出來了 */
+  const [printing, setPrinting] = useState<ReceiptRecord | null>(null);
+
+  const total = receiptTotal(items);
+  const dupes = items.filter(i => i.sourceTable && i.sourceId && already.has(`${i.sourceTable}:${i.sourceId}`));
+
+  const submit = async () => {
+    if (!title.trim()) { setErr('收據抬頭不能空白'); return; }
+    setErr(''); setSaving(true);
+    try {
+      const r = await createReceipt({
+        title: title.trim(), items,
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+        note: note.trim() || undefined,
+        byName: operator || undefined,
+      });
+      if (r) { setPrinting(r); onIssued(); }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '開立失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (printing) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-3">
+            <p className="font-semibold text-gray-800">已開立 {printing.receiptNo}</p>
+            <p className="text-xs text-gray-500">列印對話框沒出現的話，請按下面重印。</p>
+            <div className="flex gap-2">
+              <button onClick={() => window.print()}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600">再印一次</button>
+              <button onClick={onClose}
+                className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium">完成</button>
+            </div>
+          </div>
+        </div>
+        <ReceiptPrint receipt={printing} temple={temple} />
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3.5 flex items-center justify-between">
+          <h3 className="font-bold text-gray-800">開立收據</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {dupes.length > 0 && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+              其中 <strong>{dupes.length} 筆已經開過收據</strong>
+              （{dupes.map(d => already.get(`${d.sourceTable}:${d.sourceId}`)?.receiptNo).filter(Boolean).join('、')}）。
+              要重開請先把舊的那張作廢，否則同一筆錢會有兩張收據。
+            </div>
+          )}
+
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-gray-100">
+                {items.map((i, n) => (
+                  <tr key={n}>
+                    <td className="px-3 py-2 text-gray-700">{i.label}</td>
+                    <td className="px-3 py-2 text-right text-gray-800 font-medium whitespace-nowrap">{money(i.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  {/* 合計由明細加總，不另存一個數字（同財務憑證那條原則） */}
+                  <td className="px-3 py-2 text-xs text-gray-500">合計（{items.length} 筆）</td>
+                  <td className="px-3 py-2 text-right font-bold text-gray-900 whitespace-nowrap">{money(total)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2} className="px-3 pb-2 text-right text-xs text-gray-500">{amountToChinese(total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <label className="block">
+            <span className="block text-xs font-medium text-gray-600 mb-1">收據抬頭 *</span>
+            <input value={title} onChange={e => setTitle(e.target.value)} className={field} />
+            <span className="block text-[11px] text-gray-400 mt-1">
+              可以跟報名人不同（例如開給長輩或「○○家族」）。改這裡不會動到報名紀錄。
+            </span>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-600 mb-1">電話</span>
+              <input value={phone} onChange={e => setPhone(e.target.value)} className={field} />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-600 mb-1">經手人</span>
+              <input value={operator} onChange={e => setOperator(e.target.value)} className={field}
+                placeholder="你的名字" />
+            </label>
+          </div>
+          <label className="block">
+            <span className="block text-xs font-medium text-gray-600 mb-1">地址</span>
+            <input value={address} onChange={e => setAddress(e.target.value)} className={field} />
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium text-gray-600 mb-1">備註（印在收據右欄）</span>
+            <input value={note} onChange={e => setNote(e.target.value)} className={field}
+              placeholder="例如：現金、代繳" />
+          </label>
+
+          {err && <p className="text-sm text-temple-red">{err}</p>}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm">取消</button>
+            <button onClick={submit} disabled={saving || items.length === 0}
+              className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium disabled:opacity-40">
+              {saving ? '開立中…' : '開立並列印'}
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400">
+            一張 A4 會印出三聯（收執聯／財務憑證聯／存根聯），沿裁切線剪開即可。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── 列表：補印與作廢 ──────────────────────────────────────────────────────
+
+export const ReceiptListPanel: React.FC<{ temple: ReceiptTempleInfo; refreshKey: number }> = ({ temple, refreshKey }) => {
+  const [list, setList] = useState<ReceiptRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+  const [printing, setPrinting] = useState<ReceiptRecord | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    getReceipts().then(setList).finally(() => setLoading(false));
+  };
+  useEffect(load, [refreshKey]);
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return list;
+    return list.filter(r =>
+      r.receiptNo.toLowerCase().includes(s) ||
+      r.title.toLowerCase().includes(s) ||
+      (r.phone ?? '').includes(s));
+  }, [list, q]);
+
+  const doVoid = async (r: ReceiptRecord) => {
+    const reason = window.prompt(`作廢 ${r.receiptNo}。請寫原因（會留在紀錄上）：`);
+    if (reason === null) return;
+    setBusy(r.id);
+    try { await voidReceipt(r.id, reason.trim()); load(); }
+    catch { alert('作廢失敗'); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+        <h3 className="font-semibold text-gray-700 text-sm">已開立的收據</h3>
+        <span className="text-xs text-gray-400">{list.length} 張</span>
+        <div className="relative ml-auto">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋收據編號 / 抬頭 / 電話"
+            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-temple-red/20 w-64" />
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-center text-gray-400 py-12 text-sm">載入中…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-center text-gray-400 py-12 text-sm">{list.length === 0 ? '還沒有開過收據' : '沒有符合的收據'}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="admin-table w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
+                {['收據編號', '日期', '抬頭', '項目', '金額', '經手人', '狀態', '操作'].map(h => (
+                  <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(r => {
+                const voided = r.status === 'void';
+                return (
+                  <tr key={r.id} className={`border-b border-gray-50 ${voided ? 'opacity-55' : 'hover:bg-gray-50/50'}`}>
+                    <td data-label="收據編號" className="px-5 py-3 font-mono font-semibold text-gray-800 whitespace-nowrap">{r.receiptNo}</td>
+                    <td data-label="日期" className="px-5 py-3 text-gray-400 text-xs whitespace-nowrap">
+                      {new Date(r.issuedAt).toLocaleDateString('zh-TW')}
+                    </td>
+                    <td data-label="抬頭" className="px-5 py-3 text-gray-800">{r.title}</td>
+                    <td data-label="項目" className="px-5 py-3 text-gray-600 max-w-[220px] truncate"
+                      title={r.items.map(i => `${i.label} $${i.amount}`).join('、')}>
+                      {r.items.map(i => i.label).join('、')}
+                    </td>
+                    <td data-label="金額" className="px-5 py-3 text-right font-semibold whitespace-nowrap">{money(receiptTotal(r.items))}</td>
+                    <td data-label="經手人" className="px-5 py-3 text-gray-500 text-xs">{r.createdByName || '—'}</td>
+                    <td data-label="狀態" className="px-5 py-3">
+                      {voided
+                        ? <span className="px-2.5 py-0.5 rounded-full text-xs bg-red-100 text-red-700" title={r.voidReason}>已作廢</span>
+                        : <span className="px-2.5 py-0.5 rounded-full text-xs bg-green-100 text-green-700">有效</span>}
+                    </td>
+                    <td data-label="操作" className="px-5 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {/* 作廢的也要印得出來：財務查帳時會需要調閱那一張 */}
+                        <button onClick={() => setPrinting(r)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 inline-flex items-center gap-1">
+                          <Printer className="w-3 h-3" />{voided ? '調閱' : '補印'}
+                        </button>
+                        {!voided && (
+                          <button onClick={() => doVoid(r)} disabled={busy === r.id}
+                            title="作廢（不刪除，號碼留著）"
+                            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-40">
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="px-5 py-3 text-[11px] text-gray-400 border-t border-gray-100">
+        作廢不會刪除，號碼留在列表上——<strong>連號一旦缺號，外觀上與「有人抽走一張」分不出來</strong>。
+      </p>
+
+      {printing && <ReceiptPrint receipt={printing} temple={temple} onDone={() => setPrinting(null)} />}
+    </div>
+  );
+};
