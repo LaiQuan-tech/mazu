@@ -686,6 +686,27 @@ const rosterTotalCount = (counts: Record<string, number>): number =>
 
 const ROSTER_SOURCES = ['法會報名', '法會陽上', '志工', '會員', '通訊錄', '問事', '捐款', '點燈', '祈福', '活動報名'];
 
+/**
+ * 管道徽章上的數字代表什麼。**每一種數的東西不一樣，滑過去要講得出來**
+ * （廟方 2026-10-30 問「法會陽上 5 是因為有會員幫她報名嗎」——不是，
+ * 最常見的是同一張報名單上報了 5 個牌位，陽上姓名都填他自己）。
+ */
+const ROSTER_SOURCE_HINT: Record<string, string> = {
+  法會報名: '他自己當聯絡人送出的報名單數。金額算在這裡。',
+  法會陽上: '他的名字出現在幾個牌位／戶的「陽上姓名」欄。'
+    + '一張報名單可以有很多個牌位，所以 5 通常是「同一張單報了 5 個牌位」，'
+    + '不是「5 個人幫他報名」——點「檢視」看日期就分得出來：同一天＝同一張單。'
+    + '陽上不計金額，錢算在聯絡人身上。',
+  志工:     '志工報名的次數。',
+  會員:     '他名下的會員帳號數（通常 1 個；有人同時有信箱帳號與 LINE 帳號）。',
+  通訊錄:   '他被幾個會員加進親友通訊錄。',
+  問事:     '問事預約的次數。',
+  捐款:     '捐款的筆數。金額算在這裡。',
+  點燈:     '點燈報名的次數。',
+  祈福:     '祈福報名的次數。',
+  活動報名: '舊的活動報名紀錄（這條路前台已經沒有在用了）。',
+};
+
 /** 後台代為報名時寫進 `source` 欄的值（廟方 2026-10-30 指定）。
  *  **不要讓它退回 `getSource()`**：那會變成 `direct`，然後「流量來源」那一頁會
  *  告訴廟方「很多人自己直接找上門」，而實際上是工作人員一筆一筆手動加的。 */
@@ -1013,6 +1034,10 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
   const [sourceFilter, setSourceFilter] = useState('');
   const [relationFilter, setRelationFilter] = useState('');
   const [proxyRow, setProxyRow] = useState<DevoteeRow | null>(null);
+  /** 次要欄位（關係／性別／地址／累計金額／可能親屬）預設收起來。
+   *  廟方 2026-10-30：「這張表很長，後台操作不易。」收起來不是刪掉，
+   *  點「檢視」一樣看得到全部。 */
+  const [showMore, setShowMore] = useState(false);
   const [onlyConflicts, setOnlyConflicts] = useState(false);
 
   // ── 人工校正 ──
@@ -1270,6 +1295,12 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
             className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
           只看疑似同名
         </label>
+        <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1"
+          title="關係、性別、地址、累計金額、可能親屬">
+          <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
+            className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
+          更多欄位
+        </label>
       </div>
 
       {filtered.length === 0 ? (
@@ -1279,15 +1310,19 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
           <table className="admin-table w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs">
               <tr>
+                {/* 常用的排前面（廟方 2026-10-30）：找人 → 看他最近有沒有來 → 直接代報名。
+                    其餘五欄收在「更多欄位」後面，順序與表身必須一致。 */}
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
-                <th className="px-4 py-3 text-left font-medium">關係</th>
-                <th className="px-4 py-3 text-left font-medium">性別</th>
                 <th className="px-4 py-3 text-left font-medium">電話</th>
-                <th className="px-4 py-3 text-left font-medium">地址</th>
-                <th className="px-4 py-3 text-left font-medium">參與管道</th>
-                <th className="px-4 py-3 text-right font-medium">累計金額</th>
                 <th className="px-4 py-3 text-left font-medium">最近參與</th>
-                <th className="px-4 py-3 text-left font-medium">可能親屬</th>
+                <th className="px-4 py-3 text-left font-medium">參與管道</th>
+                {showMore && <>
+                  <th className="px-4 py-3 text-left font-medium">關係</th>
+                  <th className="px-4 py-3 text-left font-medium">性別</th>
+                  <th className="px-4 py-3 text-left font-medium">地址</th>
+                  <th className="px-4 py-3 text-right font-medium">累計金額</th>
+                  <th className="px-4 py-3 text-left font-medium">可能親屬</th>
+                </>}
                 <th className="px-4 py-3 text-center font-medium">操作</th>
               </tr>
             </thead>
@@ -1312,26 +1347,29 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       </span>
                     )}
                   </td>
-                  <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
-                  <td data-label="性別" className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
                   <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || '—'}</td>
-                  <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || '—'}</td>
+                  <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || '—'}</td>
                   <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {ROSTER_SOURCES.filter(s => r.counts[s]).map(s => (
-                        <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E] whitespace-nowrap">
+                        <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E] whitespace-nowrap"
+                          title={`${s}：${ROSTER_SOURCE_HINT[s] ?? ''}${r.counts[s] > 1 ? `（目前 ${r.counts[s]}）` : ''}`}>
                           {s}{r.counts[s] > 1 ? ` ${r.counts[s]}` : ''}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td data-label="累計金額" className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
-                    {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : '—'}
-                  </td>
-                  <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || '—'}</td>
-                  <td data-label="可能親屬" className="px-4 py-3 text-gray-500 max-w-[160px] truncate" title={r.relatives.join('、')}>
-                    {r.relatives.join('、') || '—'}
-                  </td>
+                  {showMore && <>
+                    <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
+                    <td data-label="性別" className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
+                    <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || '—'}</td>
+                    <td data-label="累計金額" className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
+                      {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : '—'}
+                    </td>
+                    <td data-label="可能親屬" className="px-4 py-3 text-gray-500 max-w-[160px] truncate" title={r.relatives.join('、')}>
+                      {r.relatives.join('、') || '—'}
+                    </td>
+                  </>}
                   <td data-label="操作" className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       {mergeFrom ? (
