@@ -6997,6 +6997,12 @@ const ReceivablesTab: React.FC<{
   /** 勾起來的那幾列。**從 rows 取不是從 filtered 取**：換了篩選條件之後，
    *  已經勾好的列不該因為暫時被篩掉就消失，否則勾到一半改個篩選就全沒了。 */
   const pickedRows = useMemo(() => rows.filter(r => picked.has(r.id)), [rows, picked]);
+  /** **要定義在 `pickedGroups` 之前。** `const` 有暫時死區，而那個 useMemo 的
+   *  工廠是在渲染當下同步執行的——放在後面的話，一勾選就 ReferenceError。
+   *  沒勾選時 Map 是空的、這支不會被呼叫，所以畫面看起來正常，
+   *  **一勾下去才炸**（廟方 2026-10-30 回報）。 */
+  const findMember = (phone: string) => memberProfiles.find(p => p.phone === phone) || null;
+
   /**
    * 勾選的列依「人」分組——**一個人一張收據**。
    *
@@ -7048,7 +7054,6 @@ const ReceivablesTab: React.FC<{
   const totalPaid     = useMemo(() => sum(r => r.pay === 'paid'), [rows]);
   const uncheckedRows = useMemo(() => rows.filter(r => r.pay === 'unchecked'), [rows]);
 
-  const findMember = (phone: string) => memberProfiles.find(p => p.phone === phone) || null;
 
   /**
    * 標記收款。**一定要走各服務原本那條路**，寄信就在那裡面
