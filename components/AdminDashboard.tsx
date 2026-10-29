@@ -8,7 +8,7 @@ import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminVouchersTab from './AdminVouchersTab';
-import { ReceiptIssueDialog, ReceiptListPanel, useTempleInfo } from './AdminReceipts';
+import { ReceiptIssueDialog, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import { ReceiptItem, ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import AdminShowerTab from './AdminShowerTab';
@@ -7071,7 +7071,13 @@ const ReceivablesTab: React.FC<{
         ))}
       </div>
 
-      {view === 'receipts' ? <ReceiptListPanel temple={temple} refreshKey={receiptKey} /> : (
+      {view === 'receipts' ? (
+        <div className="space-y-6">
+          <ReceiptListPanel temple={temple} refreshKey={receiptKey} />
+          {/* 設定放在列表下面：每天開收據的人不需要看到它，但要找得到 */}
+          <ReceiptSettingsPanel onSaved={() => setReceiptKey(k => k + 1)} />
+        </div>
+      ) : (
       <>
       {/* 篩選 + 搜尋 + 表格 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

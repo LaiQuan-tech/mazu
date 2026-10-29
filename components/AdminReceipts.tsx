@@ -14,7 +14,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { X, Printer, Search, Ban } from 'lucide-react';
 import {
   ReceiptItem, ReceiptRecord, receiptTotal, amountToChinese,
-  createReceipt, getReceipts, voidReceipt, getReceiptSettings, DEFAULT_RECEIPT_SETTINGS,
+  createReceipt, getReceipts, voidReceipt, getReceiptSettings, saveReceiptSettings,
+  ReceiptSettings, DEFAULT_RECEIPT_SETTINGS,
 } from '../services/receipts';
 import { getSiteInfo, DEFAULT_SITE_INFO } from '../services/supabase';
 import ReceiptPrint, { ReceiptTempleInfo } from './ReceiptPrint';
@@ -312,6 +313,66 @@ export const ReceiptListPanel: React.FC<{ temple: ReceiptTempleInfo; refreshKey:
       </p>
 
       {printing && <ReceiptPrint receipt={printing} temple={temple} onDone={() => setPrinting(null)} />}
+    </div>
+  );
+};
+
+// ── 收據上的廟方資料 ──────────────────────────────────────────────────────
+
+/**
+ * 登記證字號、統一編號、感謝詞與簽章頭銜。
+ *
+ * **放在收據這一頁、不放「基本資料」**：那一頁是給前台用的（頁尾、地圖、schema.org），
+ * 這四個只有收據會印。混在一起的話，改網站地址的人會看到四個不知道是什麼的欄位。
+ *
+ * **沒填就留白，不要給假的預設值**：收據上印一個不存在的登記證號比留白糟得多。
+ */
+export const ReceiptSettingsPanel: React.FC<{ onSaved: () => void }> = ({ onSaved }) => {
+  const [v, setV] = useState<ReceiptSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => { getReceiptSettings().then(setV).catch(() => setV(DEFAULT_RECEIPT_SETTINGS)); }, []);
+  if (!v) return null;
+
+  const set = (k: keyof ReceiptSettings) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setV({ ...v, [k]: e.target.value }); setDone(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try { await saveReceiptSettings(v); setDone(true); onSaved(); }
+    catch { alert('儲存失敗'); }
+    finally { setSaving(false); }
+  };
+
+  const rows: Array<[keyof ReceiptSettings, string, string]> = [
+    ['thanksText', '感謝詞', '印在附註的第一行'],
+    ['certNo',     '寺廟登記證字號', '沒有就留白'],
+    ['taxId',      '統一編號', '沒有就留白'],
+    ['signTitle1', '簽章欄一', '例如：壇　主'],
+    ['signTitle2', '簽章欄二', '例如：主任委員'],
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+      <h3 className="font-semibold text-gray-700 text-sm">收據上的廟方資料</h3>
+      <p className="text-xs text-gray-400">改完會套用到**之後開立**的收據；已經開出去的不會變（收據是不可變的紙本紀錄）。</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {rows.map(([k, label, hint]) => (
+          <label key={k} className={`block ${k === 'thanksText' ? 'sm:col-span-2' : ''}`}>
+            <span className="block text-xs font-medium text-gray-600 mb-1">{label}</span>
+            <input value={v[k]} onChange={set(k)} className={field} placeholder={hint} />
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={saving}
+          className="px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium disabled:opacity-40">
+          {saving ? '儲存中…' : '儲存'}
+        </button>
+        {done && <span className="text-xs text-green-600">已儲存</span>}
+      </div>
     </div>
   );
 };
