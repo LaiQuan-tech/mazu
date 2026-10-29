@@ -707,6 +707,50 @@ const ROSTER_SOURCE_HINT: Record<string, string> = {
   活動報名: '舊的活動報名紀錄（這條路前台已經沒有在用了）。',
 };
 
+/**
+ * **表格裡的管道徽章要合併顯示**（廟方 2026-10-30：「表格中就是看一個大概，
+ * 參與管道中法會報名、法會陽上資料都太詳細了」）。
+ *
+ * 法會的兩種（自己當聯絡人送單／名字出現在別人的牌位上）在名冊的資料層是
+ * **兩個不同的管道、必須分開存**——金額只算在報名單上，合在一起存就再也分不出
+ * 誰該收錢。但那是對帳時才需要的精度，一張「看個大概」的表上並排兩顆徽章只是雜訊。
+ *
+ * 所以**只有顯示合併**：`DevoteeSource`、篩選下拉、匯出、「檢視」的逐筆紀錄
+ * 全都維持原本的兩種。要看拆解點「檢視」。
+ */
+const ROSTER_BADGE_GROUPS: Array<{ label: string; keys: string[] }> = [
+  { label: '法會', keys: ['法會報名', '法會陽上'] },
+  ...['祈福', '點燈', '問事', '捐款', '志工', '通訊錄', '活動報名']
+    .map(k => ({ label: k, keys: [k] })),
+];
+
+/**
+ * **`會員` 刻意不在上面那張表裡。** 姓名那一格已經有一顆「會員 #007」的徽章
+ * （`memberAccounts > 0` 時顯示），管道裡再放一顆講的是同一件事——同一列把同一個
+ * 事實講兩次，而這張表的用途是「看一個大概」。
+ *
+ * **只是不顯示，資料沒有少**：`會員` 仍然是 `DevoteeSource` 的一員，篩選下拉、
+ * 匯出、「檢視」的逐筆紀錄都還在，`stats.members` 也照樣算得到。
+ */
+
+/** 一列要顯示的徽章：合併後的標籤、總次數，以及滑過去的說明 */
+const rosterBadges = (counts: Record<string, number>) =>
+  ROSTER_BADGE_GROUPS
+    .map(g => {
+      const parts = g.keys
+        .map(k => ({ k, n: counts[k] ?? 0 }))
+        .filter(x => x.n > 0);
+      const total = parts.reduce((s, x) => s + x.n, 0);
+      if (total === 0) return null;
+      // 合併的那顆要講得出 total 是哪幾種加起來的，否則數字會像憑空出現
+      const hint = parts.length > 1
+        ? parts.map(x => `${x.k} ${x.n}`).join('、') + '。'
+          + ROSTER_SOURCE_HINT['法會陽上']
+        : `${ROSTER_SOURCE_HINT[parts[0].k] ?? ''}${total > 1 ? `（目前 ${total}）` : ''}`;
+      return { label: g.label, total, hint };
+    })
+    .filter((x): x is { label: string; total: number; hint: string } => x !== null);
+
 /** 後台代為報名時寫進 `source` 欄的值（廟方 2026-10-30 指定）。
  *  **不要讓它退回 `getSource()`**：那會變成 `direct`，然後「流量來源」那一頁會
  *  告訴廟方「很多人自己直接找上門」，而實際上是工作人員一筆一筆手動加的。 */
@@ -1351,12 +1395,16 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                   <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || '—'}</td>
                   <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {ROSTER_SOURCES.filter(s => r.counts[s]).map(s => (
-                        <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E] whitespace-nowrap"
-                          title={`${s}：${ROSTER_SOURCE_HINT[s] ?? ''}${r.counts[s] > 1 ? `（目前 ${r.counts[s]}）` : ''}`}>
-                          {s}{r.counts[s] > 1 ? ` ${r.counts[s]}` : ''}
+                      {rosterBadges(r.counts).map(b => (
+                        <span key={b.label} className="text-[11px] px-2 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E] whitespace-nowrap"
+                          title={`${b.label}：${b.hint}`}>
+                          {b.label}{b.total > 1 ? ` ${b.total}` : ''}
                         </span>
                       ))}
+                      {/* 註冊了帳號但還沒報過任何名的會員，管道會是空的——
+                          「會員」那顆刻意不在這裡（姓名旁邊已經有了）。留白看起來像壞掉，
+                          所以照其他欄位的慣例給一個破折號。 */}
+                      {rosterBadges(r.counts).length === 0 && <span className="text-gray-300">—</span>}
                     </div>
                   </td>
                   {showMore && <>
