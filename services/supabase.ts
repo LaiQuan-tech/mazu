@@ -37,7 +37,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * `notify: false` ＝這一筆屬於某張訂單的一部分，**先不要寄信**；
  * 呼叫端收齊全部的 id 之後整批寄一封（見 services/notifyRegistration.ts 檔頭）。
  */
-export interface SubmitOptions { notify?: boolean }
+export interface SubmitOptions {
+  notify?: boolean;
+  /**
+   * 覆寫這一筆的「報名來源」（`source` 欄，UTM 那一組，不是參與管道）。
+   *
+   * **後台代為報名一定要帶**（值為 `admin/line`）。不帶的話 `getSource()` 會回
+   * `direct`——然後「流量來源」那一頁會告訴廟方「很多人自己直接找上門」，
+   * 而實際上是工作人員一筆一筆手動加的。那個數字會被拿來判斷要不要繼續投廣告，
+   * 標錯等於拿錯的數字做決定。
+   */
+  source?: string;
+}
 
 /**
  * 把資料庫裡的點燈／祈福狀態折成現行的三個值。
@@ -188,7 +199,7 @@ export const submitBooking = async (data: BookingData, opts?: SubmitOptions): Pr
     notes: data.notes || null,
     status: BookingStatus.PENDING,
     email: data.email?.trim() || null,
-    source: getSource(),
+    source: opts?.source ?? getSource(),
   }, ['email']);
   if (opts?.notify !== false) notifyRegistration('bookings', id);
   return id;
@@ -1504,7 +1515,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
     // 靠它等於每一筆新報名一出生就是舊值，還要再經過一次折算才看得對
     status: BlessingStatus.PENDING,
     email: d.email?.trim() || null,
-    source: getSource(),
+    source: opts?.source ?? getSource(),
   }, ['email', 'contact_label'], { status: '待確認' });
   if (opts?.notify !== false) notifyRegistration('blessing_registrations', id);
   return id;
