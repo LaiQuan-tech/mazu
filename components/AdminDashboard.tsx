@@ -761,15 +761,39 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
     return matchSearch && matchSource && matchRelation && (!onlyConflicts || r.nameConflict);
   }), [rows, search, sourceFilter, relationFilter, onlyConflicts]);
 
-  const stats = useMemo(() => ({
-    total: rows.length,
-    fahui: rows.filter(r => (r.counts['法會報名'] ?? 0) > 0 || (r.counts['法會陽上'] ?? 0) > 0).length,
-    repeat: rows.filter(r => rosterTotalCount(r.counts) > 1).length,
-    conflicts: rows.filter(r => r.nameConflict).length,
-    // 會員一定是信眾，所以這個數字一定 <= total；拿它跟「會員資訊」那一頁的人數對照，
-    // 對不起來就表示有會員的姓名與他報名時填的不一樣（去那一頁用「比對併入」處理）
-    members: rows.filter(r => r.memberAccounts > 0).length,
-  }), [rows]);
+  /**
+   * **這幾個數字的用途是「現在要找誰」**（廟方 2026-10-30 把「曾參與法會」換掉：
+   * 法會是檔期性的，辦完就不動，天天看沒有意義）。大量信眾是從 LINE 官方帳號
+   * 私訊報名的，所以真正要回答的是「最近還在往來的有誰」「這個月多了誰」
+   * 「誰太久沒來了」。
+   *
+   * **日期一律用 `lastSeen`／`firstSeen` 那組 yyyy-mm-dd 字串直接比大小**，
+   * 不要 `new Date()` 再比——那組字串是 `localDate()` 用本地時區產的，
+   * 轉回 Date 會在台灣早上 8 點前差一天（同 devoteeRoster 那條註解的理由）。
+   *
+   * **沒有日期的那些人不算進「久未參與」**：`lastSeen` 是空字串代表那幾筆紀錄
+   * 本來就沒有時間（舊資料），不是「很久沒來」。把它們算進去會憑空生出一份
+   * 不該回訪的名單。
+   */
+  const stats = useMemo(() => {
+    const d = new Date();
+    const ymd = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const days = (n: number) => { const t = new Date(d); t.setDate(t.getDate() - n); return ymd(t); };
+    const d90 = days(90);
+    const d365 = days(365);
+    return {
+      total: rows.length,
+      active90: rows.filter(r => r.lastSeen && r.lastSeen >= d90).length,
+      newThisMonth: rows.filter(r => r.firstSeen && r.firstSeen >= monthStart).length,
+      dormant: rows.filter(r => r.lastSeen && r.lastSeen < d365).length,
+      repeat: rows.filter(r => rosterTotalCount(r.counts) > 1).length,
+      conflicts: rows.filter(r => r.nameConflict).length,
+      // 會員一定是信眾，所以這個數字一定 <= total；拿它跟「會員資訊」那一頁的人數對照，
+      // 對不起來就表示有會員的姓名與他報名時填的不一樣（去那一頁用「比對併入」處理）
+      members: rows.filter(r => r.memberAccounts > 0).length,
+    };
+  }, [rows]);
 
   const handleExport = () => {
     exportExcel('和聖壇信眾名冊.xlsx', filtered.map(r => [
@@ -798,19 +822,30 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
 
   return (
     <div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">信眾人數</p>
           <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">其中 {stats.members} 位有會員帳號</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">曾參與法會</p>
-          <p className="text-2xl font-bold text-[#C49820]">{stats.fahui}</p>
+          <p className="text-xs text-gray-400 mb-1">近 90 天有參與</p>
+          <p className="text-2xl font-bold text-green-600">{stats.active90}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">還在往來的人</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 mb-1">本月新增</p>
+          <p className="text-2xl font-bold text-[#C49820]">{stats.newThisMonth}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">這個月第一次出現</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 mb-1">久未參與</p>
+          <p className="text-2xl font-bold text-gray-500">{stats.dormant}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">超過一年沒有紀錄</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">參與 2 次以上</p>
-          <p className="text-2xl font-bold text-green-600">{stats.repeat}</p>
+          <p className="text-2xl font-bold text-gray-800">{stats.repeat}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">疑似同名不同人</p>
