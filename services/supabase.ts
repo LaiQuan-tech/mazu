@@ -643,11 +643,28 @@ export const uploadSiteImage = async (
   return storagePath;
 };
 
+/**
+ * 圖片的公開網址。**走我們自己的 `/si/` 代理，不直接給 Supabase 的網址。**
+ *
+ * Supabase Storage 對每一個公開檔案都送 `X-Robots-Tag: none`（＝noindex），
+ * 所以直接連過去的圖 **Google 一張都不會收錄**，而且不會有任何錯誤訊息
+ * ——Search Console 只顯示「已檢索，未建立索引」。那個標頭是他們寫死的，
+ * 我們這邊沒有設定可以關掉（三種取得方式實測都一樣）。
+ * 詳見 `api/si.ts` 與 `vercel.json` 的 `/si/(.*)` rewrite。
+ *
+ * 回傳相對路徑：同一份部署服務兩個網域（heshengtan.tw 與 17bath.org），
+ * 寫死 origin 會讓其中一邊的圖指去另一邊。
+ *
+ * 空路徑回空字串——給 `<img src="">` 會讓瀏覽器重新請求當前網址。
+ */
 export const getSiteImagePublicUrl = (storagePath: string): string => {
-  const { data } = supabase.storage
-    .from(SITE_IMAGES_BUCKET)
-    .getPublicUrl(storagePath);
-  return data.publicUrl;
+  const p = (storagePath ?? '').trim().replace(/^\/+/, '');
+  if (!p) return '';
+  // 存成完整網址的（公告圖就是）也要轉進代理，否則它們照樣帶著 noindex
+  const m = p.match(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\/site-images\/(.+)$/);
+  if (m) return `/si/${m[1].split('/').map(encodeURIComponent).join('/')}`;
+  if (/^https?:\/\//.test(p)) return p;   // 真正的外部圖，原樣
+  return `/si/${p.split('/').map(encodeURIComponent).join('/')}`;
 };
 
 // ─── Deity Halls (殿) ─────────────────────────────────────────────────────────

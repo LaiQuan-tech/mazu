@@ -93,6 +93,23 @@ export default defineConfig(() => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      /**
+       * 開發時的 `/si/` 代理。
+       *
+       * 正式站的 `/si/<路徑>` 由 `api/si.ts` 這支 serverless 函式服務
+       * （理由見那個檔案：Supabase Storage 對每個公開檔案都送
+       * `X-Robots-Tag: none`，圖片永遠進不了 Google），但 `vite dev`
+       * 不會跑 `api/`——不補這一段，本機所有圖片都是 404。
+       *
+       * 這裡直接打 Supabase 就好：開發不在意 noindex，在意的是圖看得到。
+       */
+      proxy: {
+        '/si/': {
+          target: process.env.VITE_SUPABASE_URL || 'http://localhost',
+          changeOrigin: true,
+          rewrite: (p: string) => p.replace(/^\/si\//, '/storage/v1/object/public/site-images/'),
+        },
+      },
     },
     define: {
       __HERO_V__: JSON.stringify(versions),

@@ -42,9 +42,32 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SUPA_URL = (process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
 
 /** 公開儲存桶。資料庫存的是相對路徑，要自己接成完整網址 */
-const STORAGE = (p) => (/^https?:\/\//.test(String(p).trim()) ? String(p).trim()
-  : `${SUPA_URL}/storage/v1/object/public/site-images/${String(p).trim()}`);
 const ORIGIN = 'https://heshengtan.tw';
+/**
+ * 圖片的對外網址。**走 `${ORIGIN}/si/` 代理，不給 Supabase 的網址。**
+ *
+ * Supabase Storage 對每個公開檔案都送 `X-Robots-Tag: none`（＝noindex），
+ * 所以 sitemap 裡只要是 supabase.co 的圖，Google 全部不收
+ * ——這就是「經文那麼多張圖，搜尋一張都看不到」的原因（2026-10-30 查出）。
+ * 代理在 `api/si.ts`，rewrite 在 `vercel.json`。
+ *
+ * 三個呼叫端（神尊、公告、經文）都是宮廟網域的頁面，所以固定用 ORIGIN；
+ * 沐浴車那一頁的圖是 public/ 裡的本機檔案，不走這裡。
+ */
+const STORAGE = (p) => {
+  const s = String(p ?? '').trim().replace(/^\/+/, '');
+  if (!s) return '';
+  /**
+   * **資料庫裡存完整網址的也要轉**（公告的 image_url 就是）。
+   * 單純 passthrough 的話那幾張還是指向 supabase.co、還是帶著
+   * `X-Robots-Tag: none`，等於這個代理對它們完全沒作用——
+   * 2026-10-30 第一版就漏了這兩張，是從 sitemap 的網域統計看出來的。
+   */
+  const m = s.match(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\/site-images\/(.+)$/);
+  if (m) return `${ORIGIN}/si/${m[1].split('/').map(encodeURIComponent).join('/')}`;
+  if (/^https?:\/\//.test(s)) return s;   // 真正的外部圖，原樣
+  return `${ORIGIN}/si/${s.split('/').map(encodeURIComponent).join('/')}`;
+};
 /** 沐浴車自己的網域。`org` 路由的正本在這裡，不在宮廟那邊（見下方 origin 的註解） */
 const BATH_ORIGIN = 'https://17bath.org';
 

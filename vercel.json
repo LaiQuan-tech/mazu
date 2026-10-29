@@ -109,6 +109,11 @@
       "destination": "/privacy.html"
     },
     {
+      "_comment": "圖片代理。必須排在萬用規則之前，否則 /si/... 會被導成 index.html。見 api/si.ts：Supabase Storage 對每個公開檔案都送 X-Robots-Tag: none，等同 noindex，圖片永遠進不了 Google。",
+      "source": "/si/(.*)",
+      "destination": "/api/si?p=$1"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
