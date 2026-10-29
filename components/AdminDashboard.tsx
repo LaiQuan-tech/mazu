@@ -1192,6 +1192,9 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
   const [showRules, setShowRules] = useState(false);
   /** 檢視／拆分視窗：把該姓名底下的紀錄依生日並列 */
   const [inspect, setInspect] = useState<DevoteeRow | null>(null);
+  /** 已判定是同一人時，使用者仍可手動要求「依生日拆開比對」。
+   *  每次開新的檢視視窗都要歸零，否則上一個人的選擇會帶到下一個人身上。 */
+  const [forceSplit, setForceSplit] = useState(false);
   /** 合併確認視窗：兩人的紀錄並列比對 */
   const [compare, setCompare] = useState<{ from: DevoteeRow; to: DevoteeRow } | null>(null);
 
@@ -1540,7 +1543,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                             代為報名
                           </button>
                           {/* 一律提供「檢視」：不看原始紀錄無從判斷該拆還是該併 */}
-                          <button onClick={() => setInspect(r)} disabled={busy} title="查看這個人的每一筆原始紀錄"
+                          <button onClick={() => { setInspect(r); setForceSplit(false); }} disabled={busy} title="查看這個人的每一筆原始紀錄"
                             className="text-xs px-2 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40">
                             檢視 {r.records.length}
                           </button>
@@ -1575,6 +1578,15 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       {inspect && (() => {
         const groups = groupByBirth(inspect.records);
         const splittable = groups.filter(g => g.key).length >= 2;
+        /**
+         * **判定是同一個人，就不要再把他切成好幾組並列**（2026-10-30 廟方：
+         * 「我看來是很複雜」）。並列是一種「請你比對」的版面，而這裡已經不必比對了——
+         * 一邊說「判定為同一個人」一邊擺出比對版面，是畫面自己打自己的臉。
+         * 併成一張表之後，共同欄位還能一次提得更乾淨（整個人的資料只講一次）。
+         *
+         * 真的不同意的人還是拆得開：綠色方塊裡有「依生日拆開比對」。
+         */
+        const grouped = splittable && (forceSplit || !inspect.sameEvidence);
         return (
           <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/50" onClick={() => setInspect(null)}>
             <div className="flex min-h-full items-start justify-center p-4">
@@ -1604,11 +1616,17 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                     <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2.5 text-sm text-green-800">
                       <p><strong>判定為同一個人</strong>——{inspect.sameEvidence} 都一致，且沒有任何一欄互相矛盾。</p>
                       <p className="text-xs text-green-700/80 mt-1">
-                        生日之所以分成兩組，多半是**同一天的兩種寫法**（國曆／農曆、有沒有加括號），
-                        不是兩個人。下面仍依生日並列，真的是不同人的話可以手動拆分。
+                        生日有兩種寫法（{groups.filter(g => g.key).map(g => g.label).join('　／　')}），
+                        多半是同一天的國曆與農曆，不是兩個人。
                       </p>
+                      {!forceSplit && (
+                        <button onClick={() => setForceSplit(true)}
+                          className="mt-1.5 text-xs underline text-green-700 hover:text-green-900">
+                          其實是兩個不同的人？依生日拆開比對
+                        </button>
+                      )}
                     </div>
-                  ) : splittable ? (
+                  ) : grouped ? (
                     <p className="text-sm text-gray-500">
                       以下依生日分成 {groups.filter(g => g.key).length} 組並列。請比對電話、地址、性別，判斷這是同一個人（生日可能填錯），還是不同人。
                     </p>
@@ -1621,7 +1639,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                   {/* **拆不開就不要分組並列。** 把「有生日」與「未填生日」切成兩個方框
                       並排，本身就在暗示「這裡有兩個候選人」——而拆不開的時候並沒有。
                       併成一張表之後，共同欄位還能一次提得更乾淨（整個人的資料只講一次）。 */}
-                  {!splittable ? (
+                  {!grouped ? (
                     <RecordTable records={inspect.records} own={inspect.memberTags} />
                   ) : groups.map((g, gi) => (
                     <div key={g.key || `none-${gi}`}>
