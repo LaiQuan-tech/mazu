@@ -6881,6 +6881,21 @@ const ReceivablesTab: React.FC<{
   const [openReconcile, setOpenReconcile] = useState<string | null>(null);
   /** 畫面：待辦清單 ↔ 已開立的收據 */
   const [view, setView] = useState<'work' | 'receipts'>('work');
+  /**
+   * 工具列要黏在後台頂欄的**下方**，而頂欄的高度沒有常數可以引用。
+   * **不要寫死一個偏移量**：猜錯就是工具列疊在頂欄上，而那在不同字級與
+   * 視窗寬度下還會變。量出來最實在，量不到就退回 0（不黏，但不會壞版）。
+   */
+  const [stickyTop, setStickyTop] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      const el = document.querySelector('[data-admin-topbar]');
+      setStickyTop(el ? Math.round(el.getBoundingClientRect().height) : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
   /** 勾選要開收據的列。key 是 IncomeRow.id（`lamp:uuid` 這種） */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [issuing, setIssuing] = useState(false);
@@ -7079,9 +7094,13 @@ const ReceivablesTab: React.FC<{
         </div>
       ) : (
       <>
-      {/* 篩選 + 搜尋 + 表格 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
+      {/* 篩選 + 搜尋 + 表格。
+          **卡片不能有 overflow-hidden**：它會讓裡面的工具列 sticky 失效
+          （sticky 會改成相對那個不捲動的容器定位，等於不會黏）。
+          圓角改由表格容器自己處理。 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div style={{ top: stickyTop }}
+          className="sticky z-20 bg-white rounded-t-2xl p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
           <div className="flex gap-1">
             {(['pending', 'paid', 'all'] as const).map(key => (
               <button key={key} onClick={() => setPayFilter(key)}
@@ -7113,10 +7132,22 @@ const ReceivablesTab: React.FC<{
           {/* **這顆要永遠看得見。** 原本只在勾選之後才浮出底部那一條——
               而沒發現左邊有勾選框的人，永遠不會知道有這個功能。
               藏在一個「你必須先知道」的動作後面，等於沒有。 */}
+          {/* **已選與合計也在這裡，不在畫面底部。** 廟方 2026-10-30：
+              「操作要在表頭，你藏在最下面，每次都要滑多久。」
+              清單有幾百列時，為了按一顆按鈕捲到底再捲回來是不合理的。 */}
+          {pickedRows.length > 0 && (
+            <span className="text-sm text-gray-600 whitespace-nowrap">
+              已選 <strong className="text-gray-900">{pickedRows.length}</strong> 筆
+              <span className="text-gray-400 mx-2">·</span>
+              NT$ {pickedRows.reduce((s, r) => s + r.amount, 0).toLocaleString()}
+              <button onClick={() => setPicked(new Set())}
+                className="ml-2 text-xs text-gray-400 hover:text-gray-700 underline">清除</button>
+            </span>
+          )}
           <button onClick={() => pickedRows.length > 0 && setIssuing(true)}
             disabled={pickedRows.length === 0}
             title={pickedRows.length === 0 ? '先勾選左邊的方框選取要開收據的項目' : ''}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
               pickedRows.length > 0
                 ? 'bg-temple-red text-white hover:bg-temple-red/90'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -7134,8 +7165,12 @@ const ReceivablesTab: React.FC<{
 
         <div className="overflow-x-auto">
           <table className="admin-table w-full text-sm">
+            {/* **表頭不做 sticky**：它在 `overflow-x-auto` 容器裡，而
+                `overflow-x: auto` 會讓 `overflow-y` 計算成 auto，於是那個容器
+                變成捲動容器、表頭只會相對它定位——它不垂直捲動，所以黏不住。
+                要讓表頭跟著捲得改整個表格的捲動結構，代價比收益大。 */}
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
+              <tr className="border-b border-gray-100 bg-gray-50 text-left">
                 <th className="px-4 py-3 w-10">
                   {/* 全選只作用在「目前篩選出來的」那幾列，不是整份資料——
                       按一下就勾了幾百筆是沒有人想要的結果 */}
@@ -7240,20 +7275,6 @@ const ReceivablesTab: React.FC<{
           </div>
         )}
       </div>
-
-      {/* 勾了才出現。合計由明細加總，與收據上印的是同一個算法 */}
-      {pickedRows.length > 0 && (
-        <div className="sticky bottom-4 z-20 bg-gray-900 text-white rounded-2xl shadow-xl px-5 py-3.5 flex flex-wrap items-center gap-3">
-          <span className="text-sm">已選 <strong>{pickedRows.length}</strong> 筆</span>
-          <span className="text-sm text-gray-300">合計 NT$ {pickedRows.reduce((s, r) => s + r.amount, 0).toLocaleString()}</span>
-          <button onClick={() => setPicked(new Set())}
-            className="text-xs text-gray-400 hover:text-white underline">清除</button>
-          <button onClick={() => setIssuing(true)}
-            className="ml-auto px-4 py-2 rounded-xl bg-temple-red text-white text-sm font-medium hover:bg-temple-red/90">
-            開立收據
-          </button>
-        </div>
-      )}
 
       {issuing && (
         <ReceiptIssueDialog
@@ -7841,7 +7862,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
           寬表格會把整頁撐寬變成整頁橫捲，而不是捲在表格自己的容器裡 */}
       <main className="flex-1 min-w-0 overflow-auto">
         {/* Top bar */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10">
+        <div data-admin-topbar className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10">
           <div className="flex items-center gap-2 min-w-0">
             <button onClick={() => setNavOpen(true)}
               className="lg:hidden -ml-2 p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors relative shrink-0"
