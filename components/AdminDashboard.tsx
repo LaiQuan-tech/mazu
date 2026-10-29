@@ -6916,6 +6916,8 @@ const ReceivablesTab: React.FC<{
   type PayState = 'pending' | 'paid' | 'cancelled' | 'unchecked';
   type IncomeRow = {
     id: string; date: string; name: string; phone: string;
+    /** 報名時留的地址。收據要印，而四張報名表本來就都有存這一欄 */
+    address: string;
     type: '點燈' | '祈福' | '法會' | '捐獻';
     typeKey: 'lamp' | 'blessing' | 'fahui' | 'donation';
     detail: string; amount: number;
@@ -6929,6 +6931,7 @@ const ReceivablesTab: React.FC<{
     const lampRows: IncomeRow[] = lampRegistrations.map(r => {
       const cfg = lampConfigs.find(c => c.id === r.serviceId);
       return { id: `lamp:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+        address: r.address ?? '',
         type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—',
         amount: lampAmount(r, lampConfigs),
         pay: r.status === LampRegistrationStatus.CANCELLED ? 'cancelled'
@@ -6937,6 +6940,7 @@ const ReceivablesTab: React.FC<{
     const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
       const ev = blessingEvents.find(e => e.id === r.eventId);
       return { id: `blessing:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+        address: r.address ?? '',
         type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
         amount: blessingAmount(r, blessingEvents),
         pay: r.status === BlessingStatus.CANCELLED ? 'cancelled'
@@ -6945,6 +6949,7 @@ const ReceivablesTab: React.FC<{
     // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
     const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
       id: `fahui:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+      address: r.address ?? '',
       type: '法會', typeKey: 'fahui', detail: '法會報名',
       amount: r.totalAmount,
       pay: r.status === 'paid' ? 'paid' : 'pending',
@@ -6952,6 +6957,7 @@ const ReceivablesTab: React.FC<{
     }));
     const donationRows: IncomeRow[] = donations.map(r => ({
       id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+      address: r.address ?? '',
       type: '捐獻', typeKey: 'donation', detail: r.type, amount: r.amount,
       // undefined＝欄位存在之前的舊資料，從未核對過，**不是**「還沒收到」
       pay: r.status === undefined ? 'unchecked'
@@ -7281,7 +7287,18 @@ const ReceivablesTab: React.FC<{
           items={pickedItems}
           preset={{
             title: pickedRows[0]?.name ?? '',
-            phone: pickedRows[0]?.phone,
+            /**
+             * 電話與地址：**先找勾選的這幾筆裡第一個有填的**，再退回會員資料。
+             *
+             * 為什麼報名時填的優先：那是他為這筆交易留的，可能跟帳號上的舊地址不同
+             * （搬家之後報名表填新的、會員資料還沒改，收據要寄到新的那個）。
+             * 為什麼要有會員後援：報名表的地址是選填，很多筆是空的——而收據上
+             * 留白等於這張收據寄不出去，也不能當抵稅憑證。
+             */
+            phone: pickedRows.map(r => r.phone).find(Boolean)
+              ?? findMember(pickedRows[0]?.phone ?? '')?.phone,
+            address: pickedRows.map(r => r.address).find(Boolean)
+              ?? findMember(pickedRows[0]?.phone ?? '')?.address,
           }}
           already={already}
           temple={temple}

@@ -178,7 +178,13 @@ export const ReceiptIssueDialog: React.FC<{
           </div>
           <label className="block">
             <span className="block text-xs font-medium text-gray-600 mb-1">地址</span>
-            <input value={address} onChange={e => setAddress(e.target.value)} className={field} />
+            <input value={address} onChange={e => setAddress(e.target.value)} className={field}
+              placeholder="這幾筆報名與會員資料都沒有留地址，請手動填" />
+            {!preset.address && (
+              <span className="block text-[11px] text-amber-700 mt-1">
+                系統查不到地址——報名表的地址是選填，這幾筆都沒填，會員資料裡也沒有。
+              </span>
+            )}
           </label>
           <label className="block">
             <span className="block text-xs font-medium text-gray-600 mb-1">備註（印在收據右欄）</span>
