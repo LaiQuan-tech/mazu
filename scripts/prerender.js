@@ -83,8 +83,12 @@ const ROUTES = [
     // 網址等於半殘。內容取自 scripture-data.json（136 段，每段有經文與註解）。
     path: '/scripture',
     priority: '0.8',
-    title: '天上聖母經｜經文、註解與故事｜台北古亭和聖壇',
-    desc: '天上聖母經全文，逐段附白話註解與典故出處，共 136 段。台北古亭和聖壇提供，可線上閱讀。',
+    // **標題裡要有「媽祖經」**（2026-10-30）：天上聖母就是媽祖，而這部經民間
+    // 普遍就叫媽祖經——全站原本 0 次提到那三個字，於是用俗名搜的人對不到任何東西。
+    // 正式名擺第一（那是主要的查詢字），俗名跟在括號裡；「全文」是這個題目最常
+    // 被一起打的修飾語。h1 維持「天上聖母經」與畫面上那一行一致。
+    title: '天上聖母經（媽祖經）全文｜逐段白話註解｜台北古亭和聖壇',
+    desc: '天上聖母經全文共 136 段，逐段附白話註解與典故出處，可線上閱讀。天上聖母即媽祖，本經民間也稱媽祖經。台北古亭和聖壇提供。',
     h1: '天上聖母經',
     // 專屬分享圖。不給的話會沿用全站的 og-hero.jpg（金箔＋神尊），
     // 那張跟經文沒關係。這張是廟方的書籍封面，直式 1414x2000 沒辦法直接當
@@ -95,6 +99,9 @@ const ROUTES = [
     imageAlt: '天上聖母經的註解與故事｜台北古亭和聖壇 編著',
     body: [
       '天上聖母經全文，逐段附上白話註解與典故出處，共 136 段。',
+      // 別名與主角的本名寫進 noscript：不執行 JS 的檢索器只讀得到這裡，
+      // 而「媽祖經是什麼」「林默娘」正是會被問的問法
+      '天上聖母即媽祖，本名林默娘，宋代建隆元年農曆三月二十三日生於福建莆田湄州；這部經民間也稱媽祖經。',
       '經文記述天上聖母降世的緣由、勸世的教誨，以及歷代忠臣烈士的節義事蹟；註解說明字句的意思與引用的出處，供信眾誦讀時對照理解。',
     ],
   },
@@ -306,13 +313,24 @@ images: [
   {
     path: '/deities',
     priority: '0.7',
-    title: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
-    desc: '台北古亭和聖壇奉祀天上聖母、濟公禪師、中壇元帥、文武財神等神尊。本頁介紹各殿奉祀的神尊與其職掌。',
+    // **標題與描述原本一個「媽祖」都沒有**（2026-10-30 補）：這一頁有 38 尊、
+    // 其中 6 尊是天上聖母，而信眾打的是「媽祖」。天上聖母就是媽祖，講出來不是塞字。
+    //
+    // **「中壇元帥」是對的，不要再拿掉。** 本檔與 CLAUDE.md 都曾記載「資料庫的
+    // 名單裡沒有中壇元帥」而據此刪掉這個稱謂——**那個判斷只看了 `name` 欄**。
+    // 老駕太子那一尊的 `description` 自己寫著「中壇元帥，為五營元帥之首……
+    // 本壇奉祀之中壇元帥，因神尊歷史悠久，亦被尊稱為老駕太子」，歲時節慶那張
+    // `deity_feasts` 也是用「中壇元帥聖誕」記的。所以本壇確實奉祀中壇元帥，
+    // 只是名單上用的是本壇自己的稱謂。2026-10-30 我照那句舊註解刪過一次又改回來。
+    // **要查一尊在不在，`name` 與 `description` 兩欄都要看。**
+    title: '祀奉神尊｜天上聖母（媽祖）與諸位神尊｜台北古亭和聖壇',
+    desc: '台北古亭和聖壇主祀天上聖母（媽祖），同壇奉祀濟公師父、中壇元帥、關聖帝君、玄天上帝、觀世音菩薩、九天玄女等神尊。本頁介紹各尊的來歷與職司。',
     h1: '祀奉神尊',
     body: [
-      // 這句原本列了「濟公禪師、中壇元帥、文武財神」，但資料庫的名單裡沒有中壇元帥——
-      // 手寫的概括與實際內容漂掉了。名單交給下面從資料庫抓的那段，這裡不再點名。
-      '和聖壇主祀天上聖母，同壇奉祀諸位神尊，各有其願力與職司。',
+      // 這句原本列了「濟公禪師、中壇元帥、文武財神」。改成不點名是因為
+      // 名單交給下面從資料庫抓的那一段，手寫的概括會跟著資料漂掉；
+      // **但當初寫的理由「資料庫名單裡沒有中壇元帥」是錯的**（見上面 desc 的註解）。
+      '和聖壇主祀天上聖母（媽祖），同壇奉祀諸位神尊，各有其願力與職司。',
       '誠邀諸善信大德一同前來參拜。壇址：100 臺北市中正區晉江街 72 巷 9 號。',
     ],
   },
@@ -574,7 +592,23 @@ const fetchScripture = async () => {
   }
   try {
     const raw = JSON.parse(readFileSync(resolve(ROOT, 'scripture-data.json'), 'utf8'));
-    return raw.map((r) => ({ n: r.id, verse: r.verse || '', ann: r.annotation || '', image: null }));
+    /**
+     * **保底檔的標點是直排專用的（U+FE10 等），資料庫那份不是。**
+     * 那些字元是 Unicode 的 presentation form，只為了直排排版存在——畫面上要用它們，
+     * 但送進 noscript、sitemap 與 llms.txt 的是給機器讀的橫排文字，裡面出現
+     * 「憶︐是追思︒」會讓檢索器讀到一組它不預期的標點，使用者在搜尋結果的摘要裡
+     * 也會看到躺著的逗號。實測保底檔有 3,713 個、一般標點 0 個。
+     * 走資料庫時完全不會觸發這一段（那邊存的已經是正規化的），所以這是保底路徑
+     * 才看得到的差異——也正因為平常不會跑到，才要在這裡就補掉。
+     */
+    const flat = (s) => String(s || '')
+      .replace(/\uFE10/g, '，').replace(/\uFE11/g, '、').replace(/\uFE12/g, '。')
+      .replace(/\uFE13/g, '：').replace(/\uFE14/g, '；')
+      .replace(/\uFE41/g, '「').replace(/\uFE42/g, '」')
+      .replace(/\uFE43/g, '『').replace(/\uFE44/g, '』')
+      .replace(/\uFE3D/g, '《').replace(/\uFE3E/g, '》')
+      .replace(/\uFE3F/g, '〈').replace(/\uFE40/g, '〉');
+    return raw.map((r) => ({ n: r.id, verse: flat(r.verse), ann: flat(r.annotation), image: null }));
   } catch (e) {
     console.log(`prerender  聖母經：連保底檔都讀不到（${e.message}），這一頁維持只有介紹`);
     return [];
@@ -1012,6 +1046,65 @@ const HOME_IMAGES = [
  *
  * 只收「這一頁真的有、而且說得出是什麼」的圖：說不出 alt 的不要放進來。
  */
+/**
+ * 經文插圖的 alt（2026-10-30 改）。
+ *
+ * **原本是「天上聖母經 第 N 段 插圖」——一個模板。** 那 136 張是全站圖片的 73%，
+ * 而圖片搜尋能讀的就是 alt 與周邊文字；136 張講同一句話等於這 73% 什麼都沒說，
+ * 還互相競爭。這一段的經文本文就在手上（`v.verse`），拿它當 alt 才是「說得出這張
+ * 圖是什麼」——而且經文裡的人名地名（林默娘、湄州、張巡、嵇紹）正是會被搜的字。
+ *
+ * **42 段沒有 verse**（純註解段，實測第 11、27～29、31～36… 段），退回註解的第一句
+ * ——那一句通常正是在點名這一段講的是誰（「逆賊，是指反賊安祿山。」）。
+ * 兩者都空才退回原本的模板，不要產出一個只有段號的 alt。
+ */
+const CLIP = 34;
+const oneLine = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+/**
+ * 經文的換行是刻意的斷句，接起來時**不能一律塞空白**：資料庫那份每行自己就以
+ * 句號結尾（`憶宋代。建隆時。\n興國兆。可先知。`），補空白會變成「。 興」這種
+ * 標點後面掛一個空格的樣子；而保底檔那份是用空白分詞的（`憶宋代 建隆時`），
+ * 全部刪掉又會黏成一團。所以看前一個字是不是標點再決定。
+ */
+const joinVerse = (s) => String(s || '')
+  .split(/\n+/).map((x) => x.trim()).filter(Boolean)
+  .reduce((acc, x) => acc + (!acc || /[。，、；：]$/.test(acc) ? '' : '　') + x, '')
+  .replace(/[ \t]+/g, '　');
+/** 截在句號邊界上，不要切在句子中間 */
+const clipAt = (s, n) => {
+  if (s.length <= n) return s.replace(/。+$/, '');
+  const cut = s.slice(0, n);
+  const i = cut.lastIndexOf('。');
+  return (i >= 8 ? cut.slice(0, i) : cut) + '…';
+};
+/**
+ * 註解的前幾行是「• 憶，是追思」這種**字詞訓解**，後面才是敘事。
+ * caption 要講的是「這張圖在畫什麼」，訓解不是——而敘事那幾段正好是
+ * 聖母降世、張巡守睢陽這些情節，也正是人名地名密度最高的地方。
+ * 整篇都只有訓解時才退回原文，不要回傳空字串。
+ */
+const annProse = (s) => {
+  const lines = String(s || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  const prose = lines.filter((x) => !x.startsWith('•')).join('');
+  return prose || lines.join('');
+};
+const scriptureAlt = (v) => {
+  const lead = clipAt(joinVerse(v.verse) || annProse(v.ann).split('。')[0], CLIP);
+  return lead
+    ? `天上聖母經 第 ${v.n} 段：${lead}｜台北古亭和聖壇`
+    : `天上聖母經 第 ${v.n} 段 插圖｜台北古亭和聖壇`;
+};
+/** sitemap 的 `<image:caption>`：比 alt 容得下更多，拿白話註解來補 */
+const scriptureCaption = (v) => clipAt(annProse(v.ann), 150);
+
+/**
+ * 天上聖母就是媽祖，所以那幾尊要補一個民間稱法（2026-10-30）。
+ * **38 尊裡只有「茉莉媽祖」的名字含「媽祖」三個字**，而信眾搜圖打的是
+ * 「媽祖 神尊」「媽祖 金身」——其餘六尊於是對不到任何字。
+ * 這不是塞關鍵字，是把同一位神明的另一個名字講出來；只給名字裡沒有的那幾尊。
+ */
+const MAZU_NAME = /聖母|湄洲/;
+
 const imagesFor = (r) => {
   const out = [];
   if (r.path === '/about') {
@@ -1026,7 +1119,14 @@ const imagesFor = (r) => {
   }
   if (r.path === '/deities' && deityCards) {
     for (const d of deityCards) {
-      if (d.image) out.push({ loc: STORAGE(d.image), alt: [d.name, d.title].filter(Boolean).join('　') });
+      if (!d.image) continue;
+      // 名字裡已經有「媽祖」的不要再加一次（茉莉媽祖）
+      const alias = MAZU_NAME.test(d.name) && !d.name.includes('媽祖') ? '（媽祖）' : '';
+      out.push({
+        loc: STORAGE(d.image),
+        alt: `${d.name}${alias}${d.title ? '　' + d.title : ''} 神尊｜台北古亭和聖壇`,
+        caption: d.desc ? clipAt(oneLine(d.desc), 150) : '',
+      });
     }
   }
   if (r.path === '/bulletins') {
@@ -1036,7 +1136,7 @@ const imagesFor = (r) => {
   }
   if (r.path === '/scripture') {
     for (const v of scriptureRows) {
-      if (v.image) out.push({ loc: STORAGE(v.image), alt: `天上聖母經 第 ${v.n} 段 插圖` });
+      if (v.image) out.push({ loc: STORAGE(v.image), alt: scriptureAlt(v), caption: scriptureCaption(v) });
     }
   }
   // `org` 路由的圖掛在它自己的網域底下，不要掛回宮廟（同 canonical 的理由）
@@ -1530,7 +1630,8 @@ ${entries.map((r) => {
     <priority>${r.priority || '0.8'}</priority>${imgs.map((i) => `
     <image:image>
       <image:loc>${esc(i.loc)}</image:loc>
-      <image:title>${esc(i.alt)}</image:title>
+      <image:title>${esc(i.alt)}</image:title>${i.caption ? `
+      <image:caption>${esc(i.caption)}</image:caption>` : ''}
     </image:image>`).join('')}
   </url>`;
   }).join('\n')}
@@ -1561,7 +1662,8 @@ ${bathRoutes.map((r) => {
     <priority>1.0</priority>${imgs.map((i) => `
     <image:image>
       <image:loc>${esc(i.loc)}</image:loc>
-      <image:title>${esc(i.alt)}</image:title>
+      <image:title>${esc(i.alt)}</image:title>${i.caption ? `
+      <image:caption>${esc(i.caption)}</image:caption>` : ''}
     </image:image>`).join('')}
   </url>`;
     }).join('\n')}
