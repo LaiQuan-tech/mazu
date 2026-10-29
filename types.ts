@@ -14,7 +14,11 @@ export const ROLE_ALLOWED_TABS: Record<AdminRole, string[]> = {
   // 洗澡車給 staff：進香期間是現場同工在發打卡連結，不該每次都找管理員
   // 緊急祈願給 staff：它的本質是「有人出事了要馬上稟告」，卡在管理員身上等於卡住急事
   staff:   ['traffic', 'siteinfo', 'about', 'relocation', 'faq', 'overview', 'fahui', 'volunteer', 'roster', 'bulletins', 'deities', 'bookings', 'lamps', 'blessings', 'repairs', 'donations', 'urgent', 'feasts', 'shower'],
-  finance: ['vouchers', 'overview', 'fahui', 'donations', 'receivables'],
+  // 信眾資訊給 finance（廟方 2026-10-30：「財務是最容易幫忙代報名的，他要看到信眾那頁」）。
+  // **代價要知道**：那一頁同時有「合併／拆分」的名冊校正工具，而 `is_admin()` 只看
+  // admin_profiles 有沒有這個 user_id、不分角色，所以財務按得動那些按鈕。
+  // 校正是可逆的（規則存在 devotee_overrides，刪掉就還原），所以沒有擋。
+  finance: ['vouchers', 'overview', 'fahui', 'donations', 'receivables', 'roster'],
 };
 
 // ─── 法會報名 ──────────────────────────────────────────────
