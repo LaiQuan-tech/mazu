@@ -361,11 +361,36 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           .sp-left.sp-in  { opacity:1; transform:translateX(0) scale(1) !important; }
           .sp-right.sp-in { opacity:1; transform:translateX(0) scale(1) !important; }
           .sp-progress { display:none !important; }
+          /* 右側那條直式的在手機上不適用（螢幕窄、又跟直排內文打架），
+             改成頂端一條橫的。**手機才是最需要它的地方**：這一頁有 136 節，
+             小螢幕上更不知道自己讀到哪裡。 */
+          .sp-progress-m { display:block !important; }
           /* 手機不做 idle 動畫 + 逐字動畫（效能） */
           .sp-img-float { animation:none !important; }
           .verse-char { opacity:1 !important; transform:none !important; transition:none !important; }
         }
       `}</style>
+
+      {/* 手機版的閱讀進度（2026-10-30）。桌機維持右側那條直式的，這一條只在手機出現。
+
+          **用 scaleX 不用 width**：寬度會觸發版面計算，而這個值每一次捲動都在變；
+          scaleX 只跑合成層。右側那條直式的用的是 height（寫於它自己被加上去的時候），
+          在這裡不照抄——手機那條媒體查詢裡寫著「不做 idle 動畫（效能）」，
+          把一個每幀都在改版面的屬性加回手機上，正好是那句話要避免的事。
+
+          **不重複顯示節號**：頁面上已經有「全經共 N 節」與每一節自己的水印數字，
+          再掛一個「第幾／共幾」是同一件事講第三次。這一條只回答「還有多久」。 */}
+      <div
+        className="sp-progress-m"
+        aria-hidden="true"
+        style={{
+          display: 'none', position: 'fixed', top: 0, left: 0, right: 0, height: 3,
+          zIndex: 51, transformOrigin: 'left center',
+          transform: `scaleX(${loading ? 0 : scrollProgress})`,
+          background: `linear-gradient(to right, ${INK.gold}, ${INK.ink})`,
+          transition: 'transform .12s linear', pointerEvents: 'none',
+        }}
+      />
 
       {/* Left decorative rail */}
       <div className="scroll-rail" style={{ left: 0 }} />

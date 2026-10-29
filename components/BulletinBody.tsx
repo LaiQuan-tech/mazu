@@ -237,7 +237,10 @@ export const BulletinCard: React.FC<{
       type="button"
       aria-expanded={open}
       aria-controls={`bulletin-${bulletin.id}`}
-      className="w-full flex items-start justify-between text-left cursor-pointer"
+      /* `.tap`：手機上按下去整張卡微微縮一下（樣式在 index.html）。
+         全站的按鈕與連結都有全域的按壓回饋，但那一層刻意只動 opacity；
+         這一顆是**整張卡大小**的press target，縮放才看得出來被按到。 */
+      className="tap w-full flex items-start justify-between text-left cursor-pointer"
       onClick={onToggle}
     >
       <div className="flex-1">

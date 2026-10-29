@@ -77,10 +77,16 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
   要真正生效必須再部署一次。（拆彈時誤以為移除即生效，結果按鈕又被按了兩次、正式站又被蓋掉。）
 - **Deploy Hook 與 `/api/republish`**：後台「重新發布」按鈕會打 `api/republish.ts`，那支再去打 Vercel 的 Deploy Hook。**Hook 網址存在 Vercel 的 `VERCEL_DEPLOY_HOOK_URL`（Production，加密），刻意不加 `VITE_` 前綴**——加了會被 Vite 內嵌進前端 JS，等於把「觸發正式站部署」的權限公開給所有人。授權是把登入者的 Supabase token 丟去讀 `admin_profiles`，該表 RLS 只讓人讀自己那一列，非管理員必然拿到空陣列 → 403。實測：沒帶 token 401、假 token 401、GET 405、前端 bundle 與 git 都找不到那串網址。
 
-## 常用指令（nvm 環境，直接跑 npm/vercel 會 command not found）
+## 常用指令
+
+**2026-10-30：這台機器上 nvm 已經不存在了**（`~/.nvm` 整個目錄沒有），node 走 Homebrew
+的 `/opt/homebrew/bin/node`（v26.8.1）。所以本檔原本那行載入 nvm 的指令會噴
+`no such file or directory` 並讓整串 `&&` 停住——**症狀是 exit 127，看起來像 npm 壞了**。
+現在只要確保 PATH 有 Homebrew 即可；兩種環境都可能遇到，所以兩行都留著。
 
 ```bash
-export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"   # 每個 shell 都要先跑這行
+export PATH="/opt/homebrew/bin:$PATH"                # 現在用這行
+# export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" # 舊環境（nvm）才需要
 npm run build        # 建置（vite 不做型別檢查！）
 npx tsc --noEmit     # 型別檢查（build 過了不代表型別對）
 vercel --prod --yes  # 部署正式站（已連結專案 machu）
@@ -591,7 +597,18 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **預渲染（`scripts/prerender.js`）**：由 `npm run build` 自動接著跑。拿剛建好的 `dist/index.html` 當模板，為 /about /booking /lamps /blessing /relocation 各產一份靜態 HTML，換掉 title／description／canonical／og，再補該頁的 JSON-LD 與 `<noscript>` 內容。**必須跑在 vite build 之後**（資產 hash 要對得上）。它不會真的執行 React，所以後台資料（公告、神尊、關於我們內文）不會進靜態 HTML；要連那些一起靜態化得換 puppeteer 版，屆時注意 `/` 在非官網網域會顯示報名表，快照時要讓瀏覽器以 heshengtan.tw 的身分解析。
 - **`sitemap.xml` 由 `scripts/prerender.js` 從 ROUTES 產生**（2026-09-02 起），`public/sitemap.xml` 已刪除並列入 .gitignore。原本是手寫的，新增 `/scripture` 時要記得回去補一筆——漏掉不會有任何錯誤訊息，只是那頁比較晚被收錄（`/deities` 甚至連 `lastmod` 都漏了）。新增預渲染頁時只要加進 ROUTES，sitemap 自動跟上。`lastmod` 必須**明確釘住 `Asia/Taipei`**（`Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' })`）。兩層坑都踩過：先用 `toISOString().slice(0,10)`（UTC，早上 8 點前少一天），改成「本地時區」之後本機對了、**正式站還是錯**——因為那是**建置機器**的本地時區，而 Vercel 的建置機跑在 UTC。前端那條「用本地時區」的規則講的是使用者的裝置（在台灣），**建置腳本沒有這個前提**。驗證方法：`TZ=UTC npm run build` 模擬 Vercel。
 - **首頁的 `<title>` 給 Google、`og:title` 給 LINE，兩者刻意不同**：同一份 index.html 服務官網首頁與法會報名頁，而 **canonical 指的是官網首頁**，所以 `<title>`／`description` 必須是官網版。2026-09-02 之前是報名版，等於 Google 收錄的官網首頁標題是「和聖壇法會線上報名」，信眾搜「古亭 媽祖廟」看到的是一場法會的報名頁。分享卡片讀的是 `og:*`，維持報名版不受影響。收件結束時 `og:*` 也要換回官網版。
-- **不執行 JS 的爬蟲只看得到 `<noscript>`**（GPTBot／ClaudeBot／PerplexityBot 都不執行 JS）。兩個要顧的點：(1) **內容深度**——分頁原本只有兩句手寫概括（約 50 字），而且 `/deities` 那句與資料庫的 38 尊名單不符（列了不存在的「中壇元帥」）；現在 `/deities` 會把資料庫名單接進去，抓不到就退回手寫版。(2) **站內連結**——原本每頁只有一個「回首頁」，爬蟲走不到兄弟頁；現在由 ROUTES 自動產生全站連結，新增分頁不必回來改。
+- **查一尊神明在不在本壇，`name` 與 `description` 兩欄都要看**（2026-10-30 踩到）。
+  本檔與 `prerender.js` 都曾記載「資料庫的名單裡沒有中壇元帥」並據此把那個稱謂從
+  `/deities` 的文案刪掉——**那個結論只查了 `name` 欄**。`老駕太子` 那一尊的
+  `description` 自己寫著「中壇元帥，為五營元帥之首……本壇奉祀之中壇元帥，因神尊
+  歷史悠久，亦被尊稱為老駕太子」，而歲時節慶的 `deity_feasts` 也是用「中壇元帥聖誕」
+  記的。所以本壇確實奉祀中壇元帥，只是名單上用本壇自己的稱謂。
+  2026-10-30 我照那句舊註解把它從 meta description 刪掉，查到這件事之後改回來了。
+  **本壇多尊神明都有這種「自家稱謂 vs 通行封號」的雙名**（茉莉媽祖＝媽祖、
+  天觀音＝觀世音菩薩、天官武財神＝中路財神趙元帥），對外文案要用哪一個是廟方的事，
+  但「名單上沒有」這種結論不可以只憑 `name` 欄下。
+
+- **不執行 JS 的爬蟲只看得到 `<noscript>`**（GPTBot／ClaudeBot／PerplexityBot 都不執行 JS）。兩個要顧的點：(1) **內容深度**——分頁原本只有兩句手寫概括（約 50 字），現在 `/deities` 會把資料庫名單接進去，抓不到就退回手寫版。**（本條原本寫著「那句列了不存在的中壇元帥」——那是錯的，見下面「查一尊在不在」那條。）**(2) **站內連結**——原本每頁只有一個「回首頁」，爬蟲走不到兄弟頁；現在由 ROUTES 自動產生全站連結，新增分頁不必回來改。
 - **`vercel.json` 的另外兩個陷阱（2026-10-19 各踩一次）**：
   (1) **rewrite／redirect 物件只收 `source`／`destination`／`has`／`missing`（redirect 另加 `permanent`／`statusCode`）**。JSON 沒有註解，我為了說明塞了一個 `"comment"` 欄位進去——schema 不合法，**整份設定失效、部署直接不成立**。症狀極隱晦：`git push` 成功、沒有任何錯誤訊息，但線上的 bundle 雜湊連試八次都不變。要寫說明就寫在 commit 或這裡，不要寫進 JSON。
   (2) **`rewrites` 跑在「檔案系統之後」，`redirects` 跑在之前**。所以 `"source": "/"` 的 rewrite **永遠不會生效**——`/` 對應到實際存在的 `dist/index.html`，檔案先命中。`/about`、`/shower` 那些之所以有效，是因為 `dist` 裡沒有同名檔。要在根路徑依條件換內容只有兩條路：`redirects`（會改網址列），或 Edge Middleware（唯一跑在檔案系統之前又能改寫內容的機制，但多一個 runtime）。
@@ -841,6 +858,22 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   怎麼分辨這類問題：權威 NS 與 DoH 都回正確 IP，但明文 UDP 查詢回別的 IP、TTL 固定不倒數、**連不存在的子網域也回同一個 IP**＝有人現場合成假回答，不是設定錯也不是快取。
   攔截頁的「仍要前往」按鈕對 HTTPS 網站沒用——瀏覽器在 TLS 階段就先失敗，使用者只會看到憑證警告。申訴管道：中華電信客服 0800-080-123。Google Search Console 確認過沒有安全性問題，只有 HiNet 這一家。
   **2026-10-23 第二次發生**（這次攔到 `202.39.161.59`）。申訴要講的內容、完整證據與驗證指令整理在 **`docs/hinet-dns-申訴.md`**，再發生直接開那一份。
+  **2026-10-30 第三次，而且這次是「部分」的——多一個事實可以拿去申訴**：
+
+  | 查詢對象 | 回傳 |
+  |---|---|
+  | 8.8.8.8 | `202.39.161.59`（假的，與 10-23 同一台） |
+  | **168.95.1.1（HiNet 自己的解析器）** | `216.198.79.1` **正確** |
+  | 1.1.1.1 / 9.9.9.9 / DoH | `216.198.79.1` 正確 |
+
+  **HiNet 自己的解析器已經是乾淨的，被導走的只剩「往外部解析器的明文查詢」。**
+  最可能的解讀是上次申訴生效了、但路徑上那台透明攔截設備的封鎖名單沒跟著更新。
+  申訴時這一點比上次那份證據更有力：同一家的解析器與同一家的攔截設備答案不一致，
+  等於他們自己承認這個網域不該被擋。
+  **所以給信眾的臨時解法這次又不一樣了**：把 DNS 改成 1.1.1.1 這次**有效**
+  （10-23 那次無效），改回 HiNet 預設的 168.95.1.1 也有效，而設成 8.8.8.8 的人
+  反而是受害者——「改用 Google DNS」這個常見建議在這裡是**反過來的**。
+  **這一條不影響 SEO**：Googlebot 不走 HiNet 解析，受害的是真人訪客。
   這次多抓到一個比上次更有力的事實：**本機 DNS 設的是 8.8.8.8 仍然被導走**，所以攔截在**網路路徑上**（明文 53 埠被透明攔截）不是在 HiNet 的解析器。
   由此推論出**給信眾的臨時解法要分清楚**：手動把 DNS 改成 1.1.1.1 這次**沒有用**（還是走明文），Android 的「私人 DNS」（DoT，填 `one.one.one.one`）與改用行動網路才一定繞得過。上次那份「改 DNS 就好」的說法在這次是錯的。
 - ~~**法會 Event 結構化資料要制度化**~~（**2026-10-13 已完成**，保留此條說明背景）：`scripts/prerender.js` 的 `fetchUpcomingEvents()` ＋ `toEventNode()` 從 `blessing_events` 產生，只輸出 `end_date >= 今天`（日期釘 `Asia/Taipei`，建置機跑 UTC）；辦完的自動消失、新辦的不必改程式；一場都沒有就整個不輸出——**沒有標記好過一個騙人的標記**。寫死在 index.html 的那段已移除。

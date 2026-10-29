@@ -48,8 +48,14 @@ const VideoFacade: React.FC<{
   cover: string;
   /** 直式（9:16 的 Shorts）。橫式不填 */
   portrait?: boolean;
+  /**
+   * 封面用極慢的推近「活起來」（只在有滑鼠的裝置，樣式見 index.html）。
+   * **刻意做成選配**：沐浴車那頁一次列四支影片，四張同時在動是雜訊；
+   * 首頁只有一支、而且就在 Hero 下面，那裡才需要有東西在動。
+   */
+  livePreview?: boolean;
   accent: VideoAccent;
-}> = ({ id, title, cover, portrait, accent }) => {
+}> = ({ id, title, cover, portrait, livePreview, accent }) => {
   const [playing, setPlaying] = useState(false);
 
   return (
@@ -69,7 +75,7 @@ const VideoFacade: React.FC<{
           type="button"
           onClick={() => setPlaying(true)}
           aria-label={`播放影片：${title}`}
-          className="group absolute inset-0 w-full h-full"
+          className={`group absolute inset-0 w-full h-full${livePreview ? ' vf-live' : ''}`}
         >
           <picture>
             <source srcSet={heroSrc(`${cover}.webp`)} type="image/webp" />

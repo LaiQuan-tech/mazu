@@ -827,6 +827,62 @@
         .sr { opacity: 1 !important; transform: none !important; transition: none !important; }
       }
 
+      /* ── 影片封面的極慢推近（2026-10-30）──
+         廟方拿金環太子宮比較「他們的站比較活」。對方 hero 的生命力來自**真人在動**
+         （一支 9.59MB 的自動播放影片），不是特效。我們那支進香回顧是現成的，
+         但**影片檔不在我們手上**（只有 YouTube id，而且是拾九影像創作拍的），
+         所以這裡先用封面的緩慢推近代替——動的仍然是真實的進香畫面，不是裝飾圖形。
+
+         要換成真的會動的影片，需要的是**原始檔**（向拾九影像創作取得授權與檔案），
+         剪一段 6～10 秒無聲迴圈、自架成 webm。**不要改成自動播 YouTube iframe**：
+         那等於把 facade 這支元件存在的理由整個抵銷掉（見本檔頭的說明）。
+
+         `hover: hover` ＝ 有滑鼠的裝置。手機不跑，理由同 facade 本身：
+         信眾以長者居多、網路不一定好，純裝飾的動畫不該讓他們付電跟流量。
+         24 秒 alternate 是刻意的慢——快到看得出來就變成廣告看板了。 */
+      @keyframes vfDrift { from { transform: scale(1); } to { transform: scale(1.06); } }
+      @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+        .vf-live img { animation: vfDrift 24s ease-in-out infinite alternate; }
+      }
+
+      /* ── 按下去要有反應（2026-10-30）──
+         廟方拿金環太子宮比較時量出來的：對方首頁有 372 個元素帶轉場，我們只有 96；
+         而全站的 `active:` 觸控回饋**只有 14 處**。差距主要就在這裡。
+         **手機沒有 hover**，`active:` 是按下去有沒有感覺的唯一來源，
+         而本站的信眾絕大多數用手機。
+
+         分兩層，理由是「不能為了回饋把版面弄壞」：
+
+         ① 全域這一層只動 opacity，**刻意不動 transform**。站上有好幾個
+            `absolute inset-0` 的滿版按鈕（影片封面那顆就是），對它們套縮放會
+            把整塊蓋圖縮掉一角；而 opacity 不參與版面計算，任何按鈕都壓不壞。
+         ② 想要「壓下去」的卡片自己加 `.tap`，那一層才有縮放。
+
+         **這不是「自動播放的動畫」，所以不跟著 prefers-reduced-motion 整個關掉**
+         ——它完全由使用者按下去那一刻驅動（同 `.sr` 註解裡視差那條）。
+         但縮放對敏感的人仍可能不舒服，所以 reduce 時只留 opacity。
+
+         只在 `hover: none` 生效：有滑鼠的裝置本來就有 hover 樣式，
+         再疊一層按壓只會讓點擊看起來閃一下。 */
+      @media (hover: none) {
+        button:active,
+        a:active,
+        [role="button"]:active,
+        summary:active {
+          opacity: .72;
+        }
+        /* 回彈要比按下去慢：按下的瞬間要跟手，放開才需要看得出來 */
+        button, a, [role="button"], summary { transition: opacity .18s ease; }
+        button:active, a:active, [role="button"]:active, summary:active { transition-duration: .04s; }
+
+        .tap:active { transform: scale(.972); }
+        .tap { transition: opacity .18s ease, transform .18s cubic-bezier(.16,1,.3,1); }
+        .tap:active { transition-duration: .04s; }
+      }
+      @media (hover: none) and (prefers-reduced-motion: reduce) {
+        .tap:active { transform: none; }
+      }
+
       /* 標題斷行平衡。中文對句（例如「心中有善不畏苦；家有溫暖路有光。」）
          若照預設斷行，最後常掉一兩個字到第二行變成孤字；balance 會把各行字數拉平，
          剛好斷在分號處。用 class 而不是 Tailwind 任意值：本專案 CDN 版產不出部分任意值。 */

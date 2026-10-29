@@ -3672,6 +3672,9 @@ const App: React.FC = () => {
               id={HOME_VIDEO.id}
               title={HOME_VIDEO.title}
               cover={`home-video-${HOME_VIDEO.id}`}
+              /* 封面極慢推近（只在有滑鼠的裝置）。全站只有這一支開，
+                 理由與作法見 VideoFacade 的 `livePreview` 與 index.html 的 vfDrift。 */
+              livePreview
               /* **播放鈕的兩個顏色都要用方括號寫死，不能用 temple 色票。**
                  青花紙主題會把 .bg-white 壓成 rgba(255,255,255,.07)（鈕會消失），
                  也會把 text-temple-red 映成泥金 #C9A86A——泥金壓在米白的鈕上
