@@ -1597,7 +1597,18 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       「依生日分成 2 組…判斷這是同一個人還是不同人」，
                       然後同一個視窗的頁尾又說「只有一組有生日，無法依生日拆分」。
                       要人做一個它自己也知道做不到的判斷。 */}
-                  {splittable ? (
+                  {splittable && inspect.sameEvidence ? (
+                    /* 生日對不起來，但別的欄位一致到足以判定是同一個人。
+                       **理由一定要講出來**：只是悄悄不顯示警示的話，廟方看到兩個生日
+                       並列又沒有任何說明，會以為系統漏判了。 */
+                    <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2.5 text-sm text-green-800">
+                      <p><strong>判定為同一個人</strong>——{inspect.sameEvidence} 都一致，且沒有任何一欄互相矛盾。</p>
+                      <p className="text-xs text-green-700/80 mt-1">
+                        生日之所以分成兩組，多半是**同一天的兩種寫法**（國曆／農曆、有沒有加括號），
+                        不是兩個人。下面仍依生日並列，真的是不同人的話可以手動拆分。
+                      </p>
+                    </div>
+                  ) : splittable ? (
                     <p className="text-sm text-gray-500">
                       以下依生日分成 {groups.filter(g => g.key).length} 組並列。請比對電話、地址、性別，判斷這是同一個人（生日可能填錯），還是不同人。
                     </p>

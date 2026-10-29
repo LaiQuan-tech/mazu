@@ -134,6 +134,12 @@ export interface DevoteeRow {
   nameConflict: boolean;
   /** 造成上述判斷的證據，供後台顯示 */
   conflictHint: string;
+  /**
+   * 生日對不起來、但其他欄位一致到足以判定是同一個人時，記下是哪幾欄。
+   * 有值代表 `nameConflict` 被**刻意壓下來**了（見 `corroboration()`），
+   * 後台要講出理由——不講的話，廟方看到兩個生日並列又沒有警示，會以為是漏判。
+   */
+  sameEvidence: string;
 }
 
 interface Sighting {
@@ -338,7 +344,7 @@ const emptyRow = (name: string): DevoteeRow => ({
   name, records: [], genders: [], phones: [], addresses: [], birthDates: [], zodiacs: [], lineIds: [], emails: [], memberNumbers: [],
   memberAccounts: 0, memberTags: [], counts: {}, totalAmount: 0, lastSeen: '', firstSeen: '',
   relations: [], relationOf: [], relatives: [],
-  nameConflict: false, conflictHint: '',
+  nameConflict: false, conflictHint: '', sameEvidence: '',
 });
 
 const toRecord = (s: Sighting): DevoteeRecord => ({
@@ -391,6 +397,54 @@ function foldSightings(name: string, list: Sighting[]): DevoteeRow {
     }
   });
   return row;
+}
+
+/**
+ * 「除了生日以外，還有幾欄是一致的」。
+ *
+ * 用途是**壓下假警報**：姓名已經相同（那是分組的依據），如果電話、地址、性別、
+ * 會員帳號這幾欄又都只有一種值、而且沒有任何一欄互相矛盾，那就是同一個人——
+ * 生日對不起來只是寫法不同（國曆／農曆、有沒有加括號）。
+ *
+ * **一欄要算同意票，它的值必須真的同時出現在兩個（以上）生日組裡。**
+ * 只看「整欄是不是只有一種值」是不夠的——實測踩到：一個只報過法會陽上、
+ * 沒留電話沒留地址的另一個同名者，那幾欄確實「只有一種值」（全部來自第一個人），
+ * 於是被判成同一人。**那不是佐證，那是對方的資料缺席。**
+ * 要證明兩個生日屬於同一個人，證據必須橫跨那兩個生日。
+ *
+ * **沒有生日的紀錄不算一組**：它不屬於任何一個候選人，拿它來搭橋證明不了任何事。
+ *
+ * **生肖只當否決票、不當同意票**：它是從生日年份推出來的，生日對不起來時本來就
+ * 高度相關，算成同意票等於同一個證據數兩次；但它**不一致**代表出生年不同，
+ * 那不是寫法問題，一定要否決。
+ */
+function corroboration(r: DevoteeRow): { agree: number; disagree: number; labels: string[] } {
+  /** 這一欄的非空值出現在幾個「有生日」的組裡 */
+  const spread = (pick: (x: DevoteeRecord) => string): number => {
+    const groups = new Set<string>();
+    r.records.forEach(x => { if (x.birthKey && pick(x)) groups.add(x.birthKey); });
+    return groups.size;
+  };
+  const accountOf = (x: DevoteeRecord): string =>
+    [x.memberNumber, x.contactOf, ...x.linkedMembers].filter(Boolean)[0] ?? '';
+  const accounts = [...new Set(r.records.map(accountOf).filter(Boolean))];
+
+  const fields: Array<{ label: string; values: string[]; pick: (x: DevoteeRecord) => string }> = [
+    { label: '電話',     values: r.phones,    pick: x => x.phone },
+    { label: '地址',     values: r.addresses, pick: x => x.address },
+    { label: '性別',     values: r.genders,   pick: x => x.gender },
+    { label: '會員帳號', values: accounts,    pick: accountOf },
+  ];
+  let agree = 0, disagree = 0;
+  const labels: string[] = [];
+  fields.forEach(f => {
+    if (f.values.length > 1) { disagree += 1; return; }
+    // 只有一種值還不夠，那個值要橫跨兩個生日組才算真的佐證
+    if (f.values.length === 1 && spread(f.pick) >= 2) { agree += 1; labels.push(f.label); }
+  });
+  // 生肖不一致＝出生年不同，直接否決（理由見上面的註解）
+  if (r.zodiacs.length > 1) disagree += 1;
+  return { agree, disagree, labels };
 }
 
 /** 建立信眾名冊：以姓名彙整，並用共同電話推測可能的親屬。
@@ -471,10 +525,22 @@ export function buildDevoteeRoster(src: RosterSources, overrides: DevoteeOverrid
     const reasons: string[] = [];
     if (births.length > 1) reasons.push(`生日 ${r.birthDates.join('、')}`);
     if (r.zodiacs.length > 1) reasons.push(`生肖 ${r.zodiacs.join('、')}`);
-    if (reasons.length > 0) {
-      r.nameConflict = true;
-      r.conflictHint = reasons.join('；');
+    if (reasons.length === 0) return;
+
+    // 生日對不起來不一定是兩個人——**最常見的是同一天的兩種寫法**，
+    // 例如「民國67年農曆六月初四」與「民國67年7月8日（農曆六月初四）」：
+    // `birthKey()` 把括號拿掉後變成 6764 與 6778，數字上永遠對不起來。
+    // 這種字串比對修不完（國曆／農曆、有沒有寫「日」、民國／西元…），
+    // 所以改從**別的欄位**判斷（廟方 2026-10-30：「其實只要有三欄資料相同，
+    // 應該可以判斷是同一人」）。
+    const { agree, disagree, labels } = corroboration(r);
+    if (agree >= 3 && disagree === 0) {
+      // 姓名已經相同（那是分組的依據），再加上三欄以上一致、且沒有任何一欄互相矛盾
+      r.sameEvidence = labels.join('、');
+      return;
     }
+    r.nameConflict = true;
+    r.conflictHint = reasons.join('；');
   });
 
   // 可能的親屬：共用同一支電話的其他姓名（僅提示，不做合併）
