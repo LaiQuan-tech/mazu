@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
-import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
@@ -16,7 +16,7 @@ import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
-import { RELATION_OPTIONS, ConsultationType, AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { RELATION_OPTIONS, ConsultationType, AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -6827,98 +6827,224 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
 
 // ─── ReceivablesTab（應收管理）────────────────────────────────────────────────
 
+/**
+ * 後台「應收管理」——**財務的作業頁**（2026-10-30 大改）。
+ *
+ * ── 這一頁在做什麼 ──
+ * 廟方 2026-10-30：「暫時不用線上金流，財務必須要用很多張 excel 表來記錄，
+ * 一個報名就一張表，還要一個個確認是否匯款……要做一個專屬財務的，有報名、捐款
+ * 都會直接顯示在該頁，由財務去檢查，並點選『已收款』。」
+ *
+ * **這一頁原本只有一半**：它一直是唯讀的收入彙總，直接從報名資料算金額，
+ * 不知道錢有沒有真的進來。現在補上寫入那一半，並把法會納進來。
+ *
+ * **沒有另開新頁是刻意的。** CLAUDE.md 早就記著「本站收入已經有三套不一致的作法
+ * ……再做一套就是第四套也是最糟的一套」。財務角色的 ROLE_ALLOWED_TABS 本來就
+ * 含 receivables，這一頁補完就是廟方要的那一頁。
+ *
+ * ── 「已收款」會寄信給信眾，這不是純粹的內部狀態 ──
+ * 點燈／祈福／法會按下去會送出一封「款項已收到」（走 queueConfirmEmail）。
+ * **財務一次標記幾十筆，就是一次對外寄出幾十封信。** 所以這顆按鈕一定要走與
+ * 各服務分頁同一條路——自己寫一套 update 而漏掉寄信，症狀是「後台一切正常、
+ * 信眾永遠收不到通知」，而且不會報錯。
+ *
+ * **捐獻不寄**：它的感謝信是送出當下就寄的（廟方 2026-10-30 決定維持原樣），
+ * 與收款核對無關。
+ *
+ * ── 預設只顯示「待收款」 ──
+ * 這是工作清單不是報表。全部顯示的話，今天要處理的幾筆會被幾百筆已完成的淹掉。
+ *
+ * ── 捐獻的「未核對」與「待匯款」是兩回事 ──
+ * `status === undefined` 代表這筆早於 donation_payment_status.sql，當初根本沒有
+ * 核對這件事；把它顯示成「待匯款」等於系統在宣稱那些錢沒收到。畫面上分開，
+ * 而且**未核對的不進待辦清單**——那會是一整頁假的待辦。
+ */
 const ReceivablesTab: React.FC<{
   lampRegistrations:     LampRegistrationRecord[];
   lampConfigs:           LampServiceConfig[];
   blessingRegistrations: BlessingRegistrationRecord[];
   blessingEvents:        BlessingEventRecord[];
+  fahuiRegistrations:    FahuiRegistrationRecord[];
   donations:             DonationRecord[];
   memberProfiles:        MemberProfileRecord[];
-}> = ({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, donations, memberProfiles }) => {
-  const [filter, setFilter] = useState<'all' | 'lamp' | 'blessing' | 'donation'>('all');
+  onRefresh:             () => void;
+}> = ({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations, memberProfiles, onRefresh }) => {
+  const [filter, setFilter] = useState<'all' | 'lamp' | 'blessing' | 'fahui' | 'donation'>('all');
+  /** 預設只看待收款——這是工作清單，不是報表 */
+  const [payFilter, setPayFilter] = useState<'pending' | 'paid' | 'all'>('pending');
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<MemberProfileRecord | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  /** 法會展開對帳欄位的那一列 */
+  const [openReconcile, setOpenReconcile] = useState<string | null>(null);
 
+  type PayState = 'pending' | 'paid' | 'cancelled' | 'unchecked';
   type IncomeRow = {
     id: string; date: string; name: string; phone: string;
-    type: '點燈' | '祈福' | '捐獻'; typeKey: 'lamp' | 'blessing' | 'donation';
-    detail: string; amount: number; status: string;
+    type: '點燈' | '祈福' | '法會' | '捐獻';
+    typeKey: 'lamp' | 'blessing' | 'fahui' | 'donation';
+    detail: string; amount: number;
+    pay: PayState;
+    /** 法會才有，用來展開既有的對帳區塊（整套搬過來，不另寫一份） */
+    fahui?: FahuiRegistrationRecord;
   };
 
   const rows = useMemo<IncomeRow[]>(() => {
     // 金額一律走 services/serviceAmount.ts，不要在這裡自己算（理由見那支的檔頭）
     const lampRows: IncomeRow[] = lampRegistrations.map(r => {
       const cfg = lampConfigs.find(c => c.id === r.serviceId);
-      return { id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
+      return { id: `lamp:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
         type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—',
-        amount: lampAmount(r, lampConfigs), status: r.status };
+        amount: lampAmount(r, lampConfigs),
+        pay: r.status === LampRegistrationStatus.CANCELLED ? 'cancelled'
+           : r.status === LampRegistrationStatus.CONFIRMED ? 'paid' : 'pending' };
     });
     const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
       const ev = blessingEvents.find(e => e.id === r.eventId);
-      return { id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
+      return { id: `blessing:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
         type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
-        amount: blessingAmount(r, blessingEvents), status: r.status };
+        amount: blessingAmount(r, blessingEvents),
+        pay: r.status === BlessingStatus.CANCELLED ? 'cancelled'
+           : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending' };
     });
-    const donationRows: IncomeRow[] = donations.map(r => ({
-      id: r.id, date: r.createdAt, name: r.name, phone: r.phone,
-      type: '捐獻', typeKey: 'donation', detail: r.type, amount: r.amount, status: '已完成',
+    // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
+    const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
+      id: `fahui:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+      type: '法會', typeKey: 'fahui', detail: '法會報名',
+      amount: r.totalAmount,
+      pay: r.status === 'paid' ? 'paid' : 'pending',
+      fahui: r,
     }));
-    return [...lampRows, ...blessingRows, ...donationRows]
+    const donationRows: IncomeRow[] = donations.map(r => ({
+      id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+      type: '捐獻', typeKey: 'donation', detail: r.type, amount: r.amount,
+      // undefined＝欄位存在之前的舊資料，從未核對過，**不是**「還沒收到」
+      pay: r.status === undefined ? 'unchecked'
+         : r.status === DonationStatus.CANCELLED ? 'cancelled'
+         : r.status === DonationStatus.CONFIRMED ? 'paid' : 'pending',
+    }));
+    return [...lampRows, ...blessingRows, ...fahuiRows, ...donationRows]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, donations]);
+  }, [lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations]);
 
   const filtered = useMemo(() => {
     let r = rows;
     if (filter !== 'all') r = r.filter(row => row.typeKey === filter);
+    // 「待收款」刻意不含 unchecked：那些是舊資料，不是今天要做的事
+    if (payFilter === 'pending') r = r.filter(row => row.pay === 'pending');
+    else if (payFilter === 'paid') r = r.filter(row => row.pay === 'paid');
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       r = r.filter(row => row.name.toLowerCase().includes(q) || row.phone.includes(q));
     }
     return r;
-  }, [rows, filter, search]);
+  }, [rows, filter, payFilter, search]);
 
-  const totalLamp     = useMemo(() => rows.filter(r => r.typeKey === 'lamp').reduce((s, r) => s + r.amount, 0), [rows]);
-  const totalBlessing = useMemo(() => rows.filter(r => r.typeKey === 'blessing').reduce((s, r) => s + r.amount, 0), [rows]);
-  const totalDonation = useMemo(() => rows.filter(r => r.typeKey === 'donation').reduce((s, r) => s + r.amount, 0), [rows]);
-  const total = totalLamp + totalBlessing + totalDonation;
+  const sum = (pred: (r: IncomeRow) => boolean) =>
+    rows.filter(pred).reduce((s, r) => s + r.amount, 0);
+  const pendingRows   = useMemo(() => rows.filter(r => r.pay === 'pending'), [rows]);
+  const totalPending  = useMemo(() => sum(r => r.pay === 'pending'), [rows]);
+  const totalPaid     = useMemo(() => sum(r => r.pay === 'paid'), [rows]);
+  const uncheckedRows = useMemo(() => rows.filter(r => r.pay === 'unchecked'), [rows]);
 
   const findMember = (phone: string) => memberProfiles.find(p => p.phone === phone) || null;
 
-  const typeBadge = (typeKey: 'lamp' | 'blessing' | 'donation', label: string) => {
+  /**
+   * 標記收款。**一定要走各服務原本那條路**，寄信就在那裡面
+   * （漏掉的症狀是後台一切正常、信眾永遠收不到「款項已收到」，而且不報錯）。
+   */
+  const setPaid = async (row: IncomeRow, paid: boolean) => {
+    const rawId = row.id.split(':')[1];
+    setBusyId(row.id);
+    try {
+      if (row.typeKey === 'lamp') {
+        const next = paid ? LampRegistrationStatus.CONFIRMED : LampRegistrationStatus.PENDING;
+        await updateLampRegistrationStatus(rawId, next);
+        if (paid) queueConfirmEmail('lamp_registrations', rawId);
+      } else if (row.typeKey === 'blessing') {
+        const next = paid ? BlessingStatus.CONFIRMED : BlessingStatus.PENDING;
+        await updateBlessingRegistrationStatus(rawId, next);
+        if (paid) queueConfirmEmail('blessing_registrations', rawId);
+      } else if (row.typeKey === 'fahui') {
+        await updateFahuiStatus(rawId, paid ? 'paid' : 'pending');
+        if (paid) queueConfirmEmail('fahui_registrations', rawId);
+      } else {
+        // 捐獻不寄信：感謝信是送出當下就寄的，與收款核對無關
+        await updateDonationStatus(rawId, paid ? DonationStatus.CONFIRMED : DonationStatus.PENDING);
+      }
+      onRefresh();
+    } catch {
+      alert('更新收款狀態失敗');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const typeBadge = (typeKey: IncomeRow['typeKey'], label: string) => {
     const cls =
       typeKey === 'lamp'     ? 'bg-amber-100 text-amber-700' :
       typeKey === 'blessing' ? 'bg-purple-100 text-purple-700' :
+      typeKey === 'fahui'    ? 'bg-rose-100 text-rose-700' :
                                'bg-green-100 text-green-700';
     return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{label}</span>;
   };
 
+  const payBadge = (pay: PayState) => {
+    if (pay === 'paid')      return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已收款</span>;
+    if (pay === 'cancelled') return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">已取消</span>;
+    if (pay === 'unchecked') return (
+      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"
+        title="這筆早於收款狀態這個欄位，當初沒有核對過——不等於沒收到">未核對</span>
+    );
+    return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">待匯款</span>;
+  };
+
   return (
     <div className="space-y-6">
-      {/* 統計卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        {([
-          { label: '總收入',   amount: total,         cls: 'text-temple-red' },
-          { label: '點燈',     amount: totalLamp,     cls: 'text-amber-600'  },
-          { label: '祈福',     amount: totalBlessing, cls: 'text-purple-600' },
-          { label: '捐獻',     amount: totalDonation, cls: 'text-green-600'  },
-        ] as const).map(({ label, amount, cls }) => (
-          <div key={label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-            <p className="text-sm text-gray-500 mb-1">{label}</p>
-            <p className={`text-2xl font-bold ${cls}`}>NT$ {amount.toLocaleString()}</p>
-          </div>
-        ))}
+      {/* 統計卡片：這是工作清單，所以先講「還沒收的」 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-5 border border-yellow-200 shadow-sm">
+          <p className="text-sm text-gray-500 mb-1">待收款</p>
+          <p className="text-2xl font-bold text-yellow-700">NT$ {totalPending.toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{pendingRows.length} 筆等著核對</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <p className="text-sm text-gray-500 mb-1">已收款</p>
+          <p className="text-2xl font-bold text-green-600">NT$ {totalPaid.toLocaleString()}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <p className="text-sm text-gray-500 mb-1">未核對</p>
+          <p className="text-2xl font-bold text-gray-400">{uncheckedRows.length}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">舊捐獻，當初沒有核對欄位</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <p className="text-sm text-gray-500 mb-1">全部收入</p>
+          <p className="text-2xl font-bold text-temple-red">NT$ {sum(() => true).toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">報名金額，不是已入帳</p>
+        </div>
       </div>
 
       {/* 篩選 + 搜尋 + 表格 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
           <div className="flex gap-1">
-            {(['all', 'lamp', 'blessing', 'donation'] as const).map(key => {
-              const label = key === 'all' ? '全部' : key === 'lamp' ? '點燈' : key === 'blessing' ? '祈福' : '捐獻';
+            {(['pending', 'paid', 'all'] as const).map(key => (
+              <button key={key} onClick={() => setPayFilter(key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  payFilter === key ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}>
+                {key === 'pending' ? `待收款 ${pendingRows.length}` : key === 'paid' ? '已收款' : '全部'}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-6 bg-gray-200" />
+          <div className="flex gap-1">
+            {(['all', 'lamp', 'blessing', 'fahui', 'donation'] as const).map(key => {
+              const label = key === 'all' ? '全部' : key === 'lamp' ? '點燈' : key === 'blessing' ? '祈福' : key === 'fahui' ? '法會' : '捐獻';
               return (
                 <button key={key} onClick={() => setFilter(key)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    filter === key ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-100'
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    filter === key ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}>{label}</button>
               );
             })}
@@ -6935,36 +7061,72 @@ const ReceivablesTab: React.FC<{
           <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
-                {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員'].map(h => (
+                {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員', '操作'].map(h => (
                   <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center text-gray-400 py-16">暫無資料</td></tr>
+                <tr><td colSpan={9} className="text-center text-gray-400 py-16">
+                  {payFilter === 'pending' ? '待收款的都處理完了' : '暫無資料'}
+                </td></tr>
               ) : filtered.map(row => {
                 const member = findMember(row.phone);
+                const busy = busyId === row.id;
                 return (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
-                    <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
-                    <td data-label="電話" className="px-5 py-3 text-gray-500">{row.phone}</td>
-                    <td data-label="類型" className="px-5 py-3">{typeBadge(row.typeKey, row.type)}</td>
-                    <td data-label="項目" className="px-5 py-3 text-gray-600 max-w-[180px] truncate" title={row.detail}>{row.detail}</td>
-                    <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800">NT$ {row.amount.toLocaleString()}</td>
-                    <td data-label="狀態" className="px-5 py-3">{statusBadge(row.status)}</td>
-                    <td data-label="會員" className="px-5 py-3">
-                      {member ? (
-                        <button onClick={() => setSelectedMember(member)}
-                          className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
-                          <User className="w-3 h-3" /> {member.name}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
-                    </td>
-                  </tr>
+                  <React.Fragment key={row.id}>
+                    <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
+                      <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
+                      <td data-label="電話" className="px-5 py-3 text-gray-500">{row.phone}</td>
+                      <td data-label="類型" className="px-5 py-3">{typeBadge(row.typeKey, row.type)}</td>
+                      <td data-label="項目" className="px-5 py-3 text-gray-600 max-w-[180px] truncate" title={row.detail}>{row.detail}</td>
+                      <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800">NT$ {row.amount.toLocaleString()}</td>
+                      <td data-label="狀態" className="px-5 py-3">{payBadge(row.pay)}</td>
+                      <td data-label="會員" className="px-5 py-3">
+                        {member ? (
+                          <button onClick={() => setSelectedMember(member)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
+                            <User className="w-3 h-3" /> {member.name}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td data-label="操作" className="px-5 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          {row.pay === 'cancelled' ? (
+                            <span className="text-xs text-gray-400">已取消</span>
+                          ) : (
+                            <button onClick={() => setPaid(row, row.pay !== 'paid')} disabled={busy}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                                row.pay === 'paid'
+                                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}>
+                              {row.pay === 'paid' ? '改回待匯款' : '標記已收款'}
+                            </button>
+                          )}
+                          {/* 法會的細部對帳（付款方式／帳號後五碼／財務會計確認）整套在這裡展開，
+                              用的是法會分頁那個元件本體，不另寫一份 */}
+                          {row.fahui && (
+                            <button onClick={() => setOpenReconcile(openReconcile === row.id ? null : row.id)}
+                              className="px-2.5 py-1.5 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50">
+                              {openReconcile === row.id ? '收合對帳' : '對帳'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {row.fahui && openReconcile === row.id && (
+                      <tr className="bg-gray-50/70">
+                        <td colSpan={9} className="px-5 py-4">
+                          <FahuiReconcileBlock r={row.fahui} onSaved={onRefresh} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -6980,6 +7142,12 @@ const ReceivablesTab: React.FC<{
           </div>
         )}
       </div>
+
+      <p className="text-xs text-gray-400 leading-relaxed">
+        按「標記已收款」時，<strong className="text-gray-500">點燈／祈福／法會會自動寄一封「款項已收到」給信眾</strong>
+        （寄過的不再寄，連著標好幾列會併成一封）。捐獻不寄——它的感謝信在送出當下就寄了。
+        「改回待匯款」不會寄任何信，也沒有「取消確認信」這種東西，標錯請直接打電話。
+      </p>
 
       {/* 會員詳情 Modal */}
       {selectedMember && (
@@ -7605,7 +7773,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
               {tab === 'vouchers'    && <AdminVouchersTab />}
               {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}
-              {tab === 'receivables' && <ReceivablesTab lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} donations={donations} memberProfiles={memberProfiles} />}
+              {tab === 'receivables' && <ReceivablesTab lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} fahuiRegistrations={fahuiRegistrations} donations={donations} memberProfiles={memberProfiles} onRefresh={() => fetchAll()} />}
             </>
           )}
         </div>

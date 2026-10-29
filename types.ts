@@ -260,6 +260,9 @@ export interface DonationData {
 
 export interface DonationRecord extends DonationData {
   id: string;
+  /** 收款狀態。`undefined`＝這筆早於 `donation_payment_status.sql`，從未核對過
+   *  （**不是**「還沒收到」，見 `DonationStatus`）。 */
+  status?: DonationStatus;
   /** 寄給信眾的那封信（確認信／感謝信）寄出的時間（ISO）。`undefined` ＝還沒寄過。
    *  靠這一欄才不會重寄：捐獻是送出時寄，重送同一批 id 不會再來一封；
    *  其餘幾種是廟方改狀態時寄，而那是一顆會被改來改去的下拉選單
@@ -632,6 +635,20 @@ export interface MemberProfileRecord extends ProfileData {
  * 祈福報名的狀態。同 `LampRegistrationStatus`——講的是收款。
  * 舊值是 `待確認`／`已確認`，由 `normalizeBlessingStatus()` 在讀取端折過來。
  */
+/**
+ * 捐獻的收款狀態（2026-10-30，migration：`donation_payment_status.sql`）。
+ * 值與點燈／祈福／法會一致——財務頁上四種收入並列，用語不一致就沒人看得懂。
+ *
+ * **`undefined` 不等於「待匯款」**：那代表這一筆是欄位存在之前的舊資料，
+ * 當初根本沒有核對這件事。畫面上要跟「還沒收到」分開顯示，否則等於憑空宣稱
+ * 一批早就收到的錢沒收到。
+ */
+export enum DonationStatus {
+  PENDING   = '待匯款',
+  CONFIRMED = '已收款',
+  CANCELLED = '已取消'
+}
+
 export enum BlessingStatus {
   PENDING   = '待匯款',
   CONFIRMED = '已收款',

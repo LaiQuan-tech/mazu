@@ -21,7 +21,7 @@ const newUuid = (): string => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 };
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, UrgentPrayerData, UrgentPrayerKind, UrgentPrayerRecord, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, UrgentPrayerData, UrgentPrayerKind, UrgentPrayerRecord, ZodiacSign } from '../types';
 import { UrgentPrayerStatus } from '../types';
 import { getSource } from './attribution';
 
@@ -343,9 +343,20 @@ export const submitDonation = async (data: DonationData, opts?: SubmitOptions): 
     relocation_tier: data.relocationTier || null,
     email: data.email?.trim() || null,
     source: getSource(),
-  }, ['email', 'birth_date', 'relocation_plan', 'relocation_tier']);
+  }, ['email', 'birth_date', 'relocation_plan', 'relocation_tier', 'status']);
   if (opts?.notify !== false) notifyRegistration('donations', id);
   return id;
+};
+
+/** 後台：改捐獻的收款狀態（財務頁用）。
+ *  **寄信不在這裡**：捐獻的感謝信是送出當下就寄的，與收款核對無關
+ *  （廟方 2026-10-30 決定維持原樣）。 */
+export const updateDonationStatus = async (id: string, status: DonationStatus): Promise<void> => {
+  const { error } = await supabase.from('donations').update({ status }).eq('id', id);
+  if (error) {
+    console.error('Error updating donation status:', error);
+    throw error;
+  }
 };
 
 export const getDonations = async (): Promise<DonationRecord[]> => {
@@ -375,6 +386,8 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     birthDate:       row.birth_date      || undefined,
     relocationPlan:  row.relocation_plan || undefined,
     relocationTier:  row.relocation_tier || undefined,
+    // NULL＝早於 donation_payment_status.sql，從未核對過（不是「還沒收到」）
+    status: (row.status as DonationStatus) || undefined,
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     email: row.email || undefined,
