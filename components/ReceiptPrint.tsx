@@ -25,6 +25,7 @@
  * 只留 `.receipt-print-root`。不另開視窗——另開會失去樣式，而且會被彈出視窗封鎖擋掉。
  */
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ReceiptRecord, receiptTotal, amountToChinese, rocDateParts } from '../services/receipts';
 
 export interface ReceiptTempleInfo {
@@ -147,7 +148,7 @@ const ReceiptPrint: React.FC<{
     return () => clearTimeout(t);
   }, [autoPrint, onDone]);
 
-  return (
+  const content = (
     <div className={`receipt-print-root${screen ? ' rc-screen' : ''}`}>
       {COPIES.map((c, i) => (
         <ReceiptCopy key={c.key} r={receipt} temple={temple}
@@ -155,6 +156,16 @@ const ReceiptPrint: React.FC<{
       ))}
     </div>
   );
+
+  /**
+   * **列印時 portal 到 `document.body`**，不要留在 React 樹裡。
+   * 留在裡面的話，要藏掉後台就只能用 `visibility: hidden`——那只是看不見，
+   * 版面高度還在，於是印出來會多出十幾張空白（廟方 2026-10-30 實測 21 頁）。
+   * Portal 出去之後就能直接 `#root { display: none }`，版面乾淨。
+   *
+   * 螢幕預覽不 portal：那一份要留在頁面流裡才看得到位置。
+   */
+  return screen ? content : createPortal(content, document.body);
 };
 
 export default ReceiptPrint;
