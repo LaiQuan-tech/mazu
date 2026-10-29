@@ -154,7 +154,8 @@ export const printReceipt = (receiptNo: string): void => {
 };
 
 const ReceiptPrint: React.FC<{
-  receipt: ReceiptRecord;
+  /** 一張或多張。**多張時一張一頁**，每一頁自己是完整的一式三聯。 */
+  receipt: ReceiptRecord | ReceiptRecord[];
   temple: ReceiptTempleInfo;
   /** 畫完一次之後自動開列印對話框。補印時由呼叫端控制。 */
   autoPrint?: boolean;
@@ -162,18 +163,29 @@ const ReceiptPrint: React.FC<{
   screen?: boolean;
   onDone?: () => void;
 }> = ({ receipt, temple, autoPrint = true, screen = false, onDone }) => {
+  const list = Array.isArray(receipt) ? receipt : [receipt];
+  /** 檔名：一張就是那個號，多張講頭尾（`收據 115-00001～115-00004`） */
+  const fileLabel = list.length === 1
+    ? list[0].receiptNo
+    : `${list[0]?.receiptNo ?? ''}～${list[list.length - 1]?.receiptNo ?? ''}`;
+
   useEffect(() => {
-    if (!autoPrint) return;
+    if (!autoPrint || list.length === 0) return;
     // 等一次 paint，否則會印到空白（同 VoucherPrint）
-    const t = setTimeout(() => { printReceipt(receipt.receiptNo); onDone?.(); }, 80);
+    const t = setTimeout(() => { printReceipt(fileLabel); onDone?.(); }, 80);
     return () => clearTimeout(t);
-  }, [autoPrint, onDone, receipt.receiptNo]);
+  }, [autoPrint, onDone, fileLabel, list.length]);
 
   const content = (
     <div className={`receipt-print-root${screen ? ' rc-screen' : ''}`}>
-      {COPIES.map((c, i) => (
-        <ReceiptCopy key={c.key} r={receipt} temple={temple}
-          copyLabel={c.label} last={i === COPIES.length - 1} />
+      {list.map((rec, n) => (
+        /* 一張收據一頁。最後一張不加分頁，否則會多印一張空白 */
+        <div key={rec.id} className={`rc-sheet${n < list.length - 1 ? ' rc-sheet-break' : ''}`}>
+          {COPIES.map((c, i) => (
+            <ReceiptCopy key={c.key} r={rec} temple={temple}
+              copyLabel={c.label} last={i === COPIES.length - 1} />
+          ))}
+        </div>
       ))}
     </div>
   );

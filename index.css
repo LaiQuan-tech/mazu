@@ -280,6 +280,9 @@ select:not([multiple]):not([size]) {
    在列印是最脆弱的尺寸：列印對話框的邊界只要不是「無」（預設就不是），
    可用高度剩下約 277mm，第三聯立刻被擠到第二頁（廟方 2026-10-30 實測）。
    90mm×3＝270mm，邊界設「無」或「預設」都放得下。 */
+/* 螢幕預覽：一張收據之間留白，看得出是不同的紙 */
+.receipt-print-root.rc-screen .rc-sheet + .rc-sheet { margin-top: 10mm; border-top: 0.6mm solid #d4d4d8; }
+
 .receipt-print-root .rc-copy {
   box-sizing: border-box;
   height: 90mm; padding: 5mm 7mm 4mm;
@@ -358,5 +361,7 @@ select:not([multiple]):not([size]) {
   }
   /* 每一聯都不要被分頁切開 */
   .receipt-print-root .rc-copy { break-inside: avoid; page-break-inside: avoid; }
+  /* 一張收據（＝一式三聯）佔一頁。**最後一張不加**，否則會多印一張空白 */
+  .receipt-print-root .rc-sheet-break { break-after: page; page-break-after: always; }
   @page { size: A4 portrait; margin: 0; }
 }

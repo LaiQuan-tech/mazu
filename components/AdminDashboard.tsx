@@ -8,9 +8,9 @@ import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminVouchersTab from './AdminVouchersTab';
-import { ReceiptIssueDialog, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
+import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
-import { ReceiptItem, ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
+import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import AdminShowerTab from './AdminShowerTab';
 import AdminUrgentTab from './AdminUrgentTab';
@@ -6997,13 +6997,44 @@ const ReceivablesTab: React.FC<{
   /** 勾起來的那幾列。**從 rows 取不是從 filtered 取**：換了篩選條件之後，
    *  已經勾好的列不該因為暫時被篩掉就消失，否則勾到一半改個篩選就全沒了。 */
   const pickedRows = useMemo(() => rows.filter(r => picked.has(r.id)), [rows, picked]);
-  const pickedItems: ReceiptItem[] = pickedRows.map(r => ({
-    sourceTable: SOURCE_TABLE[r.typeKey],
-    sourceId: r.id.split(':')[1],
-    // 項目名稱與金額是**快照**：收據印出去之後，活動改名或改價都不該動到那張紙
-    label: r.typeKey === 'donation' ? r.detail : `${r.type}－${r.detail}`,
-    amount: r.amount,
-  }));
+  /**
+   * 勾選的列依「人」分組——**一個人一張收據**。
+   *
+   * 原本是不管勾了誰，全部塞進同一張、抬頭掛第一個人的名字。那是錯的：
+   * 收據是給特定一個人的憑證，把別人的錢算在他頭上，金額與抬頭就對不起來。
+   * 廟方 2026-10-30 說「勾選二個以上要能一次印」時一併查出來的。
+   *
+   * **分組鍵是姓名＋電話，不是姓名。** 只看姓名的話，兩個同名的人會被併成
+   * 一張收據——那正是這次要修掉的毛病，不能在分組這一層又犯一次。
+   * 代價是同一個人用兩支電話報名會分成兩張；那比合錯好，而且看得出來。
+   */
+  const pickedGroups: ReceiptGroup[] = useMemo(() => {
+    const m = new Map<string, ReceiptGroup>();
+    pickedRows.forEach(r => {
+      const key = `${r.name}|${r.phone}`;
+      let g = m.get(key);
+      if (!g) {
+        g = { key, title: r.name, phone: r.phone, address: '', items: [] };
+        m.set(key, g);
+      }
+      g.items.push({
+        sourceTable: SOURCE_TABLE[r.typeKey],
+        sourceId: r.id.split(':')[1],
+        // 項目名稱與金額是**快照**：收據印出去之後，活動改名或改價都不該動到那張紙
+        label: r.typeKey === 'donation' ? r.detail : `${r.type}－${r.detail}`,
+        amount: r.amount,
+      });
+    });
+    // 電話與地址：這個人自己那幾筆裡第一個有填的，再退回他的會員資料
+    const rowsOf = (key: string) => pickedRows.filter(r => `${r.name}|${r.phone}` === key);
+    m.forEach((g, key) => {
+      const mine = rowsOf(key);
+      const mem = findMember(g.phone ?? '');
+      g.phone = mine.map(r => r.phone).find(Boolean) ?? mem?.phone ?? '';
+      g.address = mine.map(r => r.address).find(Boolean) ?? mem?.address ?? '';
+    });
+    return [...m.values()];
+  }, [pickedRows, memberProfiles]);
   const togglePick = (id: string) => setPicked(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -7180,7 +7211,8 @@ const ReceivablesTab: React.FC<{
                 ? 'bg-temple-red text-white hover:bg-temple-red/90'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}>
-            開立收據{pickedRows.length > 0 ? ` (${pickedRows.length})` : ''}
+            開立收據{pickedGroups.length > 1 ? ` ${pickedGroups.length} 張`
+              : pickedRows.length > 0 ? ` (${pickedRows.length})` : ''}
           </button>
         </div>
 
@@ -7341,22 +7373,7 @@ const ReceivablesTab: React.FC<{
 
       {issuing && (
         <ReceiptIssueDialog
-          items={pickedItems}
-          preset={{
-            title: pickedRows[0]?.name ?? '',
-            /**
-             * 電話與地址：**先找勾選的這幾筆裡第一個有填的**，再退回會員資料。
-             *
-             * 為什麼報名時填的優先：那是他為這筆交易留的，可能跟帳號上的舊地址不同
-             * （搬家之後報名表填新的、會員資料還沒改，收據要寄到新的那個）。
-             * 為什麼要有會員後援：報名表的地址是選填，很多筆是空的——而收據上
-             * 留白等於這張收據寄不出去，也不能當抵稅憑證。
-             */
-            phone: pickedRows.map(r => r.phone).find(Boolean)
-              ?? findMember(pickedRows[0]?.phone ?? '')?.phone,
-            address: pickedRows.map(r => r.address).find(Boolean)
-              ?? findMember(pickedRows[0]?.phone ?? '')?.address,
-          }}
+          groups={pickedGroups}
           already={already}
           temple={temple}
           onClose={() => setIssuing(false)}

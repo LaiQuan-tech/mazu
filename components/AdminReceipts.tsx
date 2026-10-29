@@ -45,16 +45,30 @@ const field = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outlin
 
 // ── 開立 ──────────────────────────────────────────────────────────────────
 
-export const ReceiptIssueDialog: React.FC<{
+/** 一個人要開的那一張收據。**分組是在呼叫端做的**（財務頁知道每一列屬於誰）。 */
+export interface ReceiptGroup {
+  key: string;
+  title: string;
+  phone?: string;
+  address?: string;
   items: ReceiptItem[];
-  /** 預帶的抬頭與聯絡資料（通常取第一筆報名人的） */
-  preset: { title: string; phone?: string; address?: string };
+}
+
+export const ReceiptIssueDialog: React.FC<{
+  /**
+   * 要開的收據，**一組一張**。
+   *
+   * 勾選跨到不同人時必須分成好幾張——原本是全部塞進同一張、抬頭掛第一個人的
+   * 名字（廟方 2026-10-30 發現多選時的問題時一併查出來）。那是錯的：收據是
+   * 給特定一個人的憑證，把別人的錢算在他頭上，金額與抬頭就對不起來了。
+   */
+  groups: ReceiptGroup[];
   /** 這幾筆裡已經開過收據的，key 是 `table:id` */
   already: Map<string, ReceiptRecord>;
   temple: ReceiptTempleInfo;
   onClose: () => void;
   onIssued: () => void;
-}> = ({ items, preset, already, temple, onClose, onIssued }) => {
+}> = ({ groups, already, temple, onClose, onIssued }) => {
   /**
    * 經手人要印在收據上，而 `admin_profiles` 沒有姓名欄位（只有 user_id 與 role），
    * auth 的信箱又不是人名。所以讓財務自己填，**記在這台電腦上**下次自動帶入——
@@ -67,27 +81,30 @@ export const ReceiptIssueDialog: React.FC<{
   useEffect(() => {
     try { localStorage.setItem('receipt_operator', operator); } catch { /* 無痕視窗會丟錯，不影響開立 */ }
   }, [operator]);
-  const [title, setTitle] = useState(preset.title);
-  const [phone, setPhone] = useState(preset.phone ?? '');
-  const [address, setAddress] = useState(preset.address ?? '');
+
+  const single = groups.length === 1;
+  /** 只有一張時才給改抬頭／電話／地址；多張時各自帶各自的，見下面的說明 */
+  const [title, setTitle] = useState(groups[0]?.title ?? '');
+  const [phone, setPhone] = useState(groups[0]?.phone ?? '');
+  const [address, setAddress] = useState(groups[0]?.address ?? '');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  /** 開完之後要印的那一張。印完才關對話框，不然元件被卸載就印不出來了 */
-  const [printing, setPrinting] = useState<ReceiptRecord | null>(null);
+  /** 開完之後要印的那幾張。印完才關對話框，不然元件被卸載就印不出來了 */
+  const [printing, setPrinting] = useState<ReceiptRecord[] | null>(null);
 
-  const total = receiptTotal(items);
-  const dupes = items.filter(i => i.sourceTable && i.sourceId && already.has(`${i.sourceTable}:${i.sourceId}`));
+  const allItems = groups.flatMap(g => g.items);
+  const grandTotal = receiptTotal(allItems);
+  const dupes = allItems.filter(i => i.sourceTable && i.sourceId && already.has(`${i.sourceTable}:${i.sourceId}`));
   /**
    * 已經開過收據的那幾張（去重）。
    *
-   * **有重複就不准再開**（廟方 2026-10-30 發現：「同一筆收據，可以一直開，
-   * 流水號還不同，這應該是 bug」）。同一筆錢有兩張有效的連號收據，帳面上
-   * 看起來就是收了兩次——那是連號制度最不能出的錯。
+   * **有重複就不准再開**（廟方 2026-10-30：「同一筆收據，可以一直開，流水號
+   * 還不同，這應該是 bug」）。同一筆錢有兩張有效的連號收據，帳面上看起來
+   * 就是收了兩次——那是連號制度最不能出的錯。
    *
-   * 原本這裡只警告不阻擋，理由是「作廢後重開是正常流程」。但那條路現在
-   * 仍然走得通：先去收據列表把舊的作廢，作廢的不算在 `already` 裡（見
-   * `receiptsBySource`），這裡就會放行。**先作廢再重開**是對的順序，
+   * 重開的路仍然走得通：先去收據列表把舊的作廢，作廢的不算在 `already` 裡
+   * （見 `receiptsBySource`），這裡就會放行。**先作廢再重開**是對的順序，
    * 因為它留下了「舊的那張被作廢了」這個紀錄；直接重開沒有。
    */
   const existing: ReceiptRecord[] = [...new Map<string, ReceiptRecord>(
@@ -98,17 +115,30 @@ export const ReceiptIssueDialog: React.FC<{
   ).values()];
 
   const submit = async () => {
-    if (!title.trim()) { setErr('收據抬頭不能空白'); return; }
+    if (single && !title.trim()) { setErr('收據抬頭不能空白'); return; }
+    const blank = groups.find(g => !g.title.trim());
+    if (!single && blank) { setErr('有一組的抬頭是空白的，請先取消那一筆的勾選'); return; }
     setErr(''); setSaving(true);
     try {
-      const r = await createReceipt({
-        title: title.trim(), items,
-        phone: phone.trim() || undefined,
-        address: address.trim() || undefined,
-        note: note.trim() || undefined,
-        byName: operator || undefined,
-      });
-      if (r) { setPrinting(r); onIssued(); }
+      /**
+       * **一張一張依序開，不要 Promise.all。** 流水號是在資料庫端用一列
+       * 計數器配的，併發送出去雖然不會重號（ON CONFLICT 會鎖住那一列），
+       * 但回來的順序不保證，列印出來的號碼就會亂跳。依序開，印出來的順序
+       * 與號碼順序一致。
+       */
+      const made: ReceiptRecord[] = [];
+      for (const g of groups) {
+        const r = await createReceipt({
+          title: (single ? title : g.title).trim(),
+          items: g.items,
+          phone: (single ? phone : (g.phone ?? '')).trim() || undefined,
+          address: (single ? address : (g.address ?? '')).trim() || undefined,
+          note: note.trim() || undefined,
+          byName: operator || undefined,
+        });
+        if (r) made.push(r);
+      }
+      if (made.length > 0) { setPrinting(made); onIssued(); }
     } catch (e) {
       setErr(e instanceof Error ? e.message : '開立失敗');
     } finally {
@@ -117,14 +147,22 @@ export const ReceiptIssueDialog: React.FC<{
   };
 
   if (printing) {
+    const label = printing.length === 1
+      ? printing[0].receiptNo
+      : `${printing[0].receiptNo}～${printing[printing.length - 1].receiptNo}`;
     return (
       <>
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-3">
-            <p className="font-semibold text-gray-800">已開立 {printing.receiptNo}</p>
-            <p className="text-xs text-gray-500">列印對話框沒出現的話，請按下面重印。</p>
+            <p className="font-semibold text-gray-800">
+              已開立 {printing.length > 1 ? `${printing.length} 張（${label}）` : label}
+            </p>
+            <p className="text-xs text-gray-500">
+              {printing.length > 1 ? '一張收據一頁，共 ' + printing.length + ' 頁。' : ''}
+              列印對話框沒出現的話，請按下面重印。
+            </p>
             <div className="flex gap-2">
-              <button onClick={() => printReceipt(printing.receiptNo)}
+              <button onClick={() => printReceipt(label)}
                 className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600">再印一次</button>
               <button onClick={onClose}
                 className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium">完成</button>
@@ -140,7 +178,9 @@ export const ReceiptIssueDialog: React.FC<{
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3.5 flex items-center justify-between">
-          <h3 className="font-bold text-gray-800">開立收據</h3>
+          <h3 className="font-bold text-gray-800">
+            開立收據{!single && <span className="ml-2 text-sm font-normal text-gray-500">{groups.length} 張</span>}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
         </div>
 
@@ -156,7 +196,7 @@ export const ReceiptIssueDialog: React.FC<{
               </p>
               <div className="flex flex-wrap gap-2">
                 {existing.map(rec => (
-                  <button key={rec.id} onClick={() => setPrinting(rec)}
+                  <button key={rec.id} onClick={() => setPrinting([rec])}
                     className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-medium hover:bg-amber-100">
                     補印 {rec.receiptNo}
                   </button>
@@ -168,59 +208,99 @@ export const ReceiptIssueDialog: React.FC<{
             </div>
           )}
 
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-gray-100">
-                {items.map((i, n) => (
-                  <tr key={n}>
-                    <td className="px-3 py-2 text-gray-700">{i.label}</td>
-                    <td className="px-3 py-2 text-right text-gray-800 font-medium whitespace-nowrap">{money(i.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-50">
-                <tr>
-                  {/* 合計由明細加總，不另存一個數字（同財務憑證那條原則） */}
-                  <td className="px-3 py-2 text-xs text-gray-500">合計（{items.length} 筆）</td>
-                  <td className="px-3 py-2 text-right font-bold text-gray-900 whitespace-nowrap">{money(total)}</td>
-                </tr>
-                <tr>
-                  <td colSpan={2} className="px-3 pb-2 text-right text-xs text-gray-500">{amountToChinese(total)}</td>
-                </tr>
-              </tfoot>
-            </table>
+          {/* 要開哪幾張、每張有什麼。多人時這一段就是主畫面 */}
+          <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+            {groups.map(g => (
+              <div key={g.key} className="p-3">
+                {!single && (
+                  <p className="text-sm font-semibold text-gray-800 mb-1.5">
+                    {g.title}
+                    <span className="ml-2 text-xs font-normal text-gray-400">{g.phone || '沒有電話'}</span>
+                  </p>
+                )}
+                <table className="w-full text-sm">
+                  <tbody>
+                    {g.items.map((i, n) => (
+                      <tr key={n}>
+                        <td className="py-1 text-gray-600">{i.label}</td>
+                        <td className="py-1 text-right text-gray-800 font-medium whitespace-nowrap">NT$ {i.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {g.items.length > 1 && (
+                      <tr className="border-t border-gray-100">
+                        {/* 合計由明細加總，不另存一個數字（同財務憑證那條原則） */}
+                        <td className="pt-1 text-xs text-gray-400">小計</td>
+                        <td className="pt-1 text-right font-bold text-gray-900 whitespace-nowrap">NT$ {receiptTotal(g.items).toLocaleString()}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            {!single && (
+              <div className="p-3 bg-gray-50 flex items-center justify-between">
+                <span className="text-xs text-gray-500">{groups.length} 張合計</span>
+                <span className="font-bold text-gray-900">NT$ {grandTotal.toLocaleString()}</span>
+              </div>
+            )}
+            {single && (
+              <div className="p-3 bg-gray-50 text-right">
+                <span className="text-xs text-gray-500 mr-2">{amountToChinese(grandTotal)}</span>
+                <span className="font-bold text-gray-900">NT$ {grandTotal.toLocaleString()}</span>
+              </div>
+            )}
           </div>
 
+          {single ? (
+            <>
+              <label className="block">
+                <span className="block text-xs font-medium text-gray-600 mb-1">收據抬頭 *</span>
+                <input value={title} onChange={e => setTitle(e.target.value)} className={field} />
+                <span className="block text-[11px] text-gray-400 mt-1">
+                  可以跟報名人不同（例如開給長輩或「○○家族」）。改這裡不會動到報名紀錄。
+                </span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="block text-xs font-medium text-gray-600 mb-1">電話</span>
+                  <input value={phone} onChange={e => setPhone(e.target.value)} className={field} />
+                </label>
+                <label className="block">
+                  <span className="block text-xs font-medium text-gray-600 mb-1">經手人</span>
+                  <input value={operator} onChange={e => setOperator(e.target.value)} className={field}
+                    placeholder="你的名字" />
+                </label>
+              </div>
+              <label className="block">
+                <span className="block text-xs font-medium text-gray-600 mb-1">地址</span>
+                <input value={address} onChange={e => setAddress(e.target.value)} className={field}
+                  placeholder="這幾筆報名與會員資料都沒有留地址，請手動填" />
+                {!groups[0]?.address && (
+                  <span className="block text-[11px] text-amber-700 mt-1">
+                    系統查不到地址——報名表的地址是選填，這幾筆都沒填，會員資料裡也沒有。
+                  </span>
+                )}
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="block">
+                <span className="block text-xs font-medium text-gray-600 mb-1">經手人</span>
+                <input value={operator} onChange={e => setOperator(e.target.value)} className={field}
+                  placeholder="你的名字" />
+              </label>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                多張一起開時，每一張的抬頭／電話／地址各自取該信眾的報名資料（沒有就退回會員資料）。
+                <strong className="text-gray-500">要改某一張的抬頭</strong>（例如開給長輩或「○○家族」），
+                請只勾那一個人、單獨開一張。
+              </p>
+            </>
+          )}
+
           <label className="block">
-            <span className="block text-xs font-medium text-gray-600 mb-1">收據抬頭 *</span>
-            <input value={title} onChange={e => setTitle(e.target.value)} className={field} />
-            <span className="block text-[11px] text-gray-400 mt-1">
-              可以跟報名人不同（例如開給長輩或「○○家族」）。改這裡不會動到報名紀錄。
+            <span className="block text-xs font-medium text-gray-600 mb-1">
+              備註（印在收據右欄{!single && '，每一張都會印上'}）
             </span>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="block text-xs font-medium text-gray-600 mb-1">電話</span>
-              <input value={phone} onChange={e => setPhone(e.target.value)} className={field} />
-            </label>
-            <label className="block">
-              <span className="block text-xs font-medium text-gray-600 mb-1">經手人</span>
-              <input value={operator} onChange={e => setOperator(e.target.value)} className={field}
-                placeholder="你的名字" />
-            </label>
-          </div>
-          <label className="block">
-            <span className="block text-xs font-medium text-gray-600 mb-1">地址</span>
-            <input value={address} onChange={e => setAddress(e.target.value)} className={field}
-              placeholder="這幾筆報名與會員資料都沒有留地址，請手動填" />
-            {!preset.address && (
-              <span className="block text-[11px] text-amber-700 mt-1">
-                系統查不到地址——報名表的地址是選填，這幾筆都沒填，會員資料裡也沒有。
-              </span>
-            )}
-          </label>
-          <label className="block">
-            <span className="block text-xs font-medium text-gray-600 mb-1">備註（印在收據右欄）</span>
             <input value={note} onChange={e => setNote(e.target.value)} className={field}
               placeholder="例如：現金、代繳" />
           </label>
@@ -229,14 +309,15 @@ export const ReceiptIssueDialog: React.FC<{
 
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm">取消</button>
-            <button onClick={submit} disabled={saving || items.length === 0 || existing.length > 0}
+            <button onClick={submit} disabled={saving || groups.length === 0 || existing.length > 0}
               title={existing.length > 0 ? '這幾筆已經開過收據，請用上面的補印；要重開請先把舊的作廢' : ''}
               className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
-              {saving ? '開立中…' : existing.length > 0 ? '已開過，不能重複開立' : '開立並列印'}
+              {saving ? '開立中…' : existing.length > 0 ? '已開過，不能重複開立'
+                : single ? '開立並列印' : `開立 ${groups.length} 張並列印`}
             </button>
           </div>
           <p className="text-[11px] text-gray-400">
-            一張 A4 會印出三聯（收執聯／財務憑證聯／存根聯），沿裁切線剪開即可。
+            每一張收據佔一張 A4，印出來是三聯（收執聯／財務憑證聯／存根聯），沿裁切線剪開即可。
           </p>
         </div>
       </div>
