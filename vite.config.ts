@@ -48,6 +48,7 @@ const HERO_FILES = [
   'og-hero.jpg',
   // 17 沐浴車的 banner 與四支影片的封面（/shower，由 scripts/build-shower-covers.js 產生）
   'shower-banner.webp', 'shower-banner.jpg',
+  'shower-video-EF5GOj5XVs8.webp', 'shower-video-EF5GOj5XVs8.jpg',
   'shower-video-vCdQNnOVxTk.webp', 'shower-video-vCdQNnOVxTk.jpg',
   'shower-video-6t5GIuezgpA.webp', 'shower-video-6t5GIuezgpA.jpg',
   'shower-video-Ub9tUWn4Jfw.webp', 'shower-video-Ub9tUWn4Jfw.jpg',
