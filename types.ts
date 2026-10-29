@@ -950,6 +950,12 @@ export const VOUCHER_SOURCE_LABEL: Record<VoucherSourceTable, string> = {
   fahui_registrations: '法會',
 };
 
+/** 科目的層級。1＝項目、2＝子目、3＝明細（廟方 2026-10-30） */
+export type AccountLevel = 1 | 2 | 3;
+export const ACCOUNT_LEVEL_LABEL: Record<AccountLevel, string> = {
+  1: '項目', 2: '子目', 3: '明細',
+};
+
 export interface AccountingAccountData {
   code: string;
   name: string;
@@ -957,6 +963,14 @@ export interface AccountingAccountData {
   sortOrder: number;
   isActive: boolean;
   note: string;
+  /** 上一層的科目 id。第一層（項目）是 null。 */
+  parentId: string | null;
+  /**
+   * 層級。**與 `parentId` 必須一致**（資料庫有 CHECK 擋著）：
+   * `level === 1` ⇔ `parentId === null`。
+   * 深度本來可以從 parentId 一路數出來，存成一欄是為了避免每次都遞迴。
+   */
+  level: AccountLevel;
 }
 export interface AccountingAccount extends AccountingAccountData {
   id: string;

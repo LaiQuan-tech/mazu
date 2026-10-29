@@ -22,7 +22,7 @@
  */
 import { supabase } from './supabase';
 import {
-  AccountingAccount, AccountingAccountData,
+  AccountingAccount, AccountingAccountData, AccountLevel,
   VoucherRecord, VoucherData, VoucherItem, VoucherItemData,
   VoucherAttachment, AttachmentKind, VoucherDirection,
 } from '../types';
@@ -42,7 +42,49 @@ const mapAccount = (r: any): AccountingAccount => ({
   sortOrder: Number(r.sort_order ?? 0),
   isActive: r.is_active !== false,
   note: String(r.note ?? ''),
+  // migration 沒跑時這兩欄不存在——退成「全部都是第一層」，畫面照樣能用
+  parentId: (r.parent_id as string | null) ?? null,
+  level: ((Number(r.level) || 1) as AccountLevel),
 });
+
+/**
+ * 把扁平的科目清單排成樹的順序（父層後面緊跟著它的子孫），並附上深度。
+ *
+ * **排序在這裡做，不在資料庫。** SQL 要排出樹狀順序得用遞迴 CTE，而這張表
+ * 只有幾十列、每次開憑證都要整份讀進來；在前端排一次比在資料庫遞迴划算，
+ * 而且「同一層內怎麼排」的規則（sort_order → code）與列表完全一致。
+ *
+ * **找不到父層的孤兒也要列出來**（接在最後）。靜靜地不顯示，廟方會以為科目
+ * 不見了；而真的出現孤兒就是資料壞了，那要看得見才修得掉。
+ */
+export const sortAccountTree = (
+  list: AccountingAccount[],
+): Array<{ account: AccountingAccount; depth: number }> => {
+  const byParent = new Map<string, AccountingAccount[]>();
+  const ids = new Set(list.map(a => a.id));
+  list.forEach(a => {
+    const key = a.parentId && ids.has(a.parentId) ? a.parentId : '';
+    const arr = byParent.get(key) ?? [];
+    arr.push(a);
+    byParent.set(key, arr);
+  });
+  byParent.forEach(arr => arr.sort((x, y) =>
+    x.sortOrder - y.sortOrder || x.code.localeCompare(y.code) || x.name.localeCompare(y.name)));
+
+  const out: Array<{ account: AccountingAccount; depth: number }> = [];
+  const walk = (parent: string, depth: number) => {
+    (byParent.get(parent) ?? []).forEach(a => {
+      out.push({ account: a, depth });
+      walk(a.id, depth + 1);
+    });
+  };
+  walk('', 0);
+  return out;
+};
+
+/** 這個科目底下還有沒有子目。**有子目的不能記帳**，金額要落在最末端的那一層 */
+export const hasChildren = (list: AccountingAccount[], id: string): boolean =>
+  list.some(a => a.parentId === id);
 
 export const getAccountingAccounts = async (includeInactive = false): Promise<AccountingAccount[]> => {
   let q = supabase.from('accounting_accounts').select('*').order('direction').order('sort_order').order('code');
@@ -56,11 +98,14 @@ export const createAccountingAccount = async (d: AccountingAccountData): Promise
   const { data, error } = await supabase.from('accounting_accounts').insert({
     code: d.code.trim(), name: d.name.trim(), direction: d.direction,
     sort_order: d.sortOrder, is_active: d.isActive, note: d.note.trim() || null,
+    parent_id: d.parentId, level: d.level,
   }).select('id').single();
   if (error) { console.error('新增會計科目失敗:', error); throw error; }
   return data.id as string;
 };
 
+/** **不給改 `parentId` 與 `level`**：搬動層級會讓既有憑證的彙總在報表上
+ *  無聲地換一個分類。要搬就新增一個再停用舊的，留下痕跡。 */
 export const updateAccountingAccount = async (id: string, d: AccountingAccountData): Promise<void> => {
   const { error } = await supabase.from('accounting_accounts').update({
     code: d.code.trim(), name: d.name.trim(), direction: d.direction,

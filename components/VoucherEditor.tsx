@@ -18,6 +18,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Plus, Trash2, Upload, FileText, Loader2, Ban, Printer } from 'lucide-react';
 import {
+  sortAccountTree, hasChildren,
   updateVoucher, replaceVoucherItems, voidVoucher,
   uploadVoucherAttachment, getAttachmentUrl, deleteVoucherAttachment, MAX_ATTACHMENT_BYTES,
 } from '../services/vouchers';
@@ -73,11 +74,25 @@ const VoucherEditor: React.FC<Props> = ({ voucher, accounts, onClose, onSaved, o
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // 該方向可用的科目（通用的兩邊都給）
-  const usableAccounts = useMemo(
-    () => accounts.filter(a => a.isActive && (a.direction === 'both' || a.direction === voucher.direction)),
-    [accounts, voucher.direction],
-  );
+  /**
+   * 該方向可用的科目（通用的兩邊都給），排成樹的順序、用全形空白縮排。
+   *
+   * **有子目的科目不可選**：金額一律落在最末端那一層，否則同一筆錢會同時
+   * 出現在項目與明細的合計裡，兩個數字都對、加起來卻是錯的。
+   * 不可選的仍然**列出來但 disabled**——那是分類的標題，藏起來的話
+   * 看不出明細屬於哪一類；而且舊憑證若指向那一層，選單會變成空白。
+   *
+   * `hasChildren` 刻意拿**完整清單**判斷，不是過濾後的：某個方向底下剛好
+   * 沒有子目就變成可記帳，同一個科目在支出單與收入單的行為會不一樣。
+   */
+  const accountOptions = useMemo(() => {
+    const usable = accounts.filter(a => a.isActive && (a.direction === 'both' || a.direction === voucher.direction));
+    return sortAccountTree(usable).map(({ account: a, depth }) => ({
+      id: a.id,
+      label: `${'　'.repeat(depth)}${a.code} ${a.name}`.trimEnd(),
+      selectable: !hasChildren(accounts, a.id),
+    }));
+  }, [accounts, voucher.direction]);
 
   const total = voucherTotal(items);
   const readOnly = head.status === 'void';
@@ -210,12 +225,12 @@ const VoucherEditor: React.FC<Props> = ({ voucher, accounts, onClose, onSaved, o
               {items.map((it, i) => (
                 <div key={i} className="flex flex-wrap items-start gap-2 p-2 rounded-lg border border-gray-200">
                   <span className="w-6 shrink-0 pt-2 text-xs text-gray-400 text-right">{i + 1}</span>
-                  <select aria-label="會計科目" className={`${inputBase} w-32 shrink-0`} disabled={readOnly}
+                  <select aria-label="會計科目" className={`${inputBase} w-48 shrink-0`} disabled={readOnly}
                     value={it.accountId ?? ''}
                     onChange={e => setItem(i, { accountId: e.target.value || null })}>
                     <option value="">選科目</option>
-                    {usableAccounts.map(a => (
-                      <option key={a.id} value={a.id}>{a.code} {a.name}</option>
+                    {accountOptions.map(o => (
+                      <option key={o.id} value={o.id} disabled={!o.selectable}>{o.label}</option>
                     ))}
                   </select>
                   <input aria-label="摘要" placeholder="摘要" disabled={readOnly}
