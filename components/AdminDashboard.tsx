@@ -1614,7 +1614,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                        **理由一定要講出來**：只是悄悄不顯示警示的話，廟方看到兩個生日
                        並列又沒有任何說明，會以為系統漏判了。 */
                     <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2.5 text-sm text-green-800">
-                      <p><strong>判定為同一個人</strong>——{inspect.sameEvidence} 都一致，且沒有任何一欄互相矛盾。</p>
+                      <p><strong>判定為同一個人</strong>——{inspect.sameEvidence}。</p>
                       <p className="text-xs text-green-700/80 mt-1">
                         生日有兩種寫法（{groups.filter(g => g.key).map(g => g.label).join('　／　')}），
                         多半是同一天的國曆與農曆，不是兩個人。

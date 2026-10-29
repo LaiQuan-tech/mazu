@@ -135,9 +135,17 @@ export interface DevoteeRow {
   /** 造成上述判斷的證據，供後台顯示 */
   conflictHint: string;
   /**
-   * 生日對不起來、但其他欄位一致到足以判定是同一個人時，記下是哪幾欄。
-   * 有值代表 `nameConflict` 被**刻意壓下來**了（見 `corroboration()`），
-   * 後台要講出理由——不講的話，廟方看到兩個生日並列又沒有警示，會以為是漏判。
+   * 「為什麼判定這是同一個人」的**完整理由**（整句，直接顯示）。
+   * 有值代表這一列已經有結論，`nameConflict` 不會被標起來。
+   *
+   * 兩種來源都要寫進這一欄：
+   *   - 自動判定：`電話、地址、會員帳號 都一致，且沒有任何一欄互相矛盾`
+   *   - 人工確認：`後台已人工確認是同一人`
+   *
+   * **人工確認的那一條是 2026-10-30 補的。** 原本那條路直接 `return`，
+   * 於是「不標疑似同名」（對）但這一欄留空——「檢視」看不出系統已經有結論，
+   * 照樣擺出「請你比對」的並列版面。廟方就卡在這裡：統計顯示疑似同名 0，
+   * 點進去卻還是被要求比對。**有結論就要說得出來，不管結論是誰下的。**
    */
   sameEvidence: string;
 }
@@ -519,7 +527,12 @@ export function buildDevoteeRoster(src: RosterSources, overrides: DevoteeOverrid
   // 同名同姓偵測：同一個人不會有兩個生日或兩個生肖，出現兩種以上就標記出來讓人工確認。
   // （只做提示、不自動拆分——拆錯比合併更難救）
   rows.forEach(r => {
-    if (confirmed.has(nameKey(r.splitFrom ?? r.name))) return; // 後台已確認是同一人
+    if (confirmed.has(nameKey(r.splitFrom ?? r.name))) {
+      // 後台已確認是同一人。**不要只是 return**——理由留空的話，
+      // 「檢視」會以為沒有結論而擺出比對版面（見 `sameEvidence` 的註解）。
+      r.sameEvidence = '後台已人工確認是同一人';
+      return;
+    }
     const births: string[] = [];
     r.birthDates.forEach(b => { const k = birthKey(b); if (k && !births.includes(k)) births.push(k); });
     const reasons: string[] = [];
@@ -536,7 +549,7 @@ export function buildDevoteeRoster(src: RosterSources, overrides: DevoteeOverrid
     const { agree, disagree, labels } = corroboration(r);
     if (agree >= 3 && disagree === 0) {
       // 姓名已經相同（那是分組的依據），再加上三欄以上一致、且沒有任何一欄互相矛盾
-      r.sameEvidence = labels.join('、');
+      r.sameEvidence = `${labels.join('、')} 都一致，且沒有任何一欄互相矛盾`;
       return;
     }
     r.nameConflict = true;
