@@ -51,6 +51,34 @@ const DIRECTION_LABEL: Record<VoucherDirection | 'both', string> = {
   expense: '支出', income: '收入', both: '通用',
 };
 
+/**
+ * 新增時自動配一個還沒被用過的代號。
+ *
+ * **不能留空字串。** `accounting_accounts.code` 是 `NOT NULL UNIQUE`，
+ * 空字串也算一個值——第一個空代號建得起來，第二個就撞上唯一索引
+ * （廟方 2026-10-30：「沒辦法加子目」，錯誤訊息是「科目代號不可重複」）。
+ *
+ * 順便做對一件事：會計的代號本來就是階層式的（父層代號 ＋ 兩碼），
+ * 自動帶出來比讓人每次自己想一個好，而且改得掉。
+ *
+ * 父層代號還沒填時 base 是空的，產出 `01`／`02`——仍然唯一，
+ * 等父層填了代號再手動調整即可。
+ */
+const suggestCode = (items: AccountingAccount[], parent: AccountingAccount | null): string => {
+  const used = new Set(items.map(x => x.code.trim()));
+  if (!parent) {
+    // 第一層：找沒用過的最小正整數
+    for (let n = 1; n < 1000; n++) if (!used.has(String(n))) return String(n);
+    return `A${Date.now()}`;   // 千個項目還撞得到的話，先給一個一定不重複的
+  }
+  const base = parent.code.trim();
+  for (let n = 1; n < 100; n++) {
+    const c = `${base}${String(n).padStart(2, '0')}`;
+    if (!used.has(c)) return c;
+  }
+  return `${base}-${Date.now()}`;
+};
+
 const LEVEL_STYLE: Record<AccountLevel, string> = {
   1: 'bg-gray-800 text-white',
   2: 'bg-gray-200 text-gray-700',
@@ -84,7 +112,11 @@ const AdminAccountingAccountsTab: React.FC<{ onChanged?: () => void }> = ({ onCh
     setItems(prev => prev.map(x => (x.id === id ? { ...x, ...next } : x)));  // 先動畫面，操作才跟手
     setBusy(true);
     try { await updateAccountingAccount(id, next); onChanged?.(); }
-    catch { alert('儲存失敗，請重新整理後再試'); await load(); }
+    catch (e) {
+      console.error('更新會計科目失敗:', e);
+      alert('儲存失敗。科目代號不能與其他科目重複（含已停用的）；請換一個再試。');
+      await load();
+    }
     finally { setBusy(false); }
   };
 
@@ -96,7 +128,7 @@ const AdminAccountingAccountsTab: React.FC<{ onChanged?: () => void }> = ({ onCh
     try {
       const siblings = items.filter(x => (x.parentId ?? null) === (parent?.id ?? null));
       const draft: AccountingAccountData = {
-        code: '', name: '',
+        code: suggestCode(items, parent), name: '',
         // 子層預設跟著父層的方向——同一個項目底下的明細幾乎不會分屬收支兩邊
         direction: parent ? parent.direction : 'expense',
         sortOrder: (siblings.length + 1) * 10,
@@ -107,8 +139,12 @@ const AdminAccountingAccountsTab: React.FC<{ onChanged?: () => void }> = ({ onCh
       const id = await createAccountingAccount(draft);
       setItems(prev => [...prev, { id, ...draft }]);
       onChanged?.();
-    } catch {
-      alert('新增失敗。科目代號不可重複；若尚未執行 accounting_account_levels.sql，請先跑那一支。');
+    } catch (e) {
+      // 代號是自動配的，撞號通常代表停用中的科目佔走了那個號（它們也在清單裡，
+      // 所以 suggestCode 會避開）——真的撞到多半是 migration 沒跑、level 欄位不存在
+      console.error('新增會計科目失敗:', e);
+      alert('新增失敗。若尚未執行 accounting_account_levels.sql，請先到 Supabase 的 SQL Editor 跑那一支；'
+        + '否則請重新整理後再試（代號是自動配的，不需要手動避開重複）。');
     } finally { setBusy(false); }
   };
 
