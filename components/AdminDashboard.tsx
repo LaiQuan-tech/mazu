@@ -6899,6 +6899,10 @@ const ReceivablesTab: React.FC<{
   /** 勾選要開收據的列。key 是 IncomeRow.id（`lamp:uuid` 這種） */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [issuing, setIssuing] = useState(false);
+  /** 次要欄位（電話／會員）預設收起來。廟方 2026-10-30：「表單要再想一下，
+   *  簡單一點，多的資料藏起來。」欄位太多的直接代價是「操作」被擠到畫面外，
+   *  而那正是每天要按的那一顆。 */
+  const [showMore, setShowMore] = useState(false);
   const [receipts, setReceipts] = useState<ReceiptRecord[]>([]);
   /** 開完收據要讓列表重抓 */
   const [receiptKey, setReceiptKey] = useState(0);
@@ -7010,24 +7014,30 @@ const ReceivablesTab: React.FC<{
    * 標記收款。**一定要走各服務原本那條路**，寄信就在那裡面
    * （漏掉的症狀是後台一切正常、信眾永遠收不到「款項已收到」，而且不報錯）。
    */
-  const setPaid = async (row: IncomeRow, paid: boolean) => {
+  const setPayState = async (row: IncomeRow, next: 'pending' | 'paid' | 'cancelled') => {
     const rawId = row.id.split(':')[1];
+    const paid = next === 'paid';
     setBusyId(row.id);
     try {
       if (row.typeKey === 'lamp') {
-        const next = paid ? LampRegistrationStatus.CONFIRMED : LampRegistrationStatus.PENDING;
-        await updateLampRegistrationStatus(rawId, next);
+        await updateLampRegistrationStatus(rawId,
+          next === 'cancelled' ? LampRegistrationStatus.CANCELLED
+          : paid ? LampRegistrationStatus.CONFIRMED : LampRegistrationStatus.PENDING);
         if (paid) queueConfirmEmail('lamp_registrations', rawId);
       } else if (row.typeKey === 'blessing') {
-        const next = paid ? BlessingStatus.CONFIRMED : BlessingStatus.PENDING;
-        await updateBlessingRegistrationStatus(rawId, next);
+        await updateBlessingRegistrationStatus(rawId,
+          next === 'cancelled' ? BlessingStatus.CANCELLED
+          : paid ? BlessingStatus.CONFIRMED : BlessingStatus.PENDING);
         if (paid) queueConfirmEmail('blessing_registrations', rawId);
       } else if (row.typeKey === 'fahui') {
+        // 法會只有 paid／pending 兩種值，沒有取消——那是它自己那套的既有設計
         await updateFahuiStatus(rawId, paid ? 'paid' : 'pending');
         if (paid) queueConfirmEmail('fahui_registrations', rawId);
       } else {
         // 捐獻不寄信：感謝信是送出當下就寄的，與收款核對無關
-        await updateDonationStatus(rawId, paid ? DonationStatus.CONFIRMED : DonationStatus.PENDING);
+        await updateDonationStatus(rawId,
+          next === 'cancelled' ? DonationStatus.CANCELLED
+          : paid ? DonationStatus.CONFIRMED : DonationStatus.PENDING);
       }
       onRefresh();
     } catch {
@@ -7138,6 +7148,12 @@ const ReceivablesTab: React.FC<{
           {/* **這顆要永遠看得見。** 原本只在勾選之後才浮出底部那一條——
               而沒發現左邊有勾選框的人，永遠不會知道有這個功能。
               藏在一個「你必須先知道」的動作後面，等於沒有。 */}
+          <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap"
+            title="電話、會員">
+            <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
+              className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
+            更多欄位
+          </label>
           {/* **已選與合計也在這裡，不在畫面底部。** 廟方 2026-10-30：
               「操作要在表頭，你藏在最下面，每次都要滑多久。」
               清單有幾百列時，為了按一顆按鈕捲到底再捲回來是不合理的。 */}
@@ -7193,14 +7209,21 @@ const ReceivablesTab: React.FC<{
                     title="全選目前篩選出來的"
                     className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
                 </th>
-                {['日期', '姓名', '電話', '類型', '項目', '金額', '狀態', '會員', '操作'].map(h => (
+                {/* **類型與項目併成一欄**（徽章＋底下的明細）：同樣的資訊、少一欄。
+                    財務的動線是「看銀行入帳 → 找到人 → 按已收款」，欄位每多一個，
+                    那顆按鈕就離畫面右緣更近一點。 */}
+                {['日期', '姓名', '項目', '金額', '狀態'].map(h => (
                   <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
                 ))}
+                {showMore && ['電話', '會員'].map(h => (
+                  <th key={h} className="px-5 py-3 font-medium text-gray-500">{h}</th>
+                ))}
+                <th className="px-5 py-3 font-medium text-gray-500">操作</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="text-center text-gray-400 py-16">
+                <tr><td colSpan={showMore ? 9 : 7} className="text-center text-gray-400 py-16">
                   {payFilter === 'pending' ? '待收款的都處理完了' : '暫無資料'}
                 </td></tr>
               ) : filtered.map(row => {
@@ -7217,35 +7240,58 @@ const ReceivablesTab: React.FC<{
                         )}
                       </td>
                       <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
-                      <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800">{row.name}</td>
-                      <td data-label="電話" className="px-5 py-3 text-gray-500">{row.phone}</td>
-                      <td data-label="類型" className="px-5 py-3">{typeBadge(row.typeKey, row.type)}</td>
-                      <td data-label="項目" className="px-5 py-3 text-gray-600 max-w-[180px] truncate" title={row.detail}>{row.detail}</td>
-                      <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800">NT$ {row.amount.toLocaleString()}</td>
-                      <td data-label="狀態" className="px-5 py-3">{payBadge(row.pay)}</td>
-                      <td data-label="會員" className="px-5 py-3">
-                        {member ? (
-                          <button onClick={() => setSelectedMember(member)}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
-                            <User className="w-3 h-3" /> {member.name}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-300">—</span>
-                        )}
+                      <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{row.name}</td>
+                      <td data-label="項目" className="px-5 py-3 max-w-[220px]">
+                        <div className="flex items-center gap-2">
+                          {typeBadge(row.typeKey, row.type)}
+                          <span className="text-gray-600 truncate" title={row.detail}>{row.detail}</span>
+                        </div>
                       </td>
+                      <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">NT$ {row.amount.toLocaleString()}</td>
+                      <td data-label="狀態" className="px-5 py-3">{payBadge(row.pay)}</td>
+                      {showMore && <>
+                        <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone}</td>
+                        <td data-label="會員" className="px-5 py-3">
+                          {member ? (
+                            <button onClick={() => setSelectedMember(member)}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
+                              <User className="w-3 h-3" /> {member.name}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                      </>}
                       <td data-label="操作" className="px-5 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
+                          {/* 三種狀態都能在這裡改，**取消的也回得來**——
+                              原本已取消的那一列是死路，按錯就得回各服務分頁救。
+                              取消做成小圖示、跟主按鈕拉開：那是破壞性的語意，
+                              不能挨著每天要按幾十次的那一顆（同 PaymentActions）。 */}
                           {row.pay === 'cancelled' ? (
-                            <span className="text-xs text-gray-400">已取消</span>
-                          ) : (
-                            <button onClick={() => setPaid(row, row.pay !== 'paid')} disabled={busy}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                                row.pay === 'paid'
-                                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                  : 'bg-green-600 text-white hover:bg-green-700'
-                              }`}>
-                              {row.pay === 'paid' ? '改回待匯款' : '標記已收款'}
+                            <button onClick={() => setPayState(row, 'pending')} disabled={busy}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50">
+                              還原為待匯款
                             </button>
+                          ) : (
+                            <>
+                              <button onClick={() => setPayState(row, row.pay === 'paid' ? 'pending' : 'paid')} disabled={busy}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                                  row.pay === 'paid'
+                                    ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}>
+                                {row.pay === 'paid' ? '改回待匯款' : '標記已收款'}
+                              </button>
+                              {/* 法會沒有「取消」這個狀態值，不給那顆（它那套只有 paid／pending） */}
+                              {row.typeKey !== 'fahui' && (
+                                <button onClick={() => setPayState(row, 'cancelled')} disabled={busy}
+                                  title="標記取消" aria-label="標記取消"
+                                  className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50">
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                           {/* 法會的細部對帳（付款方式／帳號後五碼／財務會計確認）整套在這裡展開，
                               用的是法會分頁那個元件本體，不另寫一份 */}
@@ -7260,7 +7306,7 @@ const ReceivablesTab: React.FC<{
                     </tr>
                     {row.fahui && openReconcile === row.id && (
                       <tr className="bg-gray-50/70">
-                        <td colSpan={10} className="px-5 py-4">
+                        <td colSpan={showMore ? 9 : 7} className="px-5 py-4">
                           <FahuiReconcileBlock r={row.fahui} onSaved={onRefresh} />
                         </td>
                       </tr>
