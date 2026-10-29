@@ -354,6 +354,8 @@ const FALLBACK_FAQ = JSON.parse(readFileSync(resolve(DIST, '..', 'content', 'faq
  * 這一份刻意放檔案不放資料庫：它講的是協會的服務，後台沒有、也不該有它的編輯介面。
  */
 const SHOWER_FAQ = JSON.parse(readFileSync(resolve(DIST, '..', 'content', 'shower-faq.json'), 'utf8'));
+/** 沐浴車的影片清單。**與 components/ShowerPage.tsx 讀的是同一份**，兩邊不會各自漂移。 */
+const SHOWER_VIDEOS = JSON.parse(readFileSync(resolve(DIST, '..', 'content', 'shower-videos.json'), 'utf8'));
 
 const fetchFaq = async () => {
   const url = process.env.VITE_SUPABASE_URL;
@@ -1298,6 +1300,39 @@ if (site || lampServices.length > 0 || relocationPlans.length > 0) {
     writeFileSync(llmsPath, txt, 'utf8');
     const synced = [site && '基本資料', lampServices.length && '點燈價格', relocationPlans.length && '遷址方案'].filter(Boolean);
     console.log(`prerender  llms.txt      已同步${synced.join('、')}`);
+
+    /**
+     * 沐浴車那一份也要同步影片清單（廟方 2026-10-30）。
+     *
+     * **為什麼要寫進 llms.txt**：影片在頁面上是 facade（按下去才載播放器），
+     * 不執行 JS 的 AI 檢索器只看得到封面圖，看不出有哪些報導與影片。
+     * 被問「17 沐浴車有哪些報導」時答不出來，而那正是會被問的。
+     *
+     * 整段重寫而不是逐行替換：影片會增減，用 `replace` 對某一行改不動數量。
+     * 範圍是「`## 相關影片` 這個標題」到「下一個 `## ` 標題」之間。
+     */
+    try {
+      const bathPath = resolve(DIST, 'llms-bath.txt');
+      let bath = readFileSync(bathPath, 'utf8');
+      const lines = SHOWER_VIDEOS.map((v) => {
+        const src = v.source ? `${v.source} 報導：` : '';
+        return `- ${src}${v.title} https://youtu.be/${v.id}`;
+      }).join('\n');
+      const before = bath;
+      bath = bath.replace(
+        /(## 相關影片\n\n)[\s\S]*?(?=\n## )/,
+        (_m, head) => `${head}這幾支影片在 https://17bath.org/shower 頁面下方，`
+          + `按下去才會載入播放器（所以不執行 JavaScript 時只看得到封面）。\n\n${lines}\n`,
+      );
+      if (bath !== before) {
+        writeFileSync(bathPath, bath, 'utf8');
+        console.log(`prerender  llms-bath.txt 已同步 ${SHOWER_VIDEOS.length} 支影片`);
+      } else {
+        console.warn('prerender  llms-bath.txt 找不到「## 相關影片」區，影片沒有同步');
+      }
+    } catch (e) {
+      console.warn('prerender  llms-bath.txt 同步影片失敗:', e.message);
+    }
   } catch (e) {
     console.log(`prerender  llms.txt 未更新：${e.message}`);
   }

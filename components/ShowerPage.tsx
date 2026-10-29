@@ -31,6 +31,7 @@ import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
 import { formatShowerNote } from '../services/showerNote';
 import showerFaq from '../content/shower-faq.json';
+import showerVideos from '../content/shower-videos.json';
 import { FacebookIcon } from './SocialLinks';
 import VideoFacade from './VideoFacade';
 import { ShowerTruckLocation } from '../types';
@@ -247,7 +248,12 @@ const SectionMenu: React.FC = () => {
  * （加影片也跑那一支，用法在檔頭；直式要抓 `oardefault` 才不會有黑邊，它有處理）。
  *
  * 標題照上傳者寫的，只在數字與中文之間補了空白（與全站「17 沐浴車」的寫法一致）。
- * 兩個例外寫在各自那一行的註解裡。
+ * 幾個例外（標籤當標題、檔名當標題）的理由寫在各自那一筆的 `note` 裡。
+ *
+ * ── 清單在 `content/shower-videos.json`，不在這個檔案裡 ──
+ * `scripts/prerender.js` 也要用它來同步 `llms-bath.txt`（不執行 JS 的 AI 檢索器
+ * 只讀得到那一份）。抄成兩份的話，加一支影片就會有一邊忘了改——
+ * 同 `content/shower-faq.json` 的理由。
  */
 const VIDEOS: {
   id: string;
@@ -256,27 +262,9 @@ const VIDEOS: {
   portrait?: boolean;
   /** 外部媒體的報導要標出是哪一台，自己拍的不填 */
   source?: string;
-}[] = [
-  // 上傳者寫的是「香途-#白沙屯媽祖#媽祖#媽祖繞境#沐浴車」——破折號後面全是
-  // 搜尋標籤不是片名，卡片下面那一行容不下、也看不出在講什麼。只留「香途」。
-  // （同「20251017 17沐浴車 line」那一支的處理：檔名與標籤都不是標題。）
-  // 上傳者是香客張雅玲，不是媒體，所以不填 `source`。
-  { id: 'EF5GOj5XVs8', title: '香途' },
-  { id: 'vCdQNnOVxTk', title: '17 沐浴車　吳至民理事長' },
-  { id: '6t5GIuezgpA', title: '十七道光' },
-  // 電視台的報導。標題砍掉後半的「香燈腳洗香香再上陣」：卡片下面那行容不下，
-  // 而這一頁本來就在講沐浴車。`source` 標出是哪一台——它不是我們自己拍的。
-  //
-  // **年代新聞 CH50 那一則（`1OfjxccLSbs`）2026-10-20 移除**（廟方：「太長根本沒人會看」）。
-  // 它與這一則是**同一則報導上在兩個兄弟台**：2025-05-02 相差兩分鐘發佈、說明文字一字不差，
-  // 而年代那支的自訂縮圖還是同一則報導裡的咖啡車段落，與這一頁的主題對不上。
-  // 要加回來就補一行 `{ id: '1OfjxccLSbs', title: '400 萬超豪華沐浴車', source: '年代新聞 CH50' }`
-  // 並重跑 `scripts/build-shower-covers.js` 產封面。
-  { id: 'Ub9tUWn4Jfw', title: '400 萬超豪華沐浴車', source: '壹電視 NEXT TV' },
-  // 上傳者的標題是「20251017 17沐浴車 line」——那是檔名不是標題，
-  // 改用片頭自己印著的那兩行。這一支講的是花蓮災區不是進香，標題要看得出來。
-  { id: 'rEZZV5X6VHo', title: '情暖花蓮　17 沐浴功德車', portrait: true },
-];
+  /** 為什麼這樣寫標題、為什麼移除某一支——理由跟著資料走，不另外放 */
+  note?: string;
+}[] = showerVideos;
 
 const VideoCard: React.FC<{
   id: string; title: string; portrait?: boolean; source?: string;
