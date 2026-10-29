@@ -616,50 +616,150 @@ const RelationCell = ({ row }: { row: DevoteeRow }) => {
   );
 };
 
-/** 並列比對用的紀錄表：把一個人底下的每一筆原始紀錄攤開，人才判斷得出是不是同一個人。
- *  `own` 是這一列自己那幾個帳號的代稱，用來分辨「對到自己的帳號」與「對到別人的帳號」。 */
-const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[] }) => (
-  <div className="overflow-x-auto rounded-lg border border-gray-200">
-    <table className="admin-table w-full text-xs">
-      <thead className="bg-gray-50 text-gray-500">
-        <tr>
-          {['日期', '管道', '帳號', '關係', '性別', '生日', '生肖', '電話', '地址', '金額'].map(h => (
-            <th key={h} className="px-2.5 py-2 text-left font-medium whitespace-nowrap">{h}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100">
-        {records.map((rec, i) => (
-          <tr key={i} className="hover:bg-gray-50/60">
-            <td data-label="日期" className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || '—'}</td>
-            <td data-label="管道" className="px-2.5 py-2 whitespace-nowrap">
-              <span className="px-1.5 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E]">{rec.source}</span>
-            </td>
-            <td data-label="帳號" className="px-2.5 py-2 whitespace-nowrap">
-              <AccountCell rec={rec} own={own} />
-            </td>
-            <td data-label="關係" className="px-2.5 py-2 whitespace-nowrap">
-              {rec.relation
-                ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px]"
-                    title={rec.source === '通訊錄'
-                      ? `${rec.contactOf} 的通訊錄把他記成「${rec.relation}」`
-                      : '這一筆報名表上填的關係；主詞是送出這筆報名的人，資料庫沒有記那是誰'}>
-                    {rec.relation}
+/**
+ * 並列比對用的紀錄表：把一個人底下的每一筆原始紀錄攤開。
+ *
+ * ── 只印「不一樣的地方」（2026-10-30 大改）──
+ * 廟方看著一個 9 筆的人問：「對我來說都是重複的資訊，這樣顯示有什麼意義。」
+ * 他是對的——那 9 筆的電話、地址、性別、生日、生肖完全相同，表格卻把同一組
+ * 身分資料重印了 9 次，真正在變的只有日期與管道。
+ *
+ * 所以**整欄只有一種值的，提到表格上面講一次就好**，表格只留會變的欄位。
+ * 這張表的用途是「判斷是不是同一個人」，而判斷靠的正是差異；
+ * 把相同的東西印滿整個畫面，反而會把唯一的那個差異淹掉。
+ *
+ * **完全一樣的列併成一列加 `×N`**：法會一張報名單上報了 3 個牌位，就是 3 筆
+ * 同日期同管道同資料的「法會陽上」。分開列沒有任何資訊，只有長度。
+ *
+ * `own` 是這一列自己那幾個帳號的代稱，用來分辨「對到自己的帳號」與「對到別人的帳號」。
+ */
+const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[] }) => {
+  const distinct = (pick: (r: DevoteeRecord) => string): string[] => {
+    const s = new Set<string>();
+    records.forEach(r => { const v = pick(r); if (v) s.add(v); });
+    return [...s];
+  };
+
+  // 可以被提上去講一次的欄位。日期／管道／帳號／金額不在內：
+  // 前兩個是這張表的軸，後兩個就算只有一種值也要逐筆對得起來。
+  const HOISTABLE: Array<{ label: string; pick: (r: DevoteeRecord) => string }> = [
+    { label: '生日', pick: r => r.birthDate },
+    { label: '生肖', pick: r => r.zodiac },
+    { label: '性別', pick: r => r.gender },
+    { label: '電話', pick: r => r.phone },
+    { label: '地址', pick: r => r.address },
+    { label: '關係', pick: r => r.relation },
+  ];
+  const common: Array<{ label: string; value: string; missing: number }> = [];
+  const varying = new Set<string>();
+  HOISTABLE.forEach(({ label, pick }) => {
+    const vs = distinct(pick);
+    if (vs.length === 1) {
+      // **沒填不等於有填成一樣的值。** 6 筆裡只有 1 筆填了「本人」時，
+      // 寫成「共同的資料：關係 本人」就是在說那 6 筆都是本人——那是假的。
+      // 所以把沒填的筆數一起講出來，才對得起「共同」兩個字。
+      const missing = records.filter(r => !pick(r)).length;
+      common.push({ label, value: vs[0], missing });
+    } else if (vs.length > 1) varying.add(label);   // 0 種＝整欄都空，不必顯示也不必提
+  });
+
+  const hasAmount = records.some(r => r.amount > 0);
+  // 帳號欄：值一樣也要留著——它是「這筆是誰送的」，逐筆對得起來才有意義
+  const accountKey = (r: DevoteeRecord) =>
+    `${r.isMemberSelf}|${r.memberNumber}|${r.contactOf}|${r.linkedMembers.join(',')}`;
+  const hasAccount = distinct(r => accountKey(r) === 'false|||' ? '' : accountKey(r)).length > 0;
+
+  // 完全一樣的列併起來
+  const rowKey = (r: DevoteeRecord) => [
+    r.at, r.source, accountKey(r), r.relation, r.gender, r.birthDate, r.zodiac, r.phone, r.address, r.amount,
+  ].join('\u0001');
+  const merged: Array<{ rec: DevoteeRecord; n: number }> = [];
+  records.forEach(rec => {
+    const k = rowKey(rec);
+    const hit = merged.find(m => rowKey(m.rec) === k);
+    if (hit) hit.n += 1; else merged.push({ rec, n: 1 });
+  });
+
+  const cols: string[] = ['日期', '管道'];
+  if (hasAccount) cols.push('帳號');
+  HOISTABLE.forEach(({ label }) => { if (varying.has(label)) cols.push(label); });
+  if (hasAmount) cols.push('金額');
+
+  return (
+    <div className="space-y-2">
+      {common.length > 0 && (
+        <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+          <p className="text-[11px] text-gray-400 mb-1">這 {records.length} 筆共同的資料（沒有任何一筆填得不一樣，所以不逐筆重複）</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            {common.map(c => (
+              <span key={c.label} className="text-gray-600">
+                <span className="text-gray-400">{c.label}</span>　{c.value}
+                {c.missing > 0 && (
+                  <span className="text-gray-400 ml-1"
+                    title={`另外 ${c.missing} 筆這一欄是空的——沒填，不是填了不一樣的值`}>
+                    （{c.missing} 筆未填）
                   </span>
-                : <span className="text-gray-300">—</span>}
-            </td>
-            <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>
-            <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>
-            <td data-label="生肖" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.zodiac || '—'}</td>
-            <td data-label="電話" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.phone || '—'}</td>
-            <td data-label="地址" className="px-2.5 py-2 text-gray-500 max-w-[200px] truncate" title={rec.address}>{rec.address || '—'}</td>
-            <td data-label="金額" className="px-2.5 py-2 text-right text-gray-700 whitespace-nowrap">{rec.amount > 0 ? `$${rec.amount.toLocaleString()}` : '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="admin-table w-full text-xs">
+          <thead className="bg-gray-50 text-gray-500">
+            <tr>
+              {cols.map(h => (
+                <th key={h} className="px-2.5 py-2 text-left font-medium whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {merged.map(({ rec, n }, i) => (
+              <tr key={i} className="hover:bg-gray-50/60">
+                <td data-label="日期" className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || '—'}</td>
+                <td data-label="管道" className="px-2.5 py-2 whitespace-nowrap">
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E]">{rec.source}</span>
+                  {n > 1 && (
+                    <span className="ml-1.5 text-gray-400"
+                      title={rec.source === '法會陽上'
+                        ? '同一張報名單上的多個牌位，每個牌位都要填陽上姓名，資料完全相同'
+                        : '這幾筆的每一個欄位都相同'}>
+                      ×{n}
+                    </span>
+                  )}
+                </td>
+                {hasAccount && (
+                  <td data-label="帳號" className="px-2.5 py-2 whitespace-nowrap">
+                    <AccountCell rec={rec} own={own} />
+                  </td>
+                )}
+                {varying.has('生日') && <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>}
+                {varying.has('生肖') && <td data-label="生肖" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.zodiac || '—'}</td>}
+                {varying.has('性別') && <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>}
+                {varying.has('電話') && <td data-label="電話" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.phone || '—'}</td>}
+                {varying.has('地址') && <td data-label="地址" className="px-2.5 py-2 text-gray-500 max-w-[200px] truncate" title={rec.address}>{rec.address || '—'}</td>}
+                {varying.has('關係') && (
+                  <td data-label="關係" className="px-2.5 py-2 whitespace-nowrap">
+                    {rec.relation
+                      ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px]"
+                          title={rec.source === '通訊錄'
+                            ? `${rec.contactOf} 的通訊錄把他記成「${rec.relation}」`
+                            : '這一筆報名表上填的關係；主詞是送出這筆報名的人，資料庫沒有記那是誰'}>
+                          {rec.relation}
+                        </span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                )}
+                {hasAmount && <td data-label="金額" className="px-2.5 py-2 text-right text-gray-700 whitespace-nowrap">{rec.amount > 0 ? `$${rec.amount.toLocaleString()}` : '—'}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 /** 依生日把紀錄分群（沒填生日的另外一群），供拆分時並列比對 */
 const groupByBirth = (records: DevoteeRecord[]): { key: string; label: string; records: DevoteeRecord[] }[] => {
@@ -1491,19 +1591,35 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                 </div>
 
                 <div className="px-6 py-5 space-y-5">
-                  {groups.length > 1 && (
+                  {/* **只有真的拆得開才要求比對**（2026-10-30 修）。
+                      原本的條件是 `groups.length > 1`，而「未填生日」也算一組——
+                      於是一個只有單一生日、外加幾筆沒填生日的人，會看到
+                      「依生日分成 2 組…判斷這是同一個人還是不同人」，
+                      然後同一個視窗的頁尾又說「只有一組有生日，無法依生日拆分」。
+                      要人做一個它自己也知道做不到的判斷。 */}
+                  {splittable ? (
                     <p className="text-sm text-gray-500">
-                      以下依生日分成 {groups.length} 組並列。請比對電話、地址、性別，判斷這是同一個人（生日可能填錯），還是不同人。
+                      以下依生日分成 {groups.filter(g => g.key).length} 組並列。請比對電話、地址、性別，判斷這是同一個人（生日可能填錯），還是不同人。
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      這 {inspect.records.length} 筆的生日沒有互相矛盾，看起來是同一個人。
+                      {groups.some(g => !g.key) && '（有幾筆沒填生日，那是沒填，不是另一個人。）'}
                     </p>
                   )}
-                  {groups.map((g, gi) => (
+                  {/* **拆不開就不要分組並列。** 把「有生日」與「未填生日」切成兩個方框
+                      並排，本身就在暗示「這裡有兩個候選人」——而拆不開的時候並沒有。
+                      併成一張表之後，共同欄位還能一次提得更乾淨（整個人的資料只講一次）。 */}
+                  {!splittable ? (
+                    <RecordTable records={inspect.records} own={inspect.memberTags} />
+                  ) : groups.map((g, gi) => (
                     <div key={g.key || `none-${gi}`}>
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${g.key ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
                           {g.key ? `生日：${g.label}` : '未填生日'}
                         </span>
                         <span className="text-xs text-gray-400">{g.records.length} 筆</span>
-                        {splittable && g.key && (
+                        {g.key && (
                           <button onClick={() => doSplit(inspect, g.key)} disabled={busy}
                             className="ml-auto text-xs px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40">
                             拆分，未填生日者歸這位
@@ -1522,9 +1638,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       確認是同一人（消除警示）
                     </button>
                   )}
-                  {!splittable && groups.length > 1 && (
-                    <span className="text-xs text-gray-400">只有一組有生日，無法依生日拆分</span>
-                  )}
+
                   <button onClick={() => setInspect(null)} className="ml-auto px-4 py-2 rounded-lg text-sm bg-gray-100 text-gray-600 hover:bg-gray-200">
                     關閉
                   </button>
