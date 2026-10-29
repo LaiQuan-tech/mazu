@@ -6875,7 +6875,6 @@ const ReceivablesTab: React.FC<{
   /** 預設只看待收款——這是工作清單，不是報表 */
   const [payFilter, setPayFilter] = useState<'pending' | 'paid' | 'all'>('pending');
   const [search, setSearch] = useState('');
-  const [selectedMember, setSelectedMember] = useState<MemberProfileRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   /** 法會展開對帳欄位的那一列 */
   const [openReconcile, setOpenReconcile] = useState<string | null>(null);
@@ -6899,7 +6898,7 @@ const ReceivablesTab: React.FC<{
   /** 勾選要開收據的列。key 是 IncomeRow.id（`lamp:uuid` 這種） */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [issuing, setIssuing] = useState(false);
-  /** 次要欄位（電話／會員）預設收起來。廟方 2026-10-30：「表單要再想一下，
+  /** 次要欄位（電話）預設收起來。廟方 2026-10-30：「表單要再想一下，
    *  簡單一點，多的資料藏起來。」欄位太多的直接代價是「操作」被擠到畫面外，
    *  而那正是每天要按的那一顆。 */
   const [showMore, setShowMore] = useState(false);
@@ -7053,17 +7052,20 @@ const ReceivablesTab: React.FC<{
       typeKey === 'blessing' ? 'bg-purple-100 text-purple-700' :
       typeKey === 'fahui'    ? 'bg-rose-100 text-rose-700' :
                                'bg-green-100 text-green-700';
-    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{label}</span>;
+    // **whitespace-nowrap ＋ shrink-0 兩個都要**：前者擋字本身折行，
+    // 後者擋 flex 容器把它壓窄（壓窄之後照樣會折）。少一個就會看到「祈／福」。
+    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 ${cls}`}>{label}</span>;
   };
 
   const payBadge = (pay: PayState) => {
-    if (pay === 'paid')      return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已收款</span>;
-    if (pay === 'cancelled') return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">已取消</span>;
+    const base = 'px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap inline-block';
+    if (pay === 'paid')      return <span className={`${base} bg-green-100 text-green-800`}>已收款</span>;
+    if (pay === 'cancelled') return <span className={`${base} bg-red-100 text-red-800`}>已取消</span>;
     if (pay === 'unchecked') return (
-      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"
+      <span className={`${base} bg-gray-100 text-gray-500`}
         title="這筆早於收款狀態這個欄位，當初沒有核對過——不等於沒收到">未核對</span>
     );
-    return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">待匯款</span>;
+    return <span className={`${base} bg-yellow-100 text-yellow-800`}>待匯款</span>;
   };
 
   return (
@@ -7149,7 +7151,7 @@ const ReceivablesTab: React.FC<{
               而沒發現左邊有勾選框的人，永遠不會知道有這個功能。
               藏在一個「你必須先知道」的動作後面，等於沒有。 */}
           <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap"
-            title="電話、會員">
+            title="電話">
             <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
               className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
             更多欄位
@@ -7215,19 +7217,22 @@ const ReceivablesTab: React.FC<{
                 {['日期', '姓名', '項目', '金額', '狀態'].map(h => (
                   <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
                 ))}
-                {showMore && ['電話', '會員'].map(h => (
-                  <th key={h} className="px-5 py-3 font-medium text-gray-500">{h}</th>
-                ))}
+                {/* **「會員」整欄移除**（廟方 2026-10-30：「我其實不知道為什麼要
+                    特別顯示會員」）。財務對帳是拿銀行入帳去比姓名與金額，
+                    「這個人有沒有帳號」不影響任何一個決定；開收據要的地址也已經
+                    自動從會員資料帶進去了，不必再點開來看。 */}
+                {showMore && (
+                  <th className="px-5 py-3 font-medium text-gray-500">電話</th>
+                )}
                 <th className="px-5 py-3 font-medium text-gray-500">操作</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={showMore ? 9 : 7} className="text-center text-gray-400 py-16">
+                <tr><td colSpan={showMore ? 8 : 7} className="text-center text-gray-400 py-16">
                   {payFilter === 'pending' ? '待收款的都處理完了' : '暫無資料'}
                 </td></tr>
               ) : filtered.map(row => {
-                const member = findMember(row.phone);
                 const busy = busyId === row.id;
                 return (
                   <React.Fragment key={row.id}>
@@ -7248,20 +7253,10 @@ const ReceivablesTab: React.FC<{
                         </div>
                       </td>
                       <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">NT$ {row.amount.toLocaleString()}</td>
-                      <td data-label="狀態" className="px-5 py-3">{payBadge(row.pay)}</td>
-                      {showMore && <>
+                      <td data-label="狀態" className="px-5 py-3 whitespace-nowrap">{payBadge(row.pay)}</td>
+                      {showMore && (
                         <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone}</td>
-                        <td data-label="會員" className="px-5 py-3">
-                          {member ? (
-                            <button onClick={() => setSelectedMember(member)}
-                              className="flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium whitespace-nowrap">
-                              <User className="w-3 h-3" /> {member.name}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-300">—</span>
-                          )}
-                        </td>
-                      </>}
+                      )}
                       <td data-label="操作" className="px-5 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           {/* 三種狀態都能在這裡改，**取消的也回得來**——
@@ -7306,7 +7301,7 @@ const ReceivablesTab: React.FC<{
                     </tr>
                     {row.fahui && openReconcile === row.id && (
                       <tr className="bg-gray-50/70">
-                        <td colSpan={showMore ? 9 : 7} className="px-5 py-4">
+                        <td colSpan={showMore ? 8 : 7} className="px-5 py-4">
                           <FahuiReconcileBlock r={row.fahui} onSaved={onRefresh} />
                         </td>
                       </tr>
@@ -7361,41 +7356,6 @@ const ReceivablesTab: React.FC<{
         「改回待匯款」不會寄任何信，也沒有「取消確認信」這種東西，標錯請直接打電話。
       </p>
 
-      {/* 會員詳情 Modal */}
-      {selectedMember && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedMember(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                <User className="w-4 h-4 text-temple-red" /> 會員資訊
-              </h3>
-              <button onClick={() => setSelectedMember(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-2.5 text-sm">
-              {([
-                ['姓名', selectedMember.name],
-                ['電話', selectedMember.phone],
-                ['生日', selectedMember.birthDate],
-                ['生肖', selectedMember.zodiac || '—'],
-                ['性別', selectedMember.gender || '—'],
-                ['地址', selectedMember.address || '—'],
-              ] as [string, string][]).map(([label, value]) => (
-                <div key={label} className="flex gap-3">
-                  <span className="text-gray-400 w-10 shrink-0">{label}</span>
-                  <span className="text-gray-800 break-all">{value}</span>
-                </div>
-              ))}
-              <div className="pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-400">加入時間：{fmtDate(selectedMember.createdAt)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
