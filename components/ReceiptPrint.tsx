@@ -132,6 +132,27 @@ const ReceiptCopy: React.FC<{
   );
 };
 
+/**
+ * 列印，並把「另存為 PDF」的預設檔名改成收據編號（廟方 2026-10-30）。
+ *
+ * **瀏覽器的 PDF 檔名就是 `document.title`**，沒有別的 API 可以指定。
+ * 所以列印前換掉、印完還原。
+ *
+ * 還原綁在 `afterprint` 而不是 `print()` 回來的那一刻：`window.print()`
+ * 在多數瀏覽器是同步阻塞的，但這件事沒有保證——真的非同步時，在 print()
+ * 之後立刻還原會讓對話框抓到舊標題，檔名又變回網站名稱。
+ */
+export const printReceipt = (receiptNo: string): void => {
+  const prev = document.title;
+  document.title = `收據 ${receiptNo}`;
+  const restore = () => {
+    document.title = prev;
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+  window.print();
+};
+
 const ReceiptPrint: React.FC<{
   receipt: ReceiptRecord;
   temple: ReceiptTempleInfo;
@@ -144,9 +165,9 @@ const ReceiptPrint: React.FC<{
   useEffect(() => {
     if (!autoPrint) return;
     // 等一次 paint，否則會印到空白（同 VoucherPrint）
-    const t = setTimeout(() => { window.print(); onDone?.(); }, 80);
+    const t = setTimeout(() => { printReceipt(receipt.receiptNo); onDone?.(); }, 80);
     return () => clearTimeout(t);
-  }, [autoPrint, onDone]);
+  }, [autoPrint, onDone, receipt.receiptNo]);
 
   const content = (
     <div className={`receipt-print-root${screen ? ' rc-screen' : ''}`}>

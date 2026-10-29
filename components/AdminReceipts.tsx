@@ -18,7 +18,7 @@ import {
   ReceiptSettings, DEFAULT_RECEIPT_SETTINGS,
 } from '../services/receipts';
 import { getSiteInfo, DEFAULT_SITE_INFO } from '../services/supabase';
-import ReceiptPrint, { ReceiptTempleInfo } from './ReceiptPrint';
+import ReceiptPrint, { ReceiptTempleInfo, printReceipt } from './ReceiptPrint';
 
 const money = (n: number) => `NT$ ${n.toLocaleString()}`;
 
@@ -106,7 +106,7 @@ export const ReceiptIssueDialog: React.FC<{
             <p className="font-semibold text-gray-800">已開立 {printing.receiptNo}</p>
             <p className="text-xs text-gray-500">列印對話框沒出現的話，請按下面重印。</p>
             <div className="flex gap-2">
-              <button onClick={() => window.print()}
+              <button onClick={() => printReceipt(printing.receiptNo)}
                 className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600">再印一次</button>
               <button onClick={onClose}
                 className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium">完成</button>
