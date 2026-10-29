@@ -95,24 +95,36 @@ export const ReceiptIssueDialog: React.FC<{
 
   const allItems = groups.flatMap(g => g.items);
   const grandTotal = receiptTotal(allItems);
-  const dupes = allItems.filter(i => i.sourceTable && i.sourceId && already.has(`${i.sourceTable}:${i.sourceId}`));
+  const hasReceipt = (i: ReceiptItem) =>
+    !!(i.sourceTable && i.sourceId && already.has(`${i.sourceTable}:${i.sourceId}`));
+
   /**
-   * 已經開過收據的那幾張（去重）。
+   * **一張一張判斷，不要整批擋掉。**
    *
-   * **有重複就不准再開**（廟方 2026-10-30：「同一筆收據，可以一直開，流水號
-   * 還不同，這應該是 bug」）。同一筆錢有兩張有效的連號收據，帳面上看起來
-   * 就是收了兩次——那是連號制度最不能出的錯。
+   * 「同一筆不能開兩張」是對的（廟方 2026-10-30：「可以一直開，流水號還不同，
+   * 這應該是 bug」——同一筆錢有兩張有效的連號收據，帳面上就是收了兩次）。
+   * 但我第一版把**整批**都擋下來：選了三個人、其中一個先前開過，另外兩個也
+   * 跟著不能開（廟方 2026-10-30：「要怎麼一次印三張收據」）。
+   * 那是把「這一筆不能重開」錯誤地放大成「這一次什麼都不能做」。
    *
-   * 重開的路仍然走得通：先去收據列表把舊的作廢，作廢的不算在 `already` 裡
-   * （見 `receiptsBySource`），這裡就會放行。**先作廢再重開**是對的順序，
-   * 因為它留下了「舊的那張被作廢了」這個紀錄；直接重開沒有。
+   * 現在：沒開過的照常開，已開過的改成補印同一張，最後**一起印**——
+   * 使用者要的三張還是三張，而且每一張的流水號都正確。
+   *
+   * 一組只要有任何一筆開過就整組算「已開過」：收據是綁著一組明細開出去的，
+   * 沒辦法只補其中一筆。
    */
+  const blocked = groups.filter(g => g.items.some(hasReceipt));
+  const issuable = groups.filter(g => !g.items.some(hasReceipt));
+  const dupes = allItems.filter(hasReceipt);
+  /** 已開過的那幾組對應的收據（去重），補印用 */
   const existing: ReceiptRecord[] = [...new Map<string, ReceiptRecord>(
     dupes.map(i => {
       const rec = already.get(`${i.sourceTable}:${i.sourceId}`)!;
       return [rec.id, rec];
     }),
   ).values()];
+  /** 按下去總共會印幾張 */
+  const willPrint = issuable.length + existing.length;
 
   const submit = async () => {
     if (single && !title.trim()) { setErr('收據抬頭不能空白'); return; }
@@ -127,7 +139,7 @@ export const ReceiptIssueDialog: React.FC<{
        * 與號碼順序一致。
        */
       const made: ReceiptRecord[] = [];
-      for (const g of groups) {
+      for (const g of issuable) {
         const r = await createReceipt({
           title: (single ? title : g.title).trim(),
           items: g.items,
@@ -138,7 +150,9 @@ export const ReceiptIssueDialog: React.FC<{
         });
         if (r) made.push(r);
       }
-      if (made.length > 0) { setPrinting(made); onIssued(); }
+      // 新開的與補印的一起印，依流水號排序——印出來的順序與號碼一致
+      const all = [...made, ...existing].sort((a, b) => a.receiptNo.localeCompare(b.receiptNo));
+      if (all.length > 0) { setPrinting(all); if (made.length > 0) onIssued(); }
     } catch (e) {
       setErr(e instanceof Error ? e.message : '開立失敗');
     } finally {
@@ -186,36 +200,34 @@ export const ReceiptIssueDialog: React.FC<{
 
         <div className="p-5 space-y-4">
           {existing.length > 0 && (
-            <div className="rounded-lg bg-amber-50 border border-amber-300 p-3.5 text-sm text-amber-900 space-y-2.5">
+            <div className="rounded-lg bg-amber-50 border border-amber-300 p-3.5 text-sm text-amber-900 space-y-2">
               <p>
-                勾選的項目裡有 <strong>{dupes.length} 筆已經開過收據</strong>，不能再開一張。
+                其中 <strong>{existing.length} 張已經開過了</strong>（{existing.map(r => r.receiptNo).join('、')}）。
                 <span className="block text-xs mt-1 text-amber-800">
-                  同一筆錢有兩張有效的連號收據，帳面上看起來就是收了兩次。要補一份給信眾請用下面的補印——
-                  <strong>流水號會是同一個</strong>。
+                  那幾張會<strong>補印原來那一張、流水號不變</strong>，不會重新配號——
+                  同一筆錢有兩張有效的連號收據，帳面上就是收了兩次。
+                  真的要換新的，請先到「收據」畫面把舊的作廢再回來。
                 </span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {existing.map(rec => (
-                  <button key={rec.id} onClick={() => setPrinting([rec])}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-medium hover:bg-amber-100">
-                    補印 {rec.receiptNo}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-amber-800">
-                真的要換一張新的，請先到「收據」畫面把舊的作廢，再回來開。
               </p>
             </div>
           )}
 
           {/* 要開哪幾張、每張有什麼。多人時這一段就是主畫面 */}
           <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
-            {groups.map(g => (
+            {groups.map(g => {
+              const old = g.items.map(i => i.sourceTable && i.sourceId
+                ? already.get(`${i.sourceTable}:${i.sourceId}`) : undefined).find(Boolean);
+              return (
               <div key={g.key} className="p-3">
                 {!single && (
-                  <p className="text-sm font-semibold text-gray-800 mb-1.5">
+                  <p className="text-sm font-semibold text-gray-800 mb-1.5 flex items-center gap-2 flex-wrap">
                     {g.title}
-                    <span className="ml-2 text-xs font-normal text-gray-400">{g.phone || '沒有電話'}</span>
+                    <span className="text-xs font-normal text-gray-400">{g.phone || '沒有電話'}</span>
+                    {old && (
+                      <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                        補印 {old.receiptNo}
+                      </span>
+                    )}
                   </p>
                 )}
                 <table className="w-full text-sm">
@@ -236,7 +248,8 @@ export const ReceiptIssueDialog: React.FC<{
                   </tbody>
                 </table>
               </div>
-            ))}
+              );
+            })}
             {!single && (
               <div className="p-3 bg-gray-50 flex items-center justify-between">
                 <span className="text-xs text-gray-500">{groups.length} 張合計</span>
@@ -309,14 +322,20 @@ export const ReceiptIssueDialog: React.FC<{
 
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm">取消</button>
-            <button onClick={submit} disabled={saving || groups.length === 0 || existing.length > 0}
-              title={existing.length > 0 ? '這幾筆已經開過收據，請用上面的補印；要重開請先把舊的作廢' : ''}
+            <button onClick={submit} disabled={saving || willPrint === 0}
               className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
-              {saving ? '開立中…' : existing.length > 0 ? '已開過，不能重複開立'
-                : single ? '開立並列印' : `開立 ${groups.length} 張並列印`}
+              {saving ? '開立中…'
+                : issuable.length === 0 ? `補印 ${existing.length} 張`
+                : single ? '開立並列印'
+                : `開立並列印 ${willPrint} 張`}
             </button>
           </div>
           <p className="text-[11px] text-gray-400">
+            {existing.length > 0 && issuable.length > 0 && (
+              <span className="block text-gray-500 mb-0.5">
+                其中 {issuable.length} 張新開、{existing.length} 張補印（流水號不變）。
+              </span>
+            )}
             每一張收據佔一張 A4，印出來是三聯（收執聯／財務憑證聯／存根聯），沿裁切線剪開即可。
           </p>
         </div>
