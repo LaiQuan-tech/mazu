@@ -581,8 +581,20 @@ export interface LampRegistrationRecord extends LampRegistrationData {
 }
 
 // ─── Member Contacts (會員通訊錄) ────────────────────────
+/**
+ * 稱謂／關係的選項。**全站只有這一份**（原本只存在 App.tsx 的模組層級，
+ * 後台要用就得再抄一次——抄第二份的那一天起，新增一種關係就會有一邊漏掉）。
+ *
+ * `本人` 刻意放在第一個：報名表單第一位人員預設是本人，其餘六種才是「別人」。
+ * 廟方 2026-10-29 再次確認就是這六種，不要自行增刪。
+ */
+export const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
+export type RelationLabel = typeof RELATION_OPTIONS[number];
+/** 本人以外的六種（後台用「關係」篩選時不需要「本人」這一項） */
+export const RELATION_OTHERS = RELATION_OPTIONS.filter(r => r !== '本人');
+
 export interface MemberContactData {
-  label: string;      // 父母親 / 兒女 / 手足 / 親戚 / 朋友 / 師長
+  label: string;      // RELATION_OPTIONS 之一；**空字串＝報名時沒選**，不要代入預設值
   name: string;
   phone: string;      // 僅「本人」必填，其他不顯示
   birthDate: string;  // 農曆生日（文字）
@@ -710,6 +722,7 @@ export interface BlessingRegistrationData {
   zodiac?: ZodiacSign;
   gender?: string;
   address?: string;
+  contactLabel?: string;
   notes?: string;
   packageName?: string;   // 所選方案名稱（無方案時為 undefined）
   packageFee?:  number;   // 所選方案費用（無方案時為 undefined）

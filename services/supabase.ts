@@ -1192,7 +1192,10 @@ export const autoSaveContactsForMember = async (
     .filter(p => p.name.trim() && !existingNames.has(p.name.trim()))
     .map(p => ({
       user_id:    user.id,
-      label:      p.contactLabel || '朋友',
+      // **沒選就留空，不要預設成「朋友」**：關係欄不是必填（表單上新增的人員
+      // 預設是空字串），原本的 `|| '朋友'` 會把「沒說」寫成一筆看起來有根據的
+      // 朋友關係。這一欄現在會出現在後台的信眾／會員名冊上，假關係比留白糟。
+      label:      p.contactLabel || '',
       name:       p.name.trim(),
       phone:      fallbackPhone,
       birth_date: p.birthDate || '',
@@ -1244,14 +1247,50 @@ export const deleteMemberContact = async (id: string): Promise<boolean> => {
 // ─── Member Profile (個人資料) ────────────────────────────
 /** 後台：取得所有已建立個人資料的會員（需登入） */
 /** 後台：取得所有會員的最後登入時間（需已登入，呼叫 RPC） */
-export const getUsersLastLogin = async (): Promise<Record<string, string>> => {
-  const { data, error } = await supabase.rpc('get_users_last_login');
-  if (error || !data) return {};
-  const result: Record<string, string> = {};
-  for (const row of data as { user_id: string; last_sign_in_at: string }[]) {
-    if (row.last_sign_in_at) result[row.user_id] = row.last_sign_in_at;
+/**
+ * 後台：每個會員帳號的最後登入時間與信箱（同一支 RPC 一次拿回來）。
+ *
+ * **信箱不在 `member_profiles`，在 `auth.users`**，所以只能走這支 SECURITY DEFINER
+ * 的 RPC；前端拿不到也不該拿 service key。
+ *
+ * **兩支分開呼叫、併發**。`get_users_last_login` 是在 Supabase 後台手建的、repo 裡
+ * 沒有定義，所以不去 `CREATE OR REPLACE` 它——用猜的內容覆蓋一支看不見的函式，
+ * 猜錯權限判斷就會把全站會員的信箱放寬給任何登入者，而那不會報錯。
+ *
+ * **`emails` 可能整個是空的**，那是正常狀態、不是錯誤：
+ *   - `member_auth_email.sql` 還沒在 SQL Editor 跑過；
+ *   - 或那個帳號是 **LINE 登入**——LINE 不給信箱，那種帳號在 auth 裡的 email 是 NULL
+ *     （見 `BlessingRegistrationData.email` 的註解）。
+ * 兩種情況都不能當成「查不到人」，所以**會員搜尋不可以只靠信箱**，必須同時吃姓名與電話。
+ */
+export const getUsersLastLogin = async (): Promise<{
+  lastLogin: Record<string, string>;
+  emails: Record<string, string>;
+}> => {
+  const [loginRes, mailRes] = await Promise.all([
+    supabase.rpc('get_users_last_login'),
+    // 這一支可能還不存在（migration 沒跑）；它失敗不可以拖垮最後登入那一半
+    supabase.rpc('get_member_emails').then(r => r, () => ({ data: null, error: true })),
+  ]);
+
+  const lastLogin: Record<string, string> = {};
+  if (!loginRes.error && loginRes.data) {
+    for (const row of loginRes.data as { user_id: string; last_sign_in_at: string }[]) {
+      if (row.last_sign_in_at) lastLogin[row.user_id] = row.last_sign_in_at;
+    }
   }
-  return result;
+
+  const emails: Record<string, string> = {};
+  if (!mailRes.error && mailRes.data) {
+    for (const row of mailRes.data as { user_id: string; email: string }[]) {
+      if (row.email) emails[row.user_id] = row.email;
+    }
+  } else {
+    console.warn('get_member_emails 取不到（會員搜尋少了信箱這一路）'
+      + '；要補請執行 supabase/migrations/member_auth_email.sql');
+  }
+
+  return { lastLogin, emails };
 };
 
 export const getAllMemberProfiles = async (): Promise<MemberProfileRecord[]> => {
@@ -1350,6 +1389,7 @@ const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
   zodiac: row.zodiac || undefined,
   gender: row.gender || undefined,
   address: row.address || undefined,
+  contactLabel: row.contact_label || undefined,
   notes: row.notes || undefined,
   packageName: row.package_name ?? undefined,
   packageFee:  row.package_fee  ?? undefined,
@@ -1454,6 +1494,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
     zodiac: d.zodiac || null,
     gender: d.gender || null,
     address: d.address || null,
+    contact_label: d.contactLabel || null,
     notes: d.notes || null,
     package_name:      d.packageName       || null,
     package_fee:       d.packageFee        ?? null,
@@ -1464,7 +1505,7 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
     status: BlessingStatus.PENDING,
     email: d.email?.trim() || null,
     source: getSource(),
-  }, ['email'], { status: '待確認' });
+  }, ['email', 'contact_label'], { status: '待確認' });
   if (opts?.notify !== false) notifyRegistration('blessing_registrations', id);
   return id;
 };

@@ -701,6 +701,37 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 
 ## 待辦與未修事項
 
+- **稱謂／關係：資料一直都在收，但有三個地方把它丟掉了**（2026-10-29 廟方要求在後台看得到關係時查出來）。
+  選項只有一組、定義在 `types.ts` 的 `RELATION_OPTIONS`：`本人` ＋ 父母親／兒女／手足／親戚／朋友／師長。
+  **原本這份常數住在 `App.tsx` 的模組層級、沒有 export**，後台要用就得再抄一份——抄第二份的那一天起，新增一種關係就會有一邊漏掉。已搬到 `types.ts` 由前台表單與後台共用。
+
+  **它存在哪：** 問事 `bookings.contact_label`、捐款 `donations.contact_label`、點燈 `lamp_registrations.contact_label`、揪團 `shared_entries.contact_label`、會員通訊錄 `member_contacts.label`。
+
+  **丟掉的三個地方：**
+  1. **祈福選了關係但沒存。** 表單一直有那個選單，但 `BlessingRegistrationData` 沒有 `contactLabel`、App.tsx 呼叫時沒帶、insert 的 payload 也沒有——**三層都缺**。從上線到 2026-10-29 全部沒存下來，而且**救不回來**（從來沒寫進資料庫，沒有地方可以回填）。選單正常運作、不報錯、不噴型別，值就是消失了。
+  2. **信眾名冊把關係丟掉。** `collectSightings()` 讀通訊錄時只取了「這是誰的通訊錄」（`contactOf`），沒取 `c.label`；四張報名表也沒取 `contact_label`。資料在資料庫裡，只是沒有一條路把它送上畫面。
+  3. **法會沒有這個欄位**，而且**刻意不加在報名層級**：法會是「一個聯絡人＋多個陽上牌位」，同一張單上可能同時有父母親與兒女，掛在報名層級只會是一個對不上任何人的值。要收就得改 `entries` 那個 JSON 結構，等廟方決定牌位要不要收。
+
+- **關係有兩種可信度，畫面上一定要分得出來**（同 `AccountCell` 那條原則，`RelationCell` 照抄）：
+  | 來源 | 知道「對誰」嗎 | 樣子 |
+  |---|---|---|
+  | 通訊錄（`member_contacts` 綁 `user_id`） | 知道 → **事實** | 實線框「#007 的兒女」 |
+  | 報名表的 `contact_label` | **不知道** | 虛線框「報名填兒女」 |
+
+  後面那一種為什麼沒有主詞：**全站報名都不需要登入，資料庫裡沒有任何欄位記著「這筆是誰送的」**（同 `linkMembersByPhone` 的理由）。所以「兒女」只能解讀成「某次報名時有人把他填成兒女」，**不可以寫成「某某人的兒女」**——那是在編造主詞。`DevoteeRow.relationOf` 只收通訊錄來的那幾個，`relations` 是混合的、只適合當搜尋／篩選的索引。匯出也分成兩欄（「關係（通訊錄，確定）」與「關係（報名填，未知對誰）」），混在一欄等於把推測寫成事實。
+
+  **「本人」不是人與人的關係**，是「這筆報名就是填表人自己」，所以不進關係的框——不排除的話整欄會被「本人」洗掉，因為每張表單第一位人員的預設值就是它。
+
+- **沒選關係就是沒選，不要代入預設值。** `autoSaveContactsForMember()` 原本是 `label: p.contactLabel || '朋友'`，而關係欄**不是必填**、表單上新增的人員預設是空字串——於是「沒說」被寫成一筆看起來有根據的朋友關係。現在沒人看得到所以無害，一旦關係上了後台畫面那就是假資料。已改成留空，後台兩處顯示 `label` 的地方都要容得下空字串（顯示灰色的「未填關係」，不要畫出一顆空的紅色標籤）。
+
+- **祈福報名原本整個不在信眾名冊裡**（2026-10-29 修）：`RosterTab` 的來源有 fahui／volunteers／members／contacts／bookings／donations／lamps／registrations，**漏了 blessings**。只參加過祈福的人在那一頁上不存在，而祈福是最常報的項目之一。`DevoteeSource` 也跟著補上 `'祈福'`。
+
+- **會員的信箱不在 `member_profiles`，在 `auth.users`**（2026-10-29 廟方要求用信箱搜尋會員時確認）。那張表只有姓名／電話／生日／生肖／性別／地址。前端是 anon key，讀不到 auth schema，**也不該為了這件事把 service key 放進瀏覽器**，所以走 SECURITY DEFINER 的 RPC（`get_member_emails()`，權限一律 `public.is_admin()`）。
+  **不要去 `CREATE OR REPLACE` 既有的 `get_users_last_login`**：那支是在 Supabase 後台手動建的、repo 裡沒有定義，用猜的內容覆蓋一支看不見的函式，猜錯權限判斷就會把全站會員的信箱放寬給任何登入者，而那不會報錯。所以是**新增一支**，前端兩支併發呼叫。
+  **信箱搜尋永遠找不到 LINE 登入的會員**——LINE 不給信箱，那種帳號在 auth 裡的 email 是 NULL。所以會員搜尋必須同時吃姓名與電話，不可以只靠信箱。
+
+- **`supabase/migrations/blessing_contact_label.sql` 要跑過**（2026-10-29 新增，**使用者尚未執行**）：給 `blessing_registrations` 加 `contact_label`。沒跑祈福報名照樣送得出去（`insertOptional` 會把這一欄退掉），只是關係存不下來。
+- **`supabase/migrations/member_auth_email.sql` 要跑過**（2026-10-29 新增，**使用者尚未執行**）：新增 `get_member_emails()` RPC，讓後台能用信箱搜尋會員。沒跑的症狀是會員搜尋少了信箱這一路（console 會指名要跑哪一支），其餘照常。
 - **`supabase/migrations/registration_email.sql` 要在 Supabase SQL Editor 跑過**（2026-10-13 新增，**使用者尚未執行**）：給問事／點燈／祈福／捐獻加 `email`，給五張表加 `confirm_sent_at`。
   **沒跑不會壞掉，只是收不到信**：送出路徑有 `insertOptional()` 的退路（見程式陷阱那節），信箱欄位寫不進去就捨棄那一欄重送；`confirm_sent_at` 不存在則是信寄得出去但蓋不了章，於是下次確認會重寄一封——端點認得這一種並在回應裡指名要跑哪一支（`/confirm_sent_at/.test(why)`）。
 - **`supabase/migrations/notify_features_2026_10.sql` 要跑過**（2026-10-16 新增，**使用者尚未執行**）：六個通知功能的蓋章欄位、點燈的 `expires_at`，以及把匯款帳號搬進 `site_settings`。沒跑的症狀是各種「信沒來」或「重複寄」，端點會在回應裡指名要跑哪一支。

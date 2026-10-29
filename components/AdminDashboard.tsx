@@ -16,7 +16,7 @@ import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
-import { AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { RELATION_OPTIONS, AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -569,6 +569,53 @@ const AccountCell = ({ rec, own }: { rec: DevoteeRecord; own: string[] }) => {
   return dim;
 };
 
+/**
+ * 稱謂／關係。**跟 `AccountCell` 一樣，兩種可信度不可以畫成一樣**：
+ *
+ * | 來源 | 知道「對誰」嗎 | 樣子 |
+ * |---|---|---|
+ * | 通訊錄（`member_contacts` 綁 `user_id`） | 知道 → 事實 | 實線框「#007 的兒女」 |
+ * | 報名表的 `contact_label` | **不知道** | 虛線框「報名填兒女」 |
+ *
+ * 後面那一種為什麼沒有主詞：全站報名都不需要登入，資料庫裡沒有欄位記著「這筆是誰送的」
+ * （同 `devoteeRoster.linkMembersByPhone` 的理由）。所以「兒女」只能解讀成
+ * 「某次報名時有人把他填成兒女」，**不可以寫成「某某人的兒女」**——那是在編造主詞。
+ *
+ * 「本人」不是人與人的關係，是「這筆報名就是填表人自己」，所以不進關係的框，
+ * 只在完全沒有其他關係時用灰字交代一句，否則整欄會被「本人」洗掉。
+ */
+const RelationCell = ({ row }: { row: DevoteeRow }) => {
+  const others = row.relations.filter(r => r && r !== '本人');
+  // 通訊錄來的那幾個已經在 relationOf 裡有主詞了，不要再用無主詞的樣子重複講一次
+  const sourced = new Set(row.relationOf.map(x => x.relation));
+  const unsourced = others.filter(r => !sourced.has(r));
+
+  if (row.relationOf.length === 0 && others.length === 0) {
+    return row.relations.includes('本人')
+      ? <span className="text-gray-400 text-xs" title="歷次報名都是填「本人」，沒有填過與其他人的關係">都是本人</span>
+      : <span className="text-gray-300">—</span>;
+  }
+
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {row.relationOf.map(({ tag, relation }) => (
+        <span key={`${tag}-${relation}`}
+          className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs whitespace-nowrap"
+          title={`${tag} 的通訊錄把他記成「${relation}」。通訊錄綁帳號，所以「是誰的${relation}」是查得到的事實`}>
+          {tag} 的{relation}
+        </span>
+      ))}
+      {unsourced.map(r => (
+        <span key={r}
+          className="px-1.5 py-0.5 rounded-full bg-emerald-50/60 text-emerald-600 border border-dashed border-emerald-200 text-xs whitespace-nowrap"
+          title="報名表上填的關係。報名不需登入，資料庫沒有記「這筆是誰送的」，所以只知道關係、不知道是對誰——要確認請看下方該筆紀錄的電話">
+          報名填{r}
+        </span>
+      ))}
+    </span>
+  );
+};
+
 /** 並列比對用的紀錄表：把一個人底下的每一筆原始紀錄攤開，人才判斷得出是不是同一個人。
  *  `own` 是這一列自己那幾個帳號的代稱，用來分辨「對到自己的帳號」與「對到別人的帳號」。 */
 const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[] }) => (
@@ -576,7 +623,7 @@ const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[]
     <table className="admin-table w-full text-xs">
       <thead className="bg-gray-50 text-gray-500">
         <tr>
-          {['日期', '管道', '帳號', '性別', '生日', '生肖', '電話', '地址', '金額'].map(h => (
+          {['日期', '管道', '帳號', '關係', '性別', '生日', '生肖', '電話', '地址', '金額'].map(h => (
             <th key={h} className="px-2.5 py-2 text-left font-medium whitespace-nowrap">{h}</th>
           ))}
         </tr>
@@ -590,6 +637,16 @@ const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[]
             </td>
             <td data-label="帳號" className="px-2.5 py-2 whitespace-nowrap">
               <AccountCell rec={rec} own={own} />
+            </td>
+            <td data-label="關係" className="px-2.5 py-2 whitespace-nowrap">
+              {rec.relation
+                ? <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px]"
+                    title={rec.source === '通訊錄'
+                      ? `${rec.contactOf} 的通訊錄把他記成「${rec.relation}」`
+                      : '這一筆報名表上填的關係；主詞是送出這筆報名的人，資料庫沒有記那是誰'}>
+                    {rec.relation}
+                  </span>
+                : <span className="text-gray-300">—</span>}
             </td>
             <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>
             <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>
@@ -627,11 +684,12 @@ const groupByBirth = (records: DevoteeRecord[]): { key: string; label: string; r
 const rosterTotalCount = (counts: Record<string, number>): number =>
   Object.keys(counts).reduce((sum, k) => sum + (counts[k] || 0), 0);
 
-const ROSTER_SOURCES = ['法會報名', '法會陽上', '志工', '會員', '通訊錄', '問事', '捐款', '點燈', '活動報名'];
+const ROSTER_SOURCES = ['法會報名', '法會陽上', '志工', '會員', '通訊錄', '問事', '捐款', '點燈', '祈福', '活動報名'];
 
 const RosterTab = ({ sources }: { sources: RosterSources }) => {
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
+  const [relationFilter, setRelationFilter] = useState('');
   const [onlyConflicts, setOnlyConflicts] = useState(false);
 
   // ── 人工校正 ──
@@ -688,13 +746,20 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
   };
 
   const filtered = useMemo(() => rows.filter(r => {
-    const matchSearch = !search
-      || r.name.includes(search)
-      || r.phones.some(p => p.includes(search))
-      || r.addresses.some(a => a.includes(search));
+    // 信箱不分大小寫（信眾自己填的大小寫不一致，廟方從信件複製貼上更不會一致）
+    const q = search.trim();
+    const ql = q.toLowerCase();
+    const matchSearch = !q
+      || r.name.includes(q)
+      || r.phones.some(p => p.includes(q))
+      || r.addresses.some(a => a.includes(q))
+      || r.emails.some(e => e.toLowerCase().includes(ql))
+      || r.lineIds.some(l => l.toLowerCase().includes(ql))
+      || r.memberNumbers.some(n => n.includes(q));
     const matchSource = !sourceFilter || (r.counts[sourceFilter] ?? 0) > 0;
-    return matchSearch && matchSource && (!onlyConflicts || r.nameConflict);
-  }), [rows, search, sourceFilter, onlyConflicts]);
+    const matchRelation = !relationFilter || r.relations.includes(relationFilter);
+    return matchSearch && matchSource && matchRelation && (!onlyConflicts || r.nameConflict);
+  }), [rows, search, sourceFilter, relationFilter, onlyConflicts]);
 
   const stats = useMemo(() => ({
     total: rows.length,
@@ -717,6 +782,9 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
       r.birthDates.join('；'),
       r.zodiacs.join('／'),
       r.lineIds.join('、'),
+      r.emails.join('、'),
+      r.relationOf.map(x => `${x.tag} 的${x.relation}`).join('、'),
+      r.relations.filter(x => x && x !== '本人' && !r.relationOf.some(y => y.relation === x)).join('、'),
       ROSTER_SOURCES.filter(s => r.counts[s]).map(s => `${s}${r.counts[s]}`).join('、'),
       rosterTotalCount(r.counts),
       r.totalAmount,
@@ -725,7 +793,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
       r.relatives.join('、'),
       r.nameConflict ? '是' : '',
       r.conflictHint,
-    ]), ['姓名', '會員編號', '性別', '電話', '地址', '生日', '生肖', 'LINE', '參與管道', '參與次數', '累計金額', '首次參與', '最近參與', '可能親屬（同電話）', '疑似同名不同人', '判斷依據']);
+    ]), ['姓名', '會員編號', '性別', '電話', '地址', '生日', '生肖', 'LINE', '信箱', '關係（通訊錄，確定）', '關係（報名填，未知對誰）', '參與管道', '參與次數', '累計金額', '首次參與', '最近參與', '可能親屬（同電話）', '疑似同名不同人', '判斷依據']);
   };
 
   return (
@@ -826,13 +894,18 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 地址"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 信箱 / LINE / 地址 / 會員編號"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
         <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none">
           <option value="">全部管道</option>
           {ROSTER_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={relationFilter} onChange={e => setRelationFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none">
+          <option value="">全部關係</option>
+          {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1">
           <input type="checkbox" checked={onlyConflicts} onChange={e => setOnlyConflicts(e.target.checked)}
@@ -849,6 +922,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
             <thead className="bg-gray-50 text-gray-500 text-xs">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
+                <th className="px-4 py-3 text-left font-medium">關係</th>
                 <th className="px-4 py-3 text-left font-medium">性別</th>
                 <th className="px-4 py-3 text-left font-medium">電話</th>
                 <th className="px-4 py-3 text-left font-medium">地址</th>
@@ -880,6 +954,7 @@ const RosterTab = ({ sources }: { sources: RosterSources }) => {
                       </span>
                     )}
                   </td>
+                  <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
                   <td data-label="性別" className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
                   <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || '—'}</td>
                   <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || '—'}</td>
@@ -2631,7 +2706,7 @@ const StatBadges = ({ lamps, bookingCount, activities, donation }: { lamps: numb
 type MemberSortKey = 'default' | 'lamps' | 'bookings' | 'activities' | 'donation' | 'lastLogin';
 type MemberSortDir = 'asc' | 'desc';
 
-const MembersTab = ({ bookings, donations, lampRegistrations, registrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin }: {
+const MembersTab = ({ bookings, donations, lampRegistrations, registrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin, memberEmails }: {
   bookings: BookingRecord[];
   donations: DonationRecord[];
   lampRegistrations: LampRegistrationRecord[];
@@ -2641,6 +2716,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
   lampConfigs: LampServiceConfig[];
   memberProfiles: MemberProfileRecord[];
   usersLastLogin: Record<string, string>;
+  memberEmails: Record<string, string>;
 }) => {
   // 已註冊會員詳情
   const [selectedProfile, setSelectedProfile] = useState<MemberProfileRecord | null>(null);
@@ -2652,6 +2728,8 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
   const [selectedContact, setSelectedContact] = useState<MemberContact | null>(null);
   // 歷史紀錄 tab
   const [historyTab, setHistoryTab] = useState<'lamp' | 'booking' | 'blessing' | 'donation'>('lamp');
+  // 搜尋
+  const [search, setSearch] = useState('');
   // 排序
   const [sortBy, setSortBy] = useState<MemberSortKey>('default');
   const [sortDir, setSortDir] = useState<MemberSortDir>('desc');
@@ -2768,6 +2846,33 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
     return rows;
   }, [memberProfiles, lampRegistrations, bookings, donations, registrations, usersLastLogin, sortBy, sortDir]);
 
+  /**
+   * 搜尋：姓名／電話／信箱／會員編號／地址。
+   *
+   * **一列可能底下有好幾個帳號**（同一個人常有信箱帳號＋LINE 帳號，見 `toPersonKey`），
+   * 所以電話與信箱要把那幾個帳號全部比過，不能只看主要那一個——不然用他 LINE 帳號的
+   * 信箱搜就會搜不到他。
+   *
+   * 編號接受「7」「007」「#007」三種寫法：廟方口頭講的是「七號」，紙本上寫的是 #007。
+   */
+  const visibleProfiles = useMemo(() => {
+    const q = search.trim();
+    if (!q) return sortedProfiles;
+    const ql = q.toLowerCase();
+    const digits = q.replace(/\D/g, '');
+    return sortedProfiles.filter(p => {
+      const accounts = p.accounts ?? [p];
+      if (p.name?.includes(q)) return true;
+      if (accounts.some(a => (a.phone ?? '').includes(q))) return true;
+      if (accounts.some(a => (memberEmails[a.userId] ?? '').toLowerCase().includes(ql))) return true;
+      if (accounts.some(a => (a.address ?? '').includes(q))) return true;
+      if (digits && accounts.some(a => a.memberNumber != null
+        && (String(a.memberNumber) === String(Number(digits))
+          || String(a.memberNumber).padStart(3, '0') === digits))) return true;
+      return false;
+    });
+  }, [sortedProfiles, search, memberEmails]);
+
   // ── 可排序表頭 ──
   const SortTh = ({ col, label, align = 'left' }: { col: MemberSortKey; label: string; align?: 'left' | 'center' | 'right' }) => (
     <th
@@ -2797,7 +2902,12 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                  <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium">{selectedContact.label}</span>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${selectedContact.label
+                    ? 'bg-temple-red/10 text-temple-red'
+                    : 'bg-gray-100 text-gray-400'}`}
+                    title={selectedContact.label ? undefined : '報名時沒有選稱謂／關係'}>
+                    {selectedContact.label || '未填關係'}
+                  </span>
                   {selectedContact.name}
                 </h3>
                 <button onClick={() => setSelectedContact(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -3035,7 +3145,12 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                 return (
                   <button key={c.id} type="button" onClick={() => setSelectedContact(c)}
                     className="w-full px-5 py-3 flex items-center gap-3 hover:bg-temple-bg/60 transition-all text-left">
-                    <span className="text-xs bg-temple-red/10 text-temple-red px-2.5 py-1 rounded-full font-medium shrink-0">{c.label}</span>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${c.label
+                      ? 'bg-temple-red/10 text-temple-red'
+                      : 'bg-gray-100 text-gray-400'}`}
+                      title={c.label ? undefined : '報名時沒有選稱謂／關係'}>
+                      {c.label || '未填關係'}
+                    </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="text-sm font-semibold text-gray-800">{c.name}</p>
@@ -3080,9 +3195,20 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-temple-gold/30 overflow-hidden">
-          <div className="px-5 py-3 bg-temple-gold/10 border-b border-temple-gold/20 flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-temple-red" />
-            <h3 className="font-semibold text-temple-dark text-sm">已註冊會員帳號</h3>
+          <div className="px-5 py-3 bg-temple-gold/10 border-b border-temple-gold/20 flex flex-col sm:flex-row sm:items-center gap-2.5">
+            <div className="flex items-center gap-2 shrink-0">
+              <UserPlus className="w-4 h-4 text-temple-red" />
+              <h3 className="font-semibold text-temple-dark text-sm">已註冊會員帳號</h3>
+              <span className="text-xs font-normal text-gray-500">
+                {search.trim() ? `${visibleProfiles.length} / ${sortedProfiles.length} 人` : `${sortedProfiles.length} 人`}
+              </span>
+            </div>
+            <div className="relative sm:ml-auto sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="搜尋姓名 / 電話 / 信箱 / 編號"
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-temple-gold/30 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="admin-table w-full min-w-[640px]">
@@ -3099,7 +3225,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, registrations, ble
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {sortedProfiles.map(p => (
+                {visibleProfiles.map(p => (
                   <tr key={p.userId}
                     onClick={async () => {
                       setSelectedProfile(p); setSelectedAccounts(p.accounts); setContactsLoading(true);
@@ -6542,6 +6668,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [memberProfiles, setMemberProfiles] = useState<MemberProfileRecord[]>([]);
   const [allContacts, setAllContacts]       = useState<MemberContact[]>([]);
   const [usersLastLogin, setUsersLastLogin] = useState<Record<string, string>>({});
+  /** 會員帳號的信箱（來自 auth.users，走 get_users_last_login 這支 RPC）。
+   *  空的原因見 `getUsersLastLogin` 的註解——LINE 登入的會員本來就沒有信箱。 */
+  const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
   const [fahuiRegistrations, setFahuiRegistrations] = useState<FahuiRegistrationRecord[]>([]);
@@ -6556,7 +6685,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({} as Record<string, string>)), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[])]);
+      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -6569,7 +6698,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
       setLampRegistrations(lr);
       setMemberProfiles(mp);
       setAllContacts(ac);
-      setUsersLastLogin(ll);
+      setUsersLastLogin(ll.lastLogin);
+      setMemberEmails(ll.emails);
       setAllRegistrations(ar);
       setBlessingEvents(be);
       setBlessingRegistrations(br);
@@ -6830,8 +6960,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} onRefresh={fetchAll} />}
-              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} />}
-              {tab === 'roster'    && <RosterTab sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, registrations: allRegistrations }} />}
+              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} registrations={allRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} memberEmails={memberEmails} />}
+              {tab === 'roster'    && <RosterTab sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, blessings: blessingRegistrations, registrations: allRegistrations }} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} halls={deityHalls} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}

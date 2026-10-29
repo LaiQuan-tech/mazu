@@ -19,12 +19,13 @@ import type {
   BookingRecord,
   DonationRecord,
   LampRegistrationRecord,
+  BlessingRegistrationRecord,
   RegistrationRecord,
 } from '../types';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from './fahuiServices';
 
 /** 名冊的來源管道 */
-export type DevoteeSource = '法會報名' | '法會陽上' | '志工' | '會員' | '通訊錄' | '問事' | '捐款' | '點燈' | '活動報名';
+export type DevoteeSource = '法會報名' | '法會陽上' | '志工' | '會員' | '通訊錄' | '問事' | '捐款' | '點燈' | '祈福' | '活動報名';
 
 /** 一筆原始出現紀錄（供後台並列比對，判斷該拆分還是該合併） */
 export interface DevoteeRecord {
@@ -36,6 +37,9 @@ export interface DevoteeRecord {
   birthDate: string;
   zodiac: string;
   lineId: string;
+  /** 報名時填的聯絡信箱。**空字串不一定代表沒填**：這幾欄來自
+   *  `registration_email.sql`，那支還沒跑的時候讀出來一律是空的。 */
+  email: string;
   amount: number;
   /**
    * 這筆紀錄**自己**就是某個會員帳號的資料（只有「會員」這個管道會是 true）。
@@ -61,6 +65,18 @@ export interface DevoteeRecord {
    * 所以它**只進檢視視窗、而且要標示出來**，不進列表的「會員 #」徽章、不進匯出。
    */
   linkedMembers: string[];
+  /**
+   * 這筆紀錄上填的「稱謂／關係」（`本人`／父母親／兒女／手足／親戚／朋友／師長，
+   * 見 App.tsx 的 `RELATION_OPTIONS`）。沒填就是空字串——**不要代入預設值**。
+   *
+   * **它的主詞是誰，取決於來源**：
+   *   - `通訊錄`：主詞是 `contactOf` 那個帳號，所以「#007 的兒女」是**事實**
+   *     （`member_contacts` 綁 `user_id`）。
+   *   - 其餘報名管道：主詞是「送出那筆報名的人」，而**資料庫裡沒有欄位記著那是誰**
+   *     （報名不需登入，同 `linkedMembers` 的理由）。只能靠那一筆的電話去猜，
+   *     所以畫面上只能寫「報名時填：兒女」，不可以寫成「某某人的兒女」。
+   */
+  relation: string;
   /** 生日正規化後的值，拆分時用來分群 */
   birthKey: string;
 }
@@ -75,6 +91,7 @@ export interface DevoteeRow {
   birthDates: string[];
   zodiacs: string[];
   lineIds: string[];
+  emails: string[];
   /** 各管道的參與次數 */
   counts: Record<string, number>;
   /** 累計金額（法會報名金額＋捐款金額；其他管道不計金額） */
@@ -97,6 +114,18 @@ export interface DevoteeRow {
    * 要分得出來就得去會員管理把編號補上，而那正是這一欄想促成的事。
    */
   memberTags: string[];
+  /**
+   * 這個人被填過的所有關係（去重）。**混合了兩種可信度**，只適合當搜尋／篩選的
+   * 索引，不要直接當成「他是某人的什麼」顯示——要顯示請用 `relationOf`
+   * 或逐筆看 `records[].relation`。
+   */
+  relations: string[];
+  /**
+   * **有主詞的關係**：這個人出現在哪個帳號的通訊錄裡、被記成什麼關係。
+   * 通訊錄綁 `user_id`，所以這是事實。一個人可能同時在好幾個帳號的通訊錄裡
+   * （夫妻各自把小孩加一次），所以是陣列。
+   */
+  relationOf: Array<{ tag: string; relation: string }>;
   /** 可能的親屬：與本人有共同電話的其他姓名 */
   relatives: string[];
   /** 由拆分產生的列，記下原始姓名（顯示名稱會加上生日以資區別） */
@@ -117,10 +146,12 @@ interface Sighting {
   birthDate?: string;
   zodiac?: string;
   lineId?: string;
+  email?: string;
   amount?: number;
   isMemberSelf?: boolean;
   memberNumber?: string;
   contactOf?: string;
+  relation?: string;
   /** 這一筆自己那個帳號的代稱，`linkMembersByPhone()` 用來排除「自己對到自己」。
    *  沒編號的帳號也要有代稱，否則它在電話比對裡會變成空字串、把別人的也濾掉。 */
   accountTag?: string;
@@ -166,6 +197,7 @@ export interface RosterSources {
   bookings?: BookingRecord[];
   donations?: DonationRecord[];
   lamps?: LampRegistrationRecord[];
+  blessings?: BlessingRegistrationRecord[];
   registrations?: RegistrationRecord[];
 }
 
@@ -215,21 +247,32 @@ function collectSightings(src: RosterSources): Sighting[] {
     // 抓不到那個帳號的資料（有通訊錄卻沒有 member_profiles 那一列）時也要說得出
     // 「這是某個帳號的通訊錄」，那比留白誠實
     contactOf: ownerTag.get(c.userId) ?? '未編號會員',
+    relation: c.label,
   }));
 
   (src.bookings ?? []).forEach(b => out.push({
     name: b.name, source: '問事', at: localDate(b.createdAt) || b.bookingDate, gender: b.gender,
     phone: b.phone, address: b.address, birthDate: b.birthDate, zodiac: b.zodiac,
+    relation: b.contactLabel, email: b.email,
   }));
 
   (src.donations ?? []).forEach(d => out.push({
     name: d.name, source: '捐款', at: localDate(d.createdAt), gender: d.gender,
-    phone: d.phone, address: d.address, amount: d.amount,
+    phone: d.phone, address: d.address, amount: d.amount, relation: d.contactLabel, email: d.email,
   }));
 
   (src.lamps ?? []).forEach(l => out.push({
     name: l.name, source: '點燈', at: localDate(l.createdAt), gender: l.gender,
     phone: l.phone, address: l.address, birthDate: l.birthDate, zodiac: l.zodiac,
+    relation: l.contactLabel, email: l.email,
+  }));
+
+  // 祈福報名原本**整個不在名冊裡**（2026-10-29 補）：只參加過祈福的人在這一頁上
+  // 不存在，而祈福是會員最常報的項目之一。
+  (src.blessings ?? []).forEach(b => out.push({
+    name: b.name, source: '祈福', at: localDate(b.createdAt), gender: b.gender,
+    phone: b.phone, address: b.address, birthDate: b.birthDate, zodiac: b.zodiac,
+    relation: b.contactLabel, email: b.email,
   }));
 
   (src.registrations ?? []).forEach(r => out.push({
@@ -292,8 +335,9 @@ export const toNameKey = (s: string): string => nameKey(clean(s));
 export const toBirthKey = (s: string): string => birthKey(s);
 
 const emptyRow = (name: string): DevoteeRow => ({
-  name, records: [], genders: [], phones: [], addresses: [], birthDates: [], zodiacs: [], lineIds: [], memberNumbers: [],
-  memberAccounts: 0, memberTags: [], counts: {}, totalAmount: 0, lastSeen: '', firstSeen: '', relatives: [],
+  name, records: [], genders: [], phones: [], addresses: [], birthDates: [], zodiacs: [], lineIds: [], emails: [], memberNumbers: [],
+  memberAccounts: 0, memberTags: [], counts: {}, totalAmount: 0, lastSeen: '', firstSeen: '',
+  relations: [], relationOf: [], relatives: [],
   nameConflict: false, conflictHint: '',
 });
 
@@ -306,11 +350,13 @@ const toRecord = (s: Sighting): DevoteeRecord => ({
   birthDate: clean(s.birthDate),
   zodiac: clean(s.zodiac),
   lineId: clean(s.lineId),
+  email: clean(s.email),
   amount: s.amount ?? 0,
   isMemberSelf: s.isMemberSelf ?? false,
   memberNumber: s.memberNumber ?? '',
   contactOf: s.contactOf ?? '',
   linkedMembers: s.linkedMembers ?? [],
+  relation: clean(s.relation),
   birthKey: birthKey(s.birthDate ?? ''),
 });
 
@@ -325,7 +371,17 @@ function foldSightings(name: string, list: Sighting[]): DevoteeRow {
     pushUnique(row.birthDates, s.birthDate);
     pushUnique(row.zodiacs, s.zodiac);
     pushUnique(row.lineIds, s.lineId);
+    pushUnique(row.emails, s.email);
     pushUnique(row.memberNumbers, s.memberNumber);
+    pushUnique(row.relations, s.relation);
+    // 通訊錄那幾筆才有主詞（綁 user_id）；報名表的關係沒有主詞，不能放進這裡
+    if (s.source === '通訊錄' && clean(s.relation) && clean(s.contactOf)) {
+      const tag = clean(s.contactOf);
+      const relation = clean(s.relation);
+      if (!row.relationOf.some(x => x.tag === tag && x.relation === relation)) {
+        row.relationOf.push({ tag, relation });
+      }
+    }
     if (s.isMemberSelf) { row.memberAccounts += 1; pushUnique(row.memberTags, s.accountTag); }
     row.counts[s.source] = (row.counts[s.source] ?? 0) + 1;
     row.totalAmount += s.amount ?? 0;

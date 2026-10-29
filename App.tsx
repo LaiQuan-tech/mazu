@@ -41,7 +41,7 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
+import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RELATION_OPTIONS, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
@@ -153,7 +153,6 @@ async function submitSequentially<T>(items: T[], send: (item: T) => Promise<stri
   }
   return ids;
 }
-const RELATION_OPTIONS = ['本人', '父母親', '兒女', '手足', '親戚', '朋友', '師長'] as const;
 // 揪團（共享報名場次）：建立場次 → 拿 ?share=<id> 連結 → 親友各自填 → 一起送出。
 // 支援點燈／祈福／問事，連結 7 天到期。2026-09-09 普渡報名結束後開啟。
 //
@@ -2558,6 +2557,7 @@ const App: React.FC = () => {
         zodiac: p.zodiac,
         gender: p.gender || undefined,
         address: p.address || undefined,
+        contactLabel: p.contactLabel,
         notes: blessingNotes || undefined,
         packageName: pkg?.name,
         packageFee:  pkg?.fee,
@@ -2819,6 +2819,7 @@ const App: React.FC = () => {
             zodiac:      e.zodiac as ZodiacSign | undefined,
             gender:      e.gender,
             address:     e.address,
+            contactLabel: e.contactLabel,
             notes:       e.notes,
             packageName: pkg?.name,
             packageFee:  pkg?.fee,
