@@ -78,6 +78,24 @@ export const ReceiptIssueDialog: React.FC<{
 
   const total = receiptTotal(items);
   const dupes = items.filter(i => i.sourceTable && i.sourceId && already.has(`${i.sourceTable}:${i.sourceId}`));
+  /**
+   * 已經開過收據的那幾張（去重）。
+   *
+   * **有重複就不准再開**（廟方 2026-10-30 發現：「同一筆收據，可以一直開，
+   * 流水號還不同，這應該是 bug」）。同一筆錢有兩張有效的連號收據，帳面上
+   * 看起來就是收了兩次——那是連號制度最不能出的錯。
+   *
+   * 原本這裡只警告不阻擋，理由是「作廢後重開是正常流程」。但那條路現在
+   * 仍然走得通：先去收據列表把舊的作廢，作廢的不算在 `already` 裡（見
+   * `receiptsBySource`），這裡就會放行。**先作廢再重開**是對的順序，
+   * 因為它留下了「舊的那張被作廢了」這個紀錄；直接重開沒有。
+   */
+  const existing: ReceiptRecord[] = [...new Map<string, ReceiptRecord>(
+    dupes.map(i => {
+      const rec = already.get(`${i.sourceTable}:${i.sourceId}`)!;
+      return [rec.id, rec];
+    }),
+  ).values()];
 
   const submit = async () => {
     if (!title.trim()) { setErr('收據抬頭不能空白'); return; }
@@ -127,11 +145,26 @@ export const ReceiptIssueDialog: React.FC<{
         </div>
 
         <div className="p-5 space-y-4">
-          {dupes.length > 0 && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-              其中 <strong>{dupes.length} 筆已經開過收據</strong>
-              （{dupes.map(d => already.get(`${d.sourceTable}:${d.sourceId}`)?.receiptNo).filter(Boolean).join('、')}）。
-              要重開請先把舊的那張作廢，否則同一筆錢會有兩張收據。
+          {existing.length > 0 && (
+            <div className="rounded-lg bg-amber-50 border border-amber-300 p-3.5 text-sm text-amber-900 space-y-2.5">
+              <p>
+                勾選的項目裡有 <strong>{dupes.length} 筆已經開過收據</strong>，不能再開一張。
+                <span className="block text-xs mt-1 text-amber-800">
+                  同一筆錢有兩張有效的連號收據，帳面上看起來就是收了兩次。要補一份給信眾請用下面的補印——
+                  <strong>流水號會是同一個</strong>。
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {existing.map(rec => (
+                  <button key={rec.id} onClick={() => setPrinting(rec)}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-medium hover:bg-amber-100">
+                    補印 {rec.receiptNo}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-amber-800">
+                真的要換一張新的，請先到「收據」畫面把舊的作廢，再回來開。
+              </p>
             </div>
           )}
 
@@ -196,9 +229,10 @@ export const ReceiptIssueDialog: React.FC<{
 
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm">取消</button>
-            <button onClick={submit} disabled={saving || items.length === 0}
-              className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium disabled:opacity-40">
-              {saving ? '開立中…' : '開立並列印'}
+            <button onClick={submit} disabled={saving || items.length === 0 || existing.length > 0}
+              title={existing.length > 0 ? '這幾筆已經開過收據，請用上面的補印；要重開請先把舊的作廢' : ''}
+              className="flex-1 py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+              {saving ? '開立中…' : existing.length > 0 ? '已開過，不能重複開立' : '開立並列印'}
             </button>
           </div>
           <p className="text-[11px] text-gray-400">

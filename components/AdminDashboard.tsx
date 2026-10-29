@@ -9,6 +9,7 @@ import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminVouchersTab from './AdminVouchersTab';
 import { ReceiptIssueDialog, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
+import ReceiptPrint from './ReceiptPrint';
 import { ReceiptItem, ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import AdminShowerTab from './AdminShowerTab';
@@ -6898,6 +6899,8 @@ const ReceivablesTab: React.FC<{
   /** 勾選要開收據的列。key 是 IncomeRow.id（`lamp:uuid` 這種） */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [issuing, setIssuing] = useState(false);
+  /** 清單上按「收據 115-xxxxx」直接補印的那一張 */
+  const [reprint, setReprint] = useState<ReceiptRecord | null>(null);
   /** 次要欄位（電話）預設收起來。廟方 2026-10-30：「表單要再想一下，
    *  簡單一點，多的資料藏起來。」欄位太多的直接代價是「操作」被擠到畫面外，
    *  而那正是每天要按的那一顆。 */
@@ -7288,6 +7291,19 @@ const ReceivablesTab: React.FC<{
                               )}
                             </>
                           )}
+                          {/* **開過的收據直接顯示在列上。** 不顯示的話，財務只能
+                              點了「開立收據」才知道這筆開過——而那時已經在對話框裡了。
+                              按下去是補印同一張，流水號不變。 */}
+                          {(() => {
+                            const rec = already.get(`${SOURCE_TABLE[row.typeKey]}:${row.id.split(':')[1]}`);
+                            return rec ? (
+                              <button onClick={() => setReprint(rec)}
+                                title={`補印 ${rec.receiptNo}（同一張，流水號不變）`}
+                                className="px-2.5 py-1.5 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 font-mono whitespace-nowrap">
+                                {rec.receiptNo}
+                              </button>
+                            ) : null;
+                          })()}
                           {/* 法會的細部對帳（付款方式／帳號後五碼／財務會計確認）整套在這裡展開，
                               用的是法會分頁那個元件本體，不另寫一份 */}
                           {row.fahui && (
@@ -7322,6 +7338,10 @@ const ReceivablesTab: React.FC<{
           </div>
         )}
       </div>
+
+      {reprint && (
+        <ReceiptPrint receipt={reprint} temple={temple} onDone={() => setReprint(null)} />
+      )}
 
       {issuing && (
         <ReceiptIssueDialog
