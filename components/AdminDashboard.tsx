@@ -6901,10 +6901,17 @@ const ReceivablesTab: React.FC<{
   const [issuing, setIssuing] = useState(false);
   /** 清單上按「收據 115-xxxxx」直接補印的那一張 */
   const [reprint, setReprint] = useState<ReceiptRecord | null>(null);
-  /** 次要欄位（電話）預設收起來。廟方 2026-10-30：「表單要再想一下，
-   *  簡單一點，多的資料藏起來。」欄位太多的直接代價是「操作」被擠到畫面外，
-   *  而那正是每天要按的那一顆。 */
-  const [showMore, setShowMore] = useState(false);
+  /**
+   * 只印日期、不印時間（廟方 2026-10-30：「有日期就好，不用時間」）。
+   * 財務是拿銀行入帳的日期去對，分秒幫不上忙，只是把欄位撐寬。
+   * **不改共用的 `fmtDate`**：別的分頁（報名明細、最後登入）要那個時間。
+   */
+  const fmtDay = (s: string) => {
+    if (!s) return '';
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? String(s)
+      : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  };
   const [receipts, setReceipts] = useState<ReceiptRecord[]>([]);
   /** 開完收據要讓列表重抓 */
   const [receiptKey, setReceiptKey] = useState(0);
@@ -7153,12 +7160,6 @@ const ReceivablesTab: React.FC<{
           {/* **這顆要永遠看得見。** 原本只在勾選之後才浮出底部那一條——
               而沒發現左邊有勾選框的人，永遠不會知道有這個功能。
               藏在一個「你必須先知道」的動作後面，等於沒有。 */}
-          <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap"
-            title="電話">
-            <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
-              className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
-            更多欄位
-          </label>
           {/* **已選與合計也在這裡，不在畫面底部。** 廟方 2026-10-30：
               「操作要在表頭，你藏在最下面，每次都要滑多久。」
               清單有幾百列時，為了按一顆按鈕捲到底再捲回來是不合理的。 */}
@@ -7217,22 +7218,19 @@ const ReceivablesTab: React.FC<{
                 {/* **類型與項目併成一欄**（徽章＋底下的明細）：同樣的資訊、少一欄。
                     財務的動線是「看銀行入帳 → 找到人 → 按已收款」，欄位每多一個，
                     那顆按鈕就離畫面右緣更近一點。 */}
-                {['日期', '姓名', '項目', '金額', '狀態'].map(h => (
+                {/* **八欄全部直接顯示，沒有「更多欄位」開關**（廟方 2026-10-30）。
+                    只剩電話一項要藏的時候，那個勾勾本身就比它省下的空間更礙事。
+                    「會員」已整欄移除：財務對帳是拿銀行入帳去比姓名與金額，
+                    「這個人有沒有帳號」不影響任何一個決定。 */}
+                {['日期', '姓名', '電話', '項目', '金額', '狀態'].map(h => (
                   <th key={h} className={`px-5 py-3 font-medium text-gray-500 ${h === '金額' ? 'text-right' : ''}`}>{h}</th>
                 ))}
-                {/* **「會員」整欄移除**（廟方 2026-10-30：「我其實不知道為什麼要
-                    特別顯示會員」）。財務對帳是拿銀行入帳去比姓名與金額，
-                    「這個人有沒有帳號」不影響任何一個決定；開收據要的地址也已經
-                    自動從會員資料帶進去了，不必再點開來看。 */}
-                {showMore && (
-                  <th className="px-5 py-3 font-medium text-gray-500">電話</th>
-                )}
                 <th className="px-5 py-3 font-medium text-gray-500">操作</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={showMore ? 8 : 7} className="text-center text-gray-400 py-16">
+                <tr><td colSpan={8} className="text-center text-gray-400 py-16">
                   {payFilter === 'pending' ? '待收款的都處理完了' : '暫無資料'}
                 </td></tr>
               ) : filtered.map(row => {
@@ -7247,8 +7245,9 @@ const ReceivablesTab: React.FC<{
                             className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
                         )}
                       </td>
-                      <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDate(row.date)}</td>
+                      <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDay(row.date)}</td>
                       <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{row.name}</td>
+                      <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone || '—'}</td>
                       <td data-label="項目" className="px-5 py-3 max-w-[220px]">
                         <div className="flex items-center gap-2">
                           {typeBadge(row.typeKey, row.type)}
@@ -7257,9 +7256,6 @@ const ReceivablesTab: React.FC<{
                       </td>
                       <td data-label="金額" className="px-5 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">NT$ {row.amount.toLocaleString()}</td>
                       <td data-label="狀態" className="px-5 py-3 whitespace-nowrap">{payBadge(row.pay)}</td>
-                      {showMore && (
-                        <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone}</td>
-                      )}
                       <td data-label="操作" className="px-5 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           {/* 三種狀態都能在這裡改，**取消的也回得來**——
@@ -7317,7 +7313,7 @@ const ReceivablesTab: React.FC<{
                     </tr>
                     {row.fahui && openReconcile === row.id && (
                       <tr className="bg-gray-50/70">
-                        <td colSpan={showMore ? 8 : 7} className="px-5 py-4">
+                        <td colSpan={8} className="px-5 py-4">
                           <FahuiReconcileBlock r={row.fahui} onSaved={onRefresh} />
                         </td>
                       </tr>
