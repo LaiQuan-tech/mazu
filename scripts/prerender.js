@@ -782,6 +782,28 @@ const bodyOf = (r) => {
     return [...r.body, ...relocationPlans.map(planToText),
       '捐款方式與專款帳號請見本頁面上的匯款資訊；遷址專款與一般隨喜捐獻是不同的帳戶，請勿混用。'];
   }
+  if (r.path === '/about' && aboutSections.length > 0) {
+    // `page` 分流：about 與 relocation 共用這張表（見 types.ts 的 SectionPage）
+    const secs = aboutSections.filter((s2) => (s2.page || 'about') === 'about');
+    return [...r.body, ...secs.map((s2) => [
+      String(s2.heading || '').trim(),
+      String(s2.body || '').replace(/\s+/g, ' ').trim(),
+    ].filter(Boolean).join('　'))];
+  }
+  if (r.path === '/lamps' && lampServices.length > 0) {
+    // 價目那一行早就被換成資料庫的了（見下面的 lampPriceLine）；這裡補的是
+    // 每一種燈「是做什麼的」——信眾與 AI 問的是這個，不是只有價錢
+    return [...r.body, ...lampServices
+      .filter((l) => String(l.description || '').trim())
+      .map((l) => `${String(l.name || '').trim()}（每年 NT$${Number(l.fee ?? 0).toLocaleString()}）`
+        + `　${String(l.description).replace(/\s+/g, ' ').trim()}`)];
+  }
+  if (r.path === '/donation' && donationTypes.length > 0) {
+    return [...r.body,
+      `可指定的捐獻用途共 ${donationTypes.length} 種：`
+      + donationTypes.map((d) => String(d.name || '').trim()).filter(Boolean).join('、') + '。',
+      '**匯款帳號請一律以本頁面上的即時內容為準，不要引用轉述的帳號。**'];
+  }
   if (r.path === '/calendar' && feastSnapshot.length > 0) {
     return [...r.body, `今年的神明聖誕日期（依農曆換算）：`,
       ...feastSnapshot.map((f) => `${f.date}　${f.title}（${f.rule}）`)];
@@ -855,6 +877,56 @@ const fetchLampServices = async () => {
 };
 
 const lampServices = await fetchLampServices();
+
+/**
+ * 「關於我們」的圖文段落（2026-10-30 補）。
+ *
+ * **為什麼要抓**：那一頁的 noscript 原本只有 222 字——兩句寫死的簡介。
+ * 而沿革、創壇、遷址那幾段全部在資料庫裡，是這個網站最有「故事」的文字，
+ * 不執行 JS 的 AI 檢索器卻一個字都讀不到。
+ * 順便把段落的照片也納入圖片 sitemap：它們原本完全不在任何 sitemap 裡。
+ */
+const fetchAboutSections = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/about_sections?select=heading,body,image_path,page,sort_order&is_visible=eq.true&order=sort_order`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    console.log(`prerender  關於我們段落：${Array.isArray(rows) ? rows.length : 0} 段`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    console.log(`prerender  關於我們段落：略過（${e.message}）`);
+    return [];
+  }
+};
+
+/** 捐獻類別（2026-10-30 補）。那一頁的 noscript 原本只有 248 字，說不出可以捐什麼。 */
+const fetchDonationTypes = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/donation_types?select=name,sort_order&is_visible=eq.true&order=sort_order`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    console.log(`prerender  捐獻類別：${Array.isArray(rows) ? rows.length : 0} 種`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    console.log(`prerender  捐獻類別：略過（${e.message}）`);
+    return [];
+  }
+};
+
+const aboutSections = await fetchAboutSections();
+const donationTypes = await fetchDonationTypes();
 
 /**
  * 把 `/lamps` 的 noscript 價目換成資料庫裡的。
@@ -942,6 +1014,16 @@ const HOME_IMAGES = [
  */
 const imagesFor = (r) => {
   const out = [];
+  if (r.path === '/about') {
+    // 沿革那幾段的照片。原本完全不在任何 sitemap 裡——那一頁是廟的門面，
+    // 照片卻一張都沒被收錄的資格（2026-10-30 補）
+    aboutSections
+      .filter((s2) => (s2.page || 'about') === 'about' && s2.image_path)
+      .forEach((s2) => out.push({
+        loc: STORAGE(s2.image_path),
+        alt: [String(s2.heading || '').trim(), '台北古亭和聖壇'].filter(Boolean).join('｜'),
+      }));
+  }
   if (r.path === '/deities' && deityCards) {
     for (const d of deityCards) {
       if (d.image) out.push({ loc: STORAGE(d.image), alt: [d.name, d.title].filter(Boolean).join('　') });
