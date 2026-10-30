@@ -5863,8 +5863,25 @@ const OFFERING_PRESETS = ['蛋糕', '鮮花', '水果', '壽桃', '壽麵', '蠟
  * 可勾選，方便設定」）。與供品那組是**兩份清單不是一份**——加購是信眾報名時
  * 自己加買的（元寶、蓮花這類紙錢），供品是法會現場要備的，兩邊的品項不重疊。
  * 同樣是捷徑不是限制：其餘用「新增加購品項」手打。
+ *
+ * **「元寶」2026-10-30 改成「祝壽元寶18顆」**（廟方要求）。不是憑空改的：
+ * 查資料庫時發現廟方自己在兩場活動裡**早就手打了這個全名**，預設卻還是舊的短名
+ * ——等於那顆按鈕每次都要再改一次字。
+ *
+ * **「隨喜」要帶 `voluntary`**（廟方 2026-10-30：「隨喜就是一個品項，金額可自填」）。
+ * 機制本來就有（每一列都有「隨喜」勾選框，勾了金額欄就變成信眾自填），
+ * 缺的只是一顆按鈕。資料庫裡那一項現在有**三種寫法**——「隨喜」「自由敬獻」
+ * 還有一筆**名字是空的**（前台靠 `addon.name || '隨喜'` 撐著才沒出事）。
+ * 有了預設按鈕，以後長出來的都是同一個名字。
+ *
+ * **蓮花刻意維持短名**：廟方在活動裡打的是「蓮花9朵」，但朵數會隨場次變，
+ * 寫死一個數字反而每次都要改。元寶那個是廟方指名的，所以照辦。
  */
-const ADDON_PRESETS = ['元寶', '蓮花'] as const;
+const ADDON_PRESETS: { name: string; voluntary?: boolean }[] = [
+  { name: '祝壽元寶18顆' },
+  { name: '蓮花' },
+  { name: '隨喜', voluntary: true },
+];
 
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
@@ -5940,13 +5957,14 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
 
   /** 加購的勾選。規則與 toggleOfferingPreset 相同，差別只在「動過」的判定：
       加購沒有名額欄，所以看的是費用／隨喜／說明。 */
-  const toggleAddonPreset = (name: string) => {
+  const toggleAddonPreset = (name: string, voluntary = false) => {
     const list = form.addons || [];
     const hit = list.find(a => a.name.trim() === name);
     if (!hit) {
       setForm(f => ({
         ...f,
-        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0, voluntary: false }],
+        // `voluntary` 由預設帶進來：「隨喜」勾下去就該是自填金額，不要再叫廟方多勾一次
+        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0, voluntary }],
       }));
       return;
     }
@@ -6307,11 +6325,11 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                 </div>
                 {/* 基本款：勾一下就長出一列，只剩金額要填（同供品那組） */}
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {ADDON_PRESETS.map(name => {
+                  {ADDON_PRESETS.map(({ name, voluntary }) => {
                     const on = (form.addons || []).some(a => a.name.trim() === name);
                     return (
                       <button key={name} type="button"
-                        onClick={() => toggleAddonPreset(name)}
+                        onClick={() => toggleAddonPreset(name, voluntary)}
                         aria-pressed={on}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs transition-colors ${
                           on ? 'bg-temple-gold/20 border-temple-gold text-temple-red font-medium'
