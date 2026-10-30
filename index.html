@@ -138,6 +138,33 @@
         text-rendering: optimizeLegibility;
         -webkit-font-smoothing: antialiased;
       }
+      /**
+       * LINE 浮動鈕的脈動光環。**不要用 Tailwind 的 `animate-ping`**（2026-10-30 修）。
+       *
+       * ── 它造成的災情 ──
+       * `animate-ping` 靠 `transform: scale(2)` 放大：56px 的圈變成 112px、往右多出 28px，
+       * 而按鈕距右緣只有 16px（`right-4`）——於是它**每秒週期性地凸出畫面 12px**。
+       * 桌機看不出來，`body { overflow-x: clip }` 把它裁掉了。
+       * **但 Android 的 Chrome 會為了塞下溢出的內容把「版面視窗」撐寬**
+       * （廟方的 OPPO A5 Pro 實測 360 → 385），於是 360 寬的內容只佔 93.5%、
+       * 右邊露出一條米色；而且光環一直在脈動，那個寬度會反覆變動——
+       * 廟方回報的「首頁會跳一下」就是這個。
+       *
+       * ── 為什麼改用 box-shadow 而不是把倍率調小 ──
+       * 調成 1.5 倍確實不溢出了（實測最大右緣 −2px），**但只剩 2px 餘裕**，
+       * 日後有人動按鈕大小或 `right-4` 就會再壞一次，而且壞法一樣看不出來。
+       * **`box-shadow` 完全不參與版面與捲動溢出的計算**（它是 ink overflow），
+       * 所以這一版在結構上不可能再造成這個問題，不管按鈕多大、離邊多近。
+       *
+       * 視覺上幾乎一樣：原本是一個半透明的圓往外脹大再淡出，
+       * 現在是一圈光暈往外擴散再淡出。
+       */
+      @keyframes lineRing {
+        0%        { box-shadow: 0 0 0 0 rgba(6, 199, 85, .45); }
+        75%, 100% { box-shadow: 0 0 0 16px rgba(6, 199, 85, 0); }
+      }
+      .line-ring { animation: lineRing 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
       button, a, [role="button"] { touch-action: manipulation; }
       /* 全域鍵盤焦點樣式移到 index.css：原本這條用金色，在白底只有 2.67:1、
          米底 2.36:1，都低於 WCAG 2.2 對焦點指示的 3:1 要求。

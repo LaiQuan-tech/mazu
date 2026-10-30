@@ -6147,7 +6147,11 @@ const App: React.FC = () => {
           ${hideLineFloat ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'}`}
       >
         {/* Pulse ring */}
-        <span className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#06C755]/40 animate-ping" />
+        {/* **不要換回 `animate-ping`**：它靠 transform 放大，會讓這個圈凸出畫面右緣 12px，
+            在 Android 上把整頁的版面視窗撐寬、畫面每秒跳一下。
+            `.line-ring` 用 box-shadow，完全不參與版面計算（理由見 index.html 的 lineRing）。
+            底色也拿掉了——現在發光的是陰影不是這個圓本身。 */}
+        <span className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full line-ring" />
         <span className="relative bg-[#06C755] w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl group-hover:scale-110 transition-transform flex items-center justify-center">
           <LineIcon className="w-9 h-9 sm:w-10 sm:h-10" />
         </span>
