@@ -53,21 +53,28 @@ const bigrams = (s: string): string[] => {
  * **只做同義擴充，不做改寫**：把對應的官網詞「加」進查詢，原本的字一個都不拿掉。
  * 猜錯了最多是多比對幾個沒命中的組，不會把原本問得到的問題弄不見。
  */
-const ALIASES: [RegExp, string][] = [
-  [/幾點|開門|關門|營業|開放|休息/, '開放時間 每日'],
-  [/多少錢|價格|費用|收費|價目|怎麼算|要錢/, '費用 NT$ 每年'],
-  [/在哪|地址|怎麼去|怎麼走|位置|交通|停車/, '地址 臺北市 中正區'],
-  [/電話|聯絡|怎麼找|客服/, '電話 聯絡'],
-  [/問事|辦事|請示|收驚|改運/, '預約問事 辦事日'],
-  [/點燈|光明燈|太歲|安太歲|財利燈|本命/, '點燈服務 太歲祈安燈 光明'],
-  [/法會|普渡|超渡|拔渡|消災/, '祈福法會 法會'],
-  [/捐|護持|添油|香油|功德金|樂捐/, '捐獻 護持 遷址'],
-  [/經文|誦經|念經|唸經|媽祖經|聖母經|幾段/, '天上聖母經 經文'],
-  [/神明|神尊|拜什麼|主祀|供奉|金身/, '祀奉神尊 天上聖母'],
-  [/生日|聖誕|農曆|節慶|日期/, '歲時節慶 聖誕 農曆'],
-  [/會員|註冊|登入|加入/, '會員 登入'],
-  [/沐浴車|洗澡車|17bath/, '17 沐浴車'],
-  [/遷址|搬家|新壇|蓋廟/, '遷址 護持'],
+type Alias = { re: RegExp; add: string; topic?: true };
+
+/**
+ * `topic` 標的是「這句話在問哪一件事」，沒標的是「他想知道這件事的什麼」。
+ * 兩者的差別在下面 `expand()` 裡決定一條規則：
+ * **問句已經講明主題時，就不要再猜他想問地址或電話。**
+ */
+const ALIASES: Alias[] = [
+  { re: /幾點|開門|關門|營業|開放|休息/, add: '開放時間 每日' },
+  { re: /多少錢|價格|費用|收費|價目|怎麼算|要錢/, add: '費用 NT$ 每年' },
+  { re: /在哪|地址|怎麼去|怎麼走|位置|交通|停車/, add: '地址 臺北市 中正區' },
+  { re: /電話|聯絡|怎麼找|客服/, add: '電話 聯絡' },
+  { re: /問事|辦事|請示|收驚|改運/, add: '預約問事 辦事日', topic: true },
+  { re: /點燈|光明燈|太歲|安太歲|財利燈|本命/, add: '點燈服務 太歲祈安燈 光明', topic: true },
+  { re: /法會|普渡|超渡|拔渡|消災/, add: '祈福法會 法會', topic: true },
+  { re: /捐|護持|添油|香油|功德金|樂捐/, add: '捐獻 護持 遷址', topic: true },
+  { re: /經文|誦經|念經|唸經|媽祖經|聖母經|幾段/, add: '天上聖母經 經文', topic: true },
+  { re: /神明|神尊|拜什麼|主祀|供奉|金身/, add: '祀奉神尊 天上聖母', topic: true },
+  { re: /生日|聖誕|農曆|節慶|日期/, add: '歲時節慶 聖誕 農曆', topic: true },
+  { re: /會員|註冊|登入|加入/, add: '會員 登入', topic: true },
+  { re: /沐浴車|洗澡車|17bath/, add: '17 沐浴車', topic: true },
+  { re: /遷址|搬家|新壇|蓋廟/, add: '遷址 護持', topic: true },
 ];
 
 /**
@@ -80,15 +87,30 @@ const ALIASES: [RegExp, string][] = [
  * 所以分成兩袋、給不同的權重。別名只是補救「問法與官網用語對不上」，
  * 它不該有能力蓋掉人家真正打出來的那個詞。
  */
+/** 頁名完全被問句涵蓋時的加成上限。太大會讓整頁的無關段落一起浮上來，
+ *  0.8 是實測在「頁名命中」與「不蓋過內容相關度」之間的平衡。 */
+const TITLE_W = 0.8;
 const ORIGINAL_W = 2.5;
 const ALIAS_W = 1;
 
 const expand = (q: string): { gram: string; w: number }[] => {
   const bag = new Map<string, number>();
   for (const g of bigrams(q)) bag.set(g, Math.max(bag.get(g) ?? 0, ORIGINAL_W));
-  for (const [re, add] of ALIASES) {
-    if (!re.test(q)) continue;
-    for (const g of bigrams(add)) if (!bag.has(g)) bag.set(g, ALIAS_W);
+  /**
+   * **問句已經有明確主題時，不要再猜他想問地址或電話。**
+   *
+   * 「天上聖母經在哪裡可以讀？」裡的「在哪裡」問的是**經文在哪**，不是**廟在哪**；
+   * 但「在哪」會觸發「地址 臺北市 中正區」，於是地址那幾段壓過經文那一頁，
+   * 廟方實測這一題「答非所問」。同一個病也害過「沐浴車在哪裡」。
+   *
+   * 規則：有任何 `topic` 別名命中，就只用 topic 的那幾條。
+   * 沒有主題的問法（「地址在哪怎麼去」「幾點開門」）完全不受影響——
+   * 那時候「他想問地址」才真的是對的猜測。
+   */
+  const fired = ALIASES.filter((a) => a.re.test(q));
+  const use = fired.some((a) => a.topic) ? fired.filter((a) => a.topic) : fired;
+  for (const a of use) {
+    for (const g of bigrams(a.add)) if (!bag.has(g)) bag.set(g, ALIAS_W);
   }
   return [...bag].map(([gram, w]) => ({ gram, w }));
 };
@@ -170,12 +192,26 @@ export const search = (index: Index, query: string, top = 3): Hit[] => {
    * 「媽祖生日是哪一天」被濾到只剩講匯款的段落。修一題、壞四題。
    * 沐浴車那題改用下面的 HARD_RULES 處理——那本來就是一條業務規則，不是檢索問題。
    */
+  /**
+   * **問題裡提到某一頁的名字，那一頁的內容就該排前面。**
+   * 「天上聖母經在哪裡可以讀」原本的第一名是首頁的服務總覽（它什麼都提一句，
+   * 所以什麼都沾得上邊），真正那一頁反而排不進前兩名——信眾拿到的連結是首頁，
+   * 等於叫他自己再找一次。頁名命中是很強的訊號，值得一個明確的加成。
+   */
+  const titleGrams = new Set(bigrams(query));
+  const titleBonus = (page: string): number => {
+    const g = bigrams(page);
+    if (g.length === 0) return 1;
+    const hit = g.filter((x) => titleGrams.has(x)).length / g.length;
+    return 1 + hit * TITLE_W;
+  };
+
   const hits: Hit[] = [];
   for (const c of index.chunks) {
     const have = new Set(bigrams(c.text));
     let s = 0;
     for (const { gram, w } of grams) if (have.has(gram)) s += (index.idf.get(gram) ?? 0) * w;
-    if (s > 0) hits.push({ ...c, score: s / Math.sqrt(c.text.length) });
+    if (s > 0) hits.push({ ...c, score: (s / Math.sqrt(c.text.length)) * titleBonus(c.page) });
   }
   hits.sort((a, b) => b.score - a.score);
 
