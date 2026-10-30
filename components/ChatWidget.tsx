@@ -25,7 +25,25 @@ import { MessageCircle, X, Send } from 'lucide-react';
  * 那是正常的，同 notify-registration 那幾支。
  */
 
-interface Msg { role: 'user' | 'assistant'; content: string }
+/** `mode` 決定這則回答要怎麼框：整理過的、官網原文、還是一條固定的說明 */
+type Mode = 'ai' | 'search' | 'rule' | 'none';
+interface Msg { role: 'user' | 'assistant'; content: string; mode?: Mode }
+
+/** 搜尋回來的是**原文**不是整理過的答案，要講明白——不然信眾會以為那是我們寫給他的回覆 */
+const MODE_NOTE: Partial<Record<Mode, string>> = {
+  search: '我在官網找到這一段：',
+};
+
+/**
+ * 把網址變成可以點的連結。**不用 dangerouslySetInnerHTML**（全站原則）：
+ * 切成陣列自己渲染，後台與知識庫的內容永遠是文字，沒有注入的可能。
+ * 長輩不會自己複製網址貼到瀏覽器，不可點等於那一行白寫。
+ */
+const linkify = (text: string): React.ReactNode[] =>
+  text.split(/(https?:\/\/[^\s，。、）)]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline break-all">{part}</a>
+      : <React.Fragment key={i}>{part}</React.Fragment>);
 
 /** 空畫面給幾個起手式：長輩不一定知道可以問什麼，給一片空白等於沒人會用 */
 const STARTERS = [
@@ -89,12 +107,12 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
         // 只送對話本身，**不送任何會員資料或身分** —— 這支端點是公開的
         body: JSON.stringify({ messages: next.slice(-12) }),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; reply?: string; error?: string };
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; reply?: string; error?: string; mode?: Mode };
       if (!res.ok || !data.ok || !data.reply) {
         setErr(data.error || '客服暫時無法回應，請稍後再試，或用 LINE 詢問。');
         return;
       }
-      setMsgs([...next, { role: 'assistant', content: data.reply }]);
+      setMsgs([...next, { role: 'assistant', content: data.reply, mode: data.mode }]);
     } catch {
       setErr('連線失敗，請檢查網路後再試一次。');
     } finally {
@@ -160,7 +178,7 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
                     才是這句話唯一有用的時機。 */}
                 <p className="text-sm text-gray-600 leading-relaxed mb-3">
                   您好，這裡可以詢問和聖壇的服務、神尊、法會與天上聖母經。
-                  回答由 AI 依官網內容整理，實際以網站公告為準。
+                  答案都來自官網內容，實際以網站公告為準。
                   <span className="block mt-1.5 text-temple-red">
                     請勿輸入姓名、電話、生辰等個人資料。要報名或查紀錄請用 LINE 或會員中心。
                   </span>
@@ -183,13 +201,18 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
 
             {msgs.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-                <p className={`max-w-[85%] whitespace-pre-wrap text-sm leading-relaxed px-3.5 py-2.5 rounded-2xl ${
-                  m.role === 'user'
-                    ? 'bg-temple-red text-white rounded-br-sm'
-                    : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
-                }`}>
-                  {m.content}
-                </p>
+                <div className="max-w-[85%]">
+                  {m.role === 'assistant' && MODE_NOTE[m.mode ?? 'ai'] && (
+                    <p className="text-xs text-gray-500 mb-1">{MODE_NOTE[m.mode ?? 'ai']}</p>
+                  )}
+                  <p className={`whitespace-pre-wrap text-sm leading-relaxed px-3.5 py-2.5 rounded-2xl ${
+                    m.role === 'user'
+                      ? 'bg-temple-red text-white rounded-br-sm'
+                      : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
+                  }`}>
+                    {m.role === 'assistant' ? linkify(m.content) : m.content}
+                  </p>
+                </div>
               </div>
             ))}
 

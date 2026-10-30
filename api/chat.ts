@@ -33,6 +33,10 @@
 // 會記進 log**：真的撞到上限時，手上要有實際的數字才知道該砍哪裡
 // （最大的一塊是經文，佔 36,473 字、74%，可以改成只有問到經文才帶）。
 
+// **相對 import 一定要帶 `.js`**，而且共用模組要放 repo 根目錄的 `lib/`，不能放 `api/`
+// ——兩件事都會害線上 500，而本機 tsc 與 esbuild 兩關都不會抱怨（見 CLAUDE.md）。
+import { indexKb, search, formatHits, hardAnswer, type Index } from '../lib/kb-search.js';
+
 interface ResLike {
   status: (code: number) => ResLike;
   json: (body: unknown) => void;
@@ -75,6 +79,9 @@ let kbCache = '';
 let kbAt = 0;
 const KB_TTL = 10 * 60 * 1000;
 
+/** 索引跟著知識庫一起放模組層級：建一次 10ms，暖實例重用 */
+let kbIndex: Index | null = null;
+
 const loadKb = async (host: string): Promise<string> => {
   if (kbCache && Date.now() - kbAt < KB_TTL) return kbCache;
   // 部署在哪就抓哪一份，不要寫死網域——預覽部署才能測到自己那一版的知識庫
@@ -83,6 +90,7 @@ const loadKb = async (host: string): Promise<string> => {
   if (!res.ok) throw new Error(`知識庫讀取失敗 HTTP ${res.status}`);
   kbCache = await res.text();
   kbAt = Date.now();
+  kbIndex = null;     // 知識庫換了，索引要跟著重建
   return kbCache;
 };
 
@@ -277,12 +285,8 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     return;
   }
 
+  // **沒有金鑰不再是錯誤**：那時走站內搜尋，客服照樣會回答（見下面三層的註解）。
   const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    // 刻意講清楚，否則廟方只會看到「客服壞了」而不知道少設了什麼
-    res.status(503).json({ ok: false, error: '客服尚未啟用（伺服器未設定 GEMINI_API_KEY）' });
-    return;
-  }
 
   const origin = header(req, 'origin');
   if (origin && !ALLOWED.includes(origin)) {
@@ -312,14 +316,38 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     return;
   }
 
+  const question = messages[messages.length - 1].content;
+
   try {
+    /**
+     * ── 三層，順序不能換 ──
+     *
+     * ① **業務規則**：答錯代價特別大、而且答案是固定的那幾件事（目前只有沐浴車）。
+     *    **不交給 AI 也不交給搜尋**——規則就是規則，不該每次都賭它會不會答對。
+     * ② **AI**：有金鑰而且叫得動才走。會整理、會換句話說。
+     * ③ **站內搜尋**：把官網原文那一段找出來。**沒有金鑰、額度用完、對方掛掉
+     *    都落在這裡**，所以客服不會整個死掉——這正是廟方 2026-10-30 選這條路的理由。
+     */
+    const ruled = hardAnswer(question);
+    if (ruled) { res.status(200).json({ ok: true, reply: ruled, mode: 'rule' }); return; }
+
     const kb = await loadKb(header(req, 'x-forwarded-host') || header(req, 'host'));
-    const { reply, error } = await askModel(key, `${RULES}\n\n以下是知識庫。\n\n${kb}`, messages);
-    if (error || !reply) {
-      res.status(502).json({ ok: false, error: error || '客服沒有回應，請再問一次。' });
-      return;
+
+    if (key) {
+      const { reply } = await askModel(key, `${RULES}\n\n以下是知識庫。\n\n${kb}`, messages);
+      if (reply) { res.status(200).json({ ok: true, reply, mode: 'ai' }); return; }
+      // 失敗了不要回錯誤，往下掉到搜尋——信眾要的是答案不是故障碼
     }
-    res.status(200).json({ ok: true, reply });
+
+    if (!kbIndex) kbIndex = indexKb(kb);
+    const found = formatHits(search(kbIndex, question, 3));
+    if (found) { res.status(200).json({ ok: true, reply: found, mode: 'search' }); return; }
+
+    res.status(200).json({
+      ok: true,
+      mode: 'none',
+      reply: '這個問題我在官網上找不到答案。\n請用 LINE 官方帳號詢問 https://lin.ee/lj0gLqR ，或直接到壇裡問。',
+    });
   } catch (e) {
     console.error('chat failed:', e);
     res.status(500).json({ ok: false, error: '客服暫時無法回應，請稍後再試，或用 LINE 詢問。' });
