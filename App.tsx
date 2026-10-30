@@ -53,6 +53,7 @@ import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
 import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
+import ChatWidget from './components/ChatWidget';
 import Analytics from './components/Analytics';
 import BirthDatePicker from './components/BirthDatePicker';
 import SilkSheen from './components/SilkSheen';
@@ -6157,6 +6158,17 @@ const App: React.FC = () => {
           有全螢幕覆蓋層（會員中心／報名視窗／海報燈箱）時收起來：那時捲的不是這一頁，
           按了只會讓背景偷偷跑掉。 */}
       <BackToTop show={toTopShown} onClick={scrollToTop} />
+
+      {/**
+        * AI 客服：浮動鈕堆疊的第三格（2026-10-30 廟方要求「跟 line 官方帳號與 back top 放一起」）。
+        * **傳「下面有幾顆鈕」而不是傳旗標**：LINE 那顆在後台把社群清空時整個不渲染，
+        * 只看 toTopShown 的話那時中間會空一格。
+        * 覆蓋層開著時收起來（同回頂鈕）：那時使用者在看另一個東西，再飄一顆鈕上去只是擋路。
+        */}
+      <ChatWidget
+        below={(toTopShown ? 1 : 0) + (social.lineUrl.trim() !== '' && !hideLineFloat ? 1 : 0)}
+        hidden={overlayOpen || hideLineFloat}
+      />
 
       {/* Member Portal */}
       {showMemberPortal && (

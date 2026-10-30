@@ -61,4 +61,12 @@ Allow: /
 # 給 AI 助理的站台摘要（服務、別名、容易混淆的地方）
 # https://heshengtan.tw/llms.txt
 
+# 官網 AI 客服的知識庫（建置時由 llms.txt ＋ 各頁 noscript 合併產生）。
+# 擋起來是因為它是**同一批內容的第三份**，讓它出現在搜尋結果只會是一個
+# 四萬八千字的純文字檔，對信眾沒有意義。AI 檢索器照樣讀得到 llms.txt
+# 與各頁的 noscript，拿得到的東西一模一樣。
+# 我們自己的 /api/chat 是伺服器端去抓的，不受 robots 影響。
+User-agent: *
+Disallow: /ai-kb.txt
+
 Sitemap: https://heshengtan.tw/sitemap.xml

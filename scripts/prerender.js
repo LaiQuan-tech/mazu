@@ -1674,4 +1674,71 @@ ${bathRoutes.map((r) => {
   }
 }
 
+/**
+ * ── 聊天機器人的知識庫 `dist/ai-kb.txt`（2026-10-30）──
+ *
+ * 廟方要在官網放一個 AI 客服，「資料庫就是官網與天上聖母經的內容」。
+ *
+ * **知識庫不另外做一份，就用我們已經做好給 AI 檢索器看的那一份。**
+ * llms.txt ＋ 各頁的 noscript 加起來 49,340 字，而且本來就是為了
+ * 「讓不執行 JS 的機器讀懂這個網站」而寫的——再寫第二份摘要就是
+ * 「同一件事維護兩個地方」，而本檔記過好幾次那種分歧怎麼無聲地發生。
+ * 附帶的好處是：**對 GPTBot 與對自家機器人，我們講的是同一套話。**
+ *
+ * **這份量得下，所以不做向量檢索。** 49k 字整包塞進提示詞配上 prompt
+ * caching，比起切塊、嵌入、相似度搜尋，少掉一張資料表、一支嵌入流程、
+ * 一次 migration（本專案的 DDL 全部要人手動跑，而且還有七支沒跑），
+ * 以及「檢索沒抓到正確段落」這整類的錯。經文佔 36,473 字、74%。
+ *
+ * **沐浴車那幾頁刻意排除**（`r.org`）。那是另一個單位辦的服務，
+ * 2026-10-27 才把兩邊的 canonical、sitemap 與 llms.txt 切乾淨
+ * ——把它餵進和聖壇的客服，等於親手把剛切開的東西黏回去。
+ *
+ * **這是建置當下的快照，與 llms.txt 同一個時效性。** 所以搬家改地址、
+ * 調價、法會改期之後，**一定要按後台的「重新發布」**，否則機器人會用
+ * 舊地址回答——那正是本檔寫過「這個網站能犯的最糟的錯」。
+ */
+{
+  const parts = [];
+  try {
+    parts.push(readFileSync(resolve(DIST, 'llms.txt'), 'utf8').trim());
+  } catch { /* 沒有就算了，下面的 noscript 才是主體 */ }
+
+  // noscript 是 HTML，要還原成純文字：標籤拿掉、實體還原、空白收斂。
+  // `<br>` 與段落結尾要換成換行，否則整頁會黏成一行、句子邊界消失。
+  const unHtml = (s) => s
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|h[1-6]|li|div)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  /**
+   * **首頁要自己列進來。** `/` 刻意不在 ROUTES 裡（根路徑用原本的 index.html，
+   * 見 ROUTES 上方的註解），所以照 ACTIVE_ROUTES 跑會整個漏掉它——
+   * 而首頁的 noscript 裝的正是**八題常見問答**（在哪裡、幾點開、主祀哪一尊…），
+   * 那是客服最該答得出來的東西。漏掉不會報錯，只會讓機器人答不出最基本的問題。
+   */
+  let pages = 0;
+  for (const r of [{ path: '/', h1: '首頁與常見問題' }, ...ACTIVE_ROUTES]) {
+    if (r.org) continue;   // 沐浴車不進來，見上面的註解
+    const file = r.path === '/' ? 'index.html' : r.path.slice(1) + '.html';
+    let html;
+    try { html = readFileSync(resolve(DIST, file), 'utf8'); } catch { continue; }
+    const m = html.match(/<noscript>([\s\S]*?)<\/noscript>/);
+    if (!m) continue;
+    const body = unHtml(m[1]);
+    if (!body) continue;
+    pages += 1;
+    parts.push(`\n\n===== ${r.h1 || r.path}（${ORIGIN}${r.path}）=====\n${body}`);
+  }
+
+  const kb = parts.join('\n');
+  writeFileSync(resolve(DIST, 'ai-kb.txt'), kb, 'utf8');
+  console.log(`prerender  ai-kb.txt     ${pages} 頁、${kb.replace(/\s/g, '').length} 字（聊天機器人的知識庫）`);
+}
+
 console.log(`prerender  完成 ${ACTIVE_ROUTES.length} 頁`);
