@@ -8,6 +8,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
 import { renderInline } from './StoryPage';
+import PosterImage from './PosterImage';
 import { BulletinRecord } from '../types';
 import { TAG_SOLID } from './tagStyles';
 
@@ -153,7 +154,8 @@ export const BulletinBody: React.FC<{ content: string }> = ({ content }) => {
  * ── 照片一律依自己的比例顯示，不要塞進固定的框 ──
  * 廟方的海報是直式的，`object-cover` 會從中間裁掉上下（遷址募資那張實測只剩 36%，
  * 標題與 QR code 全不見）。只給上限、長寬交給圖自己：橫式受 max-w 限制、
- * 直式受 max-h 限制。縮圖同理，不要框也不要底色。
+ * 直式受 max-h 限制。也不要底色：卡片本身就是米色，海報置中放上去就好，
+ * 補一塊襯底只會在桌機上變成一條左右留白的燈箱。
  *
  * ── 不做文繞圖，圖在上、文字在下 ──
  * 桌機原本是 `sm:float-right sm:max-w-[40%]`，海報縮在右上角一小塊、文字繞著它排。
@@ -229,7 +231,7 @@ export const BulletinCard: React.FC<{
   <div
     ref={cardRef}
     // scroll-mt：導覽列是固定的（約 80px），不留空的話卡片標題會被它蓋住
-    className={`bg-temple-bg rounded-xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 scroll-mt-24 ${
+    className={`bg-temple-bg rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all border-l-4 scroll-mt-24 ${
       bulletin.isPinned ? 'border-temple-gold' : 'border-temple-red/30'
     }`}
   >
@@ -240,47 +242,52 @@ export const BulletinCard: React.FC<{
       /* `.tap`：手機上按下去整張卡微微縮一下（樣式在 index.html）。
          全站的按鈕與連結都有全域的按壓回饋，但那一層刻意只動 opacity；
          這一顆是**整張卡大小**的press target，縮放才看得出來被按到。 */
-      className="tap w-full flex items-start justify-between text-left cursor-pointer"
+      className="tap block w-full text-left cursor-pointer"
       onClick={onToggle}
     >
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
-          {bulletin.isPinned && (
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${TAG_PINNED}`}>
-              <Pin className="w-3 h-3" aria-hidden="true" /> 置頂
+      {/*
+        海報放在卡片最上面、滿版，**收合的時候也在**。
+        原本收合只在右上角給一張 64×43 的縮圖、點開才看得到大圖，
+        廟方 2026-10-30：「要讓他凸顯，而不是點縮小圖才看到大圖」。
+        那張縮圖只有海報面積的 2%，等於每一則都要先點一下才知道裡面是什麼。
+        展開時放寬到 36rem（廟方 2026-10-13 要的高度），**不再另外放一張**——
+        同一張海報在同一張卡裡出現兩次是把同一件事講兩遍。
+        不裁、不壓、以及為什麼要先占位，見 PosterImage。
+      */}
+      {bulletin.imageUrl && (
+        <PosterImage
+          src={bulletin.imageUrl}
+          /* 收合時夾在 max-h-72：桌機欄寬 832px，3:2 的海報不夾高度會到 555px，
+             一則就佔掉大半個螢幕，而這一頁的用途是「全部看完」。
+             展開才放到 36rem——廟方 2026-10-13 要的那個高度。 */
+          maxH={open ? 'max-h-[36rem]' : 'max-h-72'}
+        />
+      )}
+      <div className="p-6 flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            {bulletin.isPinned && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${TAG_PINNED}`}>
+                <Pin className="w-3 h-3" aria-hidden="true" /> 置頂
+              </span>
+            )}
+            <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${TAG_CATEGORY}`}>
+              {bulletin.category}
             </span>
-          )}
-          <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${TAG_CATEGORY}`}>
-            {bulletin.category}
-          </span>
-          <span className="text-gray-400 text-sm">
-            {new Date(bulletin.createdAt).toLocaleDateString('zh-TW')}
-          </span>
+            <span className="text-gray-400 text-sm">
+              {new Date(bulletin.createdAt).toLocaleDateString('zh-TW')}
+            </span>
+          </div>
+          <h4 className="text-lg font-bold text-temple-dark font-serif">{bulletin.title}</h4>
         </div>
-        <h4 className="text-lg font-bold text-temple-dark font-serif">{bulletin.title}</h4>
-      </div>
-      {/* 收合時右側放小縮圖，讓有照片的活動一眼看得出來；沒照片就只有箭頭 */}
-      <div className="ml-4 flex items-center gap-3 flex-shrink-0">
-        {bulletin.imageUrl && !open && (
-          <img src={bulletin.imageUrl} alt="" loading="lazy" className="max-h-12 max-w-16 w-auto h-auto rounded-lg" />
-        )}
-        <div className="text-gray-400">
+        <div className="ml-4 flex items-center flex-shrink-0 text-gray-400">
           {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
         </div>
       </div>
     </button>
 
     {open && (
-      <div id={`bulletin-${bulletin.id}`} className="mt-4 pt-4 border-t border-gray-200">
-        {bulletin.imageUrl && (
-          <img
-            src={bulletin.imageUrl}
-            alt={bulletin.title}
-            // 展開的大圖不要 lazy：它只在使用者點開那一則時才渲染，
-            // 那一刻它必然要被看到，延後載入只是讓人盯著一塊空白等
-            className="block mx-auto mb-5 w-auto h-auto max-w-full max-h-[36rem] rounded-xl border border-temple-gold/20"
-          />
-        )}
+      <div id={`bulletin-${bulletin.id}`} className="px-6 pb-6 pt-4 border-t border-gray-200">
         <BulletinBody content={bulletin.content} />
         {bulletin.linkedService && (
           <button

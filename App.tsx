@@ -66,6 +66,7 @@ import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink
 import { deriveBulletins } from './services/derivedBulletins';
 import { BulletinCard, BulletinBody, SERVICE_CTA } from './components/BulletinBody';
 import BulletinBanners from './components/BulletinBanners';
+import PosterImage from './components/PosterImage';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
 import { withKeptParams } from './services/attribution';
@@ -4778,24 +4779,42 @@ const App: React.FC = () => {
                   : null;
                 return (
                   <div key={ev.id} className="bg-white rounded-2xl border border-temple-gold/30 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    {/*
+                      **海報在上、整張卡寬**（2026-10-30 廟方確認「不用輪播」）。
+                      這是廟方 2026-10-11 對公佈欄下的同一條結論——「直接就把圖在欄位內
+                      大大的展開，下面再接文字即可，這樣比較大氣」——祈福活動頁當時沒跟上。
+
+                      **而且這一頁的海報是縮水過的，不只是一直都小。** 原本的框
+                      `max-h-32 max-w-24`（128×96）是配**直式**海報調的：853×1280 會塞滿
+                      高度變成 85×128。廟方後來把海報統一成 3:2 橫式（1526×1030），
+                      同一個框就被寬度卡住、變成 96×65，**面積只剩四成**，而且不會報錯。
+
+                      尺寸與占位的規則（不裁、不壓、載入前先把位置留好）都在 PosterImage，
+                      與公佈欄共用同一支。
+                      還是可以點開看原圖——海報上的小字（祈願文、注意事項）這個尺寸仍讀不到。
+                    */}
+                    {ev.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setPosterUrl(ev.imageUrl!)}
+                        aria-label={`看 ${ev.title} 的海報大圖`}
+                        className="tap block w-full bg-temple-gold/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-temple-red/40"
+                      >
+                        <PosterImage
+                          src={ev.imageUrl}
+                          maxH="max-h-[26rem]"
+                          className="hover:opacity-95 transition-opacity"
+                        />
+                      </button>
+                    )}
                     <div className="p-6">
                       <div className="flex flex-wrap items-start gap-4">
-                        {/* 活動圖多半是**直式海報**（廟方 2026-10-01 回報）。原本寫死
-                            `w-16 h-16 object-cover`，直式海報被裁成 64px 見方的中段——
-                            標題、日期、費用全被切掉，等於放了一張認不出來的小方塊。
-                            改成只給上限、讓圖自己決定長寬（同公佈欄海報的處理，見 2426 行），
-                            並且可以點開看原圖：海報上的字就是活動資訊，縮圖一定讀不到。 */}
-                        {ev.imageUrl
-                          ? <button type="button" onClick={() => setPosterUrl(ev.imageUrl!)}
-                              className="shrink-0 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-temple-red/40"
-                              aria-label={`看 ${ev.title} 的海報大圖`}>
-                              <img src={ev.imageUrl} alt={`${ev.title} 海報`} loading="lazy"
-                                className="max-h-32 max-w-24 sm:max-h-40 sm:max-w-28 w-auto h-auto rounded-xl hover:opacity-90 transition-opacity" />
-                            </button>
-                          : <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                              <HeartHandshake className="w-6 h-6 text-temple-red" aria-hidden="true" />
-                            </div>
-                        }
+                        {/* 沒有海報的活動才給圖示佔位，不要留一塊空白 */}
+                        {!ev.imageUrl && (
+                          <div className="w-12 h-12 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
+                            <HeartHandshake className="w-6 h-6 text-temple-red" aria-hidden="true" />
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h4 className="text-xl font-bold text-temple-dark font-serif">{ev.title}</h4>
