@@ -3184,7 +3184,14 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            <div className="-mr-2 flex lg:hidden">
+            {/* **刻意不用 `-mr-2`**（2026-10-30）。那個負邊距原本是為了讓圖示的「墨水邊緣」
+                對齊左側字標的 16px 內距——標準的圖示鈕對齊手法。但它把按鈕框推到距畫面
+                右緣只剩 8px，而廟方的 OPPO A5 Pro 上那顆 ≡ 顯示不完整。
+                我在 360x800 量到的是按鈕框 308–352、圖示 318–342，兩者都在畫面內而且
+                看得到金色空隙，**本機重現不了**；字型退回系統襯線、`justify-between`
+                兩個假設也都驗過不是。所以這是把可用的餘裕加大，不是對準已知的原因。
+                代價：圖示不再與左側字標視覺對齊，會看起來稍微內縮一點。 */}
+            <div className="flex lg:hidden">
               <button
                 onClick={toggleMenu}
                 aria-label={isMenuOpen ? '關閉導覽選單' : '開啟導覽選單'}
