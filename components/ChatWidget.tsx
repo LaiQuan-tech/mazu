@@ -6,7 +6,8 @@ import { MessageCircle, X, Send } from 'lucide-react';
  *
  * ── 位置：第三格，接在 LINE 上面 ──
  * 浮動鈕的規則見 CLAUDE.md：同一邊、同樣大小、上下疊放，間距 12px，
- * **手機右下、桌機左下**；回頂鈕永遠在最底下那一格，LINE 在它出現時往上讓位。
+ * **手機與桌機都在右下**（2026-10-30 廟方把桌機從左下換到右下，「比較符合使用者習慣」）；
+ * 回頂鈕永遠在最底下那一格，LINE 在它出現時往上讓位。
  * 這一顆就是再往上一格，所以也要跟著 `toTopShown` 移動——
  * 兩顆共用同一個條件，不然會出現「中間空一格」的狀態。
  *   手機：96 → 164 → 232（56px 鈕 ＋ 12px 間距）
@@ -135,7 +136,7 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
           title="線上詢問"
           className={`tap fixed z-[60] w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-temple-red text-white shadow-2xl
             ring-2 ring-[#F0E9CE]/70 flex items-center justify-center hover:bg-[#5C4310] hover:scale-110
-            transition-all duration-500 right-4 sm:right-auto sm:left-8 ${pos}`}
+            transition-all duration-500 right-4 sm:right-8 ${pos}`}
         >
           <MessageCircle className="w-7 h-7 sm:w-8 sm:h-8" aria-hidden="true" />
         </button>
@@ -149,7 +150,7 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
           className="fixed z-[70] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl
             ring-1 ring-temple-gold/40
             inset-x-3 bottom-24 top-20
-            sm:inset-x-auto sm:top-auto sm:left-8 sm:bottom-8 sm:w-[380px] sm:h-[560px]"
+            sm:inset-x-auto sm:top-auto sm:right-8 sm:bottom-8 sm:w-[380px] sm:h-[560px]"
         >
           {/* 標頭 */}
           <div className="shrink-0 flex items-center justify-between gap-2 bg-temple-red px-4 py-3 text-white">

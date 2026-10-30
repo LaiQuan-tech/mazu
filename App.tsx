@@ -132,7 +132,7 @@ const BackToTop: React.FC<{ show: boolean; onClick: () => void }> = ({ show, onC
     className={`fixed z-[60] w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-temple-red text-white shadow-2xl
       ring-2 ring-[#F0E9CE]/70 flex items-center justify-center hover:bg-[#5C4310] hover:scale-110
       transition-all duration-500
-      bottom-24 right-4 sm:bottom-8 sm:right-auto sm:left-8
+      bottom-24 right-4 sm:bottom-8 sm:right-8
       ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
   >
     <ChevronUp className="w-7 h-7 sm:w-8 sm:h-8" aria-hidden="true" />
@@ -3167,7 +3167,7 @@ const App: React.FC = () => {
                 一模一樣的，而這一列的寬度得空出來給「緊急祈願」——那是急難的人要
                 一下就按到的東西，比第二份社群連結重要。手機選單不受影響，那是直的
                 清單、放得下，四個照舊。
-                LINE 留著是因為它在頁尾是「加入好友」按鈕、不是同一件事，而左下角
+                LINE 留著是因為它在頁尾是「加入好友」按鈕、不是同一件事，而右下角
                 那顆浮動鈕在首頁 Hero 期間是隱藏的，這裡剛好補上那段空窗。
               */}
               <div className="flex items-center gap-0.5">
@@ -6326,7 +6326,8 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* Floating LINE Button — 手機放右下角避免遮住左側選單，桌機維持左下角；後台把 LINE 網址清空就整顆不顯示。
+      {/* Floating LINE Button — 手機與桌機都在右下角（2026-10-30 廟方：「桌機時，可以放在右下角，
+          出現時間跟現在一樣，只是換邊，這樣比較符合使用者習慣」）；後台把 LINE 網址清空就整顆不顯示。
           首頁的 Hero 期間先收起來：它會壓在三尊神明的裙擺上，也綁死了 Hero 按鈕能放的位置。
           捲過 Hero 才淡入；其他分頁沒有 Hero，一進來就顯示。
           用 opacity＋pointer-events 隱藏而不是不渲染，才有淡入淡出；同時關掉 aria 與 Tab 焦點。 */}
@@ -6336,7 +6337,7 @@ const App: React.FC = () => {
         title="加入 LINE 官方帳號"
         aria-hidden={hideLineFloat}
         tabIndex={hideLineFloat ? -1 : 0}
-        className={`fixed right-4 sm:right-auto sm:left-8 z-[60] flex items-center justify-center group
+        className={`fixed right-4 sm:right-8 z-[60] flex items-center justify-center group
           transition-all duration-500
           ${/**
              * 回頂鈕一出現就往上讓位（手機 96+56+12、桌機 32+64+12），LINE 疊在它上面。
