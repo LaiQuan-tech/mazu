@@ -36,6 +36,19 @@ const flag = (name, fallback) => {
   return hit ? hit.slice(name.length + 3) : fallback;
 };
 const PREFIX = flag('prefix', 'shower-video-');
+/**
+ * `--frame=2` 改抓 YouTube **自動從影片擷取的畫面**（`hq1`/`hq2`/`hq3`），
+ * 不要上傳者自訂的那張縮圖。
+ *
+ * 為什麼需要：自訂縮圖是為了在 YouTube 的清單裡搶眼而做的，常常是整片深色
+ * 加大字（「十七道光」那支就是黑底白書法）。單獨看很好，但排進我們這一頁的
+ * 影片清單裡，旁邊都是粉色與現場照片，那張黑的像破了一個洞
+ * （廟方 2026-10-30：「底色不要有黑色版本，正常即可」）。
+ *
+ * **自動擷取的畫面是 4:3、上下有黑邊**（16:9 的影片被裝進 4:3 的框），
+ * 所以下面要裁。1/2/3 分別是影片的 1/4、2/4、3/4 處。
+ */
+const FRAME = Number(flag('frame', 0)) || 0;
 const WIDTH_OVERRIDE = Number(flag('width', 0)) || 0;
 const ids = rest.filter(a => !a.startsWith('--'));
 if (!modulesPath || ids.length === 0) {
@@ -49,11 +62,49 @@ const sharp = createRequire(resolve(modulesPath) + '/')('sharp');
 // 16:9 的影片沒有那一張，自然就會落到 maxresdefault。
 const CANDIDATES = ['oardefault', 'maxresdefault', 'hq720', 'hqdefault'];
 
+/**
+ * 裁掉上下的黑邊（letterbox）。
+ *
+ * **判斷「整列都很暗」而不是「某幾個像素是黑的」**：畫面本身可能有大片暗部
+ * （夜景、深色衣服），但黑邊是**整列從左到右都暗**。所以逐列取平均亮度，
+ * 只從最上與最下往內找，碰到第一列不夠暗就停——中間再暗也不碰。
+ * 找不到黑邊就原樣回傳，所以對本來就沒有黑邊的圖套用它是安全的。
+ */
+async function trimBars(sharp, buf) {
+  const img = sharp(buf);
+  const { width, height } = await img.metadata();
+  const raw = await img.clone().greyscale().raw().toBuffer();
+  const rowMean = (y) => {
+    let s = 0;
+    for (let x = 0; x < width; x += 1) s += raw[y * width + x];
+    return s / width;
+  };
+  const DARK = 24;            // 0–255；真正的黑邊壓得很低，24 已經很寬鬆
+  let top = 0, bottom = height - 1;
+  while (top < height - 1 && rowMean(top) < DARK) top += 1;
+  while (bottom > top + 1 && rowMean(bottom) < DARK) bottom -= 1;
+  const h = bottom - top + 1;
+  if (h >= height) return { buf, trimmed: 0 };
+  return {
+    buf: await sharp(buf).extract({ left: 0, top, width, height: h }).toBuffer(),
+    trimmed: height - h,
+  };
+}
+
 const WIDTH_LANDSCAPE = 640;   // 卡片在桌機最寬約 490，給 2 倍像素密度
 const WIDTH_PORTRAIT = 480;    // 直式卡片上限 240，同樣給 2 倍
 
 async function fetchThumb(id) {
-  for (const name of CANDIDATES) {
+  /**
+   * 自動擷取的畫面有三種解析度，**由大到小試**：
+   *   `maxres{N}` 1280×720（16:9，不必裁）→ `sd{N}` 640×480 → `hq{N}` 480×360
+   * 後兩種是 4:3，16:9 的影片裝進去上下會有黑邊，由 `trimBars()` 裁掉。
+   * 不是每支影片三種都有，所以依序試而不是寫死一種。
+   */
+  const names = FRAME
+    ? [`maxres${FRAME}`, `sd${FRAME}`, `hq${FRAME}`, ...CANDIDATES]
+    : CANDIDATES;
+  for (const name of names) {
     const res = await fetch(`https://i.ytimg.com/vi/${id}/${name}.jpg`);
     if (!res.ok) continue;
     const buf = Buffer.from(await res.arrayBuffer());
@@ -66,7 +117,13 @@ async function fetchThumb(id) {
 }
 
 for (const id of ids) {
-  const { name, buf, meta } = await fetchThumb(id);
+  const got = await fetchThumb(id);
+  const { name } = got;
+  // 只有自動擷取的畫面需要裁黑邊；自訂縮圖本來就是滿版的
+  const { buf, trimmed } = /^(maxres|sd|hq)\d$/.test(name)
+    ? await trimBars(sharp, got.buf)
+    : { buf: got.buf, trimmed: 0 };
+  const meta = trimmed > 0 ? await sharp(buf).metadata() : got.meta;
   const portrait = meta.height > meta.width;
   const width = portrait ? WIDTH_PORTRAIT : (WIDTH_OVERRIDE || WIDTH_LANDSCAPE);
   const base = sharp(buf).resize({ width, withoutEnlargement: true });
@@ -79,7 +136,7 @@ for (const id of ids) {
   const out = await sharp(webp).metadata();
   console.log(
     `${id}  ${name} ${meta.width}×${meta.height} → ${out.width}×${out.height}`,
-    `${portrait ? '直式' : '橫式'}`,
+    `${portrait ? '直式' : '橫式'}${trimmed > 0 ? `　裁掉黑邊 ${trimmed}px` : ''}`,
     `webp ${(webp.length / 1024).toFixed(0)}KB / jpg ${(jpg.length / 1024).toFixed(0)}KB`,
   );
 }
