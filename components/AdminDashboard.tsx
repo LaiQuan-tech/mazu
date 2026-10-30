@@ -5868,17 +5868,18 @@ const OFFERING_PRESETS = ['蛋糕', '鮮花', '水果', '壽桃', '壽麵', '蠟
  * 查資料庫時發現廟方自己在兩場活動裡**早就手打了這個全名**，預設卻還是舊的短名
  * ——等於那顆按鈕每次都要再改一次字。
  *
- * **「隨喜」就是其中一個品項，不是一個開關**（廟方 2026-10-30）。
- * 資料庫裡那一項現在有**三種寫法**——「隨喜」「自由敬獻」還有一筆**名字是空的**
+ * **這一項就是一個品項，不是一個開關**（廟方 2026-10-30）。
+ * 資料庫裡它原本有**三種寫法**——「隨喜」「自由敬獻」還有一筆**名字是空的**
  * （前台靠 `addon.name || '隨喜'` 撐著才沒出事）。有了預設按鈕，以後都是同一個名字。
+ * **廟方 2026-10-30 指定用「自由敬獻」**（當天先定「隨喜」，同日改成這個）。
  *
  * **蓮花刻意維持短名**：廟方在活動裡打的是「蓮花9朵」，但朵數會隨場次變，
  * 寫死一個數字反而每次都要改。元寶那個是廟方指名的，所以照辦。
  */
-const ADDON_PRESETS = ['祝壽元寶18顆', '蓮花', '隨喜'] as const;
+const ADDON_PRESETS = ['祝壽元寶18顆', '蓮花', '自由敬獻'] as const;
 
 /**
- * **金額留空就是隨喜。** 廟方 2026-10-30：「不需要用打勾的方式來呈現隨喜，
+ * **金額留空就是自由敬獻。** 廟方 2026-10-30：「不需要用打勾的方式來呈現隨喜，
  * 如果沒有金額就是讓信眾自填，就是隨喜」。
  *
  * 原本每一列有一個「隨喜」勾選框，那是**同一件事用兩個欄位表示**，
@@ -5966,19 +5967,19 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
   };
 
   /** 加購的勾選。規則與 toggleOfferingPreset 相同，差別只在「動過」的判定：
-      加購沒有名額欄，所以看的是費用／隨喜／說明。 */
+      加購沒有名額欄，所以看的是費用與說明（自由敬獻已經不是獨立欄位了）。 */
   const toggleAddonPreset = (name: string) => {
     const list = form.addons || [];
     const hit = list.find(a => a.name.trim() === name);
     if (!hit) {
-      // fee 0 ＝ 留空 ＝ 隨喜（見 deriveVoluntary）。「隨喜」那顆因此不必特別處理
+      // fee 0 ＝ 留空 ＝ 自由敬獻（見 deriveVoluntary）。那一顆因此不必特別處理
       setForm(f => ({
         ...f,
         addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0 }],
       }));
       return;
     }
-    // 「動過」只看費用與說明——隨喜不再是獨立欄位，fee 0 本來就是它的預設樣子
+    // 「動過」只看費用與說明——自由敬獻不再是獨立欄位，fee 0 本來就是它的預設樣子
     const touched = (hit.fee ?? 0) !== 0 || !!hit.description?.trim();
     if (touched && !window.confirm(`「${name}」已經設定了費用，確定要移除嗎？`)) return;
     setForm(f => ({ ...f, addons: (f.addons || []).filter(a => a.id !== hit.id) }));
@@ -6016,7 +6017,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
         endDate: form.endDate || form.startDate,
         registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : undefined,
         fee: Number(form.fee) || 0,
-        // 金額留空＝隨喜。`voluntary` 在這裡推導一次，資料庫裡仍然存著那個欄位
+        // 金額留空＝自由敬獻。`voluntary` 在這裡推導一次，資料庫裡仍然存著那個欄位
         // ——前台、金額試算、確認信、排程提醒四處都在讀它（見 deriveVoluntary）
         addons: deriveVoluntary(form.addons),
         sortOrder: Number(form.sortOrder) || 0,
@@ -6357,7 +6358,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
 
                 {(!form.addons || form.addons.length === 0) ? (
                   <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                    無加購品項。上面勾選基本款，或點「新增加購品項」自己打。金額留空就是隨喜，由信眾自填。
+                    無加購品項。上面勾選基本款，或點「新增加購品項」自己打。金額留空就是自由敬獻，由信眾自填。
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -6369,7 +6370,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                             onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, name: e.target.value } : a) }))}
                             placeholder="品項名稱 *"
                             className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
-                          {/* 金額留空＝隨喜。`|| ''` 讓 0 顯示成空的——印一個「0」會被讀成
+                          {/* 金額留空＝自由敬獻。`|| ''` 讓 0 顯示成空的——印一個「0」會被讀成
                               「這項免費」，而它的意思是「由信眾自填」，兩者差很多。 */}
                           <input
                             type="number" min={0}
@@ -6379,10 +6380,10 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                             className="w-28 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
                           {/* 留空時當場講出它的意思，不要讓廟方自己記這條規則。
                               **藏的時候用 `invisible` 不要用 `text-transparent`**：後者只是把字
-                              變透明，螢幕閱讀器照樣會念「隨喜．自填」——而那一列明明已經填了金額。
+                              變透明，螢幕閱讀器照樣會念「自由敬獻．自填」——而那一列明明已經填了金額。
                               `visibility:hidden` 會一起退出無障礙樹，而且同樣佔住位置不讓版面跳。 */}
                           <span className={`text-xs whitespace-nowrap shrink-0 text-temple-red font-medium ${addon.fee ? 'invisible' : ''}`}>
-                            隨喜．自填
+                            自由敬獻．自填
                           </span>
                           <button type="button"
                             onClick={() => setForm(f => ({ ...f, addons: (f.addons || []).filter((_, i) => i !== idx) }))}
