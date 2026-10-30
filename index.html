@@ -968,6 +968,54 @@
         } catch (e) { /* 失敗就維持米色：會閃一下，但不影響功能 */ }
       })();
     </script>
+    <!-- ──────────────────────────────────────────────────────────────
+      **暫時的**寬度檢測：網址加 `?diag=1` 才會出現，平常一行都不跑。
+
+      為什麼需要：廟方 2026-10-30 回報 OPPO A5 Pro 的 Chrome 上首頁右側露出一條
+      米色空白、內容只佔約 93% 寬。我在 320×800／360×800／360×640 三種尺寸、
+      八個頁面都量不到任何溢出，所以要的是**那支手機上的實際數字**，不是我的推測。
+      Android 的 Chrome 沒有開發者工具，這是唯一拿得到的方法。
+
+      只讀不寫：量完就畫在畫面上，不送任何地方。查完這件事請整段刪掉。
+    ─────────────────────────────────────────────────────────────── -->
+    <script>
+      (function () {
+        try {
+          if (new URLSearchParams(location.search).get('diag') !== '1') return;
+          var show = function () {
+            var d = document.documentElement, vv = window.visualViewport;
+            var over = [];
+            var all = document.querySelectorAll('body *');
+            for (var i = 0; i < all.length; i++) {
+              var e = all[i], r = e.getBoundingClientRect();
+              if (r.width === 0 || r.right <= d.clientWidth + 1) continue;
+              var clipped = false;
+              for (var p = e.parentElement; p; p = p.parentElement) {
+                var ox = getComputedStyle(p).overflowX;
+                if (ox === 'hidden' || ox === 'clip' || ox === 'auto' || ox === 'scroll') { clipped = true; break; }
+              }
+              if (!clipped) over.push({ c: (e.className || e.tagName).toString().slice(0, 34), r: Math.round(r.right) });
+            }
+            over.sort(function (a, b) { return b.r - a.r; });
+            var box = document.getElementById('__diag') || document.createElement('div');
+            box.id = '__diag';
+            box.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#111;color:#0f0;'
+              + 'font:12px/1.5 monospace;padding:8px 10px;white-space:pre-wrap;word-break:break-all';
+            box.textContent =
+              'screen      ' + screen.width + ' x ' + screen.height + '  dpr ' + window.devicePixelRatio + '\n'
+              + 'innerWidth  ' + window.innerWidth + '   clientWidth ' + d.clientWidth + '\n'
+              + 'scrollWidth ' + d.scrollWidth + '   溢出 ' + (d.scrollWidth - d.clientWidth) + '\n'
+              + 'visualVP    ' + (vv ? Math.round(vv.width) + ' x ' + Math.round(vv.height) + '  scale ' + vv.scale.toFixed(3) : '—') + '\n'
+              + 'body寬      ' + Math.round(document.body.getBoundingClientRect().width) + '\n'
+              + '超出右緣且沒被裁的：' + (over.length === 0 ? '無'
+                  : '\n' + over.slice(0, 4).map(function (x) { return '  ' + x.r + 'px  ' + x.c; }).join('\n'));
+            if (!box.parentNode) document.body.appendChild(box);
+          };
+          addEventListener('load', function () { setTimeout(show, 2500); setTimeout(show, 6000); });
+        } catch (e) { /* 檢測工具壞掉不該影響網站 */ }
+      })();
+    </script>
+
 </head>
   <body>
     <div id="root"></div>
