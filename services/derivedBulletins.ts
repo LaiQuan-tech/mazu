@@ -20,6 +20,7 @@
  * 置頂是廟方用來讓某一則壓在最上面的手段。衍生的卡若也能置頂，就會把廟方
  * 特意置頂的那則擠掉。一律 isPinned = false。
  */
+import { heroSrc } from './assetUrl';
 import {
   BulletinCategory, BulletinRecord, BlessingEventRecord,
   BookingSessionRecord, RegularSession, LampServiceConfig,
@@ -72,6 +73,29 @@ const card = (
   createdAt,
   updatedAt: createdAt,
 });
+
+/**
+ * 服務的形象圖（2026-10-30 廟方：「問事以後都用剛剛那張海報顯示，
+ * 其他點燈服務，都會生圖」）。
+ *
+ * **沿用既有的那兩張**：`shared-poster-*.jpg` 本來就是為「這個服務長什麼樣」
+ * 做的固定形象圖（2026-10-12 為揪團面板加的），尺寸 1200×810＝比例 1.48，
+ * 正好就是廟方現在產海報用的 3:2。沒有理由再存第二份。
+ *
+ * **走 `heroSrc()` 取網址**：那會帶上內容雜湊，換圖時網址跟著變，
+ * 信眾不會被舊快取卡住（見 CLAUDE.md 的 HERO_FILES）。
+ *
+ * 誦經祈福還沒有圖，所以不列——**沒有圖的衍生卡不會進輪播**，
+ * 它會留在底下那排清單裡，等廟方生了圖再補一行就好。
+ */
+const SERVICE_POSTER: Partial<Record<NonNullable<BulletinRecord['linkedService']>, string>> = {
+  booking: 'shared-poster-booking.jpg',
+  lamp:    'shared-poster-lamp.jpg',
+};
+const posterOf = (svc: NonNullable<BulletinRecord['linkedService']>): string | null => {
+  const f = SERVICE_POSTER[svc];
+  return f ? heroSrc(f) : null;
+};
 
 export interface DerivedSources {
   blessingEvents: BlessingEventRecord[];
@@ -139,6 +163,7 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
       // 用「最晚被建立的那一場」當時間：廟方新開一批場次，這則就浮上來
       sessions.reduce((max, s) => (s.createdAt > max ? s.createdAt : max), sessions[0].createdAt),
       'booking',
+      posterOf('booking'),
     ));
   }
 
@@ -183,6 +208,7 @@ export const deriveBulletins = (src: DerivedSources): BulletinRecord[] => {
       BulletinCategory.LAMP,
       lamps.reduce((min, c) => (c.createdAt < min ? c.createdAt : min), lamps[0].createdAt),
       'lamp',
+      posterOf('lamp'),
     ));
   }
 

@@ -301,7 +301,7 @@ export const BulletinCard: React.FC<{
   * 拼字串的寫法在「遷址募資」這一項就破了——拼出來是「前往遷址登記」，
   * 而那一頁要做的事叫護持不叫登記。一個服務一句話，各自讀得通。
   */
-const SERVICE_CTA: Record<string, string> = {
+export const SERVICE_CTA: Record<string, string> = {
   lamp: '前往點燈登記', blessing: '前往祈福登記', booking: '前往問事登記',
   donation: '前往捐獻登記', relocation: '前往護持遷址',
 };

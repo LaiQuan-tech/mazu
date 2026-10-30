@@ -64,7 +64,8 @@ import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
 import { deriveBulletins } from './services/derivedBulletins';
-import { BulletinCard } from './components/BulletinBody';
+import { BulletinCard, BulletinBody, SERVICE_CTA } from './components/BulletinBody';
+import BulletinBanners from './components/BulletinBanners';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
 import { withKeptParams } from './services/attribution';
@@ -3730,20 +3731,71 @@ const App: React.FC = () => {
               <p className="text-lg">目前沒有公告</p>
             </div>
           ) : (
-            <div className="space-y-4 max-w-4xl mx-auto">
-              {homeBulletins.map((bulletin, bi) => (
-                // 進場包在外層：卡片本身有 transition-all（Tailwind CDN 排在自訂樣式之後），
-                // 直接把 .sr 掛在卡片上會被它的 150ms 覆蓋掉，變成快閃而不是緩緩浮起。
-                // 逐張錯開延遲，才有「一張一張進來」的節奏，而不是整列一起閃。
-                <div key={bulletin.id} className={`sr sr-up ${['', 'sr-d1', 'sr-d2', 'sr-d3'][Math.min(bi, 3)]}`}>
-                  <BulletinCard
-                    bulletin={bulletin}
-                    open={expandedBulletin === bulletin.id}
-                    onToggle={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
-                    onService={openServiceFromBulletin}
-                  />
+            <div className="max-w-4xl mx-auto">
+              {/*
+                有海報的走輪播（2026-10-30 廟方：「要讓他凸顯，而不是點縮小圖才看到大圖」）。
+                廟方的海報已經統一成 3:2，所以放進 banner 不必裁——理由與量測見 BulletinBanners。
+              */}
+              <div className="sr sr-up">
+                <BulletinBanners
+                  items={homeBulletins.filter(b => b.imageUrl)}
+                  onOpen={(b) => setExpandedBulletin(expandedBulletin === b.id ? null : b.id)}
+                />
+              </div>
+
+              {/* 點開的那一則只顯示內文與按鈕，**不再印一次海報**——上面那張 banner
+                  就是大圖了，再印一次是同一件事講兩次（同全站那條原則）。 */}
+              {(() => {
+                const sel = homeBulletins.find(b => b.id === expandedBulletin && b.imageUrl);
+                if (!sel) return null;
+                return (
+                  <div className="mt-5 rounded-2xl border border-temple-gold/30 bg-temple-bg/60 p-5">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h4 className="font-serif font-bold text-lg text-temple-dark leading-snug">{sel.title}</h4>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedBulletin(null)}
+                        aria-label="收合這則公告"
+                        className="tap shrink-0 text-gray-400 hover:text-temple-red transition-colors"
+                      >
+                        <X className="w-5 h-5" aria-hidden="true" />
+                      </button>
+                    </div>
+                    <BulletinBody content={sel.content} />
+                    {sel.linkedService && (
+                      <button
+                        type="button"
+                        onClick={() => openServiceFromBulletin(sel.linkedService!, sel.linkedEventId)}
+                        className="tap mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full
+                          bg-temple-red text-white text-sm font-semibold hover:bg-[#5C4310] transition-colors"
+                      >
+                        {SERVICE_CTA[sel.linkedService] ?? '前往登記'} →
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* 還沒有形象圖的衍生卡（目前是誦經祈福）維持原本的卡片：它們本來就是
+                  純文字、很矮，硬塞進輪播只會變成一塊空白的色塊。
+                  廟方哪天生了圖，只要在 derivedBulletins 的 SERVICE_POSTER 補一行，
+                  它自己就會跑到上面的輪播去。 */}
+              {homeBulletins.some(b => !b.imageUrl) && (
+                <div className="space-y-4 mt-6">
+                  {homeBulletins.filter(b => !b.imageUrl).map((bulletin, bi) => (
+                    // 進場包在外層：卡片本身有 transition-all，直接把 .sr 掛在卡片上
+                    // 會被它的 150ms 覆蓋掉，變成快閃而不是緩緩浮起。
+                    <div key={bulletin.id} className={`sr sr-up ${['', 'sr-d1', 'sr-d2'][Math.min(bi, 2)]}`}>
+                      <BulletinCard
+                        bulletin={bulletin}
+                        open={expandedBulletin === bulletin.id}
+                        onToggle={() => setExpandedBulletin(expandedBulletin === bulletin.id ? null : bulletin.id)}
+                        onService={openServiceFromBulletin}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
 
