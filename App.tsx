@@ -59,7 +59,7 @@ import BirthDatePicker from './components/BirthDatePicker';
 import SilkSheen from './components/SilkSheen';
 import IncenseSmoke from './components/IncenseSmoke';
 import AboutPage from './components/AboutPage';
-import { renderInline, splitParagraphs } from './components/StoryPage';
+import { renderInline, plainInline, splitParagraphs } from './components/StoryPage';
 import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
@@ -2339,7 +2339,9 @@ const App: React.FC = () => {
       mainEntity: faqItems.map(item => ({
         '@type': 'Question',
         name: item.q,
-        acceptedAnswer: { '@type': 'Answer', text: item.a },
+        // **結構化資料要純文字**：答案裡可能有 `[文字](網址)`（例如第一題的
+        // Google 地圖連結），原樣塞進 JSON-LD 等於把 markdown 符號餵給 Google
+        acceptedAnswer: { '@type': 'Answer', text: plainInline(item.a) },
       })),
     }, null, 2);
   }, [faqItems, page, showFahui]);
@@ -6175,7 +6177,15 @@ const App: React.FC = () => {
                 </summary>
                 <div className="faq-answer">
                   <span className="text-temple-red/70 mr-3 select-none" aria-hidden="true">答</span>
-                  <span>{item.a}</span>
+                  {/* **答案要吃行內標記**（2026-10-30 廟方：第一題「建議可以有 Google 地圖
+                      或是圖片」）。沿用全站那支 `renderInline`（`**粗體**`、`[文字](網址)`），
+                      不另立一套，也維持「永遠不碰 dangerouslySetInnerHTML」的原則——
+                      後台打進來的永遠是文字，沒有注入的可能。
+                      **選連結不選圖**：地圖圖片是死的，按不了也不會導航；一張靜態圖
+                      還要多載幾百 KB。連結按下去直接開 Google 地圖導航，那才是
+                      「怎麼過去」要的答案。
+                      純文字版（給 JSON-LD 與 noscript）見 `plainInline`。 */}
+                  <span>{renderInline(item.a)}</span>
                 </div>
               </details>
             ))}

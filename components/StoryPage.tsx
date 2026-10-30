@@ -62,6 +62,19 @@ export const renderInline = (text: string): React.ReactNode[] =>
     return <React.Fragment key={i}>{part}</React.Fragment>;
   });
 
+/**
+ * `renderInline` 的純文字版，給**結構化資料**用（FAQPage 的 `acceptedAnswer.text`）。
+ *
+ * JSON-LD 吃的是純文字，把 `[Google 地圖](https://…)` 原封不動塞進去，
+ * Google 看到的就是一串 markdown 符號。網址不能直接丟掉——那一題問的正是
+ * 「怎麼過去」，連結本身就是答案的一部分，所以改寫成「文字（網址）」，
+ * 人看得懂、爬蟲也拿得到網址。
+ */
+export const plainInline = (text: string): string =>
+  String(text || '')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1（$2）')
+    .replace(/\*\*(.+?)\*\*/g, '$1');
+
 /** 內文段落。文字若還沒給，維持空陣列即可，不會渲染出空的 <p> */
 const Paragraphs: React.FC<{ items: string[]; className?: string; reveal?: boolean }> = ({ items, className = '', reveal = false }) => (
   <>

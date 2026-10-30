@@ -1061,6 +1061,15 @@ const HOME_IMAGES = [
 const CLIP = 34;
 const oneLine = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 /**
+ * 行內標記 → 純文字（與 components/StoryPage.tsx 的 `plainInline` 同一條規則）。
+ * 常見問題的答案可以寫 `[Google 地圖](https://…)`，前台會渲染成連結，
+ * 但 FAQPage 的 `acceptedAnswer.text` 與 `<noscript>` 都只能是純文字。
+ * **網址不丟掉改寫成「文字（網址）」**——那一題問的就是「怎麼過去」。
+ */
+const unMd = (s) => String(s || '')
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1（$2）')
+  .replace(/\*\*(.+?)\*\*/g, '$1');
+/**
  * 經文的換行是刻意的斷句，接起來時**不能一律塞空白**：資料庫那份每行自己就以
  * 句號結尾（`憶宋代。建隆時。\n興國兆。可先知。`），補空白會變成「。 興」這種
  * 標點後面掛一個空格的樣子；而保底檔那份是用空白分詞的（`憶宋代 建隆時`），
@@ -1414,8 +1423,8 @@ ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${
     inLanguage: 'zh-TW',
     mainEntity: faq.map((f) => ({
       '@type': 'Question',
-      name: f.q,
-      acceptedAnswer: { '@type': 'Answer', text: f.a },
+      name: unMd(f.q),
+      acceptedAnswer: { '@type': 'Answer', text: unMd(f.a) },
     })),
   };
   home = home.replace('</head>',
@@ -1438,7 +1447,7 @@ ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${
   const marker = '<p style="margin-top:1.75rem;color:#7C5C1E">本網站需要啟用 JavaScript';
   if (!home.includes(marker)) throw new Error('prerender: 在 index.html 的 noscript 裡找不到結尾段落');
   const faqText = `<h2 style="font-size:1.15rem;margin:1.75rem 0 .5rem">常見問題</h2>
-${faq.map((f) => `        <p><strong>${esc(f.q)}</strong><br />${esc(f.a)}</p>`).join('\n')}
+${faq.map((f) => `        <p><strong>${esc(unMd(f.q))}</strong><br />${esc(unMd(f.a))}</p>`).join('\n')}
         `;
   home = home.replace(marker, faqText + marker);
 
