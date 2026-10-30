@@ -5868,20 +5868,30 @@ const OFFERING_PRESETS = ['蛋糕', '鮮花', '水果', '壽桃', '壽麵', '蠟
  * 查資料庫時發現廟方自己在兩場活動裡**早就手打了這個全名**，預設卻還是舊的短名
  * ——等於那顆按鈕每次都要再改一次字。
  *
- * **「隨喜」要帶 `voluntary`**（廟方 2026-10-30：「隨喜就是一個品項，金額可自填」）。
- * 機制本來就有（每一列都有「隨喜」勾選框，勾了金額欄就變成信眾自填），
- * 缺的只是一顆按鈕。資料庫裡那一項現在有**三種寫法**——「隨喜」「自由敬獻」
- * 還有一筆**名字是空的**（前台靠 `addon.name || '隨喜'` 撐著才沒出事）。
- * 有了預設按鈕，以後長出來的都是同一個名字。
+ * **「隨喜」就是其中一個品項，不是一個開關**（廟方 2026-10-30）。
+ * 資料庫裡那一項現在有**三種寫法**——「隨喜」「自由敬獻」還有一筆**名字是空的**
+ * （前台靠 `addon.name || '隨喜'` 撐著才沒出事）。有了預設按鈕，以後都是同一個名字。
  *
  * **蓮花刻意維持短名**：廟方在活動裡打的是「蓮花9朵」，但朵數會隨場次變，
  * 寫死一個數字反而每次都要改。元寶那個是廟方指名的，所以照辦。
  */
-const ADDON_PRESETS: { name: string; voluntary?: boolean }[] = [
-  { name: '祝壽元寶18顆' },
-  { name: '蓮花' },
-  { name: '隨喜', voluntary: true },
-];
+const ADDON_PRESETS = ['祝壽元寶18顆', '蓮花', '隨喜'] as const;
+
+/**
+ * **金額留空就是隨喜。** 廟方 2026-10-30：「不需要用打勾的方式來呈現隨喜，
+ * 如果沒有金額就是讓信眾自填，就是隨喜」。
+ *
+ * 原本每一列有一個「隨喜」勾選框，那是**同一件事用兩個欄位表示**，
+ * 而且兩者可以互相矛盾（填了 500 又勾隨喜，誰說了算？）。
+ * 現在只剩金額欄：有數字就是固定費用，空的就是信眾自填。
+ *
+ * **`voluntary` 這個欄位沒有拿掉，改成存檔時推導。** 前台的加購分區、
+ * `services/serviceAmount.ts` 的金額、`api/notify-confirm.ts` 的確認信、
+ * `api/cron-reminders.ts` 的提醒全都在讀它——把它從資料裡拔掉要同時改四個地方，
+ * 而那四個地方算的是錢。少一個欄位的好處遠不及那個風險。
+ */
+const deriveVoluntary = (addons: BlessingAddon[] | undefined): BlessingAddon[] =>
+  (addons || []).map(a => ({ ...a, fee: Number(a.fee) || 0, voluntary: !Number(a.fee) }));
 
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
@@ -5957,18 +5967,19 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
 
   /** 加購的勾選。規則與 toggleOfferingPreset 相同，差別只在「動過」的判定：
       加購沒有名額欄，所以看的是費用／隨喜／說明。 */
-  const toggleAddonPreset = (name: string, voluntary = false) => {
+  const toggleAddonPreset = (name: string) => {
     const list = form.addons || [];
     const hit = list.find(a => a.name.trim() === name);
     if (!hit) {
+      // fee 0 ＝ 留空 ＝ 隨喜（見 deriveVoluntary）。「隨喜」那顆因此不必特別處理
       setForm(f => ({
         ...f,
-        // `voluntary` 由預設帶進來：「隨喜」勾下去就該是自填金額，不要再叫廟方多勾一次
-        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0, voluntary }],
+        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0 }],
       }));
       return;
     }
-    const touched = (hit.fee ?? 0) !== 0 || !!hit.voluntary || !!hit.description?.trim();
+    // 「動過」只看費用與說明——隨喜不再是獨立欄位，fee 0 本來就是它的預設樣子
+    const touched = (hit.fee ?? 0) !== 0 || !!hit.description?.trim();
     if (touched && !window.confirm(`「${name}」已經設定了費用，確定要移除嗎？`)) return;
     setForm(f => ({ ...f, addons: (f.addons || []).filter(a => a.id !== hit.id) }));
   };
@@ -6005,6 +6016,9 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
         endDate: form.endDate || form.startDate,
         registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : undefined,
         fee: Number(form.fee) || 0,
+        // 金額留空＝隨喜。`voluntary` 在這裡推導一次，資料庫裡仍然存著那個欄位
+        // ——前台、金額試算、確認信、排程提醒四處都在讀它（見 deriveVoluntary）
+        addons: deriveVoluntary(form.addons),
         sortOrder: Number(form.sortOrder) || 0,
       };
       if (editingId) { await updateBlessingEvent(editingId, payload); }
@@ -6318,18 +6332,18 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                     <ShoppingBag className="w-4 h-4 text-temple-red/70" /> 加購品項
                   </label>
                   <button type="button"
-                    onClick={() => setForm(f => ({ ...f, addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name: '', fee: 0, voluntary: false }] }))}
+                    onClick={() => setForm(f => ({ ...f, addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name: '', fee: 0 }] }))}
                     className="flex items-center gap-1 text-xs text-temple-red hover:text-temple-red/80 transition-colors">
                     <Plus className="w-3.5 h-3.5" /> 新增加購品項
                   </button>
                 </div>
                 {/* 基本款：勾一下就長出一列，只剩金額要填（同供品那組） */}
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {ADDON_PRESETS.map(({ name, voluntary }) => {
+                  {ADDON_PRESETS.map(name => {
                     const on = (form.addons || []).some(a => a.name.trim() === name);
                     return (
                       <button key={name} type="button"
-                        onClick={() => toggleAddonPreset(name, voluntary)}
+                        onClick={() => toggleAddonPreset(name)}
                         aria-pressed={on}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs transition-colors ${
                           on ? 'bg-temple-gold/20 border-temple-gold text-temple-red font-medium'
@@ -6343,7 +6357,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
 
                 {(!form.addons || form.addons.length === 0) ? (
                   <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                    無加購品項。上面勾選基本款，或點「新增加購品項」自己打（固定費用或隨喜敬獻）。
+                    無加購品項。上面勾選基本款，或點「新增加購品項」自己打。金額留空就是隨喜，由信眾自填。
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -6355,20 +6369,21 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                             onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, name: e.target.value } : a) }))}
                             placeholder="品項名稱 *"
                             className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                          {/* 金額留空＝隨喜。`|| ''` 讓 0 顯示成空的——印一個「0」會被讀成
+                              「這項免費」，而它的意思是「由信眾自填」，兩者差很多。 */}
                           <input
                             type="number" min={0}
-                            value={addon.voluntary ? '' : addon.fee}
-                            disabled={!!addon.voluntary}
+                            value={addon.fee || ''}
                             onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, fee: Number(e.target.value) } : a) }))}
-                            placeholder={addon.voluntary ? '自填' : '費用 NT$'}
-                            className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red disabled:bg-gray-100 disabled:text-gray-400" />
-                          <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap cursor-pointer select-none">
-                            <input type="checkbox"
-                              checked={!!addon.voluntary}
-                              onChange={e => setForm(f => ({ ...f, addons: (f.addons || []).map((a, i) => i === idx ? { ...a, voluntary: e.target.checked, fee: 0 } : a) }))}
-                              className="accent-green-600 w-3.5 h-3.5" />
-                            隨喜
-                          </label>
+                            placeholder="金額 NT$"
+                            className="w-28 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-temple-red" />
+                          {/* 留空時當場講出它的意思，不要讓廟方自己記這條規則。
+                              **藏的時候用 `invisible` 不要用 `text-transparent`**：後者只是把字
+                              變透明，螢幕閱讀器照樣會念「隨喜．自填」——而那一列明明已經填了金額。
+                              `visibility:hidden` 會一起退出無障礙樹，而且同樣佔住位置不讓版面跳。 */}
+                          <span className={`text-xs whitespace-nowrap shrink-0 text-temple-red font-medium ${addon.fee ? 'invisible' : ''}`}>
+                            隨喜．自填
+                          </span>
                           <button type="button"
                             onClick={() => setForm(f => ({ ...f, addons: (f.addons || []).filter((_, i) => i !== idx) }))}
                             className="text-red-400 hover:text-red-600 transition-colors shrink-0">
