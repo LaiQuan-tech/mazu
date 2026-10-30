@@ -153,9 +153,17 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
           <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-temple-bg" role="log" aria-live="polite">
             {msgs.length === 0 && (
               <div>
+                {/* **「請勿輸入個人資料」這句不是客套。** 問答會送到外部的 AI 服務，
+                    而免費方案的條款通常允許供應商拿內容去改進產品。程式這邊只送對話本身
+                    （不帶任何會員資料、不帶身分），但信眾自己打進去的字我們攔不住——
+                    長輩很可能直接打上自己的姓名、電話與生辰來問。講在他開始打字之前，
+                    才是這句話唯一有用的時機。 */}
                 <p className="text-sm text-gray-600 leading-relaxed mb-3">
                   您好，這裡可以詢問和聖壇的服務、神尊、法會與天上聖母經。
                   回答由 AI 依官網內容整理，實際以網站公告為準。
+                  <span className="block mt-1.5 text-temple-red">
+                    請勿輸入姓名、電話、生辰等個人資料。要報名或查紀錄請用 LINE 或會員中心。
+                  </span>
                 </p>
                 <div className="flex flex-col gap-2">
                   {STARTERS.map((s) => (
