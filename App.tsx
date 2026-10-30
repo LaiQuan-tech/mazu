@@ -389,8 +389,14 @@ const isBlessingClosed = (ev: BlessingEventRecord, now: Date = new Date()) =>
  * 真的同時置頂 3 則以上才會把最新的全部擠掉，那時廟方自己會看到。
  *
  * 手機上每張卡約 106px，三張約 320px——信眾不必滑過整面公告才走得到下一區。
+ *
+ * **2026-10-30 改成 4**（廟方：「直立平板時，應該要顯示四個活動」）。
+ * 公告改成海報 banner 之後，`sm` 以上是格狀排版——**平板直立是兩欄，3 則就一定
+ * 會在第二列空一格**，而那一格就長在畫面正中間。4 則剛好排滿 2×2。
+ * 桌機那邊改成四欄（見 BulletinBanners），所以一樣是整齊的一列、而且比 3 欄更短。
+ * 手機不受影響（橫向輪播，幾則都一樣高）。
  */
-const HOME_BULLETIN_TOTAL = 3;
+const HOME_BULLETIN_TOTAL = 4;
 
 /**
  * 揪團面板給**被揪的人**看的服務海報（廟方 2026-10-12 提供）。
@@ -3774,17 +3780,24 @@ const App: React.FC = () => {
               <p className="text-lg">目前沒有公告</p>
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto">
+            <>
               {/*
                 有海報的走輪播（2026-10-30 廟方：「要讓他凸顯，而不是點縮小圖才看到大圖」）。
                 廟方的海報已經統一成 3:2，所以放進 banner 不必裁——理由與量測見 BulletinBanners。
+
+                **banner 這一排在桌機要比下面的內文寬（`lg:max-w-6xl`）。**
+                改成四則之後桌機是四欄，塞在原本的 `max-w-4xl`（896px）裡每張只剩
+                209×140，海報上的字整個看不到——等於又回到縮圖。放寬到 6xl 之後是
+                273×182，與改版前三欄的 285×190 幾乎一樣大，而且一列放得下四則。
+                **下面的內文與卡片維持 `max-w-4xl`**：那是閱讀寬度，1152px 的中文內文太長。
               */}
-              <div className="sr sr-up">
+              <div className="sr sr-up max-w-4xl lg:max-w-6xl mx-auto">
                 <BulletinBanners
                   items={homeBulletins.filter(b => b.imageUrl)}
                   onOpen={(b) => setExpandedBulletin(expandedBulletin === b.id ? null : b.id)}
                 />
               </div>
+              <div className="max-w-4xl mx-auto">
 
               {/* 點開的那一則只顯示內文與按鈕，**不再印一次海報**——上面那張 banner
                   就是大圖了，再印一次是同一件事講兩次（同全站那條原則）。 */}
@@ -3839,7 +3852,8 @@ const App: React.FC = () => {
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+            </>
           )}
 
           {/* 還有更多就給入口。**數字要講出來**——「查看全部公告」看不出值不值得點，

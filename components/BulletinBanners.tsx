@@ -36,6 +36,25 @@ import { TAG_PINNED } from './BulletinBody';
 /** 幾秒換一張。廟方要「很慢」——快到會打斷閱讀就失去意義了 */
 const AUTO_MS = 8000;
 
+/**
+ * 欄數**跟著則數走**，不要寫死（2026-10-30 廟方：「直立平板時，應該要顯示四個活動」）。
+ *
+ * 原本固定 `sm:grid-cols-2 lg:grid-cols-3`，平板直立（768–1023）是兩欄，
+ * 而首頁只取 3 則——第二列永遠空一格，而且那一格就落在畫面正中間。
+ *
+ * 現在首頁取 4 則（`HOME_BULLETIN_TOTAL`），對照表讓**每一種則數的最後一列都排得滿**：
+ *   4 則 → 平板 2×2、桌機一列四張（四欄比三欄窄，但整列是滿的，而且首頁更短）
+ *   3 則 → 一律三欄（平板會窄一點，但不留缺口）
+ *   2／1 則 → 就那麼多欄
+ * 3 則以下只在廟方某一則沒放海報時才會發生（沒海報的那則走下面的 BulletinCard）。
+ */
+const COLS: Record<number, string> = {
+  1: 'sm:grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-2 lg:grid-cols-4',
+};
+
 interface Props {
   items: BulletinRecord[];
   /** 點下去開那一則公告（維持原本的展開行為，海報已經看得到了） */
@@ -142,8 +161,9 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
          * 沒有 scroll-padding 的話瀏覽器會自己把 scrollLeft 捲到 16 去抵銷那段內距，
          * 第一張就貼到螢幕最左邊、跟上面的標題對不齊（實測就是這樣）。
          */
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 scroll-pl-4
-          sm:mx-0 sm:px-0 sm:scroll-pl-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 sm:overflow-visible"
+        className={`flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 scroll-pl-4
+          sm:mx-0 sm:px-0 sm:scroll-pl-0 sm:grid sm:gap-5 sm:overflow-visible
+          ${COLS[items.length] || 'sm:grid-cols-2 lg:grid-cols-4'}`}
         style={{ scrollbarWidth: 'none' }}
       >
         {items.map((b) => (
