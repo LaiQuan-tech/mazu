@@ -64,9 +64,10 @@ import RelocationPage from './components/RelocationPage';
 import { visibleSocials } from './components/SocialLinks';
 import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink';
 import { deriveBulletins } from './services/derivedBulletins';
-import { BulletinCard, BulletinBody, SERVICE_CTA } from './components/BulletinBody';
+import { BulletinCard, BulletinBody, SERVICE_CTA, scrollCardToTop } from './components/BulletinBody';
 import BulletinBanners from './components/BulletinBanners';
 import PosterImage, { POSTER_LIST_MAX_H } from './components/PosterImage';
+import Pagination, { pageSlice, pageCountOf } from './components/Pagination';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
 import { withKeptParams } from './services/attribution';
@@ -1768,6 +1769,10 @@ const App: React.FC = () => {
    * 收起來只留兩行當引子，要看的人再展開——內容一個字都沒少，只是不強迫每個人讀完。
    */
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  /** 祈福活動的分頁（2026-10-30 廟方：「如活動多時，要有分頁」）。0 起算 */
+  const [blessingPage, setBlessingPage] = useState(0);
+  /** 翻頁後把清單頂端捲回畫面上方，不然會落在上一頁的位置、看起來像沒反應 */
+  const blessingListRef = useRef<HTMLDivElement>(null);
   const HERO_FALLBACK = 'https://images.unsplash.com/photo-1542045938-4e8c18731c39?q=80&w=2070&auto=format&fit=crop';
   const [heroSlides, setHeroSlides] = useState<HeroSlideRecord[]>([]);
   const [heroSlideIndex, setHeroSlideIndex] = useState(0);
@@ -2748,6 +2753,20 @@ const App: React.FC = () => {
     return [...blessingEvents].sort((a, b) => Number(isOver(a)) - Number(isOver(b)));
   }, [blessingEvents]);
 
+  /**
+   * 祈福活動的分頁。**頁碼要夾住**——廟方在後台把活動改成不公開、或是活動辦完被濾掉時
+   * 總頁數會變少，停在最後一頁的人會看到一片空白而不是錯誤（同 /bulletins 的處理）。
+   */
+  const blessingPageCount = pageCountOf(blessingEventsSorted.length);
+  const blessingSafePage = Math.min(blessingPage, blessingPageCount - 1);
+  const blessingEventsPage = pageSlice(blessingEventsSorted, blessingSafePage);
+  const goBlessingPage = (p: number) => {
+    setBlessingPage(p);
+    // 翻頁等於換一批活動，原本展開的那段說明已經不在畫面上了
+    setExpandedEvent(null);
+    if (blessingListRef.current) scrollCardToTop(blessingListRef.current);
+  };
+
   /** 這種服務的揪團海報（帶內容版號）。沒設的服務回 undefined，面板就不顯示 */
   const sharedPoster = (t: SharedServiceType): string | undefined => {
     const f = SHARED_POSTERS[t];
@@ -3662,8 +3681,12 @@ const App: React.FC = () => {
           而且不必動 Hero 那層已經調好的疊放順序。
           手機量到整區約 430px（0.53 屏），首頁 7,605 → 8,035px。 */}
       {page === 'home' && (
-      <section id="story-video" className="py-12 sm:py-20 bg-temple-bg">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="story-video" className="py-12 sm:py-20 bg-temple-bg relative overflow-hidden">
+        {/* 團紋：每一段都要有（2026-10-30 廟方：「不是一頁只有一個，要一段就要有」）。
+            左右交錯，相鄰兩段不會落在同一邊。父層的 relative overflow-hidden
+            與內容的 relative z-10 都是必要的，見 PatternMedallion 的檔頭 */}
+        <PatternMedallion motif="phoenix" side="l" />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="sr sr-up text-center mb-8">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
@@ -3819,8 +3842,12 @@ const App: React.FC = () => {
       )}
 
 {/* About Section */}
-      <section id="about" className="py-12 sm:py-20 bg-temple-bg relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="about" className="py-12 sm:py-20 bg-temple-bg relative overflow-hidden">
+        {/* 這一段的照片在**左**邊，團紋放左邊會整個被照片蓋住（照片是不透明的）。
+            團紋要挑比較空的那一側，見 PatternMedallion 的檔頭——文字那一側才透得出來。
+            下面的「遷址緣起」照片在右，所以那一段反過來放左邊。 */}
+        <PatternMedallion motif="phoenix" side="r" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* 三層各司其職，不能疊在同一個元素上：
                 外層 .sr 進場（transform 由 CSS 控制）、中層 .sr-figure 視差（transform 由 JS 每次捲動寫入）、
@@ -3891,8 +3918,11 @@ const App: React.FC = () => {
       </section>
 
 {/* Deities Section */}
-      <section id="deities" className="py-12 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="deities" className="py-12 sm:py-20 bg-white relative overflow-hidden">
+        {/* 神尊是置中的卡片格狀排列，兩側一樣空；放左邊是為了不讓公告、關於、神尊
+            連著三段都落在右邊，變成一條直的 */}
+        <PatternMedallion motif="dragon" side="l" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="sr sr-up text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
@@ -3983,8 +4013,9 @@ const App: React.FC = () => {
           版型比照「關於和聖壇」，但不放數字卡——那兩張是關於我們專屬的。
           後台還沒有任何段落時整區不渲染，首頁不會出現空殼。 */}
       {relocationLead && (
-      <section id="relocation-intro" className="py-12 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="relocation-intro" className="py-12 sm:py-20 bg-white relative overflow-hidden">
+        <PatternMedallion motif="phoenix" side="l" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* 照片在右、文字在左，與上方「關於和聖壇」左右相反，版面才不會一成不變 */}
           <div className={`grid gap-12 items-center ${relocationLead.imagePath ? 'md:grid-cols-2' : ''}`}>
             {relocationLead.imagePath && (
@@ -4033,8 +4064,9 @@ const App: React.FC = () => {
       )}
 
       {/* Services Section */}
-      <section id="services" className="py-12 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section id="services" className="py-12 sm:py-20 bg-white relative overflow-hidden">
+        <PatternMedallion motif="dragon" side="r" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="sr sr-up text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
             <span className="w-8 h-1 bg-temple-gold" />
             宮廟服務
@@ -4771,8 +4803,8 @@ const App: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="space-y-5">
-              {blessingEventsSorted.map(ev => {
+            <div ref={blessingListRef} className="space-y-5 scroll-mt-24">
+              {blessingEventsPage.map(ev => {
                 const now = new Date();
                 const deadlinePassed = isBlessingClosed(ev, now);
                 const daysLeft = ev.registrationDeadline
@@ -4902,6 +4934,12 @@ const App: React.FC = () => {
               })}
             </div>
           )}
+          <Pagination
+            page={blessingSafePage}
+            count={blessingPageCount}
+            onChange={goBlessingPage}
+            label="祈福活動"
+          />
           </>)}
         </div>
 
@@ -5471,8 +5509,9 @@ const App: React.FC = () => {
           selectedHall，所以從首頁篩了某一殿再點進來，篩選會延續。 */}
       {page === 'deitiesAll' && (
       <div className="pt-20">
-        <section className="py-16 sm:py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-16 sm:py-20 bg-white relative overflow-hidden">
+          <PatternMedallion motif="dragon" side="r" />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center mb-12 sr sr-up">
               <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
                 <span className="w-8 h-1 bg-temple-gold" />
@@ -5550,17 +5589,23 @@ const App: React.FC = () => {
       {page === 'repair' && (
       <div className="pt-20">
       {repairProjects.length === 0 && (
-        <section className="py-32 text-center">
-          <h3 className="text-3xl font-bold text-temple-dark font-serif mb-4">神尊修復專區</h3>
-          <p className="text-gray-500">目前沒有進行中的修復專案，感謝您的關心。</p>
-          <button onClick={() => goToPage('home')} className="mt-8 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors">
-            返回首頁
-          </button>
+        <section className="py-32 text-center relative overflow-hidden">
+          {/* 空狀態也是一段，一樣要有團紋——整片空白又什麼紋樣都沒有，
+              看起來比較像壞掉而不是「目前沒有」 */}
+          <PatternMedallion motif="phoenix" side="r" />
+          <div className="relative z-10">
+            <h3 className="text-3xl font-bold text-temple-dark font-serif mb-4">神尊修復專區</h3>
+            <p className="text-gray-500">目前沒有進行中的修復專案，感謝您的關心。</p>
+            <button onClick={() => goToPage('home')} className="mt-8 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors">
+              返回首頁
+            </button>
+          </div>
         </section>
       )}
       {repairProjects.length > 0 && (
-      <section id="repair" className="py-20 bg-white relative">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="repair" className="py-20 bg-white relative overflow-hidden">
+        <PatternMedallion motif="phoenix" side="r" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />

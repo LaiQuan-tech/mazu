@@ -27,6 +27,7 @@ import PatternMedallion from './PatternMedallion';
 import { BulletinCard, scrollCardToTop } from './BulletinBody';
 import { BulletinCategory, BulletinRecord } from '../types';
 import { isDerivedBulletin } from '../services/derivedBulletins';
+import Pagination, { PAGE_SIZE, pageSlice, pageCountOf } from './Pagination';
 
 interface Props {
   bulletins: BulletinRecord[];
@@ -39,13 +40,36 @@ interface Props {
 const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onService }) => {
   const [filter, setFilter] = useState<string>('all');
   const [openId, setOpenId] = useState<string>(initialId);
+  const [page, setPage] = useState(0);
   /** 已經捲過一次就不要再捲——使用者自己往下滑之後被拉回去會很煩 */
   const scrolledRef = useRef(false);
+  /** 翻頁後要把清單頂端捲回畫面上方，不然會落在上一頁的位置、看起來像沒反應 */
+  const listRef = useRef<HTMLDivElement>(null);
 
   const shown = useMemo(
     () => (filter === 'all' ? bulletins : bulletins.filter(b => b.category === filter)),
     [bulletins, filter],
   );
+  const pageCount = pageCountOf(shown.length);
+  /**
+   * **頁碼要夾住。** 公告是即時資料：廟方在後台下架一則、或是衍生卡（近期辦事日那種）
+   * 當天沒有場次了，總頁數就會變少，停在第 3 頁的人會看到一片空白而不是錯誤。
+   * 夾在這裡而不是用 effect 去 setPage，是因為算出來馬上就要用，
+   * 等下一輪 render 中間會先閃一次空清單。
+   */
+  const safePage = Math.min(page, pageCount - 1);
+  const shownPage = pageSlice(shown, safePage);
+
+  /** 換頁、換分類都從頭看起 */
+  const goPage = (p: number) => {
+    setPage(p);
+    // 翻頁等於換一批內容，原本展開的那一則已經不在畫面上了，連網址一起收掉
+    setOpenId('');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/bulletins' + window.location.search);
+    }
+    if (listRef.current) scrollCardToTop(listRef.current);
+  };
 
   /**
    * 從 /bulletins/<id> 進來：那一則展開並捲到定位。
@@ -61,6 +85,20 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
    * **用 instant 不用 smooth**：smooth 的動畫要跑幾百毫秒，正好落在還原的時間窗裡。
    * 而且已經在畫面上就不再捲——使用者這 0.7 秒內可能自己滑走了。
    */
+  /**
+   * **深連結要先翻到那一則所在的頁**，不然卡片根本沒被渲染，下面那支捲動的
+   * effect 找不到元素，`/bulletins/<id>` 會停在第 1 頁最上面。
+   * 分頁是對**未篩選**的清單算的——進站時 filter 一定是 all。
+   */
+  const pagedRef = useRef(false);
+  useEffect(() => {
+    if (!initialId || pagedRef.current || bulletins.length === 0) return;
+    const i = bulletins.findIndex(b => b.id === initialId);
+    if (i < 0) return;
+    pagedRef.current = true;
+    setPage(Math.floor(i / PAGE_SIZE));
+  }, [initialId, bulletins]);
+
   useEffect(() => {
     if (!initialId || scrolledRef.current || bulletins.length === 0) return;
     if (!document.getElementById(`bulletin-card-${initialId}`)) return;
@@ -81,7 +119,8 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
     jump();
     const timers = [200, 700].map(ms => window.setTimeout(jump, ms));
     return () => timers.forEach(window.clearTimeout);
-  }, [initialId, bulletins]);
+    // safePage 也要進相依：上面那支把頁翻過去之後，卡片才存在、這支才找得到它
+  }, [initialId, bulletins, safePage]);
 
   /** 展開／收合時同步網址。衍生卡沒有穩定的 id，不給網址 */
   const toggle = (b: BulletinRecord) => {
@@ -137,7 +176,7 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
                 return (
                   <button
                     key={cat}
-                    onClick={() => setFilter(cat)}
+                    onClick={() => { setFilter(cat); goPage(0); }}
                     className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
                       filter === cat
                         ? 'bg-temple-red text-white shadow-md'
@@ -158,8 +197,8 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
               <p className="text-lg">這個分類目前沒有公告</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {shown.map(b => (
+            <div ref={listRef} className="space-y-4 scroll-mt-24">
+              {shownPage.map(b => (
                 <div key={b.id} id={`bulletin-card-${b.id}`}>
                   <BulletinCard
                     bulletin={b}
@@ -171,6 +210,8 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
               ))}
             </div>
           )}
+
+          <Pagination page={safePage} count={pageCount} onChange={goPage} label="公告" />
 
           <div className="mt-14 text-center">
             <button type="button" onClick={onBack}
