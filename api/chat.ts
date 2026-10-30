@@ -188,7 +188,51 @@ const askModel = async (key: string, system: string, turns: Turn[]): Promise<{ r
 };
 
 export default async function handler(req: ReqLike, res: ResLike): Promise<void> {
-  if ((req.method || 'GET').toUpperCase() !== 'POST') {
+  const method = (req.method || 'GET').toUpperCase();
+
+  /**
+   * `GET /api/chat?diag=1` —— 診斷用（照 `notify-registration?domains=1` 的作法）。
+   *
+   * **為什麼需要這一支**：客服壞掉時前端只看得到「暫時無法回應」，而真正的原因
+   * （金鑰無效／API 沒啟用／模型名稱不存在／額度用完）全在 Vercel 的函式 log 裡，
+   * 廟方不會去翻，而且本機沒有 Vercel CLI 的時候連我也看不到。
+   * 沒有這支就只能在那四種原因之間猜，而它們的症狀一模一樣。
+   *
+   * **只回模型名稱與 Google 給的狀態碼／訊息，不回傳任何金鑰相關的東西。**
+   * Google 對無效金鑰的回覆是「API key not valid」這種描述，不含秘密；
+   * 但還是截斷到 300 字，免得日後他們改成更囉嗦的內容而夾帶了不該出現的字。
+   */
+  if (method === 'GET' && String((req as { query?: Record<string, unknown> }).query?.diag ?? '') === '1') {
+    const k = process.env.GEMINI_API_KEY;
+    if (!k) { res.status(200).json({ ok: false, 金鑰: '沒有設定 GEMINI_API_KEY' }); return; }
+    try {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+        headers: { 'x-goog-api-key': k },
+      });
+      const txt = await r.text();
+      if (!r.ok) {
+        res.status(200).json({ ok: false, 金鑰長度: k.length, Google回應碼: r.status, Google說: txt.slice(0, 300) });
+        return;
+      }
+      const list = JSON.parse(txt) as { models?: { name?: string; supportedGenerationMethods?: string[] }[] };
+      const usable = (list.models ?? [])
+        .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+        .map((m) => (m.name ?? '').replace(/^models\//, ''));
+      res.status(200).json({
+        ok: true,
+        金鑰長度: k.length,
+        目前設定的模型: MODEL,
+        這把金鑰用得到它嗎: usable.includes(MODEL),
+        可用的模型數: usable.length,
+        可用的_flash: usable.filter((n) => n.includes('flash')).slice(0, 20),
+      });
+    } catch (e) {
+      res.status(200).json({ ok: false, 例外: String(e).slice(0, 200) });
+    }
+    return;
+  }
+
+  if (method !== 'POST') {
     res.status(405).json({ ok: false, error: '只接受 POST' });
     return;
   }
