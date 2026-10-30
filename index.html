@@ -982,33 +982,49 @@
       (function () {
         try {
           if (new URLSearchParams(location.search).get('diag') !== '1') return;
+          /**
+           * **`overflow:hidden` 裁不到 `position:absolute` 的子孫，除非它本身是定位元素。**
+           * 第一版只要祖先有 overflow 隱藏就當作被裁掉，結果在廟方的手機上
+           * 明明溢出 25px 卻回報「無」——真正凸出去的那個正好是這種情況。
+           * 現在逐層判斷「這一層到底裁不裁得到它」：static 的祖先對 absolute 無效，
+           * 但對 fixed 以外的一般流元素仍然有效；有 transform／filter 的例外也算包含塊。
+           */
+          var clipsIt = function (anc, pos) {
+            var s = getComputedStyle(anc);
+            var ox = s.overflowX;
+            if (ox !== 'hidden' && ox !== 'clip' && ox !== 'auto' && ox !== 'scroll') return false;
+            if (pos === 'fixed') return false;
+            if (pos !== 'absolute') return true;
+            return s.position !== 'static'
+              || s.transform !== 'none' || s.filter !== 'none' || s.perspective !== 'none';
+          };
           var show = function () {
             var d = document.documentElement, vv = window.visualViewport;
-            var over = [];
             var all = document.querySelectorAll('body *');
+            var rows = [];
             for (var i = 0; i < all.length; i++) {
               var e = all[i], r = e.getBoundingClientRect();
               if (r.width === 0 || r.right <= d.clientWidth + 1) continue;
-              var clipped = false;
+              var pos = getComputedStyle(e).position, clipped = false;
               for (var p = e.parentElement; p; p = p.parentElement) {
-                var ox = getComputedStyle(p).overflowX;
-                if (ox === 'hidden' || ox === 'clip' || ox === 'auto' || ox === 'scroll') { clipped = true; break; }
+                if (clipsIt(p, pos)) { clipped = true; break; }
               }
-              if (!clipped) over.push({ c: (e.className || e.tagName).toString().slice(0, 34), r: Math.round(r.right) });
+              rows.push({ c: (e.className || e.tagName).toString().slice(0, 30), r: Math.round(r.right), k: clipped });
             }
-            over.sort(function (a, b) { return b.r - a.r; });
+            rows.sort(function (a, b) { return b.r - a.r; });
+            var bad = rows.filter(function (x) { return !x.k; });
             var box = document.getElementById('__diag') || document.createElement('div');
             box.id = '__diag';
             box.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#111;color:#0f0;'
-              + 'font:12px/1.5 monospace;padding:8px 10px;white-space:pre-wrap;word-break:break-all';
+              + 'font:11px/1.45 monospace;padding:8px 10px;white-space:pre-wrap;word-break:break-all';
+            var fmt = function (x) { return '  ' + x.r + 'px ' + (x.k ? '[裁]' : '[露]') + ' ' + x.c; };
             box.textContent =
-              'screen      ' + screen.width + ' x ' + screen.height + '  dpr ' + window.devicePixelRatio + '\n'
-              + 'innerWidth  ' + window.innerWidth + '   clientWidth ' + d.clientWidth + '\n'
-              + 'scrollWidth ' + d.scrollWidth + '   溢出 ' + (d.scrollWidth - d.clientWidth) + '\n'
-              + 'visualVP    ' + (vv ? Math.round(vv.width) + ' x ' + Math.round(vv.height) + '  scale ' + vv.scale.toFixed(3) : '—') + '\n'
-              + 'body寬      ' + Math.round(document.body.getBoundingClientRect().width) + '\n'
-              + '超出右緣且沒被裁的：' + (over.length === 0 ? '無'
-                  : '\n' + over.slice(0, 4).map(function (x) { return '  ' + x.r + 'px  ' + x.c; }).join('\n'));
+              'client ' + d.clientWidth + '  inner ' + window.innerWidth + '  scroll ' + d.scrollWidth
+                + '  溢出 ' + (d.scrollWidth - d.clientWidth) + '\n'
+              + 'vv ' + (vv ? Math.round(vv.width) + 'x' + Math.round(vv.height) + ' s' + vv.scale.toFixed(2) : '—')
+                + '  body ' + Math.round(document.body.getBoundingClientRect().width) + '\n'
+              + '沒被裁的(' + bad.length + ')：' + (bad.length ? '\n' + bad.slice(0, 5).map(fmt).join('\n') : '無') + '\n'
+              + '全部超出的前6：\n' + rows.slice(0, 6).map(fmt).join('\n');
             if (!box.parentNode) document.body.appendChild(box);
           };
           addEventListener('load', function () { setTimeout(show, 2500); setTimeout(show, 6000); });
