@@ -3517,9 +3517,28 @@ const App: React.FC = () => {
                  絕對定位的替換元素同時給了 `left` 與 `right` 時 `right` 會被忽略——
                  不關 `left`，桌機「右緣貼著神尊」整個失效；不關 `translate`，
                  整幅會再往左位移一半的寬度。兩者在畫面上都只是位置怪，不會報錯。 */
+              /* **`md`（768–1023）是「桌機但沒有全螢幕」那一檔，不能照用手機的尺寸**
+                 （2026-10-30 廟方：「桌機，不再全螢幕時，背景書法應該要再大一點」）。
+                 把視窗從全螢幕縮回來，寬度常常落在 800–1000，`lg` 那套靠右貼神尊的
+                 擺法還沒生效，就整個退回手機的 `min(52vh,430px)`——實測 850×580 只有
+                 220×302，在那麼大的一片金箔上像一張貼紙。
+
+                 **只能往下長，不能往上。** 同一次實測：上緣已經在 y=81，而導覽列佔 70px，
+                 再往上就會壓到導覽列的白字（白墨壓白字，本檔記過金底白字只有 3.17:1）。
+                 所以下緣直接收到 0、高度上限給滿 `100vh - 70px`——**垂直方向與 `lg`
+                 完全同一套**（兩檔的差別只剩水平擺法：`lg` 靠右貼神尊，`md` 維持置中）。
+                 850×580 實測 220×302 → **371×510**，佔到視窗高度的 88%。
+
+                 **不設 px 上限、也不怕被神尊蓋住**（2026-10-30 廟方：「書法字要大才有氣勢，
+                 被神尊遮住都沒關係」）。第一版還留了 560px 的上限怕平板直立太大，
+                 廟方直接否掉了——它是背景不是插圖，露出來的那截夠大才有氣勢。
+                 擋住的部分本來就會沉到神尊後面（書法 `z-0`、神尊 `z-10`）。
+                 下襬沉進底部那道收邊被洗淡也是**刻意的**，與 `lg` 的 `bottom-0` 同一個效果。
+                 寬度仍受 `max-w-[86vw]` 限制，平板直立（768×1024）會先撞到寬度。 */
               className="block absolute z-0 w-auto h-auto
                          left-1/2 -translate-x-1/2 bottom-[34%]
                          max-h-[min(52vh,430px)] max-w-[86vw]
+                         md:bottom-0 md:max-h-[calc(100vh_-_70px)]
                          lg:left-auto lg:translate-x-0 lg:bottom-0
                          lg:right-[calc(0.886*min(100vh,110vw)_+_30px)]
                          lg:max-h-[calc(100vh_-_70px)]
@@ -3895,13 +3914,39 @@ const App: React.FC = () => {
 
               {/* 還沒載入就整塊不畫（見 aboutFacts 的註解）。不留佔位骨架是因為
                   這一區下面還有按鈕，留一塊空白反而讓版面跳兩次 */}
+              {/*
+                **兩張數字卡都是連結**（2026-10-30 廟方：「80+ 祀奉神尊應該加一個連結去看
+                祀奉神尊頁，1984 建壇年份也要連結去關於我們頁」）。
+                這兩個數字本來就是「還有更多可以看」的提示，底下卻只有一顆「更多」，
+                信眾看到 80+ 想知道是哪 80 尊時沒有地方可以按。
+
+                **目的地由標籤推，不是寫死位置。** 這兩筆是後台 `about_facts` 來的，
+                廟方隨時會改字；用 fact1／fact2 的順序綁死，哪天他們對調就會指錯頁。
+                認「神尊」兩個字 → 神尊頁，其餘 → 關於我們（這一段本來就是關於我們的摘要，
+                落在那裡永遠說得通）。
+
+                **不另外加「看全部神尊 ›」那種字**：標籤已經寫著祀奉神尊，再寫一次是
+                同一件事講兩遍。可按這件事交給整張卡的游標、hover 與那個箭頭去講。
+              */}
               <div className="grid grid-cols-2 gap-6">
-                {(aboutFacts ? [[aboutFacts.fact1Value, aboutFacts.fact1Label], [aboutFacts.fact2Value, aboutFacts.fact2Label]] : []).map(([value, label], fi) => (
-                  <div key={label} className={`sr sr-up ${fi === 0 ? 'sr-d2' : 'sr-d3'} bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold`}>
-                    <span className="text-4xl font-bold text-temple-red font-serif block mb-2">{value}</span>
-                    <span className="text-gray-500">{label}</span>
-                  </div>
-                ))}
+                {(aboutFacts ? [[aboutFacts.fact1Value, aboutFacts.fact1Label], [aboutFacts.fact2Value, aboutFacts.fact2Label]] : []).map(([value, label], fi) => {
+                  const target: SitePage = String(label).includes('神尊') ? 'deitiesAll' : 'about';
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => goToPage(target)}
+                      aria-label={`${label} ${value}，看${target === 'deitiesAll' ? '祀奉神尊' : '關於我們'}`}
+                      className={`tap sr sr-up ${fi === 0 ? 'sr-d2' : 'sr-d3'} group block w-full text-left bg-white p-6 rounded-lg shadow-md border-l-4 border-temple-gold hover:shadow-lg hover:bg-temple-gold/5 transition-all`}
+                    >
+                      <span className="text-4xl font-bold text-temple-red font-serif block mb-2">{value}</span>
+                      <span className="text-gray-500 inline-flex items-center gap-1">
+                        {label}
+                        <ChevronRight className="w-4 h-4 text-temple-gold group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* 首頁這段是摘要，完整沿革與照片在 /about */}
