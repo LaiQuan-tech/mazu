@@ -232,6 +232,43 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     return;
   }
 
+  /**
+   * `GET /api/chat?diag=2` —— 真的打一次最小的 generateContent，**把 Google 的原文回來**。
+   * `diag=1` 只證明「金鑰能列模型」，證明不了「這個請求的格式它收不收」，
+   * 而兩者的症狀在前端一模一樣（都是「暫時無法回應」）。
+   * 可以帶 `&kb=1` 連真正的知識庫一起送，用來分辨「格式錯」與「太長／被擋」。
+   */
+  if (method === 'GET' && String((req as { query?: Record<string, unknown> }).query?.diag ?? '') === '2') {
+    const k = process.env.GEMINI_API_KEY;
+    if (!k) { res.status(200).json({ ok: false, 金鑰: '沒有設定' }); return; }
+    const withKb = String((req as { query?: Record<string, unknown> }).query?.kb ?? '') === '1';
+    try {
+      const sys = withKb
+        ? `${RULES}\n\n以下是知識庫。\n\n${await loadKb(header(req, 'x-forwarded-host') || header(req, 'host'))}`
+        : '你是測試用的助理，請只回答「好」。';
+      const body = {
+        systemInstruction: { parts: [{ text: sys }] },
+        contents: [{ role: 'user', parts: [{ text: '開放時間？' }] }],
+        generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.3 },
+      };
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,
+        { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': k }, body: JSON.stringify(body) },
+      );
+      const txt = await r.text();
+      res.status(200).json({
+        模型: MODEL,
+        有帶知識庫: withKb,
+        system字數: sys.length,
+        回應碼: r.status,
+        Google原文: txt.slice(0, 900),
+      });
+    } catch (e) {
+      res.status(200).json({ ok: false, 例外: String(e).slice(0, 300) });
+    }
+    return;
+  }
+
   if (method !== 'POST') {
     res.status(405).json({ ok: false, error: '只接受 POST' });
     return;
