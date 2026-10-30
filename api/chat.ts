@@ -242,6 +242,9 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     const k = process.env.GEMINI_API_KEY;
     if (!k) { res.status(200).json({ ok: false, 金鑰: '沒有設定' }); return; }
     const withKb = String((req as { query?: Record<string, unknown> }).query?.kb ?? '') === '1';
+    // `&model=` 可以當場換一支來試。**用來分辨「整個專案沒額度」與「只有這一支要付費」**
+    // ——402 的訊息兩種情況長得一樣，不逐支試就分不出來。
+    const probe = String((req as { query?: Record<string, unknown> }).query?.model ?? '').trim() || MODEL;
     try {
       const sys = withKb
         ? `${RULES}\n\n以下是知識庫。\n\n${await loadKb(header(req, 'x-forwarded-host') || header(req, 'host'))}`
@@ -252,12 +255,12 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.3 },
       };
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(probe)}:generateContent`,
         { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': k }, body: JSON.stringify(body) },
       );
       const txt = await r.text();
       res.status(200).json({
-        模型: MODEL,
+        模型: probe,
         有帶知識庫: withKb,
         system字數: sys.length,
         回應碼: r.status,
