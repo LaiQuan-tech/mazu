@@ -66,7 +66,7 @@ import { openLine, setLineUrl, getLineUrl, trackLine } from './services/lineLink
 import { deriveBulletins } from './services/derivedBulletins';
 import { BulletinCard, BulletinBody, SERVICE_CTA } from './components/BulletinBody';
 import BulletinBanners from './components/BulletinBanners';
-import PosterImage from './components/PosterImage';
+import PosterImage, { POSTER_LIST_MAX_H } from './components/PosterImage';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
 import { withKeptParams } from './services/attribution';
@@ -4716,7 +4716,8 @@ const App: React.FC = () => {
       <section id="blessing" className="py-20 bg-white relative overflow-hidden">
         {/* 左右邊界都空 7/10，取右側與 /lamps 一致 */}
         <PatternMedallion motif="phoenix" side="r" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* 欄寬配海報不配文字，理由與算式見 components/BulletinsPage.tsx 同一處 */}
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {sharedMissing && page === 'blessing' && <SharedMissingNotice />}
           {pendingSharedFor('blessing').length > 0 && (
             <div className="max-w-2xl mx-auto">
@@ -4798,11 +4799,15 @@ const App: React.FC = () => {
                         type="button"
                         onClick={() => setPosterUrl(ev.imageUrl!)}
                         aria-label={`看 ${ev.title} 的海報大圖`}
-                        className="tap block w-full bg-temple-gold/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-temple-red/40"
+                        /* **不要襯底色**（2026-10-30）：直式海報不裁不壓就一定會在兩側留白，
+                           襯一塊金色等於把那段留白框成燈箱、整張圖看起來反而更小。
+                           卡片是白的，海報置中放在白底上，留白自然看不見。
+                           這與公佈欄、神明管理那條「不要框也不要底色」是同一條規則。 */
+                        className="tap block w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-temple-red/40"
                       >
                         <PosterImage
                           src={ev.imageUrl}
-                          maxH="max-h-[26rem]"
+                          maxH={POSTER_LIST_MAX_H}
                           className="hover:opacity-95 transition-opacity"
                         />
                       </button>

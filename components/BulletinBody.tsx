@@ -8,7 +8,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
 import { renderInline } from './StoryPage';
-import PosterImage from './PosterImage';
+import PosterImage, { POSTER_LIST_MAX_H } from './PosterImage';
 import { BulletinRecord } from '../types';
 import { TAG_SOLID } from './tagStyles';
 
@@ -257,10 +257,10 @@ export const BulletinCard: React.FC<{
       {bulletin.imageUrl && (
         <PosterImage
           src={bulletin.imageUrl}
-          /* 收合時夾在 max-h-72：桌機欄寬 832px，3:2 的海報不夾高度會到 555px，
-             一則就佔掉大半個螢幕，而這一頁的用途是「全部看完」。
-             展開才放到 36rem——廟方 2026-10-13 要的那個高度。 */
-          maxH={open ? 'max-h-[36rem]' : 'max-h-72'}
+          /* 收合的上限是算過的共用常數（見 PosterImage）；
+             展開才放到 36rem——廟方 2026-10-13 要的高度，只對直式海報有差，
+             橫式這時早就填滿欄寬了。 */
+          maxH={open ? 'max-h-[36rem]' : POSTER_LIST_MAX_H}
         />
       )}
       <div className="p-6 flex items-start justify-between">

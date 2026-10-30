@@ -101,7 +101,14 @@ const BulletinsPage: React.FC<Props> = ({ bulletins, initialId = '', onBack, onS
     <div className="relative pt-20 bg-white min-h-screen overflow-hidden">
       <PatternMedallion motif="phoenix" side="r" />
       <section className="page-content py-16 sm:py-20 relative z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/*
+          **桌機的欄寬要配海報，不是配文字**（2026-10-30 廟方：桌機「怪怪的」）。
+          原本 `max-w-4xl`＝卡片 832px，而海報收合時被 `max-h-72` 夾住只有 427px 寬，
+          兩側各留 200px 空白——海報變成一張飄在大白板中間的小圖。
+          收到 `max-w-2xl`＝卡片 608px，3:2 的海報剛好 608×411 **填滿整欄**，
+          也正好是中文內文舒服的行長（約 38 字）。手機不受影響（本來就滿版）。
+        */}
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* 標題：小標 h2 → 大標 h1 → 分隔飾 → 說明（全站統一寫法，見 CLAUDE.md） */}
           <header className="text-center mb-10">
