@@ -111,6 +111,10 @@
       "destination": "/deities.html"
     },
     {
+      "source": "/scripture/full",
+      "destination": "/scripture/full.html"
+    },
+    {
       "source": "/scripture",
       "destination": "/scripture.html"
     },

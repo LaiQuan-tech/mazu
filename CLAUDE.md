@@ -9,6 +9,11 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 
 - **法會報名表上線收件中**（太上慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 模組層級的 `FAHUI_LANDING=true` 讓報名表蓋住**根路徑**——**這是刻意的**。主官網上線時改成 `false` 再部署，其他都不用動。
   判斷集中在 `shouldShowFahui()`（根路徑＋非後台＋非志工頁才顯示），初始值與 popstate 共用同一個函式；分開寫過會導致按上一頁被報名表吃掉。
+- **天上聖母經有兩頁（2026-11-09）**：`/scripture` 是逐段白話註解版、`/scripture/full` 是不含註解的全文誦讀版（`components/ScriptureFullText.tsx`），同一份 `scripture_verses`。
+  **兩頁的標題刻意分開搶不同的字**：註解版主打「白話註解」、全文版主打「全文」（原本註解版標題寫著「全文」，現在讓出來）。`App.tsx` 的 `document.title` 與 `prerender.js` 的 ROUTES 要一致。全文版的 noscript 只放經文、不放註解，兩頁內容才有差別。
+  **註解預設收合、只露兩行**（`NOTE_PEEK`），每段一顆「展開註解」，開場有「展開全部註解」。**收起來的註解仍整段在 DOM 裡、只用 max-height 遮住，不可以改成條件式渲染**——那 136 段註解就是這一頁的 SEO 價值。原本每節 `minHeight: 70vh` 一起拿掉，否則頁面一個像素都不會變短。量過：手機 117,297 → 69,864px、桌機 1024 寬 117,468 → 82,105px。
+  **全文版每一句是 `nowrap` 的單位**：手機自然折行會把「可先知」拆成「可先／知」，念的人會卡在半句。
+  `isScriptureUrl()` 兩個網址都認（`shouldShowFahui()` 的排除靠它）；`/scripture/full` 預渲染到 `dist/scripture/full.html`（prerender 會 `mkdirSync`），`vercel.json` 的 rewrite 排在 `/scripture` 之前；`index.html` 的深色防閃 script 也列了它。
 - **天上聖母經的網址是 `/scripture`**（`SCRIPTURE_PATH`，2026-09-02 新增，內容在 `scripture-data.json`，136 段經文＋註解）。跟 `/fahui`、`/volunteer` 同一套模式：初始值看網址、popstate 同步、入口用 `openScripture()` 推網址、返回走 `closeScripture()`。
   **`shouldShowFahui()` 必須排除 `isScriptureUrl()`**：`/scripture` 在 `pageFromPath()` 眼中是未知路徑會回傳 `'home'`，非官方網域上會因此被判成「根路徑」而顯示報名表，經文就打不開。新增這類路徑時都要記得加排除。
   **分享圖是廟方的書籍封面**（`public/og-scripture.jpg`，由 `scripts/build-og-scripture.js` 產生，換封面時重跑）。封面原圖是 A4 直式 1414×2000，**不能直接當 og:image**——LINE／FB 要 1200×630，直式會被裁掉、標題整個不見。腳本的作法是整張封面縮到卡片高度 94% 置中，底色取封面四角平均色 `rgb(222,198,169)`（那就是封面自己的外框色，所以接縫連續、畫面不多一種顏色）。`prerender.js` 的 ROUTES 支援 `image`／`imageAlt`，**`og:image` 與 `twitter:image` 必須一起換**，只換一個會讓 X 顯示另一張。

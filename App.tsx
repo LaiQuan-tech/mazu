@@ -77,6 +77,7 @@ import { useScrollMotion } from './hooks/useScrollMotion';
 // 大型功能按需要才下載：後台含 Excel 套件，若跟首頁一起打包會讓每位訪客先載入用不到的程式。
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const ScripturePage = lazy(() => import('./components/ScripturePage'));
+const ScriptureFullText = lazy(() => import('./components/ScriptureFullText'));
 const MemberPortal = lazy(() => import('./components/MemberPortal'));
 const FahuiRegistration = lazy(() => import('./components/FahuiRegistration'));
 const VolunteerRegistration = lazy(() => import('./components/VolunteerRegistration'));
@@ -1370,8 +1371,17 @@ const isFahuiUrl = (): boolean =>
  * 沒有網址就只能靠「進站→開選單→點一下」，貼不到 LINE 上。
  */
 const SCRIPTURE_PATH = '/scripture';
+/**
+ * 不含註解的全文版（2026-11-09）。**`isScriptureUrl()` 兩個網址都認**：
+ * 它同時負責讓 `shouldShowFahui()` 排除經文頁（見 CLAUDE.md 那條），只認一個的話
+ * `/scripture/full` 在非官方網域上會被法會報名表蓋掉。
+ */
+const SCRIPTURE_FULL_PATH = '/scripture/full';
+const isScriptureFullUrl = (): boolean =>
+  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SCRIPTURE_FULL_PATH;
 const isScriptureUrl = (): boolean =>
-  typeof window !== 'undefined' && stripSlash(window.location.pathname) === SCRIPTURE_PATH;
+  typeof window !== 'undefined'
+  && (stripSlash(window.location.pathname) === SCRIPTURE_PATH || isScriptureFullUrl());
 
 /**
  * 進香洗澡車（媽祖進香，2026-10-08）。兩個網址：
@@ -1543,6 +1553,7 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showScripture, setShowScripture] = useState(isScriptureUrl);
+  const [scriptureFull, setScriptureFull] = useState(isScriptureFullUrl);
   const [showShower, setShowShower] = useState(isShowerUrl);
   const [showShowerCheckin, setShowShowerCheckin] = useState(isShowerCheckinUrl);
   const [page, setPage] = useState<SitePage>(pageFromPath);
@@ -1610,13 +1621,17 @@ const App: React.FC = () => {
       : showShower
       ? '17 沐浴車｜媽祖進香免費沐浴服務位置查詢'
       : showScripture
-      ? '天上聖母經｜經文、註解與故事｜台北古亭和聖壇'
+      // 兩頁的標題要分得開：一個主打「全文」、一個主打「白話註解」，不要兩頁搶同一個搜尋字。
+      // 與 scripts/prerender.js 的 ROUTES 一致
+      ? (scriptureFull
+        ? '天上聖母經全文（媽祖經）｜誦讀版｜台北古亭和聖壇'
+        : '天上聖母經（媽祖經）白話註解｜逐段經文與典故｜台北古亭和聖壇')
       : showVolunteer
       ? '志工報名｜台北古亭和聖壇'
       : showFahui
       ? '和聖壇法會線上報名｜太上慈悲普渡禮懺法會'
       : titles[page];
-  }, [showScripture, showVolunteer, showFahui, showShower, showShowerCheckin, page]);
+  }, [showScripture, scriptureFull, showVolunteer, showFahui, showShower, showShowerCheckin, page]);
 
   // 沐浴車那兩頁換成沐浴車自己的網站圖示，其餘一律是和聖壇的（理由見 FAVICONS）
   useEffect(() => {
@@ -1702,11 +1717,15 @@ const App: React.FC = () => {
    * 開啟聖母經，並把網址推成 /scripture。
    * 不推網址就沒得分享，而且重新整理會掉回首頁。
    */
-  const openScripture = () => {
-    if (typeof window !== 'undefined' && stripSlash(window.location.pathname) !== SCRIPTURE_PATH) {
-      window.history.pushState({}, '', withKeptParams(SCRIPTURE_PATH));
+  const openScripture = (full = false) => {
+    const path = full ? SCRIPTURE_FULL_PATH : SCRIPTURE_PATH;
+    if (typeof window !== 'undefined' && stripSlash(window.location.pathname) !== path) {
+      window.history.pushState({}, '', withKeptParams(path));
     }
+    setScriptureFull(full);
     setShowScripture(true);
+    // 兩個版本之間互跳時，新的那一頁要從頭開始，不是停在上一頁捲到的位置
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   /** 從聖母經返回。與 closeFahui 同樣要把網址推回 `/`，否則重新整理又回到經文。 */
@@ -1736,6 +1755,7 @@ const App: React.FC = () => {
       const vol = isVolunteerUrl();
       setShowVolunteer(vol);
       setShowScripture(isScriptureUrl());
+      setScriptureFull(isScriptureFullUrl());
       setShowShower(isShowerUrl());
       setShowShowerCheckin(isShowerCheckinUrl());
       setShowFahui(shouldShowFahui());
@@ -2974,7 +2994,7 @@ const App: React.FC = () => {
   const analyticsPath =
     showShowerCheckin ? '/shower/checkin'
     : showShower ? '/shower'
-    : showScripture ? '/scripture'
+    : showScripture ? (scriptureFull ? SCRIPTURE_FULL_PATH : SCRIPTURE_PATH)
     : showVolunteer ? '/volunteer'
     : showFahui ? '/fahui'
     : page === 'home' ? '/'
@@ -3001,7 +3021,11 @@ const App: React.FC = () => {
   if (showScripture) {
     return (<>
       <Analytics path={analyticsPath} />
-      <Suspense fallback={<PageLoading />}><ScripturePage onBack={closeScripture} /></Suspense>
+      <Suspense fallback={<PageLoading />}>
+        {scriptureFull
+          ? <ScriptureFullText onBack={closeScripture} onOpenAnnotated={() => openScripture(false)} />
+          : <ScripturePage onBack={closeScripture} onOpenFull={() => openScripture(true)} />}
+      </Suspense>
       {/* 聖母經 136 段、是全站最長的一頁，最需要這顆鈕，而它在獨立的 return 分支裡
           所以原本沒有（廟方 2026-10-16 指出）。這一頁沒有 LINE 浮動鈕，stacked=false */}
       <BackToTop show={showToTop} onClick={scrollToTop} />

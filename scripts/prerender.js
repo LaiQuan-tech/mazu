@@ -20,7 +20,7 @@
 // 若之後要連後台內容一起靜態化，再換成 puppeteer 版本（要注意 `/` 在
 // 非官網網域會顯示報名表，快照時必須讓瀏覽器以 heshengtan.tw 的身分解析）。
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -87,7 +87,9 @@ const ROUTES = [
     // 普遍就叫媽祖經——全站原本 0 次提到那三個字，於是用俗名搜的人對不到任何東西。
     // 正式名擺第一（那是主要的查詢字），俗名跟在括號裡；「全文」是這個題目最常
     // 被一起打的修飾語。h1 維持「天上聖母經」與畫面上那一行一致。
-    title: '天上聖母經（媽祖經）全文｜逐段白話註解｜台北古亭和聖壇',
+    // 2026-11-09 起「全文」讓給 /scripture/full，這一頁主打「白話註解」：兩頁搶同一個字
+    // 只會互相稀釋。與 App.tsx 的 document.title 一致。
+    title: '天上聖母經（媽祖經）白話註解｜逐段經文與典故｜台北古亭和聖壇',
     desc: '天上聖母經全文共 136 段，逐段附白話註解與典故出處，可線上閱讀。天上聖母即媽祖，本經民間也稱媽祖經。台北古亭和聖壇提供。',
     h1: '天上聖母經',
     // 專屬分享圖。不給的話會沿用全站的 og-hero.jpg（金箔＋神尊），
@@ -103,6 +105,22 @@ const ROUTES = [
       // 而「媽祖經是什麼」「林默娘」正是會被問的問法
       '天上聖母即媽祖，本名林默娘，宋代建隆元年農曆三月二十三日生於福建莆田湄州；這部經民間也稱媽祖經。',
       '經文記述天上聖母降世的緣由、勸世的教誨，以及歷代忠臣烈士的節義事蹟；註解說明字句的意思與引用的出處，供信眾誦讀時對照理解。',
+    ],
+  },
+  {
+    // 不含註解的全文版（2026-11-09 廟方：「給不同需求的信眾，也幫助 seo」）。
+    // 主打「天上聖母經全文」這個查詢——要誦讀的人搜的就是這個，而 /scripture 那一頁
+    // 有 136 張插圖與註解，對他們來說太重。經文同樣整段進 noscript（見 scriptureText）。
+    path: '/scripture/full',
+    priority: '0.8',
+    title: '天上聖母經全文（媽祖經）｜誦讀版｜台北古亭和聖壇',
+    desc: '天上聖母經全文共 136 段，只列經文、不含註解，方便一路誦讀。天上聖母即媽祖，本經民間也稱媽祖經。逐段白話註解請見台北古亭和聖壇的天上聖母經註解頁。',
+    h1: '天上聖母經全文',
+    image: '/og-scripture.jpg',
+    imageAlt: '天上聖母經全文｜台北古亭和聖壇',
+    body: [
+      '天上聖母經全文，共 136 段，誦讀版只列經文、不含註解。',
+      '天上聖母即媽祖，本名林默娘；這部經民間也稱媽祖經。想了解每一句的意思與典故，請看逐段白話註解：https://heshengtan.tw/scripture',
     ],
   },
   {
@@ -1371,10 +1389,12 @@ for (const r of ACTIVE_ROUTES) {
    * 只摘要幾段等於把最該被索引的內容留在 JS 裡。`verse` 的換行是刻意的斷句，
    * 轉成 `<br />`（**先 esc 再換**，順序反了會把標籤自己跳脫掉）。
    */
-  const scriptureText = r.path !== '/scripture' || scriptureRows.length === 0 ? '' :
+  const isScripture = r.path === '/scripture' || r.path === '/scripture/full';
+  const scriptureText = !isScripture || scriptureRows.length === 0 ? '' :
     '\n' + scriptureRows.map((v) => {
       const verse = esc(v.verse).replace(/\n/g, '<br />');
-      const ann = v.ann ? `\n        <p style="margin:0 0 .75rem;color:#5C4310">${esc(v.ann)}</p>` : '';
+      // 全文版只放經文，註解留給 /scripture——兩頁的內容要有差別，不是同一份複製兩次
+      const ann = v.ann && r.path === '/scripture' ? `\n        <p style="margin:0 0 .75rem;color:#5C4310">${esc(v.ann)}</p>` : '';
       return `        <h2 style="font-size:1rem;margin:1.25rem 0 .35rem;color:#7C5C1E">第 ${esc(String(v.n))} 段</h2>\n`
            + `        <p style="margin:0 0 .35rem">${verse}</p>${ann}`;
     }).join('\n');
@@ -1407,6 +1427,7 @@ ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${
   html = html.replace('<div id="root"></div>', '<div id="root"></div>\n' + noscript);
 
   const out = resolve(DIST, r.path.slice(1) + '.html');
+  mkdirSync(dirname(out), { recursive: true });   // /scripture/full → dist/scripture/full.html
   writeFileSync(out, applySiteInfo(html), 'utf8');
   console.log(`prerender  ${r.path.padEnd(12)} → dist${r.path}.html`);
 }

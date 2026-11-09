@@ -10,14 +10,38 @@ const STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/pub
 
 interface ScripturePageProps {
   onBack: () => void;
+  /** 換到不含註解的全文版（/scripture/full） */
+  onOpenFull: () => void;
 }
 
-const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
+/**
+ * 註解收合時露出的高度：兩行。行高是 2.2（見 .sp-note），所以 4.4em。
+ * 只露兩行而不是整段藏起來，是讓人知道「這裡有註解、大概在講什麼」再決定要不要點開。
+ */
+const NOTE_PEEK = '4.4em';
+/** 短到兩行就放得下的註解不給展開鈕，按了也不會多出任何字 */
+const NOTE_PEEK_CHARS = 60;
+
+const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => {
   const [atTop, setAtTop] = useState(true);
   const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [currentSection, setCurrentSection] = useState(0);
+  /**
+   * 展開了哪幾段的註解（廟方 2026-11-09：「每一段的註解做收折，這樣整個網頁會比較短」）。
+   *
+   * **收起來的註解仍然整段在 DOM 裡**，只是用 max-height 遮住——不可以改成條件式渲染。
+   * 這一頁是全站 SEO 最重要的一頁，而它的價值就是那 136 段註解；Google 會讀被收合的文字，
+   * 但讀不到根本不存在的文字。
+   */
+  const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
+  const allOpen = verses.length > 0 && openNotes.size === verses.length;
+  const toggleNote = (id: string) => setOpenNotes(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const rafRef = useRef<number>(0);
 
   // 掛載時把 body 背景改成頁面底色，避免捲動慣性時露白
@@ -504,6 +528,19 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
           聖母經乃歷代信眾虔誠奉誦之頌詞，記載天上聖母慈悲護佑之事蹟。<br />
           以下各節，輔以圖繪與說解，願讀者沐浴聖恩，心生清淨。
         </p>
+        {/* 兩種讀法給兩種人：要誦讀的人只要經文，要理解的人一段一段點開註解 */}
+        <div className="sp-up sp-d2" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 24 }}>
+          <button type="button" onClick={onOpenFull} style={{ color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '10px 22px', fontSize: 15, letterSpacing: '.15em', cursor: 'pointer' }}>
+            只看經文全文（誦讀用）
+          </button>
+          {!loading && verses.length > 0 && (
+            <button type="button" aria-pressed={allOpen}
+              onClick={() => setOpenNotes(allOpen ? new Set() : new Set(verses.map(v => v.id)))}
+              style={{ color: INK.inkSoft, background: 'transparent', border: `1px solid ${INK.goldLine}`, borderRadius: 999, padding: '10px 22px', fontSize: 15, letterSpacing: '.15em', cursor: 'pointer' }}>
+              {allOpen ? '收合全部註解' : '展開全部註解'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── 各章節 ── */}
@@ -513,7 +550,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
         return (
           <div key={section.id} data-section-idx={idx}>
             <hr className="brush-line" />
-            <section style={{ minHeight: '70vh', padding: 'clamp(48px,7vh,80px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
+            {/* 原本每節 minHeight 70vh，136 節就是將近一百屏。註解收合之後內容本身已經不高，
+                留著那個下限頁面一個像素都不會變短，所以拿掉、只留上下內距。 */}
+            <section style={{ padding: 'clamp(40px,6vh,72px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
 
               {/* Per-section background glow */}
               <div style={{
@@ -565,9 +604,34 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack }) => {
                     </div>
                   </div>
                   <div className="sp-up sp-d2 sp-rule" style={{ height: 1, marginBottom: 20, background: isEven ? `linear-gradient(to right, ${INK.goldLine}, transparent)` : `linear-gradient(to left, ${INK.goldLine}, transparent)` }} />
-                  <div className="sp-up sp-d3 sp-note" style={{ color: INK.inkBody, fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em', maxWidth: 640 }}>
-                    {renderAnnotation(section.annotation)}
-                  </div>
+                  {(() => {
+                    const canFold = section.annotation.length > NOTE_PEEK_CHARS;
+                    const open = !canFold || openNotes.has(section.id);
+                    const noteId = `sp-note-${section.id}`;
+                    return (
+                      <div className="sp-up sp-d3 sp-note" style={{ maxWidth: 640 }}>
+                        <div id={noteId} style={{
+                          color: INK.inkBody, fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em',
+                          // 收合時用遮罩把第二行淡出，看得出「下面還有」而不是被一刀切掉
+                          ...(open ? {} : {
+                            maxHeight: NOTE_PEEK, overflow: 'hidden',
+                            WebkitMaskImage: 'linear-gradient(to bottom, #000 45%, transparent)',
+                            maskImage: 'linear-gradient(to bottom, #000 45%, transparent)',
+                          }),
+                        }}>
+                          {renderAnnotation(section.annotation)}
+                        </div>
+                        {canFold && (
+                          <button type="button" onClick={() => toggleNote(section.id)}
+                            aria-expanded={open} aria-controls={noteId}
+                            style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, color: INK.ink, background: 'transparent', border: 'none', padding: '8px 0', fontSize: 15, letterSpacing: '.12em', cursor: 'pointer' }}>
+                            {open ? '收合註解' : '展開註解'}
+                            <ChevronDown size={16} aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </section>
