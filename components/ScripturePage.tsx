@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
-import { INK } from './inkTheme';
+import { INK, SUTRA } from './inkTheme';
 
 
 // 由環境變數推導，避免專案搬遷時圖片 404
@@ -490,8 +490,8 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
               // 內層 .hero-char-in：CSS 進場動畫（opacity + translateY），兩者不衝突
               <span key={i} className="hero-char" style={{ display: 'inline-block' }}>
                 <span className="hero-char-in" style={{
-                  fontSize: 'clamp(46px,7.5vw,100px)', color: INK.ink, fontWeight: 900,
-                  lineHeight: 1, textShadow: `0 3px 18px ${INK.shadow}`,
+                  fontSize: 'clamp(46px,7.5vw,100px)', color: SUTRA.gold, fontWeight: 900,
+                  lineHeight: 1, textShadow: `0 3px 18px ${INK.shadow}, 0 0 28px ${SUTRA.glow}`,
                   animationDelay: `${0.3 + i * 0.14}s`,
                 }}>{ch}</span>
               </span>
@@ -595,7 +595,12 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
                 <div className="sp-text" style={{ flex: 1, minWidth: 200 }}>
                   {/* sp-verse：scroll-reveal 時加 sp-in → .verse-char 逐字飄入 */}
                   <div className="sp-verse" style={{ display: 'flex', justifyContent: isEven ? 'flex-end' : 'flex-start', marginBottom: 26 }}>
-                    <div className="vert vert-sutra" style={{ color: INK.ink, fontSize: 'clamp(18px,2.6vw,32px)', fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
+                    {/* 字級 2026-11-09 從 clamp(18px,2.6vw,32px) 放大（廟方：「字有辦法大一點嗎」）：
+                        手機 18 → 22px。欄線用 em 畫的，會跟著字級一起變。
+                        **欄數多的那幾段要跟著縮**：直排的寬度＝欄數 × 1.75em ＋ 左右內距 2.5em，
+                        最多的有九欄，22px 時 402px 寬，比 375 的手機還寬、被切掉一截（實測 7 段）。
+                        所以每段各自算：放得下就 22px，放不下就縮到剛好（100vw − 48 是手機的可用寬）。 */}
+                    <div className="vert vert-sutra" style={{ color: SUTRA.gold, textShadow: `0 0 14px ${SUTRA.glow}`, fontSize: `min(clamp(22px,3vw,36px), calc((100vw - 48px) / ${(section.verse.split('\n').length * 1.75 + 2.5).toFixed(2)}))`, fontWeight: 900, letterSpacing: '.28em', lineHeight: 1.75, whiteSpace: 'pre' }}>
                       {section.verse.split('').map((ch, ci) =>
                         ch === '\n'
                           ? <br key={`br${ci}`} />
@@ -611,7 +616,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
                     return (
                       <div className="sp-up sp-d3 sp-note" style={{ maxWidth: 640 }}>
                         <div id={noteId} style={{
-                          color: INK.inkBody, fontSize: 'clamp(14px,1.5vw,16px)', lineHeight: 2.2, letterSpacing: '.05em',
+                          color: SUTRA.text, fontSize: 'clamp(16px,1.7vw,18px)', lineHeight: 2.2, letterSpacing: '.05em',
                           // 收合時用遮罩把第二行淡出，看得出「下面還有」而不是被一刀切掉
                           ...(open ? {} : {
                             maxHeight: NOTE_PEEK, overflow: 'hidden',
@@ -643,7 +648,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
       <hr className="brush-line" />
       <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '72px 32px', background: `linear-gradient(to bottom, ${INK.paper}, ${INK.paperDeep})` }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="vert sp-up" style={{ color: INK.ink, fontSize: 'clamp(16px,2.5vw,28px)', fontWeight: 300, letterSpacing: '.35em', lineHeight: 1.9, height: 'clamp(180px,26vw,320px)', margin: '0 auto' }}>
+          <div className="vert sp-up" style={{ color: SUTRA.gold, fontSize: 'clamp(16px,2.5vw,28px)', fontWeight: 300, letterSpacing: '.35em', lineHeight: 1.9, height: 'clamp(180px,26vw,320px)', margin: '0 auto' }}>
             {'天上聖母\n護佑眾生\n萬古流芳\n聖恩永沐'}
           </div>
           <hr className="brush-line sp-up sp-d1" style={{ margin: '40px auto' }} />

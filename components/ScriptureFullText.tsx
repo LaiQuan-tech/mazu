@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
-import { INK } from './inkTheme';
+import { INK, SUTRA } from './inkTheme';
 
 /**
  * 天上聖母經全文（/scripture/full，2026-11-09 廟方：「要不要有一個天上聖母經全文，
@@ -77,7 +77,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 20px 96px' }}>
         <header style={{ textAlign: 'center', marginBottom: 40 }}>
           <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 16 }}>台 北 古 亭 和 聖 壇</p>
-          <h1 style={{ color: INK.ink, fontSize: 'clamp(30px,6vw,44px)', fontWeight: 900, letterSpacing: '.2em', marginBottom: 12 }}>天上聖母經全文</h1>
+          <h1 style={{ color: SUTRA.gold, textShadow: `0 0 24px ${SUTRA.glow}`, fontSize: 'clamp(30px,6vw,44px)', fontWeight: 900, letterSpacing: '.2em', marginBottom: 12 }}>天上聖母經全文</h1>
           <p style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.2em' }}>
             {loading ? '載入中…' : '誦讀版'}
           </p>
@@ -90,7 +90,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
         </header>
 
         <p style={{
-          color: INK.ink, fontSize: 'min(26px, calc((100vw - 40px) / 18))', lineHeight: 2.3,
+          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 18))', lineHeight: 2.3,
           display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', justifyContent: 'space-between',
           // 桌機字級到頂之後版面還很寬，不收的話四欄會被 space-between 拉得很開
           maxWidth: '19em', margin: '0 auto',

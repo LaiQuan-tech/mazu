@@ -96,6 +96,21 @@ export const INK = {
 /** 給 index.html 的 body 與手機網址列用（App.tsx 的 theme-color effect）。 */
 export const INK_PAPER_BG = INK.paper;
 
+/**
+ * 天上聖母經兩頁（/scripture、/scripture/full）的經文字色（廟方 2026-11-09：
+ * 「字用鵝黃色，可以把字用黃金色嗎？對比凸顯、漂亮也好閱讀」）。
+ *
+ * **刻意不改 `INK.ink`**：那一組同時是全站 `?ink=1` 青花紙主題的色票，
+ * 改它等於連整站的深色主題一起換色。經文頁自己用這一組。
+ * 對比都是量在 `INK.paper`（#16233F）上：gold 8.71:1、text 9.9:1，兩個都過 AAA（7:1）。
+ * text 比 gold 亮一階：註解是一整段的長文，用跟經文一樣飽和的金讀久了眼睛累。
+ */
+export const SUTRA = {
+  gold: '#E8BC4A',                      // 經文與大標
+  text: '#F0CA68',                      // 註解內文
+  glow: 'rgba(232,188,74,.28)',         // 經文的微光，讓金色有「泛著光」的感覺而不是平塗
+} as const;
+
 export const INK_PAPER_CSS = `
   .ink-paper { background: ${INK.paper}; color-scheme: dark; }
 
