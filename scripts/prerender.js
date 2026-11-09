@@ -114,12 +114,12 @@ const ROUTES = [
     path: '/scripture/full',
     priority: '0.8',
     title: '天上聖母經全文（媽祖經）｜誦讀版｜台北古亭和聖壇',
-    desc: '天上聖母經全文共 136 段，只列經文、不含註解，方便一路誦讀。天上聖母即媽祖，本經民間也稱媽祖經。逐段白話註解請見台北古亭和聖壇的天上聖母經註解頁。',
+    desc: '天上聖母經全文，只列經文、不含註解，方便一路誦讀。天上聖母即媽祖，本經民間也稱媽祖經。逐段白話註解請見台北古亭和聖壇的天上聖母經註解頁。',
     h1: '天上聖母經全文',
     image: '/og-scripture.jpg',
     imageAlt: '天上聖母經全文｜台北古亭和聖壇',
     body: [
-      '天上聖母經全文，共 136 段，誦讀版只列經文、不含註解。',
+      '天上聖母經全文，誦讀版只列經文、不含註解。',
       '天上聖母即媽祖，本名林默娘；這部經民間也稱媽祖經。想了解每一句的意思與典故，請看逐段白話註解：https://heshengtan.tw/scripture',
     ],
   },
@@ -1389,12 +1389,14 @@ for (const r of ACTIVE_ROUTES) {
    * 只摘要幾段等於把最該被索引的內容留在 JS 裡。`verse` 的換行是刻意的斷句，
    * 轉成 `<br />`（**先 esc 再換**，順序反了會把標籤自己跳脫掉）。
    */
-  const isScripture = r.path === '/scripture' || r.path === '/scripture/full';
-  const scriptureText = !isScripture || scriptureRows.length === 0 ? '' :
+  // 全文版一整篇不分段、不標段號：那 136 段是註解版配插圖的切法，不是經文本身的段落
+  // （廟方 2026-11-09）。與 components/ScriptureFullText.tsx 同一個規則。
+  const fullText = r.path !== '/scripture/full' || scriptureRows.length === 0 ? '' :
+    `\n        <p style="margin:0">${scriptureRows.map((v) => esc(v.verse).split('\n').map((l) => l.trim()).filter(Boolean).join('　')).join('　')}</p>`;
+  const scriptureText = r.path !== '/scripture' || scriptureRows.length === 0 ? fullText :
     '\n' + scriptureRows.map((v) => {
       const verse = esc(v.verse).replace(/\n/g, '<br />');
-      // 全文版只放經文，註解留給 /scripture——兩頁的內容要有差別，不是同一份複製兩次
-      const ann = v.ann && r.path === '/scripture' ? `\n        <p style="margin:0 0 .75rem;color:#5C4310">${esc(v.ann)}</p>` : '';
+      const ann = v.ann ? `\n        <p style="margin:0 0 .75rem;color:#5C4310">${esc(v.ann)}</p>` : '';
       return `        <h2 style="font-size:1rem;margin:1.25rem 0 .35rem;color:#7C5C1E">第 ${esc(String(v.n))} 段</h2>\n`
            + `        <p style="margin:0 0 .35rem">${verse}</p>${ann}`;
     }).join('\n');

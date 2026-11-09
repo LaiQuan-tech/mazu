@@ -15,10 +15,14 @@ import { INK } from './inkTheme';
  * **橫排不直排**：註解版的直排是為了寫經本的觀感；這一頁的用途是拿著手機一路念，
  * 直排在手機上要左右來回捲，長輩念到一半會找不到下一欄。
  *
- * 經文的斷句照資料裡的換行：一行一句、空行是段落裡的停頓。句與句接著排、
- * 停頓處換行——這是經書排印的慣例，比一句一行省一半長度。
- * **每一句是一個不換行的單位**：手機上自然折行會把「可先知」拆成「可先／知」，
- * 念的人會在半句卡住，所以只准在句與句之間換行。
+ * **不分段、不標段號，從頭到尾一整篇**（廟方 2026-11-09：「段落是我自己為了畫圖
+ * 而做的，不是經文本身的段落」）。那 136 段是註解版配插圖用的切法，經文本身沒有；
+ * 放進全文版會讓人以為經書就是這樣分章的。資料裡的空行同理，一併不理。
+ *
+ * **每一句（到「。」為止）是一個不換行的單位**：手機上自然折行會把「可先知」
+ * 拆成「可先／知」，念的人會在半句卡住，所以只准在句與句之間換行。
+ * 一句一個單位、而不是資料裡的一行（兩句）一個單位：手機上兩句一組一行只放得下一組，
+ * 整篇會變成一長條；一句一組一行放得下三、四句，頁面短一半。
  */
 
 interface Props {
@@ -27,9 +31,11 @@ interface Props {
   onOpenAnnotated: () => void;
 }
 
-/** 經文 → 停頓分出的區塊 → 每塊裡的句子 */
-const verseBlocks = (verse: string): string[][] =>
-  verse.split(/\n\s*\n/).map(block => block.split('\n').map(l => l.trim()).filter(Boolean)).filter(b => b.length > 0);
+/** 整部經 → 一句一句（句尾的標點跟著那一句；沒有標點的舊資料就是一行一句） */
+const phrasesOf = (verses: ScriptureVerseRecord[]): string[] =>
+  verses.flatMap(v => v.verse.split('\n'))
+    .map(l => l.trim()).filter(Boolean)
+    .flatMap(l => l.match(/[^。，、；！？]+[。，、；！？]?/g) ?? [l]);
 
 const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
   const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
@@ -70,7 +76,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 16 }}>台 北 古 亭 和 聖 壇</p>
           <h1 style={{ color: INK.ink, fontSize: 'clamp(30px,6vw,44px)', fontWeight: 900, letterSpacing: '.2em', marginBottom: 12 }}>天上聖母經全文</h1>
           <p style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.2em' }}>
-            誦讀版・{loading ? '載入中…' : `共 ${verses.length} 段`}
+            {loading ? '載入中…' : '誦讀版'}
           </p>
           <hr className="brush-line" style={{ border: 'none', height: 1, background: `linear-gradient(to right, transparent, ${INK.gold}, transparent)`, opacity: .55, margin: '28px auto', maxWidth: 280 }} />
           <p style={{ color: INK.inkBody, fontSize: 15, lineHeight: 2.2, letterSpacing: '.05em' }}>
@@ -80,24 +86,11 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           <button type="button" onClick={onOpenAnnotated} style={{ ...linkBtn, marginTop: 20 }}>看逐段白話註解</button>
         </header>
 
-        {/* 每段一個 p，段號淡淡的放在句首：對照註解版時找得到是第幾段，誦讀時又不會念到它 */}
-        <div style={{ color: INK.ink, fontSize: 'clamp(19px,2.4vw,22px)', lineHeight: 2.3, letterSpacing: '.12em' }}>
-          {verses.map(v => (
-            <p key={v.id} style={{ margin: '0 0 1.1em' }}>
-              <span aria-hidden="true" style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: 0, marginRight: '.6em', verticalAlign: 'super' }}>
-                {v.sectionNumber}
-              </span>
-              {verseBlocks(v.verse).map((block, bi) => (
-                <React.Fragment key={bi}>
-                  {bi > 0 && <br />}
-                  {block.map((line, li) => (
-                    <span key={li} style={{ whiteSpace: 'nowrap', marginRight: '1em', display: 'inline-block' }}>{line}</span>
-                  ))}
-                </React.Fragment>
-              ))}
-            </p>
+        <p style={{ color: INK.ink, fontSize: 'clamp(19px,2.4vw,22px)', lineHeight: 2.3, letterSpacing: '.12em' }}>
+          {phrasesOf(verses).map((ph, i) => (
+            <span key={i} style={{ whiteSpace: 'nowrap', display: 'inline-block', marginRight: '.5em' }}>{ph}</span>
           ))}
-        </div>
+        </p>
 
         {!loading && verses.length > 0 && (
           <footer style={{ textAlign: 'center', marginTop: 56 }}>
