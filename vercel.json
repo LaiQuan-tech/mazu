@@ -1,6 +1,28 @@
 {
   "redirects": [
     {
+      "source": "/shower/checkin",
+      "missing": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
+      "destination": "https://17bath.org/checkin",
+      "permanent": true
+    },
+    {
+      "source": "/shower",
+      "missing": [
+        {
+          "type": "host",
+          "value": "(www\\.)?17bath\\.org"
+        }
+      ],
+      "destination": "https://17bath.org/shower",
+      "permanent": true
+    },
+    {
       "source": "/",
       "has": [
         {
@@ -9,7 +31,7 @@
         }
       ],
       "destination": "/shower",
-      "permanent": false
+      "permanent": true
     },
     {
       "source": "/robots.txt",

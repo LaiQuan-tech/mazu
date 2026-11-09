@@ -734,6 +734,12 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 - **`vercel.json` 的另外兩個陷阱（2026-10-19 各踩一次）**：
   (1) **rewrite／redirect 物件只收 `source`／`destination`／`has`／`missing`（redirect 另加 `permanent`／`statusCode`）**。JSON 沒有註解，我為了說明塞了一個 `"comment"` 欄位進去——schema 不合法，**整份設定失效、部署直接不成立**。症狀極隱晦：`git push` 成功、沒有任何錯誤訊息，但線上的 bundle 雜湊連試八次都不變。要寫說明就寫在 commit 或這裡，不要寫進 JSON。
   (2) **`rewrites` 跑在「檔案系統之後」，`redirects` 跑在之前**。所以 `"source": "/"` 的 rewrite **永遠不會生效**——`/` 對應到實際存在的 `dist/index.html`，檔案先命中。`/about`、`/shower` 那些之所以有效，是因為 `dist` 裡沒有同名檔。要在根路徑依條件換內容只有兩條路：`redirects`（會改網址列），或 Edge Middleware（唯一跑在檔案系統之前又能改寫內容的機制，但多一個 runtime）。
+- **2026-11-09：`heshengtan.tw/shower` 與 `/shower/checkin` 改成永久轉址到 17bath.org**（以這條為準，推翻下面「仍然打得開而且照常服務」那段）。
+  廟方回報 Google 搜「17沐浴車」只出現和聖壇官網：canonical 只是建議，和聖壇的權重高、那個網址又早被收錄，Google 就選了它。**永久轉址才是 Google 一定照做的訊號**，舊海報與 LINE 上的 QR code 照樣能用（會跳到新網域）。
+  `vercel.json` 用 `missing` host 條件：**不是** 17bath.org 的網域（heshengtan.tw、www、machu-five）打 `/shower` 都轉走，17bath.org 自己照常服務。`17bath.org/` → `/shower` 也從 307 改成永久。
+  和聖壇這邊同時拿掉：`llms.txt` 那段「17 沐浴車不是和聖壇的服務」聲明（當初留它是因為那個網址還開著，現在不開了）、`robots.txt` 的沐浴車規則、沐浴車頁 noscript 裡「網址有兩個」那一句。
+  **志工打卡的「選哪一台車」記在 localStorage，換網域等於換一份**：舊連結進來的志工第一次要重選一次車。
+  **程式碼仍在同一個 repo、同一個部署**：Google 看的是網域與網址，不是部署；拆成兩個專案對 SEO 沒有幫助，只會多一份要維護的東西。
 - **17bath.org：沐浴車自己的網域（2026-10-19）**。廟方要把沐浴車從和聖壇網站獨立出來。
   網域在**網路中文**註冊、HiNet 介面代管，**DNS 交給 Vercel**（NS = `ns1/ns2.vercel-dns.com`；HiNet 對這個網域回 `REFUSED`、Pro DNS 代管又登不進去，所以沒走 HiNet）。A 記錄由 Vercel 自己配，**不要手動加**。
   網址：`17bath.org/` → 307 轉到 `/shower`（理由見上面那條 (2)）、`17bath.org/checkin` → 志工打卡、`www` → 308 轉 apex。**`heshengtan.tw/shower` 與 `/shower/checkin` 照舊有效**，現場海報與 LINE 上發出去的 QR code 指的是舊網址。

@@ -5,9 +5,8 @@
 
 - 網址：https://17bath.org/（**這裡是正本**）
 - Sitemap：https://17bath.org/sitemap.xml
-- `heshengtan.tw/shower` 這個網址也打得開、內容相同，那是早期沿用下來的；
-  **2026-10-27 起 canonical 一律指向 17bath.org**，請以本網域為準，
-  不要把這台車說成是那個網站（台北古亭和聖壇）的服務。
+- 早期的 `heshengtan.tw/shower` 已經永久轉址到本網域（2026-11-09 起），請以本網域為準。
+  17 沐浴車不是台北古亭和聖壇的服務，不要把兩者說成同一個單位。
 
 ## 主辦單位
 
