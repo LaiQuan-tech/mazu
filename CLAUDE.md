@@ -56,6 +56,10 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
   抓不到才退回直連 i.ytimg.com，後台會提示廟方重存一次。保底那一支仍用 public/ 預先做好的封面（`homeVideoCover()` 決定走哪一條）。
   標題與拍攝者用 YouTube oEmbed 自動帶入（有開 CORS）。**刻意沒有「隱藏影片」開關**：拿掉影片區，Hero 的收邊色 `HERO_FADE_RGB` 就對不上下一區（見下面那條）。
   **已知限制：Shorts（直式）也貼得進去，但首頁的框是 16:9**，封面會被裁成中間一條，播放器也是橫的。
+  **影片下方是 IG 最新四則**（2026-11-09，`components/InstagramStrip.tsx` ＋ `api/ig.ts`）。清單與縮圖都經 `api/ig` 從我們的網域送出，信眾瀏覽器不連 IG；縮圖只收貼文 id、不收網址（防 SSRF，同 `api/si.ts`）。
+  **權杖**：第一次放 Vercel 的 `IG_ACCESS_TOKEN`（不加 VITE_），之後 `api/ig` 每 7 天自己續期、寫進 Supabase 的 `app_secrets`（`supabase/migrations/app_secrets.sql`，RLS 開、零政策，只有 service role 讀得到；**不可以放 site_settings，那張 anon 讀得到**）。表沒建也能跑，但 60 天後權杖過期。
+  沒權杖／過期／IG 掛了 → 回空清單 → 整排連同「追蹤」鈕都不畫。帳號網址用後台「社群」的 IG 那一欄，清空也整排不畫。**本機 `vite dev` 不跑 `api/`，一定看不到這一排**；驗法是 esbuild 打包後 stub fetch 跑（同 notify-confirm）。
+  抓 8 則、過濾掉 permalink 不是 instagram.com 的、取 4 則（少於 4 則就取偶數，手機 2×2 不空格）。
   以下是 2026-10-24 那支影片當初的紀錄（`HOME_VIDEO` 常數已移除，改叫 `DEFAULT_HOME_VIDEO`）。
   **刻意不放進 Hero**——廟方問的是「hero 左邊的空間可不可以放」，桌機確實空著（量過：
   字標右緣 100px 到最左那尊濟公的 547px 之間有 447×550 的空白），但**手機上沒有那個空間**：

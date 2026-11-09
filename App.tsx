@@ -46,6 +46,7 @@ import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSes
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
 import VideoFacade from './components/VideoFacade';
+import InstagramStrip from './components/InstagramStrip';
 import { INK_PAPER_CSS, INK_PAPER_BG } from './components/inkTheme';
 import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
@@ -3785,6 +3786,8 @@ const App: React.FC = () => {
               </figcaption>
             )}
           </figure>
+          {/* IG 最新四則（2026-11-09）。帳號網址沿用後台「社群」那一欄，清空就整排不顯示 */}
+          <InstagramStrip profileUrl={social.instagramUrl} />
         </div>
       </section>
       )}
