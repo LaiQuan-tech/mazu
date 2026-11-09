@@ -4140,7 +4140,7 @@ const App: React.FC = () => {
             <span className="w-8 h-1 bg-temple-gold" />
           </h2>
           <h3 className="sr sr-up sr-d1 text-4xl font-bold text-temple-dark mb-2 font-serif">
-            祈福保平安，點燈開智慧
+            媽祖救眾生發慈悲
           </h3>
           <div className="sr sr-up sr-d1 flex items-center justify-center gap-3 mt-3 mb-12">
             <span className="w-12 h-px bg-temple-gold/70" />
