@@ -2625,6 +2625,31 @@ export const saveAboutFacts = async (facts: AboutFacts): Promise<void> => {
   if (error) { console.error('Error saving about facts:', error); throw error; }
 };
 
+// ─── 天上聖母經全文（site_settings 的 scripture_full_text）──────────────────
+// 2026-11-09 廟方要後台能直接編輯全文。全文與 136 段是兩件事：段落是為了配插圖切的，
+// 不是經文本身的分段，所以全文另存一份。沒存過就是空字串，全文頁退回由 136 段接起來。
+// 沿用 site_settings：它本來就是訪客讀得到的公開內容。
+
+const SCRIPTURE_FULL_KEY = 'scripture_full_text';
+
+export const getScriptureFullText = async (): Promise<string> => {
+  try {
+    const { data, error } = await supabase.from('site_settings')
+      .select('value').eq('key', SCRIPTURE_FULL_KEY).maybeSingle();
+    if (error) throw error;
+    return ((data?.value ?? '') as string).trim();
+  } catch (e) {
+    console.warn('讀取天上聖母經全文失敗，改用各段經文:', e);
+    return '';
+  }
+};
+
+export const saveScriptureFullText = async (text: string): Promise<void> => {
+  const { error } = await supabase.from('site_settings')
+    .upsert({ key: SCRIPTURE_FULL_KEY, value: text.trim(), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) { console.error('Error saving scripture full text:', error); throw error; }
+};
+
 // ─── 首頁影片（site_settings 的 home_video_ 系列，後台「多媒體管理」）──────────
 // 沿用 site_settings，不另外開表：這只是幾個字串。
 

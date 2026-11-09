@@ -775,6 +775,33 @@ const fetchFeasts = async () => {
 
 const bulletinSnapshot = await fetchBulletins();
 const scriptureRows = await fetchScripture();
+
+/**
+ * 後台另存的天上聖母經全文（site_settings 的 scripture_full_text，2026-11-09）。
+ * 有就給 /scripture/full 的 noscript 用；沒有（或抓不到）回空字串，退回由 136 段接起來。
+ */
+const fetchScriptureFullText = async () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return '';
+  try {
+    const res = await fetch(`${url.trim()}/rest/v1/site_settings?select=value&key=eq.scripture_full_text`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    const v = (rows[0]?.value ?? '').trim();
+    if (v) console.log(`prerender  聖母經全文來源：後台另存的全文`);
+    return v;
+  } catch (e) {
+    console.log(`prerender  聖母經全文：讀後台全文失敗（${e.message}），改用各段經文`);
+    return '';
+  }
+};
+const scriptureFullStored = await fetchScriptureFullText();
+/** 與 services/scriptureText.ts 的 scripturePhrases 同一條規則（這裡 import 不了那支 TS） */
+const scripturePhrasesOf = (text) => text.split('\n')
+  .map((l) => l.replace(/\s+/g, '')).filter(Boolean)
+  .flatMap((l) => l.match(/[^。，、；！？]+[。，、；！？]?/g) ?? [l]);
 const relocationPlans = await fetchRelocationPlans();
 const bookingSessions = await fetchBookingSessions();
 const feastSnapshot = await fetchFeasts();
@@ -1391,8 +1418,8 @@ for (const r of ACTIVE_ROUTES) {
    */
   // 全文版一整篇不分段、不標段號：那 136 段是註解版配插圖的切法，不是經文本身的段落
   // （廟方 2026-11-09）。與 components/ScriptureFullText.tsx 同一個規則。
-  const fullText = r.path !== '/scripture/full' || scriptureRows.length === 0 ? '' :
-    `\n        <p style="margin:0">${scriptureRows.map((v) => esc(v.verse).split('\n').map((l) => l.trim()).filter(Boolean).join('　')).join('　')}</p>`;
+  const fullText = r.path !== '/scripture/full' || (scriptureRows.length === 0 && !scriptureFullStored) ? '' :
+    `\n        <p style="margin:0">${esc(scripturePhrasesOf(scriptureFullStored || scriptureRows.map((v) => v.verse).join('\n')).join('　'))}</p>`;
   const scriptureText = r.path !== '/scripture' || scriptureRows.length === 0 ? fullText :
     '\n' + scriptureRows.map((v) => {
       const verse = esc(v.verse).replace(/\n/g, '<br />');

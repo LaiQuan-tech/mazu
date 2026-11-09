@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
-import { getScriptureVerses } from '../services/supabase';
+import { getScriptureVerses, getScriptureFullText } from '../services/supabase';
+import { scripturePhrases, fullTextFromVerses } from '../services/scriptureText';
 import { INK, SUTRA } from './inkTheme';
 
 /**
@@ -10,7 +11,8 @@ import { INK, SUTRA } from './inkTheme';
  *
  * **與 /scripture 是同一份資料、兩種讀法**：那一頁是逐段配圖與白話註解，給要理解的人；
  * 這一頁只有經文，給要誦讀的人——一路讀下去不被插圖與註解打斷。
- * 資料同樣來自 `scripture_verses`，後台改一段兩頁一起變，不另存一份。
+ * **全文 2026-11-09 起可以另存一份**（後台「天上聖母經」最上面的全文編輯）：
+ * 存過就用那一份；沒存過才退回由 `scripture_verses` 的 136 段接起來。
  *
  * **橫排不直排**：註解版的直排是為了寫經本的觀感；這一頁的用途是拿著手機一路念，
  * 直排在手機上要左右來回捲，長輩念到一半會找不到下一欄。
@@ -34,14 +36,10 @@ interface Props {
   onOpenAnnotated: () => void;
 }
 
-/** 整部經 → 一句一句（句尾的標點跟著那一句；沒有標點的舊資料就是一行一句） */
-const phrasesOf = (verses: ScriptureVerseRecord[]): string[] =>
-  verses.flatMap(v => v.verse.split('\n'))
-    .map(l => l.trim()).filter(Boolean)
-    .flatMap(l => l.match(/[^。，、；！？]+[。，、；！？]?/g) ?? [l]);
-
 const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
   const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
+  /** 後台另存的全文；空字串＝沒存過 */
+  const [stored, setStored] = useState('');
   const [loading, setLoading] = useState(true);
   /** 讀到哪裡了，0～1。與註解版同一套進度條（2026-11-09 廟方：「也要像註解頁一樣有進度條」） */
   const [progress, setProgress] = useState(0);
@@ -55,7 +53,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
-  }, [verses.length]);
+  }, [loading]);   // 經文與全文都到了、頁面長度定了才算
 
   // 與註解版同一個底色，避免捲動慣性時露白
   useEffect(() => {
@@ -66,7 +64,11 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    getScriptureVerses().then(setVerses).catch(console.error).finally(() => setLoading(false));
+    // 兩支一起等：只等經文就先畫，全文晚到時整頁會當面換一次字
+    Promise.all([
+      getScriptureVerses().then(setVerses).catch(console.error),
+      getScriptureFullText().then(setStored),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const linkBtn: React.CSSProperties = {
@@ -139,7 +141,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           // 桌機字級到頂之後版面還很寬，不收的話四欄會被 space-between 拉得很開
           maxWidth: '19em', margin: '0 auto',
         }}>
-          {phrasesOf(verses).map((ph, i) => (
+          {scripturePhrases(stored || fullTextFromVerses(verses)).map((ph, i) => (
             <span key={i} style={{ whiteSpace: 'nowrap' }}>{ph}</span>
           ))}
         </p>

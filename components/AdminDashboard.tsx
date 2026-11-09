@@ -8,6 +8,7 @@ import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
 import AdminHomeVideoSection from './AdminHomeVideoSection';
+import AdminScriptureFullText from './AdminScriptureFullText';
 import AdminVouchersTab from './AdminVouchersTab';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
@@ -5191,6 +5192,9 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
           <p className="text-sm text-gray-500 mt-1">共 {verses.length} 節・可編輯經文、註解及插圖</p>
         </div>
       </div>
+
+      {/* 全文（誦讀版）另存一份，與下面 136 段分開（見 AdminScriptureFullText 的檔頭） */}
+      <AdminScriptureFullText verses={verses} />
 
       {/* Search */}
       <div className="relative">
