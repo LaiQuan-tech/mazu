@@ -531,7 +531,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
         {/* 兩種讀法給兩種人：要誦讀的人只要經文，要理解的人一段一段點開註解 */}
         <div className="sp-up sp-d2" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 24 }}>
           <button type="button" onClick={onOpenFull} style={{ color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '10px 22px', fontSize: 15, letterSpacing: '.15em', cursor: 'pointer' }}>
-            只看經文全文（誦讀用）
+            {/* 原本「只看經文全文（誦讀用）」，廟方 2026-11-09 嫌長又饒舌。
+                用全文頁自己標題裡的兩個詞，按鈕寫的就是點進去那一頁的名字 */}
+            全文誦讀版
           </button>
           {!loading && verses.length > 0 && (
             <button type="button" aria-pressed={allOpen}
