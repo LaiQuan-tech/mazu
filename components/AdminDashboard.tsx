@@ -7,6 +7,7 @@ import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonati
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
+import AdminHomeVideoSection from './AdminHomeVideoSection';
 import AdminVouchersTab from './AdminVouchersTab';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
@@ -4834,7 +4835,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
   );
 };
 
-// ─── Photos Tab (照片管理) ──────────────────────────────────────────────────────
+// ─── Photos Tab (多媒體管理；2026-11-09 加了首頁影片之前叫「照片管理」) ──────────────────────────────────────────────────────
 
 const SECTION_LABELS: Record<string, { label: string; description: string }> = {
   hero: { label: '首頁背景圖', description: '網站首頁的全螢幕背景圖片（建議尺寸：1920x1080 以上）' },
@@ -4990,9 +4991,11 @@ const PhotosTab = ({ siteImages, heroSlides, onRefresh }: { siteImages: SiteImag
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-1">網站照片管理</h3>
-        <p className="text-sm text-gray-500">管理網站各區塊的展示照片，上傳後前台會自動更新。</p>
+        <h3 className="text-lg font-bold text-gray-800 mb-1">網站多媒體管理</h3>
+        <p className="text-sm text-gray-500">管理網站各區塊的影片與照片，存檔後前台會自動更新。</p>
       </div>
+
+      <AdminHomeVideoSection />
 
       <HeroSlidesSection slides={heroSlides} onRefresh={onRefresh} />
 
@@ -7794,7 +7797,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'feasts',      label: '歲時節慶', icon: <CalendarClock className="w-4 h-4" /> },
     { key: 'urgent',      label: '緊急祈願', icon: <Flame className="w-4 h-4" /> },
     { key: 'shower',      label: '沐浴車',   icon: <ShowerHead className="w-4 h-4" /> },
-    { key: 'photos',      label: '照片管理',   icon: <ImageIcon className="w-4 h-4" /> },
+    { key: 'photos',      label: '多媒體管理',   icon: <ImageIcon className="w-4 h-4" /> },
     { key: 'scripture', label: '天上聖母經', icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'siteinfo',   label: '基本資料',   icon: <MapPin className="w-4 h-4" /> },
     { key: 'analytics',  label: '追蹤碼設定', icon: <Settings className="w-4 h-4" /> },

@@ -40,7 +40,15 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
   **`SERVICE_PAGE` 的型別順手改成 `Record<NonNullable<BulletinRecord['linkedService']>, SitePage>`**：四種 linkedService 現在都有自己的頁，呼叫端那條 `onNonPage` 退路（捲去首頁 `#donation`）已經移除；日後再加一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
   **獨立頁的大標要用 `h1`**（2026-09-04 那次「四個服務頁一個 h1 都沒有」的教訓）：`/donation` 用 `h1`。實測首頁與 `/donation` 各剛好一個 h1。
   **llms.txt 與 prerender ROUTES 都要補一筆**，而且要寫明「捐獻有兩種、帳戶不同」——AI 被問到「要捐錢給和聖壇」時會把遷址專款與一般護持混在一起答。
-- **首頁 Hero 正下方有一支進香回顧影片**（`HOME_VIDEO`，App.tsx，2026-10-24 廟方提供）。
+- **首頁 Hero 正下方有一支影片，2026-11-09 起由後台「多媒體管理」設定**（原本叫「照片管理」，同一個分頁改名）。
+  存在 `site_settings` 的 `home_video_id`／`_heading`／`_title`／`_author`／`_cover`，不用 migration。
+  讀寫在 `services/supabase.ts` 的 `getHomeVideo()`／`saveHomeVideo()`，後台元件是 `components/AdminHomeVideoSection.tsx`。
+  資料庫沒有 `home_video_id` 時整組退回 `DEFAULT_HOME_VIDEO`（下面那支進香回顧），所以沒設定過的話首頁跟以前一模一樣。
+  **封面在後台存檔那一刻從 i.ytimg.com 抓進 `site-images/home-video/`**，信眾載首頁時不向 Google 要任何東西（VideoFacade 的原則）；
+  抓不到才退回直連 i.ytimg.com，後台會提示廟方重存一次。保底那一支仍用 public/ 預先做好的封面（`homeVideoCover()` 決定走哪一條）。
+  標題與拍攝者用 YouTube oEmbed 自動帶入（有開 CORS）。**刻意沒有「隱藏影片」開關**：拿掉影片區，Hero 的收邊色 `HERO_FADE_RGB` 就對不上下一區（見下面那條）。
+  **已知限制：Shorts（直式）也貼得進去，但首頁的框是 16:9**，封面會被裁成中間一條，播放器也是橫的。
+  以下是 2026-10-24 那支影片當初的紀錄（`HOME_VIDEO` 常數已移除，改叫 `DEFAULT_HOME_VIDEO`）。
   **刻意不放進 Hero**——廟方問的是「hero 左邊的空間可不可以放」，桌機確實空著（量過：
   字標右緣 100px 到最左那尊濟公的 547px 之間有 447×550 的空白），但**手機上沒有那個空間**：
   三尊神尊橫跨整個寬度（x −6 到 381），字標下緣 151 到神尊頂端 372 之間只剩一條 221px 的橫帶，

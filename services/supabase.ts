@@ -21,7 +21,7 @@ const newUuid = (): string => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 };
 import type { DevoteeOverride } from './devoteeRoster';
-import { AboutSection, AboutSectionData, AboutFacts, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, UrgentPrayerData, UrgentPrayerKind, UrgentPrayerRecord, ZodiacSign } from '../types';
+import { AboutSection, AboutSectionData, AboutFacts, HomeVideo, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, UrgentPrayerData, UrgentPrayerKind, UrgentPrayerRecord, ZodiacSign } from '../types';
 import { UrgentPrayerStatus } from '../types';
 import { getSource } from './attribution';
 
@@ -579,7 +579,7 @@ export const deleteRegistration = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// ─── Site Images (照片管理) ────────────────────────────────────────────────────
+// ─── Site Images (多媒體管理) ────────────────────────────────────────────────────
 
 const SITE_IMAGES_BUCKET = 'site-images';
 
@@ -2623,6 +2623,121 @@ export const saveAboutFacts = async (facts: AboutFacts): Promise<void> => {
   const rows = ABOUT_FACT_KEYS.map(k => ({ key: k.dbKey, value: facts[k.field], updated_at: new Date().toISOString() }));
   const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' });
   if (error) { console.error('Error saving about facts:', error); throw error; }
+};
+
+// ─── 首頁影片（site_settings 的 home_video_ 系列，後台「多媒體管理」）──────────
+// 沿用 site_settings，不另外開表：這只是幾個字串。
+
+const HOME_VIDEO_KEYS: { field: keyof HomeVideo; dbKey: string }[] = [
+  { field: 'id',        dbKey: 'home_video_id' },
+  { field: 'heading',   dbKey: 'home_video_heading' },
+  { field: 'title',     dbKey: 'home_video_title' },
+  { field: 'author',    dbKey: 'home_video_author' },
+  { field: 'coverPath', dbKey: 'home_video_cover' },
+];
+
+/**
+ * 保底值＝2026-10-24 廟方給的那一支。它的封面是預先做好放在 public/ 的
+ * （`home-video-UxMaZ5WRrdE.webp|jpg`），所以 coverPath 是空的。
+ */
+export const DEFAULT_HOME_VIDEO: HomeVideo = {
+  id: 'UxMaZ5WRrdE',
+  heading: '2025 進香回顧',
+  title: '2025古亭和聖壇進香回顧',
+  author: '拾九影像創作',
+  coverPath: '',
+};
+
+/**
+ * 首頁影片的封面要從哪裡拿（給 VideoFacade 的 `cover`／`coverSrc`）。前台與後台預覽共用。
+ * 1. 後台存檔時抓進 site-images 的那一張（`coverPath`）——正常情況都走這條。
+ * 2. 保底那一支用 public/ 預先做好的 `home-video-<id>.webp|jpg`
+ *    （`scripts/build-shower-covers.js --prefix=home-video-` 產生、檔名列在 `vite.config.ts` 的 `HERO_FILES`）。
+ * 3. 都沒有（存檔時抓圖失敗）才直連 i.ytimg.com——違反 VideoFacade「沒按播放不向 Google 要東西」
+ *    那條原則，但比一塊空白的框好。後台存檔時會提示廟方重存一次。
+ */
+export const homeVideoCover = (v: HomeVideo): { cover?: string; coverSrc?: string } =>
+  v.coverPath ? { coverSrc: getSiteImagePublicUrl(v.coverPath) }
+  : v.id === DEFAULT_HOME_VIDEO.id ? { cover: `home-video-${v.id}` }
+  : { coverSrc: `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg` };
+
+/** 讀不到或後台沒設過就退回保底那一支：Supabase 閒置暫停時首頁不該開天窗 */
+export const getHomeVideo = async (): Promise<HomeVideo> => {
+  try {
+    const { data, error } = await supabase.from('site_settings')
+      .select('key,value').in('key', HOME_VIDEO_KEYS.map(k => k.dbKey));
+    if (error) throw error;
+    const map = new Map((data || []).map(r => [r.key as string, ((r.value ?? '') as string).trim()]));
+    // 沒有 id 就整組退回保底，不要拿保底的大標配一支別的影片
+    if (!map.get('home_video_id')) return DEFAULT_HOME_VIDEO;
+    const out = {} as HomeVideo;
+    for (const k of HOME_VIDEO_KEYS) out[k.field] = map.get(k.dbKey) ?? '';
+    return out;
+  } catch (e) {
+    console.warn('讀取首頁影片設定失敗，改用預設影片:', e);
+    return DEFAULT_HOME_VIDEO;
+  }
+};
+
+export const saveHomeVideo = async (v: HomeVideo): Promise<void> => {
+  const now = new Date().toISOString();
+  const rows = HOME_VIDEO_KEYS.map(k => ({ key: k.dbKey, value: v[k.field].trim(), updated_at: now }));
+  const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' });
+  if (error) { console.error('Error saving home video:', error); throw error; }
+};
+
+/**
+ * 從廟方貼上的東西取出 YouTube 影片 id。吃得下 watch?v=、youtu.be/、shorts/、
+ * embed/、live/ 這幾種網址，也吃得下直接貼 11 碼的 id。認不出來回 null。
+ */
+export const parseYouTubeId = (input: string): string | null => {
+  const s = input.trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+};
+
+/** 用 YouTube 的 oEmbed 取影片標題與頻道名（這支有開 CORS）。拿不到回 null，由廟方自己填 */
+export const fetchYouTubeInfo = async (id: string): Promise<{ title: string; author: string } | null> => {
+  try {
+    const url = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return { title: String(j.title ?? ''), author: String(j.author_name ?? '') };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 把 YouTube 的預覽圖抓下來、存進我們自己的 site-images，回傳路徑。
+ *
+ * **只在後台存檔那一刻向 Google 要一次圖**，信眾載首頁時拿的是我們自己的副本——
+ * 這是 VideoFacade 「沒按播放之前不向 Google 發請求」那條原則的延續，
+ * 只是把原本要工程師跑的 `build-shower-covers.js` 換成後台按一下。
+ *
+ * maxresdefault 不是每支都有（舊影片或低畫質上傳會 404），退到 sddefault 再退 hqdefault。
+ * 後兩者是 4:3、上下補了黑邊，封面用 object-cover 顯示會自然裁掉。
+ * 全部抓不到回 null：前台會退回直連 i.ytimg.com，至少不會開天窗。
+ */
+export const uploadHomeVideoCover = async (id: string): Promise<string | null> => {
+  for (const name of ['maxresdefault', 'sddefault', 'hqdefault']) {
+    try {
+      const res = await fetch(`https://i.ytimg.com/vi/${id}/${name}.jpg`);
+      if (!res.ok) continue;
+      const raw = await res.blob();
+      const blob = await shrinkImage(new File([raw], `${id}.jpg`, { type: raw.type || 'image/jpeg' }), 1280);
+      const path = `home-video/${id}-${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from(SITE_IMAGES_BUCKET)
+        .upload(path, blob, { contentType: blob.type || 'image/jpeg', cacheControl: '3600', upsert: false });
+      if (error) throw error;
+      return path;
+    } catch (e) {
+      console.warn(`抓 YouTube 預覽圖 ${name} 失敗:`, e);
+    }
+  }
+  return null;
 };
 
 // ─── 遷址捐款方案（金額當欄、回饋項目當列的矩陣表）──────────────────────────

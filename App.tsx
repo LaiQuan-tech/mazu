@@ -41,7 +41,7 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AboutSection, AboutFacts, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RELATION_OPTIONS, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
+import { AboutSection, AboutFacts, HomeVideo, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RELATION_OPTIONS, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
@@ -51,7 +51,7 @@ import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import ChatWidget from './components/ChatWidget';
 import Analytics from './components/Analytics';
@@ -328,27 +328,6 @@ const HERO_FADE_RGB = INK_MODE
  * 以前 donation 不在這裡，呼叫端得另外傳一個 `onNonPage` 退路去捲首頁區塊；
  * 日後再多一種服務而忘了補，編譯就會擋下來，不會變成「按了沒反應」。
  */
-/**
- * 首頁那一支影片（廟方 2026-10-24 給連結）。
- *
- * 封面是自己存的 `public/home-video-<id>.webp|jpg`，由
- * `node scripts/build-shower-covers.js <sharp 路徑> --prefix=home-video- --width=1280 <id>` 產生，
- * **檔名也要加進 `vite.config.ts` 的 `HERO_FILES`**（換影片時網址才會跟著變）。
- *
- * `heading` 是這一區的名字，與封面上印的字刻意不同：封面寫的是片頭設計
- * 「薪火相傳　承前啟後」，而使用者在清單上要看懂的是「這是哪一年、什麼事」。
- * `author` 照 oEmbed 回的頻道名，**不是我們自己拍的就要標出來**。
- *
- * 換影片要做三件事：改這裡的 id／heading、重跑上面那支腳本產封面、
- * 把新檔名換進 HERO_FILES。舊的兩個檔可以一起刪掉。
- */
-const HOME_VIDEO = {
-  id: 'UxMaZ5WRrdE',
-  heading: '2025 進香回顧',
-  title: '2025古亭和聖壇進香回顧',
-  author: '拾九影像創作',
-};
-
 const SERVICE_PAGE: Record<NonNullable<BulletinRecord['linkedService']>, SitePage> = {
   lamp: 'lamps', blessing: 'blessing', booking: 'booking', donation: 'donation', relocation: 'relocation',
 };
@@ -723,7 +702,7 @@ const OFFICIAL_HOSTS = ['heshengtan.tw', 'www.heshengtan.tw'];
 const isOfficialHost = (): boolean =>
   typeof window !== 'undefined' && OFFICIAL_HOSTS.includes(window.location.hostname);
 
-// Hero 輪播照片：已撤下把空間讓給特效。後台照片管理與資料照常運作，
+// Hero 輪播照片：已撤下把空間讓給特效。後台多媒體管理與資料照常運作，
 // 要恢復輪播時改成 true，並把 Hero 的背景區塊改回輪播 <img>。
 const HERO_SLIDESHOW = false;
 
@@ -1806,6 +1785,11 @@ const App: React.FC = () => {
    * 差別只在「失敗之後才用」而不是「先用再說」。
    */
   const [aboutFacts, setAboutFacts] = useState<AboutFacts | null>(null);
+  /**
+   * 首頁影片。初始值是 null 不是保底那一支，理由同 aboutFacts：先畫保底、資料庫回來再換，
+   * 廟方換過影片的話信眾會看到封面當面跳成另一張。還沒回來時只畫一個同尺寸的空框，版面不會跳。
+   */
+  const [homeVideo, setHomeVideo] = useState<HomeVideo | null>(null);
   const [deities, setDeities] = useState<DeityRecord[]>([]);
   const [deityHalls, setDeityHalls] = useState<HallRecord[]>([]);
   const [selectedHall, setSelectedHall] = useState<string | null>(null);
@@ -1992,7 +1976,7 @@ const App: React.FC = () => {
    * 首頁輪播的自動換頁計時器。
    * 輪播照片已從 Hero 撤下（空間留給特效），所以這裡直接不啟動——
    * 否則會每 5 秒觸發一次沒有人看的 state 更新，白白重繪整個首頁。
-   * 資料與後台照片管理都保留，要恢復輪播時把 return 拿掉即可。
+   * 資料與後台多媒體管理都保留，要恢復輪播時把 return 拿掉即可。
    */
   const startHeroInterval = (totalSlides: number) => {
     if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
@@ -2090,6 +2074,7 @@ const App: React.FC = () => {
     getAboutSections().then(rows => setAboutLead(rows[0] ?? null))
       .catch(e => console.warn('讀取關於我們段落失敗，首頁改用保底文案:', e));
     getAboutFacts().then(setAboutFacts).catch(() => {});
+    getHomeVideo().then(setHomeVideo).catch(() => setHomeVideo(DEFAULT_HOME_VIDEO));
     getAboutSections(false, 'relocation').then(rows => setRelocationLead(rows[0] ?? null))
       .catch(e => console.warn('讀取遷址段落失敗:', e));
     getRelocationHome().then(setRelocationHome).catch(() => {});
@@ -3734,7 +3719,8 @@ const App: React.FC = () => {
               影像紀錄
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
-            <h3 className="text-4xl font-bold text-temple-dark font-serif">{HOME_VIDEO.heading}</h3>
+            {/* 還沒載入時留一個不換行空白撐住高度，大標出現時版面不跳 */}
+            <h3 className="text-4xl font-bold text-temple-dark font-serif">{homeVideo ? homeVideo.heading : '\u00a0'}</h3>
             <div className="flex items-center justify-center gap-3 mt-3" aria-hidden="true">
               <span className="w-12 h-px bg-temple-gold/70" />
               <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
@@ -3742,10 +3728,11 @@ const App: React.FC = () => {
             </div>
           </div>
           <figure className="sr sr-up sr-d1">
+            {homeVideo ? (
             <VideoFacade
-              id={HOME_VIDEO.id}
-              title={HOME_VIDEO.title}
-              cover={`home-video-${HOME_VIDEO.id}`}
+              id={homeVideo.id}
+              title={homeVideo.title || homeVideo.heading}
+              {...homeVideoCover(homeVideo)}
               /* 封面極慢推近（只在有滑鼠的裝置）。全站只有這一支開，
                  理由與作法見 VideoFacade 的 `livePreview` 與 index.html 的 vfDrift。 */
               livePreview
@@ -3756,12 +3743,17 @@ const App: React.FC = () => {
                  #FDFBF7／#6B4A14 都不在 inkTheme 的名單上，兩套主題長得一樣。 */
               accent={{ box: 'bg-temple-red', btn: 'bg-[#FDFBF7]', icon: 'text-[#6B4A14]' }}
             />
+            ) : (
+              <div className="aspect-video rounded-2xl bg-temple-red" aria-hidden="true" />
+            )}
             {/* 拍攝者要標出來（同沐浴車那幾則新聞的 `source`）：這不是我們自己拍的。
                 標題不再印一次——封面上自己就寫著「薪火相傳　承前啟後」，
                 上面的大標是這一區的名字，兩者不是同一件事（同 ShowerPage 那條）。 */}
-            <figcaption className="mt-3 text-center text-sm text-gray-500">
-              影片：{HOME_VIDEO.author}
-            </figcaption>
+            {homeVideo?.author && (
+              <figcaption className="mt-3 text-center text-sm text-gray-500">
+                影片：{homeVideo.author}
+              </figcaption>
+            )}
           </figure>
         </div>
       </section>

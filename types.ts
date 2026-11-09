@@ -485,7 +485,21 @@ export interface AboutFacts {
   fact2Label: string;
 }
 
-// ─── Site Images (照片管理) ───────────────────────────────
+/** 首頁「影像紀錄」那一支影片（後台「多媒體管理」設定，存在 site_settings 的 home_video_ 系列） */
+export interface HomeVideo {
+  /** YouTube 影片 id（11 碼） */
+  id: string;
+  /** 區塊大標，例如「2025 進香回顧」 */
+  heading: string;
+  /** 影片本身的標題，只給螢幕閱讀器念（「播放影片：○○」） */
+  title: string;
+  /** 拍攝者／頻道名，印在影片下方；留空就不印 */
+  author: string;
+  /** 封面在 site-images 的路徑；空字串＝用 public/ 裡預先做好的那一張 */
+  coverPath: string;
+}
+
+// ─── Site Images (多媒體管理) ───────────────────────────────
 export type SiteImageSection = 'hero' | 'about';
 
 export interface SiteImageRecord {

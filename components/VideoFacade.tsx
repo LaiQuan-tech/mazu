@@ -45,7 +45,12 @@ const VideoFacade: React.FC<{
   /** 無障礙用：螢幕閱讀器會念「播放影片：○○」 */
   title: string;
   /** 封面檔名去掉副檔名，例如 `home-video-UxMaZ5WRrdE`（webp 與 jpg 各一份） */
-  cover: string;
+  cover?: string;
+  /**
+   * 封面的完整網址，給 `cover` 就不必給這個。後台「多媒體管理」換的影片走這條：
+   * 它的封面是存檔時抓進 site-images 的一張 jpg，不在 public/、也沒有 webp。
+   */
+  coverSrc?: string;
   /** 直式（9:16 的 Shorts）。橫式不填 */
   portrait?: boolean;
   /**
@@ -55,7 +60,7 @@ const VideoFacade: React.FC<{
    */
   livePreview?: boolean;
   accent: VideoAccent;
-}> = ({ id, title, cover, portrait, livePreview, accent }) => {
+}> = ({ id, title, cover, coverSrc, portrait, livePreview, accent }) => {
   const [playing, setPlaying] = useState(false);
 
   return (
@@ -78,9 +83,9 @@ const VideoFacade: React.FC<{
           className={`group absolute inset-0 w-full h-full${livePreview ? ' vf-live' : ''}`}
         >
           <picture>
-            <source srcSet={heroSrc(`${cover}.webp`)} type="image/webp" />
+            {!coverSrc && <source srcSet={heroSrc(`${cover}.webp`)} type="image/webp" />}
             <img
-              src={heroSrc(`${cover}.jpg`)}
+              src={coverSrc || heroSrc(`${cover}.jpg`)}
               alt=""
               width={portrait ? 480 : 1280}
               height={portrait ? 854 : 720}
