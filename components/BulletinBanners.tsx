@@ -27,14 +27,30 @@ import { TAG_PINNED } from './BulletinBody';
  *
  * ── 自動輪播 ──
  * 廟方要（「整個網站沒有動，banner 剛好可以動」）但要「很慢」，所以 8 秒。
- * 三種情況一律停：**開了「減少動態效果」**（本站信眾以長者居多，那個設定開著的
- * 比例不低，而且這是唯一會自己動的東西）、**使用者自己滑過之後**（他在看，
- * 不要把畫面從他手上搶走）、**捲出畫面**（看不見還在跑只是白耗電，
- * 同 IncenseSmoke 與墨流那兩支的作法）。
+ *
+ * **2026-11-09 廟方回報「沒做出來」——程式寫了，但實際上幾乎不會動**，兩個原因：
+ * 1. 原本 `onPointerDown` 一碰就**永久**停止。手機上往下滑整頁時手指常常就落在
+ *    banner 上（它橫跨整個寬度），等於還沒看到它動就先被關掉了。
+ *    現在只認「真的左右滑了這一排」或「按了小圓點」，而且**只暫停 `RESUME_MS`**，
+ *    之後自己恢復——他看完了就該繼續動。
+ * 2. 開了「減少動態效果」原本整個不輪播，而長輩的手機常開著這個設定。
+ *    那個設定在意的是**畫面在動**（滑過去的動畫），不是內容會換：現在照樣換，
+ *    只是用 `instant` 直接切過去，不滑。
+ * 捲出畫面仍然停（看不見還在跑只是白耗電，同 IncenseSmoke 與墨流那兩支的作法）。
  */
 
 /** 幾秒換一張。廟方要「很慢」——快到會打斷閱讀就失去意義了 */
 const AUTO_MS = 8000;
+/** 使用者自己滑過或按過點之後，暫停多久再恢復自動輪播 */
+const RESUME_MS = 15000;
+/**
+ * 自動捲動開始後多久之內的 scroll 事件都算「自己捲的」，不算使用者。
+ * 平滑捲動加上 snap 吸附，事件會持續半秒多；給 1.2 秒比較保險。
+ */
+const AUTO_SCROLL_GRACE_MS = 1200;
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * 欄數**跟著則數走**，不要寫死（2026-10-30 廟方：「直立平板時，應該要顯示四個活動」）。
@@ -64,8 +80,13 @@ interface Props {
 const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
-  /** 使用者碰過就不再自動換 */
-  const touchedRef = useRef(false);
+  /** 使用者最後一次自己滑／按的時間。之後 RESUME_MS 內不自動換 */
+  const lastUserRef = useRef(0);
+  /**
+   * 這個時間之前的 scroll 事件是程式自己造成的（自動輪播、或剛載入時 snap 自己對齊），
+   * 不能算成使用者在滑。初值給掛載後一小段時間，擋掉 snap 的初始對齊。
+   */
+  const autoUntilRef = useRef(Date.now() + AUTO_SCROLL_GRACE_MS);
   const [visible, setVisible] = useState(true);
   /** 每張圖的裁切方式：3:2 的用 cover 填滿，直式的用 contain 不切字 */
   const [fit, setFit] = useState<Record<string, 'cover' | 'contain'>>({});
@@ -86,6 +107,7 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
     const el = trackRef.current;
     if (!el) return;
     const onScroll = () => {
+      if (Date.now() > autoUntilRef.current) lastUserRef.current = Date.now();
       const o = offsets();
       if (o.length === 0) return;
       let best = 0;
@@ -105,20 +127,22 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
     return () => io.disconnect();
   }, []);
 
-  // 自動輪播
+  // 自動輪播。只在手機（橫向捲動那一排）有作用：桌機是併排的格子，scrollWidth 等於寬度
   useEffect(() => {
     if (items.length < 2 || !visible) return;
-    // **開了「減少動態效果」就完全不自動換**，不是放慢
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const t = window.setInterval(() => {
-      if (touchedRef.current) return;
+      if (Date.now() - lastUserRef.current < RESUME_MS) return;
       const el = trackRef.current;
-      if (!el) return;
+      if (!el || el.scrollWidth <= el.clientWidth + 1) return;
       const o = offsets();
       if (o.length === 0) return;
       let cur = 0;
       o.forEach((x, i) => { if (Math.abs(x - el.scrollLeft) < Math.abs(o[cur] - el.scrollLeft)) cur = i; });
-      el.scrollTo({ left: o[(cur + 1) % o.length], behavior: 'smooth' });
+      const next = (cur + 1) % o.length;
+      autoUntilRef.current = Date.now() + AUTO_SCROLL_GRACE_MS;
+      el.scrollTo({ left: o[next], behavior: (prefersReducedMotion() ? 'instant' : 'smooth') as ScrollBehavior });
+      // instant 不保證派發 scroll 事件，指示器直接設（同 goTo 那條）
+      setIdx(next);
     }, AUTO_MS);
     return () => window.clearInterval(t);
   }, [items.length, visible]);
@@ -131,12 +155,13 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
    * 本站信眾以長者居多，那個設定開著的比例不低，等於這排點對他們是壞的。
    */
   const goTo = (i: number) => {
-    touchedRef.current = true;
+    lastUserRef.current = Date.now();
     const el = trackRef.current;
     const o = offsets();
     if (!el || o[i] === undefined) return;
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollTo({ left: o[i], behavior: (reduced ? 'instant' : 'smooth') as ScrollBehavior });
+    // 自己按的點也會引發 scroll 事件，那段不必再算一次「使用者滑過」（已經記了）
+    autoUntilRef.current = Date.now() + AUTO_SCROLL_GRACE_MS;
+    el.scrollTo({ left: o[i], behavior: (prefersReducedMotion() ? 'instant' : 'smooth') as ScrollBehavior });
     // **指示器直接設，不要等 scroll 事件**：instant 捲動不保證會派發 scroll
     // （實測按第 2 顆點時位置對了、亮的卻還是第 1 顆）。手滑那條路照樣由事件更新。
     setIdx(i);
@@ -154,7 +179,6 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
       */}
       <div
         ref={trackRef}
-        onPointerDown={() => { touchedRef.current = true; }}
         /**
          * **`scroll-pl-4` 不能省。** `-mx-4 px-4` 是為了讓輪播滿版出血、但第一張仍與
          * 頁面的 16px 邊距對齊；可是 `snap-mandatory` 吸附的是**外框**不是內距邊，
