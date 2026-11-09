@@ -28,8 +28,10 @@ import { INK, SUTRA } from './inkTheme';
  * **每一句（到「。」為止）是一個不換行的單位**：手機上自然折行會把「可先知」
  * 拆成「可先／知」，念的人會在半句卡住，所以一行太長時只在句與句之間折。
  *
- * 字級沿用四欄那一版算出來的 (視窗寬 − 40) ÷ 18：四句一行（約 17 個字）在 320 寬的手機上
- * 也放得下一整行；375 寬約 18.6px，上限 26px。
+ * **字級照「四字咒語一行四句」算**（廟方 2026-11-09：「全文的字不用這麼大，讓四個字的咒語
+ * 能四句一行」）。經本裡有一大段咒語是「驅邪縛魅。保命護身。…」，一句四字加句號 5 個字寬，
+ * 四句 20 個字寬；原本照三字經文算的 ÷18 放不下，第四句一定折行。現在
+ * (視窗寬 − 左右內距 40) ÷ 20.5（留半個字的餘裕），字距歸零：375 寬約 16.3px、上限 26px。
  */
 
 interface Props {
@@ -138,7 +140,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
         </header>
 
         <div style={{
-          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 18))', lineHeight: 2.3, letterSpacing: '.04em',
+          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 20.5))', lineHeight: 2.3, letterSpacing: 0,
           // 桌機字級到頂之後版面很寬，收在一個好讀的行長、整塊置中
           maxWidth: '24em', margin: '0 auto',
         }}>
