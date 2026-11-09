@@ -36,8 +36,7 @@ import { TAG_PINNED } from './BulletinBody';
  *    現在只認「真的左右滑了這一排」或「按了小圓點」，而且**只暫停 `RESUME_MS`**，
  *    之後自己恢復——他看完了就該繼續動。
  * 2. 開了「減少動態效果」原本整個不輪播，而長輩的手機常開著這個設定。
- *    那個設定在意的是**畫面在動**（滑過去的動畫），不是內容會換：現在照樣換，
- *    只是用 `instant` 直接切過去，不滑。
+ *    現在照樣換。換張的動畫由 `slideTo` 自己推，不靠瀏覽器的平滑捲動（理由見那支）。
  * 捲出畫面仍然停（看不見還在跑只是白耗電，同 IncenseSmoke 與墨流那兩支的作法）。
  */
 
@@ -51,8 +50,9 @@ const RESUME_MS = 10000;
  */
 const AUTO_SCROLL_GRACE_MS = 1200;
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+/** 換張的滑動要多久。短於 0.5 秒像跳過去，長於 1 秒像卡住 */
+const SLIDE_MS = 700;
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /**
  * 欄數**跟著則數走**，不要寫死（2026-10-30 廟方：「直立平板時，應該要顯示四個活動」）。
@@ -89,6 +89,60 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
    * 不能算成使用者在滑。初值給掛載後一小段時間，擋掉 snap 的初始對齊。
    */
   const autoUntilRef = useRef(Date.now() + AUTO_SCROLL_GRACE_MS);
+  /** 進行中的滑動動畫，被打斷時要取消 */
+  const animRef = useRef(0);
+  /** 動畫的保險絲：畫面在背景時 requestAnimationFrame 會被暫停，不能讓 snap 一直關著 */
+  const fuseRef = useRef(0);
+  /** 動畫進行中。這段期間 scroll 事件不回推指示器，否則點會先閃回上一張 */
+  const slidingRef = useRef(false);
+
+  /**
+   * 滑到某個位置。**自己用 requestAnimationFrame 一格一格推，不交給 `scrollTo({ behavior: 'smooth' })`**
+   * （2026-11-09 廟方：「目前滑動，沒有動畫，可以絲滑一點嗎？」）。
+   * 瀏覽器的平滑捲動靠不住：開了「減少動態效果」的手機會直接跳過去（本檔記過，
+   * 長輩的 iPhone 常開著），有些 iOS 版本對 snap 容器的平滑捲動也是一步到位。
+   * 自己推就每支手機都一樣。0.7 秒的橫向位移很輕，不是那個設定在防的那種大幅晃動。
+   *
+   * **動畫期間要關掉 snap**：snap-mandatory 會在每一次改 scrollLeft 之後把位置吸回最近的一張，
+   * 一格一格推會被吸回原地、整段抖動。到位之後再開回來。
+   */
+  const slideTo = (el: HTMLDivElement, left: number) => {
+    cancelAnimationFrame(animRef.current);
+    const from = el.scrollLeft;
+    const dist = left - from;
+    if (Math.abs(dist) < 1) return;
+    autoUntilRef.current = Date.now() + SLIDE_MS + AUTO_SCROLL_GRACE_MS;
+    el.style.scrollSnapType = 'none';
+    slidingRef.current = true;
+    const finish = () => {
+      cancelAnimationFrame(animRef.current);
+      window.clearTimeout(fuseRef.current);
+      el.scrollLeft = left;
+      el.style.scrollSnapType = '';
+      slidingRef.current = false;
+    };
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / SLIDE_MS);
+      el.scrollLeft = from + dist * easeInOutCubic(t);
+      if (t < 1) { animRef.current = requestAnimationFrame(step); return; }
+      // 下一格再開 snap，避免恢復的那一刻又被吸一次
+      animRef.current = requestAnimationFrame(finish);
+    };
+    animRef.current = requestAnimationFrame(step);
+    // 動畫沒跑完（使用者切到別的 App、分頁在背景）也要在時間到時落定，不能卡在半路又沒有 snap
+    window.clearTimeout(fuseRef.current);
+    fuseRef.current = window.setTimeout(finish, SLIDE_MS + 150);
+  };
+
+  /** 手指一碰到就停掉動畫、把 snap 還回去，讓他自己滑 */
+  const stopSlide = () => {
+    cancelAnimationFrame(animRef.current);
+    window.clearTimeout(fuseRef.current);
+    slidingRef.current = false;
+    if (trackRef.current) trackRef.current.style.scrollSnapType = '';
+  };
+  useEffect(() => () => { cancelAnimationFrame(animRef.current); window.clearTimeout(fuseRef.current); }, []);
   const [visible, setVisible] = useState(true);
   /** 每張圖的裁切方式：3:2 的用 cover 填滿，直式的用 contain 不切字 */
   const [fit, setFit] = useState<Record<string, 'cover' | 'contain'>>({});
@@ -110,6 +164,7 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
     if (!el) return;
     const onScroll = () => {
       if (Date.now() > autoUntilRef.current) lastUserRef.current = Date.now();
+      if (slidingRef.current) return;
       const o = offsets();
       if (o.length === 0) return;
       let best = 0;
@@ -141,20 +196,17 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
       let cur = 0;
       o.forEach((x, i) => { if (Math.abs(x - el.scrollLeft) < Math.abs(o[cur] - el.scrollLeft)) cur = i; });
       const next = (cur + 1) % o.length;
-      autoUntilRef.current = Date.now() + AUTO_SCROLL_GRACE_MS;
-      el.scrollTo({ left: o[next], behavior: (prefersReducedMotion() ? 'instant' : 'smooth') as ScrollBehavior });
-      // instant 不保證派發 scroll 事件，指示器直接設（同 goTo 那條）
+      slideTo(el, o[next]);
+      // 指示器直接設，不等動畫跑完才由 scroll 事件回推（同 goTo 那條）
       setIdx(next);
     }, AUTO_MS);
     return () => window.clearInterval(t);
   }, [items.length, visible]);
 
   /**
-   * **開了「減少動態效果」就要用 `instant`，不能用 `smooth`。**
-   * 那種裝置上瀏覽器**不是把平滑捲動變快，是整個取消**——實測按第 2、第 3 顆點
-   * 完全沒反應，scrollLeft 文風不動。本專案已經為同一件事踩過兩次
-   * （回到頁首那顆鈕、公佈欄的深連結），這是第三次。
-   * 本站信眾以長者居多，那個設定開著的比例不低，等於這排點對他們是壞的。
+   * 按小圓點換張。**不要改回 `scrollTo({ behavior: 'smooth' })`**：開了「減少動態效果」
+   * 的裝置上瀏覽器不是把平滑捲動變快、是整個取消——實測按第 2、第 3 顆點完全沒反應
+   * （本專案為同一件事踩過三次：回到頁首、公佈欄深連結、這排點）。`slideTo` 自己推就沒這個問題。
    */
   const goTo = (i: number) => {
     lastUserRef.current = Date.now();
@@ -162,10 +214,9 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
     const o = offsets();
     if (!el || o[i] === undefined) return;
     // 自己按的點也會引發 scroll 事件，那段不必再算一次「使用者滑過」（已經記了）
-    autoUntilRef.current = Date.now() + AUTO_SCROLL_GRACE_MS;
-    el.scrollTo({ left: o[i], behavior: (prefersReducedMotion() ? 'instant' : 'smooth') as ScrollBehavior });
-    // **指示器直接設，不要等 scroll 事件**：instant 捲動不保證會派發 scroll
-    // （實測按第 2 顆點時位置對了、亮的卻還是第 1 顆）。手滑那條路照樣由事件更新。
+    slideTo(el, o[i]);
+    // **指示器直接設，不要等 scroll 事件**：動畫途中的 scroll 事件會一路回推成中間那幾張，
+    // 點會跟著閃過去。手滑那條路照樣由事件更新。
     setIdx(i);
   };
 
@@ -181,6 +232,7 @@ const BulletinBanners: React.FC<Props> = ({ items, onOpen }) => {
       */}
       <div
         ref={trackRef}
+        onPointerDown={stopSlide}
         /**
          * **`scroll-pl-4` 不能省。** `-mx-4 px-4` 是為了讓輪播滿版出血、但第一張仍與
          * 頁面的 16px 邊距對齊；可是 `snap-mandatory` 吸附的是**外框**不是內距邊，
