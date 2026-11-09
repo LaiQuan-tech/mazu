@@ -947,7 +947,7 @@ export const deleteScriptureImage = async (imagePath: string): Promise<void> => 
   await supabase.storage.from(SITE_IMAGES_BUCKET).remove([imagePath]);
 };
 
-// ─── Lamp Service Configs (點燈服務設定) ──────────────────────────────────────
+// ─── Lamp Service Configs (太歲點燈設定) ──────────────────────────────────────
 
 export const getLampServiceConfigs = async (activeOnly = false): Promise<LampServiceConfig[]> => {
   let query = supabase

@@ -5365,7 +5365,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
   );
 };
 
-// ─── Lamps Tab (點燈服務管理) ─────────────────────────────────────────────────
+// ─── Lamps Tab (太歲點燈管理) ─────────────────────────────────────────────────
 
 const LampsTab = ({
   configs, registrations, onRefresh, memberProfiles,
@@ -5523,7 +5523,7 @@ const LampsTab = ({
       {/* Header + sub-view toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800">點燈服務管理</h3>
+          <h3 className="text-lg font-semibold text-gray-800">太歲點燈管理</h3>
           <p className="text-sm text-gray-500 mt-1">
             {view === 'configs' ? `共 ${configs.length} 個服務項目` : `共 ${registrations.length} 筆登記紀錄`}
           </p>

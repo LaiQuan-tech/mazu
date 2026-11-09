@@ -476,22 +476,26 @@ function fillEmptyFields<T extends object>(entry: T, defaults: Record<string, un
 }
 
 /**
- * 點燈服務與祈福活動在導覽列上換位置——**依農曆月份自動切換**（廟方 2026-10-01 要求）。
+ * 太歲點燈（/lamps）在導覽列上的位置——**依農曆月份自動切換**（廟方 2026-10-01 要求）。
  *
  * 點燈是年度服務，信眾集中在農曆年底與年初來點（安太歲、光明燈都是為新的一年點的）；
- * 年中擺在導覽列前段只是佔著位置。所以**農曆十一月、臘月、正月這三個月**它排在前面，
- * 其餘月份退到「更多」，由祈福活動遞補——那是整年都在辦的。
+ * 年中擺在導覽列前段只是佔著位置。所以**農曆十月到正月這四個月**它排上頂層，
+ * 緊接在預約問事後面、祈福活動前面；其餘月份退到「更多」。
  *
- * 兩者**互換而不是各加一個**：桌機頂層那一列已經沒有空間（1024px 時用掉 949px、
- * 可用 945px，見 CLAUDE.md），多一項就會擠出去。兩個標籤都是四個字，換了寬度不變。
+ * **旺季時是「多一項」不是「互換」**（廟方 2026-11-09：「太歲點燈移動到預約問事跟
+ * 祈福活動中間」）。2026-10-01 的版本是點燈與祈福互換，旺季時祈福活動被擠進「更多」；
+ * 這次廟方要兩個都在。頂層原本零餘裕，多一項的寬度由「關於我們」讓出來——
+ * 旺季時它進「更多」（見 NAV_MORE），淡季回來。寬度量過見 CLAUDE.md。
+ * 旺季起點也從農曆十一月提前到**十月**（同日廟方：「到了年度太歲點燈的季節」，當天是十月初一）。
  *
  * **每次載入頁面時算一次就好**，不做即時更新：月份一天只會變一次，而為了跨月的那一刻
  * 去掛計時器，等於替一個沒有人會遇到的情況多一條會忘記清掉的訂閱。
  */
-const LAMP_NAV: NavItem = { id: 'lamps', label: '點燈服務', kind: 'page' };
+const LAMP_NAV: NavItem = { id: 'lamps', label: '太歲點燈', kind: 'page' };
+const ABOUT_NAV: NavItem = { id: 'about', label: '關於我們', kind: 'section' };
 const BLESSING_NAV: NavItem = { id: 'blessing', label: '祈福活動', kind: 'page' };
-/** 農曆十一月（冬月）、十二月（臘月）、正月 */
-const LAMP_SEASON_MONTHS = [11, 12, 1];
+/** 農曆十月、十一月（冬月）、十二月（臘月）、正月 */
+const LAMP_SEASON_MONTHS = [10, 11, 12, 1];
 const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMonth());
 
 /**
@@ -550,9 +554,11 @@ const NAV_PRIMARY: NavItem[] = [
   // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
   ...(ENABLE_BULLETIN ? [{ id: 'bulletin', label: '最新活動', kind: 'section' } as NavItem] : []),
   { id: 'booking', label: '預約問事', kind: 'page' },
-  isLampSeason() ? LAMP_NAV : BLESSING_NAV,
+  // 點燈旺季多一項，「關於我們」讓位到「更多」（見 isLampSeason）
+  ...(isLampSeason() ? [LAMP_NAV] : []),
+  BLESSING_NAV,
   { id: 'deities', label: '祀奉神尊', kind: 'section' },
-  { id: 'about', label: '關於我們', kind: 'section' },
+  ...(isLampSeason() ? [] : [ABOUT_NAV]),
 ];
 
 // 祀奉神尊一次展開的數量。設 4 是為了對齊 lg:grid-cols-4，每按一次剛好補滿一列
@@ -1471,8 +1477,8 @@ const NAV_MORE: NavItem[] = [
   // 桌機頂層那一列已經沒有空間（1024px 時用掉 949px、可用 945px），只能放下拉。
   // 由 ENABLE_CALENDAR 控制；關閉時整個項目不出現（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_CALENDAR ? [{ id: 'calendar', label: '歲時節慶', kind: 'page' } as NavItem] : []),
-  // 上面那一列放不下的那一個落在這裡，見 isLampSeason 的說明
-  isLampSeason() ? BLESSING_NAV : LAMP_NAV,
+  // 上面那一列放不下的那一個落在這裡：旺季是關於我們、淡季是太歲點燈（見 isLampSeason）
+  isLampSeason() ? ABOUT_NAV : LAMP_NAV,
   // 神尊修復由 ENABLE_REPAIR 控制；關閉時整個項目不出現在導覽列（桌機下拉與手機選單共用這份資料）
   ...(ENABLE_REPAIR ? [{ id: 'repair', label: '神尊修復', kind: 'page' } as NavItem] : []),
   { id: 'donation', label: '隨喜捐獻', kind: 'page' },
@@ -1586,7 +1592,7 @@ const App: React.FC = () => {
       home:       '台北和聖壇｜像家就是家｜問事、點燈與法會服務',
       about:      '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
       booking:    '預約問事｜台北古亭和聖壇',
-      lamps:      '點燈服務｜太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
+      lamps:      '太歲點燈｜安太歲・太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
       blessing:   '祈福法會報名｜台北古亭和聖壇',
       urgent:     '緊急祈願燈｜急難代為稟告祈福，不收費｜台北古亭和聖壇',
       relocation: '遷址捐款｜護持和聖壇道場遷址',
@@ -2663,7 +2669,7 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: reduce ? 'instant' : 'smooth' });
   };
 
-  /** 切換到獨立分頁（預約問事／點燈服務／祈福活動／神尊修復），或回首頁 */
+  /** 切換到獨立分頁（預約問事／太歲點燈／祈福活動／神尊修復），或回首頁 */
   const goToPage = (target: SitePage) => {
     setPage(target);
     setActiveSection(target === 'home' ? 'home' : target);
@@ -3347,7 +3353,7 @@ const App: React.FC = () => {
             所以上緣壓到能讀（約 30% 高度內收乾淨），中段以下完全不壓——
             按鈕是深藍底金字，本來就是深壓淺，不需要遮罩幫忙。
             這道遮罩兩個底圖共用。藍金版實測 1440×900：最暗 17.6:1，壓在右上白金
-            大理石那片的「點燈服務／更多／登入」5.75:1（AA 要求 4.5:1）。
+            大理石那片的「太歲點燈／更多／登入」5.75:1（AA 要求 4.5:1）。
             換底圖時要重量導覽列最右邊那幾項，別只看整體亮不亮。 */}
         <div
           className="absolute inset-0 z-0"
@@ -4518,7 +4524,7 @@ const App: React.FC = () => {
       </div>
       )}
 
-      {/* ── 點燈服務（獨立分頁 /lamps）── */}
+      {/* ── 太歲點燈（獨立分頁 /lamps）── */}
       {page === 'lamps' && (
       <div className="pt-20">
       <section id="lamps" className="py-20 bg-temple-bg relative overflow-hidden">
@@ -4537,12 +4543,12 @@ const App: React.FC = () => {
           <div className={`text-center ${isSharedGuest('lamp') ? 'mb-8' : 'mb-14'}`}>
             <h2 className="text-temple-red font-serif text-lg font-bold tracking-widest mb-2 flex items-center justify-center gap-3">
               <span className="w-8 h-1 bg-temple-gold" />
-              點燈服務
+              太歲點燈
               <span className="w-8 h-1 bg-temple-gold" />
             </h2>
             {!isSharedGuest('lamp') && (
               <>
-                {/* 名稱 2026-10-01 從「祈福點燈」改為「點燈服務」（廟方提議）：
+                {/* 名稱 2026-10-01 從「祈福點燈」改為「點燈服務」（廟方提議），2026-11-09 再改成「太歲點燈」（廟方：優化 SEO，「安太歲」是信眾實際在搜的字）：
                     與「祈福活動」都掛著「祈福」，選單上並排分不出來。改名之後分法很清楚——
                     目的在祈福的（天赦日、神明聖誕的祈福點燈）在祈福活動，目的就是點燈的在這裡。
                     h1 的「年度」是這一頁與那些單場次點燈最大的差別，一年一期。 */}
@@ -4594,7 +4600,7 @@ const App: React.FC = () => {
           ) : (
             <div className="text-center text-gray-400 mb-16 py-8">
               <Flame className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p>點燈服務資訊載入中...</p>
+              <p>太歲點燈資訊載入中...</p>
             </div>
           ))}
 
@@ -4844,7 +4850,7 @@ const App: React.FC = () => {
               天赦日、神明聖誕等單場次的祈福點燈也在本頁。太歲祈安燈、光明燈這類
               <button type="button" onClick={() => goToPage('lamps')}
                 className="text-temple-red font-medium hover:underline">一年一期的點燈</button>
-              請至點燈服務頁。
+              請至太歲點燈頁。
             </p>
             </>)}
           </div>
