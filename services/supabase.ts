@@ -2632,12 +2632,18 @@ export const saveAboutFacts = async (facts: AboutFacts): Promise<void> => {
 
 const SCRIPTURE_FULL_KEY = 'scripture_full_text';
 
+/** 只拿掉頭尾的空行與每行行尾的空白（看不見、也不影響顯示），行首與行內的空白一個都不動 */
+const tidyFullText = (text: string): string =>
+  text.replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\s+$/, '')).join('\n')
+    .replace(/^\n+/, '').replace(/\n+$/, '');
+
 export const getScriptureFullText = async (): Promise<string> => {
   try {
     const { data, error } = await supabase.from('site_settings')
       .select('value').eq('key', SCRIPTURE_FULL_KEY).maybeSingle();
     if (error) throw error;
-    return ((data?.value ?? '') as string).trim();
+    // 不可以 trim()：它會連第一行開頭的全形空白一起削掉，而廟方的空白是要照樣顯示的
+    return tidyFullText((data?.value ?? '') as string);
   } catch (e) {
     console.warn('讀取天上聖母經全文失敗，改用各段經文:', e);
     return '';
@@ -2646,7 +2652,7 @@ export const getScriptureFullText = async (): Promise<string> => {
 
 export const saveScriptureFullText = async (text: string): Promise<void> => {
   const { error } = await supabase.from('site_settings')
-    .upsert({ key: SCRIPTURE_FULL_KEY, value: text.trim(), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    .upsert({ key: SCRIPTURE_FULL_KEY, value: tidyFullText(text), updated_at: new Date().toISOString() }, { onConflict: 'key' });
   if (error) { console.error('Error saving scripture full text:', error); throw error; }
 };
 

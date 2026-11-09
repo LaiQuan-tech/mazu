@@ -793,7 +793,8 @@ const fetchScriptureFullText = async () => {
       { headers: { apikey: key, Authorization: `Bearer ${key}` } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
-    const v = (rows[0]?.value ?? '').trim();
+    // 不 trim：第一行開頭的全形空白是廟方排版的一部分（同 getScriptureFullText）
+    const v = (rows[0]?.value ?? '').replace(/^\s*\n/, '').trimEnd();
     if (v) console.log(`prerender  聖母經全文來源：後台另存的全文`);
     return v;
   } catch (e) {
@@ -802,10 +803,23 @@ const fetchScriptureFullText = async () => {
   }
 };
 const scriptureFullStored = await fetchScriptureFullText();
-/** 與 services/scriptureText.ts 的 scripturePhrases 同一條規則（這裡 import 不了那支 TS） */
-const scripturePhrasesOf = (text) => text.split('\n')
-  .map((l) => l.replace(/\s+/g, '')).filter(Boolean)
-  .flatMap((l) => l.match(/[^。，、；！？]+[。，、；！？]?/g) ?? [l]);
+/**
+ * 全文的 noscript：**照後台打的換行排**（與 services/scriptureText.ts 同規則，這裡 import 不了那支 TS）。
+ * 一行一個 `<br />`、空行收成一個段落間隔。沒存過全文時，由 136 段接起來、四句一行。
+ */
+const fullTextHtml = (stored, rows) => {
+  const text = stored || (() => {
+    const ph = rows.map((v) => v.verse).join('\n').split('\n')
+      .map((l) => l.replace(/\s+/g, '')).filter(Boolean)
+      .flatMap((l) => l.match(/[^。，、；！？]+[。，、；！？]?/g) ?? [l]);
+    const out = [];
+    for (let i = 0; i < ph.length; i += 4) out.push(ph.slice(i, i + 4).join(''));
+    return out.join('\n');
+  })();
+  return text.split(/\n\s*\n/)
+    .map((block) => `        <p style="margin:0 0 1rem">${block.split('\n').map((l) => esc(l.trimEnd())).filter(Boolean).join('<br />')}</p>`)
+    .join('\n');
+};
 const relocationPlans = await fetchRelocationPlans();
 const bookingSessions = await fetchBookingSessions();
 const feastSnapshot = await fetchFeasts();
@@ -1423,7 +1437,7 @@ for (const r of ACTIVE_ROUTES) {
   // 全文版一整篇不分段、不標段號：那 136 段是註解版配插圖的切法，不是經文本身的段落
   // （廟方 2026-11-09）。與 components/ScriptureFullText.tsx 同一個規則。
   const fullText = r.path !== '/scripture/full' || (scriptureRows.length === 0 && !scriptureFullStored) ? '' :
-    `\n        <p style="margin:0">${esc(scripturePhrasesOf(scriptureFullStored || scriptureRows.map((v) => v.verse).join('\n')).join('　'))}</p>`;
+    `\n${fullTextHtml(scriptureFullStored, scriptureRows)}`;
   const scriptureText = r.path !== '/scripture' || scriptureRows.length === 0 ? fullText :
     '\n' + scriptureRows.map((v) => {
       const verse = esc(v.verse).replace(/\n/g, '<br />');

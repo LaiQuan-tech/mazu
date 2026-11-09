@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses, getScriptureFullText } from '../services/supabase';
-import { scripturePhrases, fullTextFromVerses } from '../services/scriptureText';
+import { scriptureLines, fullTextFromVerses, MAX_UNBREAKABLE } from '../services/scriptureText';
 import { INK, SUTRA } from './inkTheme';
 
 /**
@@ -17,17 +17,19 @@ import { INK, SUTRA } from './inkTheme';
  * **橫排不直排**：註解版的直排是為了寫經本的觀感；這一頁的用途是拿著手機一路念，
  * 直排在手機上要左右來回捲，長輩念到一半會找不到下一欄。
  *
- * **不分段、不標段號，從頭到尾一整篇**（廟方 2026-11-09：「段落是我自己為了畫圖
- * 而做的，不是經文本身的段落」）。那 136 段是註解版配插圖用的切法，經文本身沒有；
- * 放進全文版會讓人以為經書就是這樣分章的。資料裡的空行同理，一併不理。
+ * **不分段、不標段號**（廟方 2026-11-09：「段落是我自己為了畫圖而做的，不是經文本身
+ * 的段落」）。那 136 段是解說版配插圖用的切法，不出現在這一頁。
+ *
+ * **排版照後台打的樣子**（同日廟方：「換行與空白會影響顯示」）：一行就是一行、空行是段落
+ * 間的空白、行內空格照留。中間有一版是「四欄格子、一行固定四句」，那只對 510 句都是
+ * 「三字＋句號」的經文成立；廟方貼進完整經本（爐香讚、淨心神咒、長短不一的咒語）之後
+ * 就排不下了。規則與理由見 `services/scriptureText.ts`。
  *
  * **每一句（到「。」為止）是一個不換行的單位**：手機上自然折行會把「可先知」
- * 拆成「可先／知」，念的人會在半句卡住，所以只准在句與句之間換行。
+ * 拆成「可先／知」，念的人會在半句卡住，所以一行太長時只在句與句之間折。
  *
- * **一行固定四句**（廟方 2026-11-09）。經文 510 句全是「三字＋句號」，等寬，
- * 所以排成四欄的格子，上下對齊像經書的版面。字級跟著螢幕寬度算：
- * 一行是 4 句 × 4 個字＋欄距，約 18 個字寬，所以 (視窗寬 − 左右內距 40) ÷ 18；
- * 375 寬的手機約 18.6px，上限 26px（桌機）。不這樣算的話 360 寬的手機會擠成三句一行。
+ * 字級沿用四欄那一版算出來的 (視窗寬 − 40) ÷ 18：四句一行（約 17 個字）在 320 寬的手機上
+ * 也放得下一整行；375 寬約 18.6px，上限 26px。
  */
 
 interface Props {
@@ -135,16 +137,28 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           <button type="button" onClick={onOpenAnnotated} style={{ ...linkBtn, marginTop: 20 }}>看逐段白話解說</button>
         </header>
 
-        <p style={{
-          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 18))', lineHeight: 2.3,
-          display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', justifyContent: 'space-between',
-          // 桌機字級到頂之後版面還很寬，不收的話四欄會被 space-between 拉得很開
-          maxWidth: '19em', margin: '0 auto',
+        <div style={{
+          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 18))', lineHeight: 2.3, letterSpacing: '.04em',
+          // 桌機字級到頂之後版面很寬，收在一個好讀的行長、整塊置中
+          maxWidth: '24em', margin: '0 auto',
         }}>
-          {scripturePhrases(stored || fullTextFromVerses(verses)).map((ph, i) => (
-            <span key={i} style={{ whiteSpace: 'nowrap' }}>{ph}</span>
+          {scriptureLines(stored || fullTextFromVerses(verses)).map((line, i) => (
+            line === null
+              ? <div key={i} style={{ height: '1em' }} aria-hidden="true" />
+              : (
+                /* **懸掛縮排**：手機上一行四句（約 20 字）放不下會折行，折下來的那截往右縮一字，
+                   行與行之間再多留一點距離——不這樣做，折下來的半行跟真正的下一行長得一模一樣，
+                   念的人分不出原本一行在哪裡結束。 */
+                <p key={i} style={{ margin: '0 0 .3em', lineHeight: 1.9, paddingLeft: '1em', textIndent: '-1em' }}>
+                  {line.map((t, j) => (
+                    t.kind === 'space'
+                      ? <span key={j} style={{ whiteSpace: 'pre' }}>{t.text}</span>
+                      : <span key={j} style={{ whiteSpace: t.text.length <= MAX_UNBREAKABLE ? 'nowrap' : 'normal' }}>{t.text}</span>
+                  ))}
+                </p>
+              )
           ))}
-        </p>
+        </div>
 
         {!loading && verses.length > 0 && (
           <footer style={{ textAlign: 'center', marginTop: 56 }}>

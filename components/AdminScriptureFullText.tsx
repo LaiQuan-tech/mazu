@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Save, RefreshCw, AlertCircle, ChevronDown, ExternalLink } from 'lucide-react';
 import { getScriptureFullText, saveScriptureFullText } from '../services/supabase';
-import { scripturePhrases, fullTextFromVerses, formatFourPerLine } from '../services/scriptureText';
+import { countPhrases, fullTextFromVerses } from '../services/scriptureText';
 import { ScriptureVerseRecord } from '../types';
 
 /**
@@ -14,9 +14,10 @@ import { ScriptureVerseRecord } from '../types';
  * 還沒存過時，編輯框先放「由 136 段接起來」的內容（那就是全文頁現在顯示的），
  * 廟方從那裡開始修，不必從零打起。
  *
- * **句長檢查**：全文頁是四欄的格子，字級是照「一句三字＋句號」算的（見 ScriptureFullText）。
- * 長短不一的句子在手機上會把某一欄撐寬、整排擠出畫面，所以不是三個字的句子要列出來提醒。
- * 只提醒、不擋存檔——經文本身若真的有那樣的句子，以經文為準。
+ * **存的就是打的樣子，換行與空白一個都不動**（同日廟方：「換行與空白會影響顯示」）。
+ * 第一版存檔時會把文字重排成四句一行，廟方貼進完整經本（有「爐香讚」「淨心神咒」這種
+ * 標題）之後，標題全黏進下一句、原本的換行也救不回來。排版規則見 `services/scriptureText.ts`。
+ * 原本那個「不是三字的句子」提醒一併拿掉：經本本來就有長短句，那是四欄格子才需要的檢查。
  */
 
 const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({ verses }) => {
@@ -26,34 +27,34 @@ const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const fromVerses = useMemo(() => formatFourPerLine(fullTextFromVerses(verses)), [verses]);
+  const fromVerses = useMemo(() => fullTextFromVerses(verses), [verses]);
 
   useEffect(() => {
-    getScriptureFullText().then(v => { setSaved(v); setText(v ? formatFourPerLine(v) : ''); });
+    getScriptureFullText().then(v => { setSaved(v); setText(v); });
   }, []);
 
-  // 沒存過、經文又已經載入：用 136 段接起來的內容當起點
+  // 沒存過、經文又已經載入：用 136 段接起來的內容當起點。**只帶一次**——
+  // 不然廟方把框清空想重打，它會立刻又被填回去
+  const prefilled = useRef(false);
   useEffect(() => {
-    if (saved === '' && !text && fromVerses) setText(fromVerses);
-  }, [saved, fromVerses, text]);
+    if (prefilled.current || saved !== '' || !fromVerses) return;
+    prefilled.current = true;
+    setText(fromVerses);
+  }, [saved, fromVerses]);
 
-  const phrases = useMemo(() => scripturePhrases(text), [text]);
-  /** 不是「三字＋句號」的句子（去掉標點後不是 3 個字） */
-  const odd = useMemo(
-    () => phrases.map((p, i) => ({ p, i })).filter(({ p }) => p.replace(/[。，、；！？]/g, '').length !== 3),
-    [phrases],
-  );
-  const changed = saved !== null && text.trim() !== formatFourPerLine(saved || fullTextFromVerses(verses)).trim();
+  const phraseCount = useMemo(() => countPhrases(text), [text]);
+  const lineCount = useMemo(() => text.split('\n').filter(l => l.trim()).length, [text]);
+  const changed = saved !== null && text !== (saved || fromVerses);
 
   const save = async () => {
-    if (phrases.length === 0) { setMsg({ ok: false, text: '全文不能是空的。' }); return; }
+    if (!text.trim()) { setMsg({ ok: false, text: '全文不能是空的。' }); return; }
     setSaving(true);
     setMsg(null);
     try {
-      const clean = formatFourPerLine(text);
-      await saveScriptureFullText(clean);
-      setSaved(clean);
-      setText(clean);
+      await saveScriptureFullText(text);
+      const stored = await getScriptureFullText();   // 讀回來比對，確定存進去的就是畫面上這一份
+      setSaved(stored);
+      setText(stored);
       setMsg({ ok: true, text: '已儲存，全文頁重新整理就會看到。給搜尋引擎看的版本要按「基本資料」頁的「重新發布」才會更新。' });
     } catch {
       setMsg({ ok: false, text: '儲存失敗，請重新整理後再試。' });
@@ -76,7 +77,7 @@ const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({
           <h4 className="font-semibold text-gray-800">全文（誦讀版）</h4>
           <p className="text-xs text-gray-500 mt-0.5">
             {saved === null ? '讀取中...'
-              : saved ? `已另存全文，共 ${scripturePhrases(saved).length} 句`
+              : saved ? `已另存全文，共 ${countPhrases(saved)} 句`
               : '尚未另存。全文頁目前是由下面 136 段的經文接起來的'}
           </p>
         </div>
@@ -86,7 +87,7 @@ const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({
       {open && saved !== null && (
         <div className="px-6 pb-6 space-y-4 border-t border-gray-100 pt-4">
           <div className="text-sm text-gray-600 space-y-1">
-            <p>這裡是全文頁（<a href="/scripture/full" target="_blank" rel="noopener noreferrer" className="text-temple-red hover:underline inline-flex items-center gap-0.5">/scripture/full<ExternalLink className="w-3 h-3" /></a>）顯示的經文。換行與空白不影響顯示，前台一律四句一行排好。</p>
+            <p>這裡是全文頁（<a href="/scripture/full" target="_blank" rel="noopener noreferrer" className="text-temple-red hover:underline inline-flex items-center gap-0.5">/scripture/full<ExternalLink className="w-3 h-3" /></a>）顯示的經文。<strong className="font-medium text-gray-800">怎麼換行、怎麼空格，前台就照樣顯示</strong>；空一行就是段落之間的空白。一行太長時手機上會自動折行，但只在句號之間折，不會把一句切開。</p>
             <p className="text-amber-700">全文與下面 136 段是分開的兩份：這裡改了錯字，解說頁那一段不會跟著改，需要的話兩邊都要改。</p>
           </div>
 
@@ -98,18 +99,7 @@ const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({
             className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base leading-loose tracking-wider text-gray-800 outline-none focus:border-temple-red font-serif"
           />
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-            <span>共 {phrases.length} 句・約 {Math.ceil(phrases.length / 4)} 行</span>
-            {odd.length === 0
-              ? <span className="text-green-700">每一句都是三個字</span>
-              : <span className="text-amber-700">有 {odd.length} 句不是三個字，手機上可能會排不整齊</span>}
-          </div>
-          {odd.length > 0 && (
-            <ul className="text-sm text-amber-800 bg-amber-50 rounded-xl px-4 py-3 space-y-0.5 max-h-40 overflow-y-auto">
-              {odd.slice(0, 30).map(({ p, i }) => <li key={i}>第 {i + 1} 句：{p}</li>)}
-              {odd.length > 30 && <li>⋯還有 {odd.length - 30} 句</li>}
-            </ul>
-          )}
+          <p className="text-sm text-gray-500">共 {lineCount} 行・{phraseCount} 句</p>
 
           {msg && (
             <div role={msg.ok ? 'status' : 'alert'}
