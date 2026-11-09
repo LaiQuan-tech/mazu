@@ -47,6 +47,7 @@ import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
 import VideoFacade from './components/VideoFacade';
 import InstagramStrip from './components/InstagramStrip';
+import TaijiIcon from './components/TaijiIcon';
 import { INK_PAPER_CSS, INK_PAPER_BG } from './components/inkTheme';
 import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
@@ -4214,7 +4215,8 @@ const App: React.FC = () => {
             <div className="sr sr-up sr-d1 h-full">
             <div className="h-full group bg-temple-bg p-8 rounded-xl shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
               <div className="w-16 h-16 bg-temple-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:bg-temple-gold transition-colors">
-                <Sparkles className="w-8 h-8 text-white" />
+                {/* 太極（2026-11-10 廟方要求，原本是 Sparkles）。不用 ☯ 字元的理由見 TaijiIcon */}
+                <TaijiIcon className="w-8 h-8 text-white" />
               </div>
               <h4 className="text-2xl font-bold mb-4 font-serif text-temple-dark">祈福法會</h4>
               <p className="text-gray-600 mb-6">
