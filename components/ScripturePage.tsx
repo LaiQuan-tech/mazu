@@ -497,7 +497,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
               </span>
             ))}
           </h1>
-          <p style={{ color: INK.inkSoft, fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　註　解　與　故　事</p>
+          <p style={{ color: INK.inkSoft, fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　解　說　與　故　事</p>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280, animation: 'sp-fade-up 0.9s ease 1.5s both' }} />
           <p className="hero-sub" style={{ color: INK.inkSoft, fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
           <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.2em', marginTop: 16, animation: 'sp-fade-up 0.8s ease 1.9s both' }}>
@@ -537,7 +537,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
             <button type="button" aria-pressed={allOpen}
               onClick={() => setOpenNotes(allOpen ? new Set() : new Set(verses.map(v => v.id)))}
               style={{ color: INK.inkSoft, background: 'transparent', border: `1px solid ${INK.goldLine}`, borderRadius: 999, padding: '10px 22px', fontSize: 15, letterSpacing: '.15em', cursor: 'pointer' }}>
-              {allOpen ? '收合全部註解' : '展開全部註解'}
+              {allOpen ? '收合全部解說' : '展開全部解說'}
             </button>
           )}
         </div>
@@ -630,7 +630,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
                           <button type="button" onClick={() => toggleNote(section.id)}
                             aria-expanded={open} aria-controls={noteId}
                             style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, color: INK.ink, background: 'transparent', border: 'none', padding: '8px 0', fontSize: 15, letterSpacing: '.12em', cursor: 'pointer' }}>
-                            {open ? '收合註解' : '展開註解'}
+                            {open ? '收合解說' : '展開解說'}
                             <ChevronDown size={16} aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
                           </button>
                         )}

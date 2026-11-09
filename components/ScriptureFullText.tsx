@@ -130,9 +130,9 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           <hr className="brush-line" style={{ border: 'none', height: 1, background: `linear-gradient(to right, transparent, ${INK.gold}, transparent)`, opacity: .55, margin: '28px auto', maxWidth: 280 }} />
           <p style={{ color: INK.inkBody, fontSize: 15, lineHeight: 2.2, letterSpacing: '.05em' }}>
             天上聖母即媽祖，這部經民間也稱媽祖經。本頁只列經文，方便一路誦讀；<br />
-            想知道每一句在講什麼，請看逐段的白話註解。
+            想知道每一句在講什麼，請看逐段的白話解說。
           </p>
-          <button type="button" onClick={onOpenAnnotated} style={{ ...linkBtn, marginTop: 20 }}>看逐段白話註解</button>
+          <button type="button" onClick={onOpenAnnotated} style={{ ...linkBtn, marginTop: 20 }}>看逐段白話解說</button>
         </header>
 
         <p style={{
@@ -149,7 +149,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
         {!loading && verses.length > 0 && (
           <footer style={{ textAlign: 'center', marginTop: 56 }}>
             <p style={{ color: INK.inkFaint, fontSize: 13, letterSpacing: '.4em', marginBottom: 24 }}>台北古亭和聖壇　敬獻</p>
-            <button type="button" onClick={onOpenAnnotated} style={linkBtn}>看逐段白話註解</button>
+            <button type="button" onClick={onOpenAnnotated} style={linkBtn}>看逐段白話解說</button>
           </footer>
         )}
       </main>

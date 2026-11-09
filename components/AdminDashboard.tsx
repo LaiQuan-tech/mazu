@@ -5189,7 +5189,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">聖母經內容管理</h3>
-          <p className="text-sm text-gray-500 mt-1">共 {verses.length} 節・可編輯經文、註解及插圖</p>
+          <p className="text-sm text-gray-500 mt-1">共 {verses.length} 節・可編輯經文、解說及插圖</p>
         </div>
       </div>
 
@@ -5215,7 +5215,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
             <tr>
               <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">插圖</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">經文</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">註解</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium">解說</th>
               <th className="text-center px-4 py-3 text-gray-500 font-medium w-20">操作</th>
             </tr>
           </thead>
@@ -5239,7 +5239,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                 <td data-label="經文" className="px-4 py-3 text-gray-700 max-w-[200px]">
                   <p className="truncate">{v.verse.replace(/\n/g, ' ')}</p>
                 </td>
-                <td data-label="註解" className="px-4 py-3 text-gray-500 max-w-[300px]">
+                <td data-label="解說" className="px-4 py-3 text-gray-500 max-w-[300px]">
                   <p className="truncate">{v.annotation.substring(0, 50)}...</p>
                 </td>
                 <td data-label="操作" className="px-4 py-3 text-center">
@@ -5326,7 +5326,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
               {/* Annotation */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">註解</label>
+                  <label className="block text-sm font-medium text-gray-700">解說</label>
                   <button
                     type="button"
                     onClick={insertBullet}
@@ -5343,7 +5343,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                   onChange={e => setFormAnnotation(e.target.value)}
                   rows={8}
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-vertical"
-                  placeholder="經文的詳細註解..."
+                  placeholder="經文的詳細解說..."
                 />
                 <p className="text-xs text-gray-400 mt-1">以「• 」開頭的行，前台會顯示為清單項目</p>
               </div>

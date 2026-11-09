@@ -87,7 +87,7 @@ const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({
         <div className="px-6 pb-6 space-y-4 border-t border-gray-100 pt-4">
           <div className="text-sm text-gray-600 space-y-1">
             <p>這裡是全文頁（<a href="/scripture/full" target="_blank" rel="noopener noreferrer" className="text-temple-red hover:underline inline-flex items-center gap-0.5">/scripture/full<ExternalLink className="w-3 h-3" /></a>）顯示的經文。換行與空白不影響顯示，前台一律四句一行排好。</p>
-            <p className="text-amber-700">全文與下面 136 段是分開的兩份：這裡改了錯字，註解頁那一段不會跟著改，需要的話兩邊都要改。</p>
+            <p className="text-amber-700">全文與下面 136 段是分開的兩份：這裡改了錯字，解說頁那一段不會跟著改，需要的話兩邊都要改。</p>
           </div>
 
           <textarea
