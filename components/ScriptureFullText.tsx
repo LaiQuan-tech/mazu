@@ -43,6 +43,19 @@ const phrasesOf = (verses: ScriptureVerseRecord[]): string[] =>
 const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
   const [verses, setVerses] = useState<ScriptureVerseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  /** 讀到哪裡了，0～1。與註解版同一套進度條（2026-11-09 廟方：「也要像註解頁一樣有進度條」） */
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(1, window.scrollY / max) : 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
+  }, [verses.length]);
 
   // 與註解版同一個底色，避免捲動慣性時露白
   useEffect(() => {
@@ -63,6 +76,37 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
 
   return (
     <div style={{ background: INK.paper, minHeight: '100vh', fontFamily: '"Noto Serif TC", "思源宋體", Georgia, serif', overflowX: 'clip' }}>
+      {/* 進度條：手機頂端一條橫的、桌機右側一條直的，與 ScripturePage 同一個樣子與斷點。
+          **桌機那條不標「第幾節」**：全文版刻意不分段（見檔頭），標了等於把段號加回來。
+          手機用 scaleX 不用 width，理由同 ScripturePage 那條（每次捲動都在變，只跑合成層）。 */}
+      <style>{`
+        .sf-progress   { display: flex; }
+        .sf-progress-m { display: none; }
+        @media (max-width: 767px) {
+          .sf-progress   { display: none; }
+          .sf-progress-m { display: block; }
+        }
+      `}</style>
+      <div className="sf-progress-m" aria-hidden="true" style={{
+        position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 51, transformOrigin: 'left center',
+        transform: `scaleX(${loading ? 0 : progress})`,
+        background: `linear-gradient(to right, ${INK.gold}, ${INK.ink})`,
+        transition: 'transform .12s linear', pointerEvents: 'none',
+      }} />
+      {!loading && verses.length > 0 && (
+        <div className="sf-progress" aria-hidden="true" style={{
+          position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 46,
+          flexDirection: 'column', alignItems: 'center', pointerEvents: 'none',
+        }}>
+          <div style={{ width: 2, height: 72, background: 'rgba(201,168,106,.22)', borderRadius: 1, overflow: 'hidden' }}>
+            <div style={{
+              width: '100%', height: `${progress * 100}%`,
+              background: `linear-gradient(to bottom, ${INK.gold}, ${INK.ink})`,
+              borderRadius: 1, transition: 'height .2s ease',
+            }} />
+          </div>
+        </div>
+      )}
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: INK.navBar, backdropFilter: 'blur(10px)', borderBottom: `1px solid ${INK.goldLine}` }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={onBack} aria-label="返回首頁" title="返回首頁"
