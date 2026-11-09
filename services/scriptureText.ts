@@ -55,3 +55,29 @@ export const fullTextFromVerses = (verses: ScriptureVerseRecord[]): string => {
   for (let i = 0; i < phrases.length; i += 4) lines.push(phrases.slice(i, i + 4).join(''));
   return lines.join('\n');
 };
+
+/**
+ * 解說頁每一段的小標：「第 12 段：林家女。湄州居。…」（2026-11-10 SEO 強化）。
+ * 畫面上不顯示（插圖、經文、段號浮水印已經講完了），給搜尋引擎、AI 與讀屏軟體看。
+ * **與 scripts/prerender.js 的 `scriptureHeading` 同一套取字**：經文開頭，截在句號上、
+ * 34 字以內；沒有經文的段（42 段是純解說）取解說的第一句。兩邊不一致的話，
+ * 不執行 JS 的檢索器看到的小標與 Google 算繪後看到的就不同。
+ */
+const CLIP = 34;
+const joinVerse = (s: string) => s.split(/\n+/).map(x => x.trim()).filter(Boolean)
+  .reduce((acc, x) => acc + (!acc || /[。，、；：]$/.test(acc) ? '' : '　') + x, '')
+  .replace(/[ \t]+/g, '　');
+const clipAt = (s: string, n: number) => {
+  if (s.length <= n) return s.replace(/。+$/, '');
+  const cut = s.slice(0, n);
+  const i = cut.lastIndexOf('。');
+  return (i >= 8 ? cut.slice(0, i) : cut) + '…';
+};
+const annProse = (s: string) => {
+  const lines = s.split('\n').map(x => x.trim()).filter(Boolean);
+  return lines.filter(x => !x.startsWith('•')).join('') || lines.join('');
+};
+export const sectionHeading = (v: { sectionNumber: number; verse: string; annotation: string }): string => {
+  const lead = clipAt(joinVerse(v.verse || '') || annProse(v.annotation || '').split('。')[0], CLIP);
+  return lead ? `第 ${v.sectionNumber} 段：${lead}` : `第 ${v.sectionNumber} 段`;
+};

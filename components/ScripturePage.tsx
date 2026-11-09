@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
 import { INK, SUTRA } from './inkTheme';
+import { sectionHeading } from '../services/scriptureText';
 
 
 // 由環境變數推導，避免專案搬遷時圖片 404
@@ -60,6 +61,25 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  /**
+   * `/scripture#s12` 直接跳到第 12 段（2026-11-10）。分享某一段、AI 引用某一段都靠它。
+   * 瀏覽器自己的錨點跳轉發生在載入當下，那時經文還沒抓回來、元素不存在，所以資料到了再跳。
+   * **跳兩次**：上方的插圖是 lazy 的，靠近畫面的那幾張載入後會把目標往下推（同公佈欄深連結那條）。
+   * 用 instant：開了減少動態效果的裝置上 smooth 會整個取消。
+   */
+  useEffect(() => {
+    if (verses.length === 0) return;
+    const m = window.location.hash.match(/^#(s\d+)$/);
+    if (!m) return;
+    const go = () => {
+      const el = document.getElementById(m[1]);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: 'instant' });
+    };
+    const r = requestAnimationFrame(go);
+    const t = window.setTimeout(go, 900);
+    return () => { cancelAnimationFrame(r); window.clearTimeout(t); };
+  }, [verses]);
 
   // Nav transparency + scroll progress bar
   useEffect(() => {
@@ -550,11 +570,16 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
         const isEven = idx % 2 === 0;
         const imgUrl = getImageUrl(section.imagePath);
         return (
-          <div key={section.id} data-section-idx={idx}>
+          // id＝錨點（/scripture#s12 直接跳到第 12 段），與 prerender 的 noscript 同名
+          <div key={section.id} id={`s${section.sectionNumber}`} data-section-idx={idx} style={{ scrollMarginTop: 64 }}>
             <hr className="brush-line" />
             {/* 原本每節 minHeight 70vh，136 節就是將近一百屏。註解收合之後內容本身已經不高，
                 留著那個下限頁面一個像素都不會變短，所以拿掉、只留上下內距。 */}
-            <section style={{ padding: 'clamp(40px,6vh,72px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
+            <section aria-labelledby={`s${section.sectionNumber}-h`} style={{ padding: 'clamp(40px,6vh,72px) clamp(20px,5vw,72px)', display: 'flex', alignItems: 'center', position: 'relative' }}>
+              {/* 這一段的小標。畫面上不顯示（插圖、經文與段號浮水印已經講完了），
+                  給 Google 算繪後的頁面、AI 與讀屏軟體：原本 136 段在算繪後的頁面上一個小標都沒有，
+                  只有 noscript 版才有。文字與 prerender 的 noscript 小標同一套取字（sectionHeading） */}
+              <h2 id={`s${section.sectionNumber}-h`} className="sr-only">{sectionHeading(section)}</h2>
 
               {/* Per-section background glow */}
               <div style={{

@@ -9,6 +9,10 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 
 - **法會報名表上線收件中**（太上慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 模組層級的 `FAHUI_LANDING=true` 讓報名表蓋住**根路徑**——**這是刻意的**。主官網上線時改成 `false` 再部署，其他都不用動。
   判斷集中在 `shouldShowFahui()`（根路徑＋非後台＋非志工頁才顯示），初始值與 popstate 共用同一個函式；分開寫過會導致按上一頁被報名表吃掉。
+- **經文兩頁的 SEO 強化（2026-11-10，當時「天上聖母經」無痕搜尋第 7 名）**：
+  (1) **「天上聖母經」這部經自己是一個節點**（`prerender.js` 的 `scriptureWorkNode`，`@id` 是 `/scripture#work`，兩頁共用）：`CreativeWork`、別名「媽祖經」、`about` 天上聖母（別名媽祖、林默娘，`sameAs` 維基百科）、`publisher` 指宮廟、`workExample` 指兩頁。兩頁的 WebPage `about`／`mainEntity` 改指它，不再指宮廟。**別名與分類只放網站上本來就寫著的**，沒把握的稱呼（「天上聖母真經」）與分類（「道教經典」）刻意不寫。
+  (2) **每段有錨點 `#s1`～`#s136`**，前台（`data-section-idx` 那一層的 id）與 noscript 的 h2 同名；`/scripture#s12` 載入後會跳到第 12 段（資料到了才跳、跳兩次，理由見 ScripturePage）。llms.txt 也告訴 AI 這個網址規則。
+  (3) **每段有小標**「第 N 段：經文開頭…」：noscript 是看得見的 h2，前台是 `sr-only` 的 h2（算繪後的頁面原本 136 段一個小標都沒有）。兩邊取字同一套：`prerender.js` 的 `scriptureHeading` ↔ `services/scriptureText.ts` 的 `sectionHeading`，改一邊要改另一邊。
 - **解說頁的標題是「天上聖母經｜全文、解說與故事（媽祖經）｜台北古亭和聖壇」**（2026-11-09 廟方指定）。我建議過把「全文」只留給全文頁、免得兩頁搶同一個搜尋字，廟方聽完選了這個說法，**不要再自行改回去**。
 - **經文頁對外一律叫「解說」，不叫「註解」（2026-11-09 廟方：「我感覺對 SEO 比較有幫助」）**。標題、描述、按鈕、副標、llms.txt、後台欄位都換了。**刻意留的兩處**：`/scripture` 的 meta description 括號裡留一次「（註解）」——舊說法照樣有人在搜；分享圖的 `imageAlt` 維持「天上聖母經的註解與故事」——那是廟方書籍封面上印的書名，alt 要照圖上的字。程式碼裡講「程式註解」的地方與這件事無關，不要跟著換。
 - **天上聖母經有兩頁（2026-11-09）**：`/scripture` 是逐段白話註解版、`/scripture/full` 是不含註解的全文誦讀版（`components/ScriptureFullText.tsx`），同一份 `scripture_verses`。

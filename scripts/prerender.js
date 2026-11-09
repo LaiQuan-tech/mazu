@@ -118,7 +118,7 @@ const ROUTES = [
     path: '/scripture/full',
     priority: '0.8',
     title: '天上聖母經全文（媽祖經）｜誦讀版｜台北古亭和聖壇',
-    desc: '天上聖母經全文，只列經文、不含解說，方便一路誦讀。天上聖母即媽祖，本經民間也稱媽祖經。逐段白話解說請見台北古亭和聖壇的天上聖母經註解頁。',
+    desc: '天上聖母經全文，只列經文、不含解說，方便一路誦讀。天上聖母即媽祖，本經民間也稱媽祖經。逐段白話解說請見台北古亭和聖壇的天上聖母經解說頁。',
     h1: '天上聖母經全文',
     image: '/og-scripture.jpg',
     imageAlt: '天上聖母經全文｜台北古亭和聖壇',
@@ -1165,6 +1165,46 @@ const scriptureAlt = (v) => {
     ? `天上聖母經 第 ${v.n} 段：${lead}｜台北古亭和聖壇`
     : `天上聖母經 第 ${v.n} 段 插圖｜台北古亭和聖壇`;
 };
+/**
+ * 每一段的小標（2026-11-10 SEO 強化）。原本只寫「第 N 段」，對搜尋引擎與 AI 等於沒有內容；
+ * 帶上那一段的開頭，「天上聖母經 林家女 湄州居」這種查法才對得到是哪一段。
+ * 取字規則與 scriptureAlt 同一套（經文開頭，沒有經文的段取解說第一句）。
+ */
+const scriptureHeading = (v) => {
+  const lead = clipAt(joinVerse(v.verse) || annProse(v.ann).split('。')[0], CLIP);
+  return lead ? `第 ${v.n} 段：${lead}` : `第 ${v.n} 段`;
+};
+/**
+ * 「天上聖母經」這部經本身的節點（2026-11-10）。
+ * 原本兩頁的 WebPage 都 `about: #temple`——對機器來說那只是「和聖壇的一個網頁」，
+ * 說不出「這是一部叫天上聖母經、俗稱媽祖經的經文，講的是林默娘」。
+ * 兩頁共用同一個 @id（解說版與全文版是同一部經的兩種讀法），各自用 workExample 指回自己。
+ * `about` 的 sameAs 指維基百科：那是 Google 與 AI 認「媽祖是誰」的錨點，自己寫一段介紹替代不了。
+ */
+const SCRIPTURE_WORK_ID = ORIGIN + '/scripture#work';
+const isScriptureRoute = (r) => r.path === '/scripture' || r.path === '/scripture/full';
+const scriptureWorkNode = () => ({
+  '@type': 'CreativeWork',
+  '@id': SCRIPTURE_WORK_ID,
+  name: '天上聖母經',
+  // 別名只放網站上本來就寫著的「媽祖經」，沒把握的稱呼與分類一律不寫進機器讀的資料
+  alternateName: ['媽祖經'],
+  inLanguage: 'zh-Hant',
+  description: '頌讚天上聖母（媽祖）的經文，記述其降世緣由、勸世教誨與歷代忠孝節義事蹟，民間也稱媽祖經。',
+  about: {
+    '@type': 'Person',
+    name: '天上聖母',
+    alternateName: ['媽祖', '林默娘', '林默'],
+    sameAs: ['https://zh.wikipedia.org/wiki/%E5%AA%BD%E7%A5%96'],
+  },
+  publisher: { '@id': ORIGIN + '/#temple' },
+  image: ORIGIN + '/og-scripture.jpg',
+  url: ORIGIN + '/scripture',
+  workExample: [
+    { '@type': 'CreativeWork', name: '天上聖母經　逐段白話解說', url: ORIGIN + '/scripture' },
+    { '@type': 'CreativeWork', name: '天上聖母經全文　誦讀版', url: ORIGIN + '/scripture/full' },
+  ],
+});
 /** sitemap 的 `<image:caption>`：比 alt 容得下更多，拿白話註解來補 */
 const scriptureCaption = (v) => clipAt(annProse(v.ann), 150);
 
@@ -1329,8 +1369,11 @@ for (const r of ACTIVE_ROUTES) {
         inLanguage: 'zh-TW',
         isPartOf: { '@id': ORIGIN + '/#website' },
         // 這一頁在講誰。多數頁是宮廟本體，`org` 路由（沐浴車）是別的單位，見該路由的註解。
-        about: { '@id': r.org ? url + '#org' : ORIGIN + '/#temple' },
+        // 經文兩頁講的是那部經，不是宮廟（宮廟是 publisher）
+        about: { '@id': isScriptureRoute(r) ? SCRIPTURE_WORK_ID : r.org ? url + '#org' : ORIGIN + '/#temple' },
+        ...(isScriptureRoute(r) ? { mainEntity: { '@id': SCRIPTURE_WORK_ID } } : {}),
       },
+      ...(isScriptureRoute(r) ? [scriptureWorkNode()] : []),
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
@@ -1442,7 +1485,8 @@ for (const r of ACTIVE_ROUTES) {
     '\n' + scriptureRows.map((v) => {
       const verse = esc(v.verse).replace(/\n/g, '<br />');
       const ann = v.ann ? `\n        <p style="margin:0 0 .75rem;color:#5C4310">${esc(v.ann)}</p>` : '';
-      return `        <h2 style="font-size:1rem;margin:1.25rem 0 .35rem;color:#7C5C1E">第 ${esc(String(v.n))} 段</h2>\n`
+      // id 與前台 ScripturePage 的錨點同名（s1～s136），/scripture#s12 兩邊都跳得到
+      return `        <h2 id="s${esc(String(v.n))}" style="font-size:1rem;margin:1.25rem 0 .35rem;color:#7C5C1E">${esc(scriptureHeading(v))}</h2>\n`
            + `        <p style="margin:0 0 .35rem">${verse}</p>${ann}`;
     }).join('\n');
 
