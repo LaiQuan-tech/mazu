@@ -12,7 +12,7 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 - **天上聖母經有兩頁（2026-11-09）**：`/scripture` 是逐段白話註解版、`/scripture/full` 是不含註解的全文誦讀版（`components/ScriptureFullText.tsx`），同一份 `scripture_verses`。
   **兩頁的標題刻意分開搶不同的字**：註解版主打「白話註解」、全文版主打「全文」（原本註解版標題寫著「全文」，現在讓出來）。`App.tsx` 的 `document.title` 與 `prerender.js` 的 ROUTES 要一致。全文版的 noscript 只放經文、不放註解，兩頁內容才有差別。
   **註解預設收合、只露兩行**（`NOTE_PEEK`），每段一顆「展開註解」，開場有「展開全部註解」。**收起來的註解仍整段在 DOM 裡、只用 max-height 遮住，不可以改成條件式渲染**——那 136 段註解就是這一頁的 SEO 價值。原本每節 `minHeight: 70vh` 一起拿掉，否則頁面一個像素都不會變短。量過：手機 117,297 → 69,864px、桌機 1024 寬 117,468 → 82,105px。
-  **全文版一整篇、不分段、不標段號**（廟方 2026-11-09：「段落是我自己為了畫圖而做的，不是經文本身的段落」）——那 136 段只屬於註解版，全文版與它的 noscript 都不可以再出現「第 N 段」。**每一句（到「。」）是 `nowrap` 的單位**：手機自然折行會把「可先知」拆成「可先／知」，念的人會卡在半句；一句一單位手機一行放得下三句（頁長 8,143px）。
+  **全文版一整篇、不分段、不標段號**（廟方 2026-11-09：「段落是我自己為了畫圖而做的，不是經文本身的段落」）——那 136 段只屬於註解版，全文版與它的 noscript 都不可以再出現「第 N 段」。**每一句（到「。」）是 `nowrap` 的單位**：手機自然折行會把「可先知」拆成「可先／知」，念的人會卡在半句。**一行固定四句**（廟方同日要求）：510 句全是「三字＋句號」等寬，排成 `repeat(4, max-content)` 的格子，字級 `min(26px, (100vw − 40px) / 18)`——一行約 18 個字寬，照螢幕寬算才保證四句放得下（320／360／375 寬實測都是四句、無溢出，375 寬 18.6px）。
   `isScriptureUrl()` 兩個網址都認（`shouldShowFahui()` 的排除靠它）；`/scripture/full` 預渲染到 `dist/scripture/full.html`（prerender 會 `mkdirSync`），`vercel.json` 的 rewrite 排在 `/scripture` 之前；`index.html` 的深色防閃 script 也列了它。
 - **天上聖母經的網址是 `/scripture`**（`SCRIPTURE_PATH`，2026-09-02 新增，內容在 `scripture-data.json`，136 段經文＋註解）。跟 `/fahui`、`/volunteer` 同一套模式：初始值看網址、popstate 同步、入口用 `openScripture()` 推網址、返回走 `closeScripture()`。
   **`shouldShowFahui()` 必須排除 `isScriptureUrl()`**：`/scripture` 在 `pageFromPath()` 眼中是未知路徑會回傳 `'home'`，非官方網域上會因此被判成「根路徑」而顯示報名表，經文就打不開。新增這類路徑時都要記得加排除。

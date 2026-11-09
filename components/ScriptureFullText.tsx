@@ -21,8 +21,11 @@ import { INK } from './inkTheme';
  *
  * **每一句（到「。」為止）是一個不換行的單位**：手機上自然折行會把「可先知」
  * 拆成「可先／知」，念的人會在半句卡住，所以只准在句與句之間換行。
- * 一句一個單位、而不是資料裡的一行（兩句）一個單位：手機上兩句一組一行只放得下一組，
- * 整篇會變成一長條；一句一組一行放得下三、四句，頁面短一半。
+ *
+ * **一行固定四句**（廟方 2026-11-09）。經文 510 句全是「三字＋句號」，等寬，
+ * 所以排成四欄的格子，上下對齊像經書的版面。字級跟著螢幕寬度算：
+ * 一行是 4 句 × 4 個字＋欄距，約 18 個字寬，所以 (視窗寬 − 左右內距 40) ÷ 18；
+ * 375 寬的手機約 18.6px，上限 26px（桌機）。不這樣算的話 360 寬的手機會擠成三句一行。
  */
 
 interface Props {
@@ -86,9 +89,14 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           <button type="button" onClick={onOpenAnnotated} style={{ ...linkBtn, marginTop: 20 }}>看逐段白話註解</button>
         </header>
 
-        <p style={{ color: INK.ink, fontSize: 'clamp(19px,2.4vw,22px)', lineHeight: 2.3, letterSpacing: '.12em' }}>
+        <p style={{
+          color: INK.ink, fontSize: 'min(26px, calc((100vw - 40px) / 18))', lineHeight: 2.3,
+          display: 'grid', gridTemplateColumns: 'repeat(4, max-content)', justifyContent: 'space-between',
+          // 桌機字級到頂之後版面還很寬，不收的話四欄會被 space-between 拉得很開
+          maxWidth: '19em', margin: '0 auto',
+        }}>
           {phrasesOf(verses).map((ph, i) => (
-            <span key={i} style={{ whiteSpace: 'nowrap', display: 'inline-block', marginRight: '.5em' }}>{ph}</span>
+            <span key={i} style={{ whiteSpace: 'nowrap' }}>{ph}</span>
           ))}
         </p>
 
