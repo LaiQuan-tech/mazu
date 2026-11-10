@@ -1306,11 +1306,23 @@ for (const r of ACTIVE_ROUTES) {
     `<meta property="og:description" content="${esc(r.desc)}" />`, 'og:description');
   html = swap(html, /<meta property="og:url" content="[^"]*" \/>/,
     `<meta property="og:url" content="${url}" />`, 'og:url');
+  // twitter:title／description 原本沒換，每一頁都沿用首頁的「台北和聖壇｜像家就是家」，
+  // 沐浴車頁的分享卡片因此在 X 上掛著和聖壇的標題（2026-11-10 補）
+  html = swap(html, /<meta name="twitter:title" content="[^"]*" \/>/,
+    `<meta name="twitter:title" content="${esc(r.title)}" />`, 'twitter:title');
+  html = swap(html, /<meta name="twitter:description" content="[^"]*" \/>/,
+    `<meta name="twitter:description" content="${esc(r.desc)}" />`, 'twitter:description');
+  // 分享卡片上那行小字的網站名稱。沐浴車不是和聖壇的，不能掛「台北古亭和聖壇」
+  if (r.org) {
+    html = swap(html, /<meta property="og:site_name" content="[^"]*" \/>/,
+      `<meta property="og:site_name" content="17 沐浴車" />`, 'og:site_name');
+  }
 
   // 這一頁自己的分享圖（沒指定就沿用 index.html 的全站預設）。
   // og:image 與 twitter:image 必須一起換，只換一個會讓 X／Twitter 顯示另一張。
+  // `org` 路由的圖掛在它自己的網域底下（同 canonical 的理由，檔案是同一個部署供應的）
   if (r.image) {
-    const img = ORIGIN + r.image;
+    const img = origin + r.image;
     html = swap(html, /<meta property="og:image" content="[^"]*" \/>/,
       `<meta property="og:image" content="${img}" />`, 'og:image');
     html = swap(html, /<meta name="twitter:image" content="[^"]*" \/>/,
@@ -1521,6 +1533,60 @@ ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${
   mkdirSync(dirname(out), { recursive: true });   // /scripture/full → dist/scripture/full.html
   writeFileSync(out, applySiteInfo(html), 'utf8');
   console.log(`prerender  ${r.path.padEnd(12)} → dist${r.path}.html`);
+}
+
+/**
+ * 17bath.org/checkin 志工打卡頁的靜態殼（2026-11-10 廟方：「網頁縮圖也請移除和聖壇的」）。
+ *
+ * 原本這條網址走 SPA 萬用規則、吃 index.html，所以志工在 LINE 群組貼打卡連結時，
+ * 卡片是和聖壇的標題與 og-hero.jpg。這一份只換 head：標題、分享圖、網站圖示換成沐浴車的，
+ * **不進 ROUTES**——ROUTES 的每一頁都會進 sitemap、llms.txt 與 noscript 站內連結，
+ * 而這是不該被收錄的工作人員網址，所以另加 noindex（robots-bath.txt 也擋了 /checkin）。
+ * 宮廟的 JSON-LD 與首頁 noscript 整段拿掉：這一頁不是和聖壇，也不是給檢索器讀的。
+ * vercel.json 用 host 條件把 17bath.org/checkin rewrite 到這個檔。
+ */
+{
+  const shower = ACTIVE_ROUTES.find((r) => r.path === '/shower');
+  if (!shower) throw new Error('prerender: 找不到 /shower 路由，checkin 頁要沿用它的分享圖與圖示');
+  const title = '17 沐浴車｜志工打卡';
+  const desc = '17 沐浴車現場志工專用：車停好之後按一下，回報目前位置給香客。';
+  const url = BATH_ORIGIN + '/checkin';
+  const img = BATH_ORIGIN + shower.image;
+  const p = shower.icons;
+  let html = template;
+  html = swap(html, /<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`, '<title>');
+  html = swap(html, /<meta name="description" content="[^"]*" \/>/,
+    `<meta name="description" content="${esc(desc)}" />\n    <meta name="robots" content="noindex, nofollow" />`, 'meta description');
+  html = swap(html, /<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${url}" />`, 'canonical');
+  html = swap(html, /<meta property="og:site_name" content="[^"]*" \/>/,
+    `<meta property="og:site_name" content="17 沐浴車" />`, 'og:site_name');
+  html = swap(html, /<meta property="og:title" content="[^"]*" \/>/,
+    `<meta property="og:title" content="${esc(title)}" />`, 'og:title');
+  html = swap(html, /<meta property="og:description" content="[^"]*" \/>/,
+    `<meta property="og:description" content="${esc(desc)}" />`, 'og:description');
+  html = swap(html, /<meta property="og:url" content="[^"]*" \/>/, `<meta property="og:url" content="${url}" />`, 'og:url');
+  html = swap(html, /<meta property="og:image" content="[^"]*" \/>/, `<meta property="og:image" content="${img}" />`, 'og:image');
+  html = swap(html, /<meta property="og:image:alt" content="[^"]*" \/>/,
+    `<meta property="og:image:alt" content="${esc(shower.imageAlt)}" />`, 'og:image:alt');
+  html = swap(html, /<meta name="twitter:title" content="[^"]*" \/>/,
+    `<meta name="twitter:title" content="${esc(title)}" />`, 'twitter:title');
+  html = swap(html, /<meta name="twitter:description" content="[^"]*" \/>/,
+    `<meta name="twitter:description" content="${esc(desc)}" />`, 'twitter:description');
+  html = swap(html, /<meta name="twitter:image" content="[^"]*" \/>/, `<meta name="twitter:image" content="${img}" />`, 'twitter:image');
+  // 四個圖示一起換（理由見上面 ROUTES 迴圈的 icons 那段）
+  html = swap(html, /<link rel="icon" href="\/favicon\.ico"/, `<link rel="icon" href="/${p}favicon.ico"`, 'favicon.ico');
+  html = swap(html, /<link rel="icon" type="image\/png" href="\/icon-96\.png"/,
+    `<link rel="icon" type="image/png" href="/${p}icon-96.png"`, 'icon-96.png');
+  html = swap(html, /<link rel="icon" type="image\/png" href="\/favicon-32\.png"/,
+    `<link rel="icon" type="image/png" href="/${p}favicon-32.png"`, 'favicon-32.png');
+  html = swap(html, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png"/,
+    `<link rel="apple-touch-icon" href="/${p}apple-touch-icon.png"`, 'apple-touch-icon.png');
+  html = html.replace(/\s*<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
+  html = html.replace(/<noscript>[\s\S]*?<\/noscript>/, '<noscript><p style="padding:2rem;text-align:center">沐浴車打卡需要啟用 JavaScript。</p></noscript>');
+  // 模板裡的 HTML 註解寫的都是和聖壇首頁的事，這一頁用不到，一起拿掉
+  html = html.replace(/<!--[\s\S]*?-->/g, '');
+  writeFileSync(resolve(DIST, 'checkin.html'), html, 'utf8');
+  console.log('prerender  17bath.org/checkin → dist/checkin.html');
 }
 
 // ── 首頁：注入 FAQ（結構化資料 + noscript 純文字）─────────────────────────

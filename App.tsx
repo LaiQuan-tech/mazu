@@ -1432,8 +1432,9 @@ const isShowerCheckinUrl = (): boolean => {
  *
  * `/shower` 的靜態殼已經由 `scripts/prerender.js` 換好了（那一頁的 `icons` 欄位），
  * 這支負責靜態殼顧不到的兩件事：
- *   1. **`17bath.org/checkin` 吃的是 index.html**——它走 SPA 萬用規則、沒有自己的
- *      預渲染檔，所以靜態拿到的是和聖壇那四個圖示。
+ *   1. **`17bath.org/checkin` 的靜態殼**：2026-11-10 起有自己的 `dist/checkin.html`
+ *      （prerender 產生、圖示已換好），但 `heshengtan.tw/shower/checkin` 那條舊路徑
+ *      在轉址之前若被 SPA 接到，拿到的仍是 index.html 的和聖壇圖示，這裡兜底。
  *   2. **換頁要換回來**：SPA 不會重新載入文件，從沐浴車按上一頁回到和聖壇時，
  *      分頁上會一直留著沐浴車的圖示。
  *

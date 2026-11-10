@@ -96,7 +96,7 @@
           "value": "(www\\.)?17bath\\.org"
         }
       ],
-      "destination": "/index.html"
+      "destination": "/checkin.html"
     },
     {
       "source": "/relocation",
