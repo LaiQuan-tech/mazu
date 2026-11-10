@@ -1605,7 +1605,7 @@ const App: React.FC = () => {
     const titles: Record<SitePage, string> = {
       home:       '台北和聖壇｜像家就是家｜問事、點燈與法會服務',
       about:      '關於和聖壇｜台北古亭媽祖廟的沿革與壇務',
-      booking:    '預約問事｜台北古亭和聖壇',
+      booking:    '台北問事・預約問事｜一對一專人解籤｜台北古亭和聖壇',
       lamps:      '太歲點燈｜安太歲・太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
       blessing:   '祈福法會報名｜台北古亭和聖壇',
       urgent:     '緊急祈願燈｜急難代為稟告祈福，不收費｜台北古亭和聖壇',
@@ -4550,6 +4550,35 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
+          )}
+
+          {/* 問事須知（2026-11-10 廟方：「優化『台北問事』這個關鍵字」）。
+              搜這個字的人想知道的是「在哪、怎麼進行、要不要先付錢」，原本頁面上只有表單、
+              一句都沒講。**只寫網站上本來就有、廟方確認過的事實**；與 prerender.js 的
+              /booking 那一筆講同一套，改一邊要改另一邊。地址取後台「基本資料」，搬家只改那裡。
+              被揪的人那一頁是刻意剝光的（isSharedGuest），這一塊也跟著不出現。 */}
+          {!isSharedGuest('booking') && (
+            <div className="mt-12 max-w-2xl mx-auto">
+              <h2 className="text-2xl font-bold font-serif text-center mb-6">台北問事須知</h2>
+              <dl className="space-y-5 text-red-50 leading-relaxed">
+                <div>
+                  <dt className="font-semibold text-[#F5E6BE] mb-1">問事是什麼</dt>
+                  <dd>事業、感情、家運遇有瓶頸時，可誠心向神明請示。本壇由專人一對一解籤與問事。</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-[#F5E6BE] mb-1">流程</dt>
+                  <dd>在上方選擇場次並填寫資料，廟方會以電話與您確認問事時間，再依約定時間到壇。線上預約不需要註冊會員，留姓名與聯絡電話即可。</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-[#F5E6BE] mb-1">費用</dt>
+                  <dd>到壇現場繳費，不需事先匯款。</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-[#F5E6BE] mb-1">地點</dt>
+                  <dd>{siteInfo.address}</dd>
+                </div>
+              </dl>
+            </div>
           )}
         </div>
       </section>

@@ -279,13 +279,22 @@ images: [
   },
   {
     path: '/booking',
-    service: { name: '預約問事', description: '向神明請示事業、感情、家運等疑難，由專人解籤與問事。須先線上選擇場次預約，不接受未預約臨櫃辦理。' },
+    // 2026-11-10 廟方：「優化『台北問事』這個關鍵字」。標題讓「台北問事」四個字連在一起出現
+    // （原本是「預約問事｜台北古亭和聖壇」，台北與問事被拆在兩頭）；描述第一句就講地點，
+    // 搜這個字的人最先要知道的是「離我近不近」。**頁面上的「問事須知」與這裡講同一套事實**，
+    // 改一邊要改另一邊（App.tsx 的 BOOKING_GUIDE）。
+    service: {
+      name: '預約問事', serviceType: '問事', alternateName: ['台北問事'],
+      description: '台北市中正區古亭的和聖壇，提供向神明請示事業、感情、家運等疑難的問事服務，由專人一對一解籤與問事。可線上選擇場次預約，到壇現場繳費。',
+    },
     priority: '0.8',
-    title: '預約問事｜台北古亭和聖壇',
-    desc: '事業、感情、家運遇有瓶頸，誠心向神明請示。台北古亭和聖壇提供一對一專人解籤與問事服務，可線上預約場次，亦接受現場報名。',
+    title: '台北問事・預約問事｜一對一專人解籤｜台北古亭和聖壇',
+    desc: '台北問事就在中正區古亭，捷運古亭站 2 號出口步行約 5 分鐘。事業、感情、家運遇有瓶頸，誠心向神明請示，台北古亭和聖壇提供一對一專人解籤與問事，可線上預約場次，到壇現場繳費。',
     h1: '預約問事',
     body: [
       '事業、感情、家運遇有瓶頸時，可誠心向神明請示。本壇提供一對一專人解籤與問事服務。',
+      '問事流程：在本頁選擇場次並填寫資料，廟方會以電話與您確認問事時間，再依約定時間到壇，由專人一對一解籤與問事。',
+      '費用：到壇現場繳費，不需事先匯款。線上預約不需要註冊會員，留姓名與聯絡電話即可。',
       '請盡可能透過官方網站或官方 LINE 帳號預約場次，方便廟方安排時間；也接受現場報名。',
     ],
   },
@@ -860,7 +869,10 @@ const bodyOf = (r) => {
         ev.registration_deadline && `報名截止 ${twTime(ev.registration_deadline)}`, desc].filter(Boolean).join('　');
     })];
   }
-  if (r.path === '/booking' && bookingSessions.length > 0) {
+  if (r.path === '/booking') {
+    // 地址取「基本資料」那一份（搬家時只改後台），抓不到就只講區域
+    const where = `地點：${site?.address || '台北市中正區（捷運古亭站附近）'}。`;
+    if (bookingSessions.length === 0) return [...r.body, where];
     // 同一天可能有好幾個時段，合成一行才不會變成一串重複的日期
     const byDate = new Map();
     for (const s2 of bookingSessions) {
@@ -869,7 +881,7 @@ const bodyOf = (r) => {
       const t = String(s2.session_time || '').trim();
       byDate.set(s2.session_date, [...(byDate.get(s2.session_date) || []), t].filter(Boolean));
     }
-    return [...r.body,
+    return [...r.body, where,
       `近期可預約的辦事日（問事）共 ${byDate.size} 天：`
       + [...byDate.entries()].map(([d, ts]) => `${d}${ts.length ? `（${ts.join('、')}）` : ''}`).join('、')
       + '。實際名額與是否額滿請以本頁的線上預約為準。'];
@@ -1407,7 +1419,8 @@ for (const r of ACTIVE_ROUTES) {
         '@id': url + '#service',
         name: r.service.name,
         description: r.service.description,
-        serviceType: r.service.name,
+        serviceType: r.service.serviceType ?? r.service.name,
+        ...(r.service.alternateName ? { alternateName: r.service.alternateName } : {}),
         provider: { '@id': r.org ? url + '#org' : ORIGIN + '/#temple' },
         areaServed: (r.service.areaServed ?? ['臺北市']).map((n) => ({ '@type': 'City', name: n })),
         url,
