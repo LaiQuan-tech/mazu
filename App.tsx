@@ -4288,6 +4288,14 @@ const App: React.FC = () => {
             <p className="text-red-100 max-w-2xl mx-auto">
               請填寫下方資料，我們將儘速為您安排問事時間。
             </p>
+            {/* 費用（2026-11-10 廟方：「問事每份金紙 100 元，其餘部分隨喜。要顯示出來」）。
+                放在表單上方而不是下面的問事須知裡：要不要報名，先看的就是多少錢。
+                同一句話只講這一次；noscript、Service 標記、llms.txt 與兩封問事通知信各有一份，改了要一起改。 */}
+            {/* 兩句各自不換行：手機上整句一起折會把「到壇」拆成「到／壇」 */}
+            <p className="mt-4 inline-block rounded-2xl sm:rounded-full border border-[#F5E6BE]/50 px-5 py-2 text-[#F5E6BE] font-semibold">
+              <span className="whitespace-nowrap">費用：金紙每份 100 元，其餘隨喜。</span>
+              <span className="whitespace-nowrap">到壇現場繳費，不需事先匯款。</span>
+            </p>
             {/* 農曆七月不問事那一行 2026-10-01 依廟方要求移除（連同 booking-lunar7 的
                 LINE 導流標記）。要復原就把它加回這裡：金色、較窄行寬，與上一句拉開。 */}
             </>)}
@@ -4568,10 +4576,6 @@ const App: React.FC = () => {
                 <div>
                   <dt className="font-semibold text-[#F5E6BE] mb-1">流程</dt>
                   <dd>在上方選擇場次並填寫資料，廟方會以電話與您確認問事時間，再依約定時間到壇。線上預約不需要註冊會員，留姓名與聯絡電話即可。</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-[#F5E6BE] mb-1">費用</dt>
-                  <dd>到壇現場繳費，不需事先匯款。</dd>
                 </div>
                 <div>
                   <dt className="font-semibold text-[#F5E6BE] mb-1">地點</dt>

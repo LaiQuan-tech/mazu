@@ -324,7 +324,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
           稱呼(g), '',
           `提醒您，明天（${tomorrow}）有向和聖壇預約的問事：`, '',
           ...g.map(x => `・${clean(x.name)}${x.type ? `（${clean(x.type)}）` : ''}　${clean(x.booking_time)}`), '',
-          '問事於現場繳費，不需事先匯款。',
+          '問事於現場繳費（金紙每份 100 元，其餘隨喜），不需事先匯款。',
           '若需改期或取消，請提前與本壇聯繫，讓名額留給其他信眾。',
         ]);
     }
