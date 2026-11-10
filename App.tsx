@@ -4575,7 +4575,7 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <dt className="font-semibold text-[#F5E6BE] mb-1">流程</dt>
-                  <dd>在上方選擇場次並填寫資料，廟方會以電話與您確認問事時間，再依約定時間到壇。線上預約不需要註冊會員，留姓名與聯絡電話即可。</dd>
+                  <dd>在上方選擇場次並填寫資料，廟方會以電話與您確認問事時間，再依約定時間到壇。線上預約不需要註冊會員，留姓名與聯絡電話即可。沒有預約也可以直接到壇現場報名，但建議先預約，方便廟方安排時間。</dd>
                 </div>
                 <div>
                   <dt className="font-semibold text-[#F5E6BE] mb-1">地點</dt>
