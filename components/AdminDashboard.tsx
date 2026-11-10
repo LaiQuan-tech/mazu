@@ -2797,6 +2797,13 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
   const [divineEdit, setDivineEdit] = useState<{ id: string; name: string; text: string } | null>(null);
   const [divineSaving, setDivineSaving] = useState(false);
+  // 清單預設只留「找人、看時間、改狀態」要的東西（2026-11-11 廟方：「需要再簡單清楚一點，
+  // 信眾資料跟神明的話可以收折起來」）。兩塊各自一顆鈕、就地展開，不另開一列——
+  // 1023px 以下 admin-table 會變卡片，另開一列在手機上就成了一張沒頭沒尾的孤兒卡。
+  const [openInfo, setOpenInfo] = useState<Set<string>>(new Set());
+  const [openDivine, setOpenDivine] = useState<Set<string>>(new Set());
+  const toggleIn = (set: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
+    set(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const handleSaveDivine = async () => {
     if (!divineEdit) return;
@@ -2989,19 +2996,29 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source, email: b.email, confirmSentAt: b.confirmSentAt, mailKind: 'confirm' })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         <div className="w-9 h-9 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
                           <User className="w-4 h-4 text-temple-red" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold text-gray-900">{b.name}</p>
                             {b.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{b.contactLabel}</span>}
                           </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{b.phone}</p>
-                          {b.gender && <span className="text-xs text-gray-400">{b.gender}</span>}
-                          <p className="text-xs text-gray-400">生日：{b.birthDate}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
-                          {b.address && <p className="text-xs text-gray-400 mt-0.5">地址：{b.address}</p>}
+                          <button type="button" aria-expanded={openInfo.has(b.id)}
+                            onClick={e => { e.stopPropagation(); toggleIn(setOpenInfo, b.id); }}
+                            className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                            {openInfo.has(b.id) ? '收合資料' : '生日・地址'}
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openInfo.has(b.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                          </button>
+                          {openInfo.has(b.id) && (
+                            <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                              {b.gender && <p>性別：{b.gender}</p>}
+                              <p>生日：{b.birthDate || '—'}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
+                              {b.address && <p>地址：{b.address}</p>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -3016,12 +3033,23 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                       <p className="text-sm text-gray-700 truncate">{b.notes || <span className="text-gray-300 italic">無備註</span>}</p>
                       <p className="text-xs text-gray-400 mt-1">{fmtDate(b.createdAt)}</p>
                     </td>
-                    <td data-label="神明的話" className="px-5 py-4 max-w-[160px]" onClick={e => e.stopPropagation()}>
+                    <td data-label="神明的話" className="px-5 py-4 max-w-[220px]" onClick={e => e.stopPropagation()}>
                       {b.divineMessage
-                        ? <p className="text-xs text-amber-800 line-clamp-2 cursor-pointer hover:text-amber-900"
-                            onClick={() => setDivineEdit({ id: b.id, name: b.name, text: b.divineMessage! })}>
-                            {b.divineMessage}
-                          </p>
+                        ? <div>
+                            <button type="button" aria-expanded={openDivine.has(b.id)}
+                              onClick={() => toggleIn(setOpenDivine, b.id)}
+                              className="text-xs text-amber-800 hover:text-amber-900 inline-flex items-center gap-0.5 font-medium">
+                              {openDivine.has(b.id) ? '收合' : '已記錄・展開'}
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openDivine.has(b.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                            </button>
+                            {openDivine.has(b.id) && (
+                              <div className="mt-1.5">
+                                <p className="text-xs text-amber-900 whitespace-pre-line leading-relaxed">{b.divineMessage}</p>
+                                <button type="button" onClick={() => setDivineEdit({ id: b.id, name: b.name, text: b.divineMessage! })}
+                                  className="mt-1 text-xs text-gray-500 hover:text-temple-red underline">編輯</button>
+                              </div>
+                            )}
+                          </div>
                         : <button onClick={() => setDivineEdit({ id: b.id, name: b.name, text: '' })}
                             className="text-xs text-gray-400 hover:text-temple-red transition-colors flex items-center gap-1">
                             <Plus className="w-3 h-3" /> 填寫
