@@ -2802,6 +2802,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   // 1023px 以下 admin-table 會變卡片，另開一列在手機上就成了一張沒頭沒尾的孤兒卡。
   const [openInfo, setOpenInfo] = useState<Set<string>>(new Set());
   const [openDivine, setOpenDivine] = useState<Set<string>>(new Set());
+  const [openNote, setOpenNote] = useState<Set<string>>(new Set());
   const toggleIn = (set: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
     set(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -2984,7 +2985,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             <table className="admin-table min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '預約時間 / 項目', '備註', '神明的話', '狀態', '操作'].map(h => (
+                  {['信眾資訊', '預約時間 / 項目', '備註／神明的話', '狀態', '操作'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -3028,33 +3029,51 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                         {b.bookingTime === 'evening' ? '晚上 (19:00-21:00)' : b.bookingTime}
                       </p>
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{b.type}</span>
+                      <p className="text-[11px] text-gray-400 mt-1.5">登記 {fmtDate(b.createdAt)}</p>
                     </td>
-                    <td data-label="備註" className="px-5 py-4 max-w-[180px]">
-                      <p className="text-sm text-gray-700 truncate">{b.notes || <span className="text-gray-300 italic">無備註</span>}</p>
-                      <p className="text-xs text-gray-400 mt-1">{fmtDate(b.createdAt)}</p>
-                    </td>
-                    <td data-label="神明的話" className="px-5 py-4 max-w-[220px]" onClick={e => e.stopPropagation()}>
-                      {b.divineMessage
-                        ? <div>
-                            <button type="button" aria-expanded={openDivine.has(b.id)}
-                              onClick={() => toggleIn(setOpenDivine, b.id)}
-                              className="text-xs text-amber-800 hover:text-amber-900 inline-flex items-center gap-0.5 font-medium">
-                              {openDivine.has(b.id) ? '收合' : '已記錄・展開'}
-                              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openDivine.has(b.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
-                            </button>
-                            {openDivine.has(b.id) && (
-                              <div className="mt-1.5">
-                                <p className="text-xs text-amber-900 whitespace-pre-line leading-relaxed">{b.divineMessage}</p>
-                                <button type="button" onClick={() => setDivineEdit({ id: b.id, name: b.name, text: b.divineMessage! })}
-                                  className="mt-1 text-xs text-gray-500 hover:text-temple-red underline">編輯</button>
-                              </div>
-                            )}
-                          </div>
-                        : <button onClick={() => setDivineEdit({ id: b.id, name: b.name, text: '' })}
-                            className="text-xs text-gray-400 hover:text-temple-red transition-colors flex items-center gap-1">
-                            <Plus className="w-3 h-3" /> 填寫
-                          </button>
-                      }
+                    {/* 備註與神明的話收成兩個圖示（2026-11-11 廟方：「可以做成 icon，有內容時會變色顯示即可，
+                        應該大部分時都沒有」）。有內容＝上色、點了就地展開；沒內容＝淡灰。
+                        神明的話沒內容時點下去直接開填寫視窗——那是廟方唯一會在這裡做的事。 */}
+                    <td data-label="備註／神明的話" className="px-5 py-4 max-w-[240px]" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <button type="button"
+                          disabled={!b.notes}
+                          aria-expanded={b.notes ? openNote.has(b.id) : undefined}
+                          aria-label={b.notes ? (openNote.has(b.id) ? '收合備註' : '查看備註') : '無備註'}
+                          title={b.notes ? '備註' : '無備註'}
+                          onClick={() => toggleIn(setOpenNote, b.id)}
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${b.notes
+                            ? (openNote.has(b.id) ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-700 hover:bg-sky-100')
+                            : 'text-gray-300 cursor-default'}`}>
+                          <FileText className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                        <button type="button"
+                          aria-expanded={b.divineMessage ? openDivine.has(b.id) : undefined}
+                          aria-label={b.divineMessage ? (openDivine.has(b.id) ? '收合神明的話' : '查看神明的話') : '填寫神明的話'}
+                          title={b.divineMessage ? '神明的話' : '填寫神明的話'}
+                          onClick={() => b.divineMessage
+                            ? toggleIn(setOpenDivine, b.id)
+                            : setDivineEdit({ id: b.id, name: b.name, text: '' })}
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${b.divineMessage
+                            ? (openDivine.has(b.id) ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100')
+                            : 'text-gray-300 hover:text-amber-600 hover:bg-amber-50'}`}>
+                          <Sparkles className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                      {b.notes && openNote.has(b.id) && (
+                        <div className="mt-2">
+                          <p className="text-[11px] font-medium text-sky-700">備註</p>
+                          <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">{b.notes}</p>
+                        </div>
+                      )}
+                      {b.divineMessage && openDivine.has(b.id) && (
+                        <div className="mt-2">
+                          <p className="text-[11px] font-medium text-amber-700">神明的話</p>
+                          <p className="text-xs text-amber-900 whitespace-pre-line leading-relaxed">{b.divineMessage}</p>
+                          <button type="button" onClick={() => setDivineEdit({ id: b.id, name: b.name, text: b.divineMessage! })}
+                            className="mt-1 text-xs text-gray-500 hover:text-temple-red underline">編輯</button>
+                        </div>
+                      )}
                     </td>
                     <td data-label="狀態" className="px-5 py-4">{statusBadge(b.status)}</td>
                     <td data-label="操作" className="px-5 py-4" onClick={e => e.stopPropagation()}>
