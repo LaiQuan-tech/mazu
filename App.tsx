@@ -6447,6 +6447,7 @@ const App: React.FC = () => {
       <ChatWidget
         below={(toTopShown ? 1 : 0) + (social.lineUrl.trim() !== '' && !hideLineFloat ? 1 : 0)}
         hidden={overlayOpen || hideLineFloat}
+        onNavigate={goToPage}
       />
 
       {/* Member Portal */}

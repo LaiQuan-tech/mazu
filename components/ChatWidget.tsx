@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { MessageCircle, X, Send, ArrowRight } from 'lucide-react';
 
 /**
  * 官網右下／左下的 AI 客服（2026-10-30 廟方要求）。
@@ -123,6 +123,30 @@ const pickFollowUps = (msgs: Msg[]): string[] => {
 };
 
 /**
+ * 回答在講報名類的服務時，多給一顆「直接過去」的鈕（2026-11-12 廟方：「預約問事、
+ * 報名祈福活動、點燈可以多顯示按鈕，直接連結到該分頁嗎？」）。
+ * 回答裡雖然常帶網址，但長輩不一定會點一串英文；一顆寫著要做什麼的鈕才是行動點。
+ *
+ * **判斷看問句、或回答裡真的出現那一頁的網址**——不看回答的關鍵字：
+ * 回答常順帶提到「也可以點燈」，那不代表信眾想去點燈。
+ * 換頁走 App 的 `goToPage`（`onNavigate`），不用 `<a href>` 整頁重載——
+ * 重載會把這一段對話整個洗掉。
+ */
+export type ChatTarget = 'booking' | 'blessing' | 'lamps';
+const ACTIONS: { topic: string; page: ChatTarget; label: string }[] = [
+  { topic: '問事', page: 'booking', label: '前往預約問事' },
+  { topic: '法會', page: 'blessing', label: '前往報名祈福活動' },
+  { topic: '點燈', page: 'lamps', label: '前往太歲點燈' },
+];
+
+const pickActions = (msgs: Msg[]) => {
+  const lastQ = [...msgs].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const lastA = msgs[msgs.length - 1]?.role === 'assistant' ? msgs[msgs.length - 1].content : '';
+  return ACTIONS.filter((a) =>
+    TOPIC_HIT[a.topic].test(lastQ) || lastA.includes(`heshengtan.tw/${a.page}`));
+};
+
+/**
  * 第 N 格的位置。**傳「下面有幾顆鈕」而不是傳「回頂鈕出現了沒」**：
  * LINE 那顆在後台把社群清空時會整個消失（CLAUDE.md 記過這件事），
  * 只看回頂鈕的話那時中間就空一格，而畫面上看起來只是「位置怪」、不會報錯。
@@ -133,7 +157,7 @@ const SLOT = [
   'bottom-[232px] sm:bottom-[184px]',      // 下面兩顆
 ];
 
-const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidden }) => {
+const ChatWidget: React.FC<{ below: number; hidden: boolean; onNavigate: (page: ChatTarget) => void }> = ({ below, hidden, onNavigate }) => {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
@@ -288,6 +312,25 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
             {/* 最新一則是回答、而且沒有在等下一題時，才在底下給四個問題 */}
             {!busy && msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant' && (
               <div className="pt-1">
+                {/* 直接過去的鈕用實心深底，跟下面那排「再問一題」的白底分得開 */}
+                {pickActions(msgs).length > 0 && (
+                  <div className="flex flex-col gap-2 mb-3">
+                    {pickActions(msgs).map((a) => (
+                      <button
+                        key={a.page}
+                        type="button"
+                        // 換頁後把面板收起來：手機上面板蓋住整頁，不收等於換了也看不到。
+                        // 對話留在 state 裡，再打開還在。
+                        onClick={() => { onNavigate(a.page); setOpen(false); }}
+                        className="tap flex items-center justify-between gap-2 text-left text-sm font-semibold px-3.5 py-2.5
+                          rounded-lg bg-temple-red text-white hover:bg-[#5C4310] transition-colors"
+                      >
+                        {a.label}
+                        <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <p className="text-xs text-gray-500 mb-1.5">您可能還想問：</p>
                 <div className="flex flex-col gap-2">
                   {pickFollowUps(msgs).map((s) => (
