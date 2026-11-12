@@ -64,6 +64,65 @@ const STARTERS = [
 ];
 
 /**
+ * 每次回答完，在最新那則回答底下再給四個問題（2026-11-12 廟方：「每次回答後，
+ * 再顯示四個問題供信眾選擇」）。長輩問完一題常常就不知道下一步要打什麼。
+ *
+ * **固定題庫、在前端挑，不叫 AI 產生**：多叫一次模型就多吃一次免費額度
+ * （每次都帶 48k 字的知識庫），而且沒金鑰／額度用完時走站內搜尋，那時也要有題目可選。
+ * AI 自己想的問題還可能是知識庫答不出來的，點下去只得到「找不到」，比沒有更糟。
+ *
+ * **題目字要跟常見問題一字不差**（理由同 STARTERS）。新增題目時先確認
+ * llms.txt 或常見問題真的答得出來。
+ *
+ * `topic` 用來挑「跟剛剛那題相關的」排前面；`TOPIC_HIT` 是判斷剛剛在聊什麼的關鍵字。
+ */
+const FOLLOW_UPS: { q: string; topic: string }[] = [
+  { q: '問事需要先預約嗎？', topic: '問事' },
+  { q: '問事怎麼收費？', topic: '問事' },
+  { q: '要怎麼預約問事？', topic: '問事' },
+  { q: '點燈有哪些燈別？費用多少？', topic: '點燈' },
+  { q: '可以幫家人代辦點燈嗎？', topic: '點燈' },
+  { q: '和聖壇在哪裡？怎麼過去？', topic: '參拜' },
+  { q: '開放時間是幾點到幾點？', topic: '參拜' },
+  { q: '第一次來需要準備供品或金紙嗎？', topic: '參拜' },
+  { q: '和聖壇主祀哪一尊神明？', topic: '神尊' },
+  { q: '天上聖母經在哪裡可以讀？', topic: '神尊' },
+  { q: '最近有什麼祈福法會？', topic: '法會' },
+  { q: '要怎麼捐獻護持和聖壇？', topic: '捐獻' },
+];
+
+const TOPIC_HIT: Record<string, RegExp> = {
+  問事: /問事|解籤|預約|金紙/,
+  點燈: /點燈|燈|太歲|安太歲/,
+  參拜: /地址|在哪|怎麼去|捷運|古亭|開放|幾點|參拜|供品/,
+  神尊: /媽祖|聖母|神明|神尊|經文|誦經/,
+  法會: /法會|普渡|祈福/,
+  捐獻: /捐|護持|遷址|匯款/,
+};
+
+/**
+ * 挑四題：**問過的不再出現**；跟剛剛那一題（問句＋回答）同主題的排前面，
+ * 不夠再照題庫順序補。全部問完就從頭再來，不要讓底下突然空掉。
+ */
+const pickFollowUps = (msgs: Msg[]): string[] => {
+  const asked = new Set(msgs.filter((m) => m.role === 'user').map((m) => m.content.trim()));
+  const lastQ = [...msgs].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const lastA = msgs[msgs.length - 1]?.role === 'assistant' ? msgs[msgs.length - 1].content : '';
+  // 問句權重比回答高：回答裡常順帶提到地址、LINE，不代表信眾在問那個
+  const score = (topic: string) => {
+    const re = TOPIC_HIT[topic];
+    return (re.test(lastQ) ? 2 : 0) + (re.test(lastA) ? 1 : 0);
+  };
+  let pool = FOLLOW_UPS.filter((f) => !asked.has(f.q));
+  if (pool.length < 4) pool = FOLLOW_UPS.filter((f) => f.q !== lastQ.trim());
+  return pool
+    .map((f, i) => ({ f, i, s: score(f.topic) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .slice(0, 4)
+    .map((x) => x.f.q);
+};
+
+/**
  * 第 N 格的位置。**傳「下面有幾顆鈕」而不是傳「回頂鈕出現了沒」**：
  * LINE 那顆在後台把社群清空時會整個消失（CLAUDE.md 記過這件事），
  * 只看回頂鈕的話那時中間就空一格，而畫面上看起來只是「位置怪」、不會報錯。
@@ -225,6 +284,26 @@ const ChatWidget: React.FC<{ below: number; hidden: boolean }> = ({ below, hidde
                 </div>
               </div>
             ))}
+
+            {/* 最新一則是回答、而且沒有在等下一題時，才在底下給四個問題 */}
+            {!busy && msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant' && (
+              <div className="pt-1">
+                <p className="text-xs text-gray-500 mb-1.5">您可能還想問：</p>
+                <div className="flex flex-col gap-2">
+                  {pickFollowUps(msgs).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => send(s)}
+                      className="tap text-left text-sm px-3 py-2 rounded-lg bg-white border border-temple-gold/40
+                        text-temple-red hover:bg-temple-gold/10 transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {busy && (
               <div className="flex justify-start">
