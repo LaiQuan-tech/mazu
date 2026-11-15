@@ -5646,7 +5646,7 @@ const LampsTab = ({
                     </td>
                     <td data-label="圖片" className="px-4 py-3">
                       {c.imageUrl
-                        ? <img src={c.imageUrl} alt={c.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
+                        ? <div className="h-10 flex items-center"><img src={c.imageUrl} alt={c.name} className="max-h-10 max-w-14 w-auto h-auto rounded border border-gray-100" /></div>
                         : <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center"><Flame className="w-4 h-4 text-gray-300" /></div>}
                     </td>
                     <td data-label="啟用" className="px-4 py-3">
@@ -5808,10 +5808,12 @@ const LampsTab = ({
             <div className="px-6 py-5 space-y-4">
               {/* 圖片上傳 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">服務圖片</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">服務圖片</label>
+                {/* 前台照原比例攤在卡片最上面、不裁切，所以預覽也不裁（廟方是在這裡確認自己傳了什麼） */}
+                <p className="text-xs text-gray-400 mb-2">建議用 3:2 橫式，與最新活動的海報同尺寸。前台會整張顯示在這個燈種的卡片上方。</p>
                 {configForm.imageUrl && (
                   <div className="relative mb-2 inline-block">
-                    <img src={configForm.imageUrl} alt="預覽" className="h-28 w-full object-cover rounded-lg border border-gray-200" />
+                    <img src={configForm.imageUrl} alt="預覽" className="block max-h-40 max-w-full w-auto h-auto rounded-lg border border-gray-200" />
                     <button type="button" onClick={() => setConfigForm(f => ({ ...f, imageUrl: '' }))}
                       className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
                       <X className="w-3.5 h-3.5" />

@@ -4644,24 +4644,54 @@ const App: React.FC = () => {
               這幾張是給還在考慮要不要點燈的人看的行銷卡 */}
           {!isSharedGuest('lamp') && (lampConfigs.length > 0 ? (
 
-            <div className={`grid gap-6 mb-16 ${lampConfigs.length <= 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : lampConfigs.length === 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+            /* **有圖的時候整張卡改成「海報在上、文字在下」，大小跟最新活動的海報一樣**
+               （2026-11-15 廟方：「太歲點燈，現在有圖片，大小跟最新活動的圖一樣大」）。
+               原本是 `w-20 h-20 object-cover` 的小方塊，3:2 的燈種海報被裁成中間一塊、
+               上面印的字整個看不到——同公佈欄 2026-10-30 那次「縮圖只有海報面積 2%」。
+               版型照 BulletinBanners：寬度收在 `max-w-6xl`、桌機四欄（1280 寬每張約 273），
+               **手機一欄**（約 340 寬，與首頁輪播的 295 同級）——兩欄的話每張只剩 160，
+               海報上的字又讀不到了。欄數跟著張數走，免得最後一列空一格。
+               一張圖都沒有時維持原本的圖示卡片，不要為了對齊留一塊空白。 */
+            (() => {
+              const hasImg = lampConfigs.some(c => c.imageUrl);
+              const n = lampConfigs.length;
+              const grid = hasImg
+                ? `grid-cols-1 max-w-6xl mx-auto ${n >= 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : n === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 max-w-2xl'}`
+                : (n <= 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : n === 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4');
+              return (
+            <div className={`grid gap-6 mb-16 ${grid}`}>
               {lampConfigs.map(cfg => (
-                <div key={cfg.id} className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 flex flex-col items-center text-center hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
-                  {cfg.imageUrl
-                    ? <img src={cfg.imageUrl} alt={cfg.name} className="w-20 h-20 object-cover rounded-2xl border border-gray-100 mb-4 shadow-sm" />
-                    : <div className="w-14 h-14 bg-temple-red/10 rounded-full flex items-center justify-center mb-4">
-                        <Flame className="w-7 h-7 text-temple-red" />
-                      </div>
-                  }
+                <div key={cfg.id} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
+                  {cfg.imageUrl && (
+                    /* 點開看原圖：海報上的小字在卡片尺寸仍讀不到（同祈福活動） */
+                    <button
+                      type="button"
+                      onClick={() => setPosterUrl(cfg.imageUrl!)}
+                      aria-label={`看 ${cfg.name} 的圖片大圖`}
+                      className="tap block w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-temple-red/40"
+                    >
+                      <PosterImage src={cfg.imageUrl} maxH={POSTER_LIST_MAX_H} className="hover:opacity-95 transition-opacity" />
+                    </button>
+                  )}
+                  <div className="p-6 flex flex-col items-center text-center flex-1">
+                  {/* 同一排有的有圖、有的沒有時，沒圖的那張照舊給圖示 */}
+                  {!cfg.imageUrl && (
+                    <div className="w-14 h-14 bg-temple-red/10 rounded-full flex items-center justify-center mb-4">
+                      <Flame className="w-7 h-7 text-temple-red" />
+                    </div>
+                  )}
                   <h4 className="text-xl font-bold text-temple-dark font-serif mb-2">{cfg.name}</h4>
                   <p className="text-gray-500 text-sm leading-relaxed mb-4 flex-1">{cfg.description}</p>
                   <div className="mt-auto">
                     <span className="text-2xl font-bold text-temple-red">NT$ {cfg.fee.toLocaleString()}</span>
                     <span className="text-gray-400 text-sm ml-1">/ 年</span>
                   </div>
+                  </div>
                 </div>
               ))}
             </div>
+              );
+            })()
           ) : (
             <div className="text-center text-gray-400 mb-16 py-8">
               <Flame className="w-10 h-10 mx-auto mb-2 opacity-30" />
