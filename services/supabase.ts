@@ -21,6 +21,7 @@ const newUuid = (): string => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 };
 import type { DevoteeOverride } from './devoteeRoster';
+import type { LampChoices } from './lampChoice';
 import { AboutSection, AboutSectionData, AboutFacts, HomeVideo, DeityFeast, DeityFeastData, FaqItem, FaqItemData, DonationTypeRecord, DonationTypeData, SiteInfo, SectionPage, RelocationPlan, RelocationPlanData, RelocationPlanRow, RelocationHome, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingOffering, BlessingRegistrationData, BlessingRegistrationRecord, BlessingStatus, ClaimedOffering, BookingData, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationData, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiReconcilePatch, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationData, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberContactData, MemberProfileRecord, ProfileData, RegistrationData, RegistrationRecord, RegularSession, RegularSessionData, RepairProject, ShowerTruckLocation, ShowerTruckAdmin, RepairProjectData, ScriptureVerseData, ScriptureVerseRecord, SharedEntryData, SharedEntryRecord, SharedServiceType, SharedSessionConfig, SharedSessionData, SharedSessionRecord, SiteImageRecord, SiteImageSection, UrgentPrayerData, UrgentPrayerKind, UrgentPrayerRecord, ZodiacSign } from '../types';
 import { UrgentPrayerStatus } from '../types';
 import { getSource } from './attribution';
@@ -1031,6 +1032,35 @@ export const deleteLampServiceConfig = async (id: string): Promise<boolean> => {
 };
 
 // ─── Lamp Registrations (點燈報名) ───────────────────────────────────────────
+
+/**
+ * 燈種的「請信眾選擇」設定（例如專屬神明燈的「指定神明」）。存在 `site_settings.lamp_choices`，
+ * 一份 JSON 管全部燈種，不加欄位——理由見 services/lampChoice.ts。讀失敗回空物件：
+ * 這是加分的一格，讀不到就當作沒設定，表單照常能送。
+ */
+export const getLampChoices = async (): Promise<LampChoices> => {
+  try {
+    const { data, error } = await supabase.from('site_settings').select('value').eq('key', 'lamp_choices').maybeSingle();
+    if (error) throw error;
+    const raw = data?.value ? JSON.parse(String(data.value)) : {};
+    const out: LampChoices = {};
+    for (const [id, c] of Object.entries(raw as Record<string, { label?: unknown; options?: unknown }>)) {
+      const label = typeof c?.label === 'string' ? c.label : '';
+      const options = Array.isArray(c?.options) ? c.options.filter((o): o is string => typeof o === 'string' && !!o.trim()) : [];
+      if (label.trim() && options.length) out[id] = { label: label.trim(), options };
+    }
+    return out;
+  } catch (e) {
+    console.warn('讀取燈種選項失敗，當作沒有設定:', e);
+    return {};
+  }
+};
+
+export const saveLampChoices = async (choices: LampChoices): Promise<void> => {
+  const { error } = await supabase.from('site_settings')
+    .upsert([{ key: 'lamp_choices', value: JSON.stringify(choices), updated_at: new Date().toISOString() }], { onConflict: 'key' });
+  if (error) { console.error('Error saving lamp choices:', error); throw error; }
+};
 
 export const submitLampRegistration = async (data: LampRegistrationData, opts?: SubmitOptions): Promise<string> => {
   const id = newUuid();

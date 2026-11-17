@@ -5,6 +5,7 @@ import {
   SharedSessionRecord, SharedEntryData,
   LampServiceConfig, ProfileData, ZodiacSign, ConsultationType, BlessingEventRecord,
 } from '../types';
+import { choiceFor, withChoiceTag, type LampChoices } from '../services/lampChoice';
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 
@@ -17,6 +18,7 @@ interface LocalEntry {
   gender:      string;
   address:     string;
   serviceId:   string;  // lamp
+  choice:      string;  // lamp：專屬神明燈的指定神明等（見 services/lampChoice.ts）
   packageId:   string;  // blessing
   bookingType: string;  // booking
   notes:       string;
@@ -25,13 +27,15 @@ interface LocalEntry {
 
 const emptyEntry = (): LocalEntry => ({
   id: newId(), name: '', phone: '', birthDate: '', zodiac: undefined,
-  gender: '', address: '', serviceId: '', packageId: '', bookingType: '', notes: '', _bKey: 0,
+  gender: '', address: '', serviceId: '', choice: '', packageId: '', bookingType: '', notes: '', _bKey: 0,
 });
 
 interface SharedFormPanelProps {
   session:       SharedSessionRecord;
   isCreator:     boolean;
   lampConfigs:   LampServiceConfig[];
+  /** 燈種要信眾多選的那一格。只有點燈的揪團會傳 */
+  lampChoices?:  LampChoices;
   blessingEvent: BlessingEventRecord | null; // 祈福活動（包含 packages）
   memberProfile: ProfileData | null;
   onAddEntries:  (entries: Omit<SharedEntryData, 'sessionId'>[]) => Promise<void>;
@@ -51,7 +55,7 @@ interface SharedFormPanelProps {
 }
 
 const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
-  session, isCreator, lampConfigs, blessingEvent, memberProfile,
+  session, isCreator, lampConfigs, lampChoices = {}, blessingEvent, memberProfile,
   onAddEntries, onSubmitAll, onRefresh, onDelete, posterUrl, onPoster, submitStatus,
 }) => {
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>([emptyEntry()]);
@@ -106,6 +110,10 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
     if (serviceType === 'lamp' && localEntries.some(e => !e.serviceId)) {
       alert('請為每位人員選擇燈種'); return;
     }
+    if (serviceType === 'lamp') {
+      const miss = localEntries.find(e => choiceFor(lampChoices, e.serviceId) && !e.choice);
+      if (miss) { alert(`請為每位人員選擇${choiceFor(lampChoices, miss.serviceId)!.label}`); return; }
+    }
     if (serviceType === 'blessing' && blessingEvent && blessingEvent.packages.length > 0 && localEntries.some(e => !e.packageId)) {
       alert('請為每位人員選擇護持方案'); return;
     }
@@ -124,7 +132,9 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
         serviceId:   e.serviceId  || undefined,
         packageId:   e.packageId  || undefined,
         bookingType: e.bookingType || undefined,
-        notes:       e.notes   || undefined,
+        // 選的神明寫進備註開頭，送出時跟著 notes 進 lamp_registrations（同一般表單）
+        notes:       (() => { const c = serviceType === 'lamp' ? choiceFor(lampChoices, e.serviceId) : null;
+                              return (c ? withChoiceTag(e.notes, c.label, e.choice) : e.notes) || undefined; })(),
       })));
       setLocalEntries([emptyEntry()]);
       setAddStatus('success');
@@ -261,13 +271,28 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">燈種 *</label>
                     <select value={entry.serviceId}
-                      onChange={e => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, serviceId: e.target.value } : x))}
+                      onChange={e => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, serviceId: e.target.value, choice: '' } : x))}
                       className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
                       <option value="">請選擇燈種</option>
                       {lampConfigs.filter(c => c.isActive).map(c => (
                         <option key={c.id} value={c.id}>{c.name}　NT${c.fee.toLocaleString()} / 年</option>
                       ))}
                     </select>
+                    {(() => {
+                      const c = choiceFor(lampChoices, entry.serviceId);
+                      if (!c) return null;
+                      return (
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">{c.label} *</label>
+                          <select value={entry.choice}
+                            onChange={e => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, choice: e.target.value } : x))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
+                            <option value="">請選擇{c.label}</option>
+                            {c.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 

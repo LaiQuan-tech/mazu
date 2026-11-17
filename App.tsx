@@ -53,7 +53,7 @@ import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, getLampChoices, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import ChatWidget from './components/ChatWidget';
 import Analytics from './components/Analytics';
@@ -70,6 +70,7 @@ import { BulletinCard, BulletinBody, SERVICE_CTA, scrollCardToTop } from './comp
 import BulletinBanners from './components/BulletinBanners';
 import PosterImage, { POSTER_LIST_MAX_H } from './components/PosterImage';
 import LampCard from './components/LampCard';
+import { lampYearGanZhi, choiceFor, withChoiceTag, type LampChoices } from './services/lampChoice';
 import Pagination, { pageSlice, pageCountOf } from './components/Pagination';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
@@ -1502,6 +1503,8 @@ const NAV_MORE: NavItem[] = [
 interface LampPersonEntry {
   id: string;
   serviceId: string;
+  /** 燈種要信眾多選的那一格（專屬神明燈的指定神明），見 services/lampChoice.ts */
+  choice?: string;
   name: string;
   gender?: string;
   birthDate: string;
@@ -1828,6 +1831,7 @@ const App: React.FC = () => {
   // 祀奉神尊：先顯示一批，按「更多」再展開一批
   const [deityShown, setDeityShown] = useState(DEITY_PAGE);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
+  const [lampChoices, setLampChoices] = useState<LampChoices>({});
   // ── 點燈多人 ──
   const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
   /**
@@ -2102,6 +2106,7 @@ const App: React.FC = () => {
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
     getDeityHalls().then(setDeityHalls).catch(console.error);
     getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
+    getLampChoices().then(setLampChoices);
     getBlessingEvents(true).then(setBlessingEvents).catch(console.error);
     // 社群帳號：後台可改，留空的平台前台不顯示
     getSocialSettings().then(s => { setSocial(s); setLineUrl(s.lineUrl); }).catch(console.error);
@@ -2481,7 +2486,7 @@ const App: React.FC = () => {
     setLampStatus('loading');
     // notify:false ＝整批送完才寄一封信。一次報好幾個人是同一筆訂單（廟方 2026-10-12）
     const ids = await submitSequentially(lampPersons, (p: LampPersonEntry) => submitLampRegistration({
-      serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: lampNotes, email: contactEmail || undefined,
+      serviceId: p.serviceId, name: p.name, phone: member ? (memberProfile?.phone ?? '') : guestPhone, gender: p.gender || undefined, birthDate: p.birthDate, zodiac: p.zodiac, address: p.address || undefined, contactLabel: p.contactLabel, notes: (() => { const c = choiceFor(lampChoices, p.serviceId); return c ? withChoiceTag(lampNotes, c.label, p.choice) : lampNotes; })(), email: contactEmail || undefined,
     }, { notify: false }));
     // 部分成功也要通知：那幾筆已經在資料庫裡了，廟方該知道。剩下的重送時再寄一封
     notifyRegistration('lamp_registrations', ids);
@@ -4632,7 +4637,8 @@ const App: React.FC = () => {
                     目的在祈福的（天赦日、神明聖誕的祈福點燈）在祈福活動，目的就是點燈的在這裡。
                     h1 的「年度」是這一頁與那些單場次點燈最大的差別，一年一期。 */}
                 <h1 className="text-4xl sm:text-5xl font-bold text-temple-dark mb-2 font-serif">
-                  年度點燈，光明護佑
+                  {/* 2026-11-17 廟方改成「丁未點燈，太歲護佑」（SEO）。干支由日期算、九月起換下一年，見 services/lampChoice.ts */}
+                  {lampYearGanZhi()}點燈，太歲護佑
                 </h1>
                 <div className="flex items-center justify-center gap-3 mt-3 mb-4">
                   <span className="w-12 h-px bg-temple-gold/70" />
@@ -4692,7 +4698,7 @@ const App: React.FC = () => {
             {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'lamp' && (
               <SharedFormPanel
                 session={sharedSession} isCreator={isCreator}
-                lampConfigs={lampConfigs} blessingEvent={null}
+                lampConfigs={lampConfigs} lampChoices={lampChoices} blessingEvent={null}
                 memberProfile={memberProfile}
                 posterUrl={sharedPoster(sharedSession.serviceType)}
                 onPoster={setPosterUrl}
@@ -4767,7 +4773,7 @@ const App: React.FC = () => {
                         <label className="block">
                           <span className="block text-xs font-medium text-gray-600 mb-1">點燈項目 *</span>
                           <select required value={p.serviceId}
-                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, serviceId: e.target.value } : x))}
+                          onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, serviceId: e.target.value, choice: '' } : x))}
                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                           <option value="">請選擇服務項目 *</option>
                           {lampConfigs.map(cfg => (
@@ -4775,6 +4781,22 @@ const App: React.FC = () => {
                           ))}
                         </select>
                         </label>
+                        {/* 選了需要多選一格的燈種（專屬神明燈→指定神明）才出現、而且必選。選項在後台點燈管理設定 */}
+                        {(() => {
+                          const c = choiceFor(lampChoices, p.serviceId);
+                          if (!c) return null;
+                          return (
+                            <label className="block">
+                              <span className="block text-xs font-medium text-gray-600 mb-1">{c.label} *</span>
+                              <select required value={p.choice ?? ''}
+                                onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, choice: e.target.value } : x))}
+                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
+                                <option value="">請選擇{c.label}</option>
+                                {c.options.map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            </label>
+                          );
+                        })()}
                         {/* 姓名 + 稱謂 */}
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">

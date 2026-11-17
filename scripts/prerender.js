@@ -28,6 +28,17 @@ import { createRequire } from 'node:module';
 // ESM 取 npm 套件一定要用 createRequire（NODE_PATH 對 import 沒作用，見 CLAUDE.md）
 const require = createRequire(import.meta.url);
 
+/**
+ * 太歲點燈的干支年，**與 services/lampChoice.ts 的 lampYearGanZhi 同一條規則**（這裡 import 不了 TS）：
+ * 國曆九月起算下一年。日期一定要釘台北時間——建置機跑在 UTC，八月三十一日晚上八點以後會差一天。
+ */
+const lampYearGanZhi = () => {
+  const [y, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit' })
+    .format(new Date()).split('-').map(Number);
+  const yr = m >= 9 ? y + 1 : y;
+  return '甲乙丙丁戊己庚辛壬癸'[((yr - 4) % 10 + 10) % 10] + '子丑寅卯辰巳午未申酉戌亥'[((yr - 4) % 12 + 12) % 12];
+};
+
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -307,6 +318,8 @@ images: [
     title: '太歲點燈｜安太歲・太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
     desc: '台北古亭和聖壇太歲點燈（安太歲）線上登記，一年一期。提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂、元辰光彩。天赦日等單場次的祈福點燈請見祈福活動。',
     h1: '太歲點燈',
+    // noscript 的大標用頁面上那一句；h1 欄位還要當麵包屑與站內連結的名稱，所以另開一欄
+    headline: () => `${lampYearGanZhi()}點燈，太歲護佑`,
     body: [
       // 價格從 lamp_service_configs 抓（見下方 llms.txt 那段的註解）；抓不到就用這串保底
       '農曆新年期間提供太歲祈安燈（每年 NT$300）、光明前程祈福燈（每年 NT$300）、財源廣進財利燈（每年 NT$500）、本命神明祈願燈（每年 NT$1,200），祈求流年順遂、元辰光彩。',
@@ -1535,7 +1548,7 @@ for (const r of ACTIVE_ROUTES) {
   const noscript = `
     <noscript>
       <div style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:'Noto Serif TC',serif;color:#3D2800;line-height:1.9">
-        <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(r.h1)}</h1>
+        <h1 style="font-size:1.75rem;margin:0 0 1rem">${esc(typeof r.headline === 'function' ? r.headline() : (r.headline || r.h1))}</h1>
 ${bodyOf(r).map((p) => `        <p>${esc(p)}</p>`).join('\n')}${scriptureText}${imgText}${faqText}
         <p style="margin-top:1.5rem">${footerText}</p>
         <p style="margin-top:1.25rem">${navLinks.filter((l) => l.path !== r.path)

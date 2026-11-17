@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
-import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
@@ -21,6 +21,7 @@ import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
+import { readChoiceTag, type LampChoices } from '../services/lampChoice';
 import { RELATION_OPTIONS, ConsultationType, AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -5476,6 +5477,25 @@ const LampsTab = ({
   const [savingConfig, setSavingConfig] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadingLampImg, setUploadingLampImg] = useState(false);
+  /** 燈種的「請信眾選擇」（專屬神明燈的指定神明等）。存在 site_settings，見 services/lampChoice.ts */
+  const [lampChoices, setLampChoices] = useState<LampChoices>({});
+  const [choiceLabel, setChoiceLabel] = useState('');
+  const [choiceText, setChoiceText] = useState('');
+  const [fillingDeities, setFillingDeities] = useState(false);
+  useEffect(() => { getLampChoices().then(setLampChoices); }, []);
+
+  /** 從「祀奉神尊」帶入名單：廟方不必再打一次本壇有哪些神尊，帶進來再刪掉不開放的即可 */
+  const fillFromDeities = async () => {
+    if (choiceText.trim() && !window.confirm('會取代目前的選項，確定嗎？')) return;
+    setFillingDeities(true);
+    try {
+      const ds = await getDeities();
+      const names = [...new Set(ds.map(d => d.name.trim()).filter(Boolean))];
+      setChoiceText(names.join('\n'));
+      if (!choiceLabel.trim()) setChoiceLabel('指定神明');
+    } catch { alert('讀取祀奉神尊失敗，請稍後再試'); }
+    finally { setFillingDeities(false); }
+  };
 
   // ── Registration state ──
   const [regSearch, setRegSearch] = useState('');
@@ -5503,6 +5523,8 @@ const LampsTab = ({
   const openEditConfig = (c: LampServiceConfig) => {
     setEditingConfig(c);
     setConfigForm({ name: c.name, fee: c.fee, description: c.description, imageUrl: c.imageUrl || '', isActive: c.isActive, displayOrder: c.displayOrder });
+    setChoiceLabel(lampChoices[c.id]?.label ?? '');
+    setChoiceText((lampChoices[c.id]?.options ?? []).join('\n'));
     setShowConfigModal(true);
   };
 
@@ -5523,6 +5545,15 @@ const LampsTab = ({
     try {
       if (editingConfig) {
         await updateLampServiceConfig(editingConfig.id, configForm);
+        // 選項：有名稱也有選項才算設定；清空就是拿掉這一格
+        const options = [...new Set(choiceText.split('\n').map(o => o.trim()).filter(Boolean))];
+        const next = { ...lampChoices };
+        if (choiceLabel.trim() && options.length) next[editingConfig.id] = { label: choiceLabel.trim(), options };
+        else delete next[editingConfig.id];
+        if (JSON.stringify(next) !== JSON.stringify(lampChoices)) {
+          await saveLampChoices(next);
+          setLampChoices(next);
+        }
       } else {
         await createLampServiceConfig(configForm);
       }
@@ -5603,10 +5634,14 @@ const LampsTab = ({
   };
 
   const exportRegsExcel = () => {
-    exportExcel('點燈登記.xlsx', filteredRegs.map(r => [
-      getServiceName(r.serviceId), r.name, r.phone, r.gender || '', r.birthDate, r.zodiac || '', r.address || '',
-      r.status, r.notes || '', fmtDate(r.createdAt), r.source || ''
-    ]), ['服務項目', '姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '狀態', '備註', '建立時間', '報名來源']);
+    // 「指定項目」單獨一欄（專屬神明燈點給哪一尊），廟方要照這欄排燈位；備註只留剩下的
+    exportExcel('點燈登記.xlsx', filteredRegs.map(r => {
+      const t = readChoiceTag(r.notes);
+      return [
+        getServiceName(r.serviceId), t ? t.value : '', r.name, r.phone, r.gender || '', r.birthDate, r.zodiac || '', r.address || '',
+        r.status, t ? t.rest.trim() : (r.notes || ''), fmtDate(r.createdAt), r.source || '',
+      ];
+    }), ['服務項目', '指定項目', '姓名', '電話', '性別', '農曆生日', '生肖', '現居地址', '狀態', '備註', '建立時間', '報名來源']);
   };
 
   return (
@@ -5787,6 +5822,8 @@ const LampsTab = ({
                     {r.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{r.contactLabel}</span>}
                     <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
                       {getServiceName(r.serviceId)}
+                      {/* 專屬神明燈點給哪一尊：存在備註開頭（見 services/lampChoice.ts），這裡拉出來跟燈種放一起 */}
+                      {readChoiceTag(r.notes) && `・${readChoiceTag(r.notes)!.value}`}
                     </span>
                     {statusBadge(r.status)}
                   </div>
@@ -5798,7 +5835,12 @@ const LampsTab = ({
                     生日：{r.birthDate}{r.zodiac ? `　生肖：${r.zodiac}` : ''}
                   </p>
                   {r.address && <p className="text-xs text-gray-400 mt-0.5">地址：{r.address}</p>}
-                  {r.notes && <p className="text-xs text-gray-400 mt-0.5">備註：{r.notes}</p>}
+                  {(() => {
+                    // 選項已經併進上面的燈種標籤，備註只印剩下的，同一件事不講兩次
+                    const t = readChoiceTag(r.notes);
+                    const rest = t ? t.rest.trim() : r.notes;
+                    return rest ? <p className="text-xs text-gray-400 mt-0.5">備註：{rest}</p> : null;
+                  })()}
                   <p className="text-xs text-gray-300 mt-1">{fmtDate(r.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
@@ -5895,6 +5937,39 @@ const LampsTab = ({
                   placeholder="服務說明..."
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-none"
                 />
+              </div>
+              {/* 請信眾選擇（2026-11-17 廟方：「專屬神明燈，還需要有神明燈的表單，須在後台可設定」）。
+                  新增的燈種還沒有 id，存檔後再編輯一次才設得了，所以新增時只放一行提示 */}
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-sm font-medium text-gray-700">請信眾選擇（選填）</p>
+                <p className="text-xs text-gray-400 mt-0.5 mb-2">
+                  例如專屬神明燈要選「指定神明」。有設定時，信眾選了這個燈種就會多一格必選的下拉；不需要就留空。
+                </p>
+                {editingConfig ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text" value={choiceLabel} onChange={e => setChoiceLabel(e.target.value)}
+                      placeholder="欄位名稱，例：指定神明" maxLength={20}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
+                    />
+                    <textarea
+                      value={choiceText} onChange={e => setChoiceText(e.target.value)} rows={5}
+                      placeholder={'選項，一行一個，例：\n天上聖母\n觀世音菩薩\n中壇元帥'}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-y"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-400">
+                        {choiceText.split('\n').filter(o => o.trim()).length} 個選項
+                      </span>
+                      <button type="button" onClick={fillFromDeities} disabled={fillingDeities}
+                        className="text-xs px-2.5 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                        {fillingDeities ? '讀取中…' : '從祀奉神尊帶入'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">請先儲存這個燈種，再點「編輯」設定。</p>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>
