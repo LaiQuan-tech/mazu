@@ -81,6 +81,20 @@ const normalizeLampStatus = (raw: unknown): LampRegistrationStatus => {
     : LampRegistrationStatus.PENDING;
 };
 
+/**
+ * 捐獻的狀態在資料庫裡有兩種寫法（2026-11-17 查線上資料：`pending` 4 筆、`待匯款` 1 筆）。
+ * `pending` 是那一欄**原本就有的預設值**——donation_payment_status.sql 用的是 ADD COLUMN IF NOT EXISTS，
+ * 欄位早就存在、預設值沒被換掉，而 submitDonation 又沒有明寫 status，於是每一筆新捐款都是英文的 pending。
+ * 後台紅點與捐獻清單比對的是中文列舉，英文那幾筆就整個漏掉（應收管理是用「不是已收款也不是已取消」判斷，所以剛好沒漏）。
+ * 讀取端折成中文；NULL 維持 undefined（從未核對過，不是「還沒收到」）。
+ */
+const normalizeDonationStatus = (raw: unknown): DonationStatus | undefined => {
+  if (raw == null || raw === '') return undefined;
+  const v = String(raw);
+  const mapped = ({ pending: '待匯款', paid: '已收款', cancelled: '已取消' } as Record<string, string>)[v] ?? v;
+  return (Object.values(DonationStatus) as string[]).includes(mapped) ? (mapped as DonationStatus) : DonationStatus.PENDING;
+};
+
 const normalizeBlessingStatus = (raw: unknown): BlessingStatus => {
   const v = String(raw ?? '');
   const mapped = LEGACY_PAY_STATUS[v] ?? v;
@@ -343,6 +357,8 @@ export const submitDonation = async (data: DonationData, opts?: SubmitOptions): 
     relocation_plan: data.relocationPlan || null,
     relocation_tier: data.relocationTier || null,
     email: data.email?.trim() || null,
+    // 明寫，不要靠資料庫的預設值：那個預設是英文的 'pending'（見 normalizeDonationStatus）
+    status: DonationStatus.PENDING,
     source: getSource(),
   }, ['email', 'birth_date', 'relocation_plan', 'relocation_tier', 'status']);
   if (opts?.notify !== false) notifyRegistration('donations', id);
@@ -388,7 +404,7 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     relocationPlan:  row.relocation_plan || undefined,
     relocationTier:  row.relocation_tier || undefined,
     // NULL＝早於 donation_payment_status.sql，從未核對過（不是「還沒收到」）
-    status: (row.status as DonationStatus) || undefined,
+    status: normalizeDonationStatus(row.status),
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     email: row.email || undefined,

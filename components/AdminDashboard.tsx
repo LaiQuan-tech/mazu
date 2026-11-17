@@ -2498,7 +2498,8 @@ const OverviewTab = ({
   const lampPending     = lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length;
   const blessingPending = blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length;
   const bookingPending  = bookings.filter(b => b.status === BookingStatus.PENDING).length;
-  const donationRecent  = donations.filter(d => d.createdAt && (now - new Date(d.createdAt).getTime()) < h24).length;
+  // 同側邊欄：待匯款才算待辦，不是「24 小時內」
+  const donationRecent  = donations.filter(d => d.status === DonationStatus.PENDING).length;
 
   // stat totals
   const totalRegistrations = lampRegistrations.length + blessingRegistrations.length + bookings.length;
@@ -8074,7 +8075,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     : key === 'volunteer' ? volunteerRegistrations.filter(r => r.status !== 'contacted').length
     : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length
     : key === 'bookings'  ? bookings.filter(b => b.status === BookingStatus.PENDING).length
-    : key === 'donations' ? donations.filter(d => d.createdAt && (Date.now() - new Date(d.createdAt).getTime()) < 86400000).length
+    // 捐獻原本是「24 小時內的新捐款」，跟有沒有收到錢無關——放一天紅點就自己消失，
+    // 還沒對帳的捐款反而看不到（2026-11-17 線上有 5 筆待匯款、紅點是 0）。改成跟點燈、祈福同一個標準。
+    : key === 'donations' ? donations.filter(d => d.status === DonationStatus.PENDING).length
     : key === 'urgent'    ? urgentPending
     : 0;
   const totalPending = navItems.reduce((sum, n) => sum + badgeFor(n.key), 0);
