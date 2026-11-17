@@ -5,7 +5,7 @@ import {
   SharedSessionRecord, SharedEntryData,
   LampServiceConfig, ProfileData, ZodiacSign, ConsultationType, BlessingEventRecord,
 } from '../types';
-import { choiceFor, withChoiceTag, type LampChoices } from '../services/lampChoice';
+import { choiceFor, withChoiceTag, remainingFor, readChoiceTag, type LampChoices } from '../services/lampChoice';
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 
@@ -36,6 +36,8 @@ interface SharedFormPanelProps {
   lampConfigs:   LampServiceConfig[];
   /** 燈種要信眾多選的那一格。只有點燈的揪團會傳 */
   lampChoices?:  LampChoices;
+  /** 有名額的燈種：本季已登記幾盞（App 抓的）。null／沒有＝不顯示剩幾盞 */
+  lampChoiceCounts?: Record<string, Record<string, number> | null>;
   blessingEvent: BlessingEventRecord | null; // 祈福活動（包含 packages）
   memberProfile: ProfileData | null;
   onAddEntries:  (entries: Omit<SharedEntryData, 'sessionId'>[]) => Promise<void>;
@@ -55,7 +57,7 @@ interface SharedFormPanelProps {
 }
 
 const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
-  session, isCreator, lampConfigs, lampChoices = {}, blessingEvent, memberProfile,
+  session, isCreator, lampConfigs, lampChoices = {}, lampChoiceCounts = {}, blessingEvent, memberProfile,
   onAddEntries, onSubmitAll, onRefresh, onDelete, posterUrl, onPoster, submitStatus,
 }) => {
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>([emptyEntry()]);
@@ -288,7 +290,15 @@ const SharedFormPanel: React.FC<SharedFormPanelProps> = ({
                             onChange={e => setLocalEntries(prev => prev.map(x => x.id === entry.id ? { ...x, choice: e.target.value } : x))}
                             className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
                             <option value="">請選擇{c.label}</option>
-                            {c.options.map(o => <option key={o} value={o}>{o}</option>)}
+                            {c.options.map(o => {
+                              // 扣掉這張揪團表裡已經加入的、與這次一起加的其他人（都還沒送出，資料庫數不到）
+                              const base = remainingFor(c, o, lampChoiceCounts[entry.serviceId] ?? null);
+                              const inSession = session.entries.filter(x => x.serviceId === entry.serviceId && readChoiceTag(x.notes)?.value === o).length;
+                              const inLocal = localEntries.filter(x => x.id !== entry.id && x.serviceId === entry.serviceId && x.choice === o).length;
+                              const left = base == null ? null : base - inSession - inLocal;
+                              const full = left != null && left <= 0 && entry.choice !== o;
+                              return <option key={o} value={o} disabled={full}>{o}{left == null ? '' : left <= 0 ? '（已額滿）' : `（剩 ${left} 盞）`}</option>;
+                            })}
                           </select>
                         </div>
                       );

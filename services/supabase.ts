@@ -1047,13 +1047,39 @@ export const getLampChoices = async (): Promise<LampChoices> => {
     for (const [id, c] of Object.entries(raw as Record<string, { label?: unknown; options?: unknown }>)) {
       const label = typeof c?.label === 'string' ? c.label : '';
       const options = Array.isArray(c?.options) ? c.options.filter((o): o is string => typeof o === 'string' && !!o.trim()) : [];
-      if (label.trim() && options.length) out[id] = { label: label.trim(), options };
+      const rawQ = (c as { quotas?: unknown })?.quotas;
+      const quotas: Record<string, number> = {};
+      if (rawQ && typeof rawQ === 'object') {
+        for (const [k, v] of Object.entries(rawQ as Record<string, unknown>)) {
+          const n = Number(v);
+          if (options.includes(k) && Number.isFinite(n) && n >= 0) quotas[k] = Math.floor(n);
+        }
+      }
+      if (label.trim() && options.length) out[id] = { label: label.trim(), options, ...(Object.keys(quotas).length ? { quotas } : {}) };
     }
     return out;
   } catch (e) {
     console.warn('讀取燈種選項失敗，當作沒有設定:', e);
     return {};
   }
+};
+
+/**
+ * 這一季每個選項已經登記了幾盞（已取消的不算）。走 `get_lamp_choice_counts` RPC——
+ * anon 讀不到 lamp_registrations，這支只回數字。**讀不到回 null，呼叫端就不擋人**：
+ * 名額是廟方的管理需求，計數壞掉不可以變成「整個專屬神明燈都報不了名」。
+ */
+export const getLampChoiceCounts = async (serviceId: string, since: string): Promise<Record<string, number> | null> => {
+  const { data, error } = await supabase.rpc('get_lamp_choice_counts', { p_service_id: serviceId, p_since: since });
+  if (error) {
+    console.warn('讀不到神明燈名額的計數（請執行 supabase/migrations/lamp_choice_counts.sql）：', error.message);
+    return null;
+  }
+  const out: Record<string, number> = {};
+  for (const r of (data || []) as { choice: string | null; n: number }[]) {
+    if (r.choice) out[r.choice] = Number(r.n) || 0;
+  }
+  return out;
 };
 
 export const saveLampChoices = async (choices: LampChoices): Promise<void> => {

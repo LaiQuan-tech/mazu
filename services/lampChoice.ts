@@ -27,6 +27,12 @@ const BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
 export const ganZhiOfYear = (y: number): string =>
   STEMS[(((y - 4) % 10) + 10) % 10] + BRANCHES[(((y - 4) % 12) + 12) % 12];
 
+/** 這一季從哪一天開始算名額：九月一日（台北時間）。與 `lampYearGanZhi` 同一條界線 */
+export const lampSeasonStart = (d: Date = new Date()): string => {
+  const y = d.getMonth() + 1 >= 9 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${y}-09-01T00:00:00+08:00`;
+};
+
 /** 這一季點的是哪一年的燈：九月起算下一年 */
 export const lampYearGanZhi = (d: Date = new Date()): string =>
   ganZhiOfYear(d.getMonth() + 1 >= 9 ? d.getFullYear() + 1 : d.getFullYear());
@@ -37,6 +43,11 @@ export interface LampChoice {
   label: string;
   /** 下拉的選項，一行一個 */
   options: string[];
+  /**
+   * 每個選項的名額（2026-11-17 廟方：「專屬神明燈⋯⋯還要有數量限制」，問過是「每尊神明各自有名額」）。
+   * 沒列在這裡的選項＝不限量。名額每一季重算，季的起點見 `lampSeasonStart()`。
+   */
+  quotas?: Record<string, number>;
 }
 
 /** 燈種 id → 那一格的設定。沒有設定的燈種不在裡面 */
@@ -59,4 +70,63 @@ export const withChoiceTag = (notes: string | undefined, label: string, value: s
 export const readChoiceTag = (notes: string | undefined): { label: string; value: string; rest: string } | null => {
   const m = (notes || '').match(/^【([^】]{1,20})】([^\n]*)\n?([\s\S]*)$/);
   return m ? { label: m[1], value: m[2].trim(), rest: m[3] } : null;
+};
+
+/**
+ * 後台的選項框一行一個，**行尾的數字就是名額**：「天上聖母 30」＝限 30 盞，沒寫數字＝不限。
+ * 用空白、逗號、頓號或直線隔開都認。名稱本身不會被存進數字，信眾那一格看到的是「天上聖母」。
+ */
+export const parseChoiceLines = (text: string): { options: string[]; quotas: Record<string, number> } => {
+  const options: string[] = [];
+  const quotas: Record<string, number> = {};
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(.*?)[\s　,，、|｜]+(\d+)\s*盞?$/);
+    const name = (m ? m[1] : line).trim();
+    if (!name || options.includes(name)) continue;
+    options.push(name);
+    if (m) quotas[name] = Number(m[2]);
+  }
+  return { options, quotas };
+};
+
+/** 反過來，把設定排回選項框的文字 */
+export const formatChoiceLines = (c: LampChoice | undefined): string =>
+  (c?.options ?? []).map(o => (c?.quotas?.[o] != null ? `${o} ${c.quotas[o]}` : o)).join('\n');
+
+/** 某個選項還剩幾盞。`null` ＝不限量或還不知道（計數讀不到時不擋人） */
+export const remainingFor = (c: LampChoice, option: string, counts: Record<string, number> | null): number | null => {
+  const q = c.quotas?.[option];
+  if (q == null || !counts) return null;
+  return q - (counts[option] ?? 0);
+};
+
+/**
+ * 一批選擇裡有沒有超過名額的（同一張表報三個人都選天上聖母，要合起來算）。
+ * 回傳要給信眾看的那一句，沒問題回 null。`countsBy` 讀不到（null）的燈種一律放行。
+ */
+export const quotaShortfall = (
+  choices: LampChoices,
+  countsBy: Record<string, Record<string, number> | null>,
+  picks: { serviceId: string; choice?: string }[],
+): string | null => {
+  const want = new Map<string, number>();
+  for (const p of picks) {
+    if (!p.choice) continue;
+    const k = `${p.serviceId}\u0000${p.choice}`;
+    want.set(k, (want.get(k) ?? 0) + 1);
+  }
+  for (const [k, n] of want) {
+    const [sid, opt] = k.split('\u0000');
+    const c = choices[sid];
+    if (!c) continue;
+    const left = remainingFor(c, opt, countsBy[sid] ?? null);
+    if (left != null && n > left) {
+      return left <= 0
+        ? `「${opt}」的名額已經額滿，請改選其他${c.label}，或洽廟方。`
+        : `「${opt}」只剩 ${left} 盞，這次選了 ${n} 盞，請調整後再送出。`;
+    }
+  }
+  return null;
 };

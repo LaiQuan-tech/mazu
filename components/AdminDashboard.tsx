@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
-import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
@@ -21,7 +21,7 @@ import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
-import { readChoiceTag, type LampChoices } from '../services/lampChoice';
+import { readChoiceTag, parseChoiceLines, formatChoiceLines, lampSeasonStart, type LampChoices } from '../services/lampChoice';
 import { RELATION_OPTIONS, ConsultationType, AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -5482,6 +5482,8 @@ const LampsTab = ({
   const [choiceLabel, setChoiceLabel] = useState('');
   const [choiceText, setChoiceText] = useState('');
   const [fillingDeities, setFillingDeities] = useState(false);
+  /** 這一季每個選項已登記幾盞（null＝計數讀不到，多半是 lamp_choice_counts.sql 還沒跑） */
+  const [choiceCounts, setChoiceCounts] = useState<Record<string, number> | null | undefined>(undefined);
   useEffect(() => { getLampChoices().then(setLampChoices); }, []);
 
   /** 從「祀奉神尊」帶入名單：廟方不必再打一次本壇有哪些神尊，帶進來再刪掉不開放的即可 */
@@ -5524,7 +5526,9 @@ const LampsTab = ({
     setEditingConfig(c);
     setConfigForm({ name: c.name, fee: c.fee, description: c.description, imageUrl: c.imageUrl || '', isActive: c.isActive, displayOrder: c.displayOrder });
     setChoiceLabel(lampChoices[c.id]?.label ?? '');
-    setChoiceText((lampChoices[c.id]?.options ?? []).join('\n'));
+    setChoiceText(formatChoiceLines(lampChoices[c.id]));
+    setChoiceCounts(undefined);
+    if (lampChoices[c.id]) getLampChoiceCounts(c.id, lampSeasonStart()).then(setChoiceCounts);
     setShowConfigModal(true);
   };
 
@@ -5546,9 +5550,9 @@ const LampsTab = ({
       if (editingConfig) {
         await updateLampServiceConfig(editingConfig.id, configForm);
         // 選項：有名稱也有選項才算設定；清空就是拿掉這一格
-        const options = [...new Set(choiceText.split('\n').map(o => o.trim()).filter(Boolean))];
+        const { options, quotas } = parseChoiceLines(choiceText);
         const next = { ...lampChoices };
-        if (choiceLabel.trim() && options.length) next[editingConfig.id] = { label: choiceLabel.trim(), options };
+        if (choiceLabel.trim() && options.length) next[editingConfig.id] = { label: choiceLabel.trim(), options, ...(Object.keys(quotas).length ? { quotas } : {}) };
         else delete next[editingConfig.id];
         if (JSON.stringify(next) !== JSON.stringify(lampChoices)) {
           await saveLampChoices(next);
@@ -5944,6 +5948,7 @@ const LampsTab = ({
                 <p className="text-sm font-medium text-gray-700">請信眾選擇（選填）</p>
                 <p className="text-xs text-gray-400 mt-0.5 mb-2">
                   例如專屬神明燈要選「指定神明」。有設定時，信眾選了這個燈種就會多一格必選的下拉；不需要就留空。
+                  <br />每行後面加數字就是那一項的名額，例如「天上聖母 30」；沒寫數字＝不限量。名額每年九月重新算，已取消的不算。
                 </p>
                 {editingConfig ? (
                   <div className="space-y-2">
@@ -5954,18 +5959,33 @@ const LampsTab = ({
                     />
                     <textarea
                       value={choiceText} onChange={e => setChoiceText(e.target.value)} rows={5}
-                      placeholder={'選項，一行一個，例：\n天上聖母\n觀世音菩薩\n中壇元帥'}
+                      placeholder={'選項，一行一個，後面的數字是名額，例：\n天上聖母 30\n觀世音菩薩 20\n中壇元帥'}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none resize-y"
                     />
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-gray-400">
-                        {choiceText.split('\n').filter(o => o.trim()).length} 個選項
+                        {(() => { const p = parseChoiceLines(choiceText); const q = Object.keys(p.quotas).length;
+                          return `${p.options.length} 個選項${q ? `，其中 ${q} 個有名額` : ''}`; })()}
                       </span>
                       <button type="button" onClick={fillFromDeities} disabled={fillingDeities}
                         className="text-xs px-2.5 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
                         {fillingDeities ? '讀取中…' : '從祀奉神尊帶入'}
                       </button>
                     </div>
+                    {/* 這一季登記到哪了：廟方調名額前要先知道已經賣出幾盞 */}
+                    {choiceCounts === null && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5">
+                        讀不到已登記的數量，名額暫時不會生效。請在 Supabase 執行 supabase/migrations/lamp_choice_counts.sql。
+                      </p>
+                    )}
+                    {choiceCounts && Object.keys(choiceCounts).length > 0 && (
+                      <p className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">
+                        本季已登記：{Object.entries(choiceCounts).sort((a, b) => b[1] - a[1]).map(([k, n]) => {
+                          const q = parseChoiceLines(choiceText).quotas[k];
+                          return `${k} ${n}${q != null ? `／${q}` : ''} 盞`;
+                        }).join('、')}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">請先儲存這個燈種，再點「編輯」設定。</p>

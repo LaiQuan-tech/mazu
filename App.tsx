@@ -53,7 +53,7 @@ import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, getLampChoices, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, getLampChoices, getLampChoiceCounts, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import ChatWidget from './components/ChatWidget';
 import Analytics from './components/Analytics';
@@ -70,7 +70,7 @@ import { BulletinCard, BulletinBody, SERVICE_CTA, scrollCardToTop } from './comp
 import BulletinBanners from './components/BulletinBanners';
 import PosterImage, { POSTER_LIST_MAX_H } from './components/PosterImage';
 import LampCard from './components/LampCard';
-import { lampYearGanZhi, choiceFor, withChoiceTag, type LampChoices } from './services/lampChoice';
+import { lampYearGanZhi, choiceFor, withChoiceTag, lampSeasonStart, remainingFor, quotaShortfall, readChoiceTag, type LampChoices } from './services/lampChoice';
 import Pagination, { pageSlice, pageCountOf } from './components/Pagination';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
@@ -1832,6 +1832,17 @@ const App: React.FC = () => {
   const [deityShown, setDeityShown] = useState(DEITY_PAGE);
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   const [lampChoices, setLampChoices] = useState<LampChoices>({});
+  /** 有名額的燈種：這一季每個選項已登記幾盞。燈種 id → 計數；null＝讀不到（不擋人） */
+  const [lampChoiceCounts, setLampChoiceCounts] = useState<Record<string, Record<string, number> | null>>({});
+  /** 把有設名額的燈種的計數重抓一次。開頁面抓一次、送出前再抓一次（中間可能有人先報走） */
+  const refreshLampChoiceCounts = async (choices: LampChoices = lampChoices) => {
+    const ids = Object.keys(choices).filter(id => choices[id].quotas && Object.keys(choices[id].quotas!).length);
+    const since = lampSeasonStart();
+    const pairs = await Promise.all(ids.map(async id => [id, await getLampChoiceCounts(id, since)] as const));
+    const next = Object.fromEntries(pairs);
+    setLampChoiceCounts(next);
+    return next;
+  };
   // ── 點燈多人 ──
   const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
   /**
@@ -2106,7 +2117,7 @@ const App: React.FC = () => {
     getDeities().then(all => setDeities(all.filter(d => d.isVisible !== false))).catch(console.error);
     getDeityHalls().then(setDeityHalls).catch(console.error);
     getLampServiceConfigs(true).then(setLampConfigs).catch(console.error);
-    getLampChoices().then(setLampChoices);
+    getLampChoices().then(c => { setLampChoices(c); refreshLampChoiceCounts(c); });
     getBlessingEvents(true).then(setBlessingEvents).catch(console.error);
     // 社群帳號：後台可改，留空的平台前台不顯示
     getSocialSettings().then(s => { setSocial(s); setLineUrl(s.lineUrl); }).catch(console.error);
@@ -2483,6 +2494,12 @@ const App: React.FC = () => {
     const invalid = lampPersons.find(p => !p.serviceId || !p.name.trim());
     if (invalid) { alert('請填寫所有人員的服務項目與姓名。'); return; }
     if (!requireMemberPhone()) return;
+    // 名額：送出前重抓一次計數再比——頁面開著的這段時間可能已經有人把最後幾盞報走
+    if (lampPersons.some(p => p.choice && lampChoices[p.serviceId]?.quotas)) {
+      const fresh = await refreshLampChoiceCounts();
+      const short = quotaShortfall(lampChoices, fresh, lampPersons);
+      if (short) { alert(short); return; }
+    }
     setLampStatus('loading');
     // notify:false ＝整批送完才寄一封信。一次報好幾個人是同一筆訂單（廟方 2026-10-12）
     const ids = await submitSequentially(lampPersons, (p: LampPersonEntry) => submitLampRegistration({
@@ -2858,6 +2875,14 @@ const App: React.FC = () => {
 
   const handleSubmitSharedSession = async () => {
     if (!sharedSession || sharedSession.entries.length === 0) return;
+    // 揪團是先收名單、主揪最後才一起送，中間可能隔好幾天——名額要在送出這一刻再比一次
+    if (sharedSession.serviceType === 'lamp') {
+      const picks = sharedSession.entries.map(e => ({ serviceId: e.serviceId ?? '', choice: readChoiceTag(e.notes)?.value }));
+      if (picks.some(p => p.choice && lampChoices[p.serviceId]?.quotas)) {
+        const short = quotaShortfall(lampChoices, await refreshLampChoiceCounts(), picks);
+        if (short) { alert(short); return; }
+      }
+    }
     setSharedSubmitStatus('loading');
     try {
       const entries = sharedSession.entries;
@@ -4698,7 +4723,7 @@ const App: React.FC = () => {
             {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'lamp' && (
               <SharedFormPanel
                 session={sharedSession} isCreator={isCreator}
-                lampConfigs={lampConfigs} lampChoices={lampChoices} blessingEvent={null}
+                lampConfigs={lampConfigs} lampChoices={lampChoices} lampChoiceCounts={lampChoiceCounts} blessingEvent={null}
                 memberProfile={memberProfile}
                 posterUrl={sharedPoster(sharedSession.serviceType)}
                 onPoster={setPosterUrl}
@@ -4792,7 +4817,18 @@ const App: React.FC = () => {
                                 onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, choice: e.target.value } : x))}
                                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
                                 <option value="">請選擇{c.label}</option>
-                                {c.options.map(o => <option key={o} value={o}>{o}</option>)}
+                                {c.options.map(o => {
+                                  // 剩幾盞要扣掉同一張表裡其他人已經選了的，否則五個人都看到「剩 1」
+                                  const base = remainingFor(c, o, lampChoiceCounts[p.serviceId] ?? null);
+                                  const others = lampPersons.filter(x => x.id !== p.id && x.serviceId === p.serviceId && x.choice === o).length;
+                                  const left = base == null ? null : base - others;
+                                  const full = left != null && left <= 0 && p.choice !== o;
+                                  return (
+                                    <option key={o} value={o} disabled={full}>
+                                      {o}{left == null ? '' : left <= 0 ? '（已額滿）' : `（剩 ${left} 盞）`}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </label>
                           );
