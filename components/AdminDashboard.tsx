@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
-import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getBookingSessions, getDeityFeasts, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, getDeityFeasts, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
@@ -191,6 +191,35 @@ const Dash = () => <span className="admin-empty text-gray-300" aria-label="無">
 function anyFilled<T>(rows: T[], get: (r: T) => unknown): boolean {
   return rows.some(r => { const v = get(r); return Array.isArray(v) ? v.length > 0 : v != null && v !== '' && v !== 0; });
 }
+
+// ─── Stat Card ───────────────────────────────────────────────────────────────
+
+/**
+ * 總覽頂端的數字卡。手機 2×2 一格只有 160px 寬，所以圖示在上、數字在下，
+ * 寬螢幕（xl）才改回圖示在左。給了 `onClick` 才是按鈕（點了跳那一頁）。
+ */
+const StatCard = ({ icon, label, value, sub, color, onClick }: {
+  icon: React.ReactNode; label: string; value: string | number; sub?: React.ReactNode; color: string; onClick?: () => void;
+}) => {
+  const cls = 'bg-white rounded-xl shadow-sm border border-gray-100 p-3.5 sm:p-5 flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-4 min-w-0 text-left';
+  // button 裡只能放 phrasing content，所以全部用 span
+  const inner = (
+    <>
+      <span className={`p-2 sm:p-3 rounded-xl w-fit shrink-0 ${color}`}>{icon}</span>
+      <span className="block min-w-0">
+        <span className="flex items-center gap-1 text-sm text-gray-500">
+          <span className="truncate">{label}</span>
+          {onClick && <ArrowRight className="w-3.5 h-3.5 shrink-0 text-gray-400" aria-hidden="true" />}
+        </span>
+        <span className="block text-lg sm:text-2xl font-bold text-gray-900 break-words">{value}</span>
+        {sub && <span className="block text-xs text-gray-400 mt-0.5 break-words">{sub}</span>}
+      </span>
+    </>
+  );
+  return onClick
+    ? <button type="button" onClick={onClick} className={`${cls} hover:border-temple-gold transition-colors`}>{inner}</button>
+    : <div className={cls}>{inner}</div>;
+};
 
 const PAGE_SIZE = 25;
 
@@ -2421,17 +2450,22 @@ const REMIND_KEYS = [
 ] as const;
 
 /**
- * 總覽（2026-11-18 依廟方決定重做）。
+ * 總覽（2026-11-18 依廟方決定重做，同日再調一次）。
  *
  * 廟方：「最早當初我們是為了法會報名，但現在已升級成整個和聖壇的管理，需求不同，
- * dashboard 重點也就不同」。原本的四張累計數字卡、LINE 導流、最新報名都拿掉了，
- * 現在由上而下只有三塊：
+ * dashboard 重點也就不同」。同一天看過三塊版之後又說：
+ * 「頂端四張累計數字卡、LINE 導流和最新報名，改回來，但四張數字的內容，我要改成符合現在有意義的。」
+ * 「近期行程太長了，改一週內」。所以現在由上而下是：
+ *   0. 四張數字卡——遷址累積金額／本月報名筆數／本月新信眾／會員人數（算法見 `overviewStats`）
  *   1. 今天要做的事——還要廟方動手的事（紅點那幾項）＋可提醒的信眾
- *   2. 近期行程——未來兩週的問事場次、祈福活動、神明聖誕
+ *   2. 近期行程——未來一週的問事場次、祈福活動、神明聖誕
  *   3. 本月款項——只給看得到「應收管理」的角色（admin／finance），staff 看不到
+ *   4. 最新報名——問事／點燈／祈福／捐獻各最新 5 筆
+ *   5. LINE 官方帳號導流
  *
  * **待辦數字不在這裡算**：由父層用 `navItems` ＋ `badgeFor` 組好傳進來（`todos`），
- * 與側邊欄紅點是同一份規則。舊版在這裡自己重抄了四條狀態判斷，紅點改規則時就對不上。
+ * 與側邊欄紅點是同一份規則。最新報名分頁上的紅色數字也是父層用 `badgeFor` 算好傳進來的
+ * （`serviceBadges`）。舊版在這裡自己重抄了四條狀態判斷，紅點改規則時就對不上。
  */
 type OverviewTodo = { tab: Tab; label: string; count: number };
 
@@ -2454,12 +2488,27 @@ type AgendaKind = '聖誕' | '祈福' | '問事';
 type AgendaItem = { key: string; date: string; kind: AgendaKind; title: string; sub: string; tab: Tab; muted?: boolean };
 const AGENDA_ORDER: Record<AgendaKind, number> = { 聖誕: 0, 祈福: 1, 問事: 2 };
 const AGENDA_TAG: Record<AgendaKind, string> = { 聖誕: TAG_SOLID, 祈福: TAG_GOLD, 問事: TAG_BROWN };
-const AGENDA_DAYS = 14;
+const AGENDA_DAYS = 7;
+
+/** 本地時區的「年×12＋月」；壞值回 -1。報名的 createdAt 是 UTC ISO，要換成台灣那一天再歸月 */
+function monthKeyOf(v: unknown): number {
+  const d = new Date(String(v ?? ''));
+  return Number.isNaN(d.getTime()) ? -1 : d.getFullYear() * 12 + d.getMonth();
+}
+/** 最新 5 筆（createdAt 由新到舊）。泛型箭頭函式在這個專案推導會失敗，所以用 function */
+function newestFive<T extends { createdAt?: unknown }>(xs: T[]): T[] {
+  return [...xs].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, 5);
+}
+/** 比對用的電話：只拿掉空白與連字號（同 toPersonKey），空的就是空字串＝不參與比對 */
+function phoneKeyOf(p?: string | null): string {
+  return (p ?? '').replace(/[\s-]/g, '');
+}
 
 const OverviewTab = ({
   todos, onNavigate, canOpen, showMoney,
   blessingEvents, blessingRegistrations, fahuiCount,
   lampRegistrations, lampConfigs, fahuiRegistrations, donations,
+  bookings, volunteerRegistrations, memberProfiles, serviceBadges, lineStats,
 }: {
   /** 父層由 navItems ＋ badgeFor 組好、只含 count > 0 且這個角色看得到的 */
   todos:                 OverviewTodo[];
@@ -2477,7 +2526,16 @@ const OverviewTab = ({
   lampConfigs:           LampServiceConfig[];
   fahuiRegistrations:    FahuiRegistrationRecord[];
   donations:             DonationRecord[];
+  bookings:              BookingRecord[];
+  /** 只用在「本月新信眾」的首次出現判斷；志工不算報名，不進本月報名筆數 */
+  volunteerRegistrations: VolunteerRegistrationRecord[];
+  memberProfiles:        MemberProfileRecord[];
+  /** 最新報名四個分頁的紅點，父層用 badgeFor 算好的（與側邊欄同一份規則） */
+  serviceBadges:         { bookings: number; lamps: number; blessings: number; donations: number };
+  lineStats:             { today: number; total: number };
 }) => {
+  const [activeService, setActiveService] = useState<'lamps' | 'blessing' | 'donation' | 'booking'>('lamps');
+
   /**
    * 提醒信眾（未匯款／問事前一天／點燈到期）。2026-11-18 起住在「今天要做的事」裡，
    * **這是全後台唯一寄這幾種提醒的地方**，不要在搬版面時弄丟。
@@ -2629,6 +2687,98 @@ const OverviewTab = ({
     };
   }, [showMoney, lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations]);
 
+  /**
+   * ── 頂端四張數字卡（廟方 2026-11-18：「四張數字的內容，我要改成符合現在有意義的」）──
+   * 舊的四張是「總報名數／待處理／累計捐款／不重複信眾」，全部是開站以來的累計，
+   * 數字只會變大、看不出現在的狀況；待處理又跟「今天要做的事」重複。
+   */
+  const overviewStats = useMemo(() => {
+    const now = new Date();
+    const thisKey = now.getFullYear() * 12 + now.getMonth();
+
+    // 1. 遷址累積金額：type = '遷址護持' 的捐獻（與 RelocationPage 寫入的值同一個字串）。
+    //    已收款才進主數字；待匯款另列；status 為空的是 donation_payment_status 之前的舊資料，
+    //    **從未核對過、不等於沒收到**（同 buildIncomeRows 的 unchecked），所以既不算已收也不算待匯，單獨講出來。
+    //    已取消一律不算（金額與人數都不算）。
+    const reloc = donations.filter(d => String(d.type ?? '') === '遷址護持' && d.status !== DonationStatus.CANCELLED);
+    const sumOf = (xs: DonationRecord[]) => xs.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    const relocPaid      = sumOf(reloc.filter(d => d.status === DonationStatus.CONFIRMED));
+    const relocPending   = sumOf(reloc.filter(d => d.status === DonationStatus.PENDING));
+    const relocUnchecked = sumOf(reloc.filter(d => d.status === undefined));
+    // 人數依電話；沒留電話的一筆算一人（寧可多算一位，也不要把所有沒電話的併成同一人）
+    const relocPeople = new Set(reloc.map(d => phoneKeyOf(d.phone) || `id:${d.id}`)).size;
+
+    // 2. 本月報名筆數：問事／點燈／祈福／法會／捐獻，不含已取消。法會一張報名單＝1 筆（不是牌位數）。
+    //    志工不算——那不是報名一項服務。
+    const regDates: unknown[] = [
+      ...bookings.filter(b => String(b.status ?? '') !== BookingStatus.CANCELLED).map(b => b.createdAt),
+      ...lampRegistrations.filter(r => String(r.status ?? '') !== LampRegistrationStatus.CANCELLED).map(r => r.createdAt),
+      ...blessingRegistrations.filter(r => String(r.status ?? '') !== BlessingStatus.CANCELLED).map(r => r.createdAt),
+      ...fahuiRegistrations.filter(r => String(r.status ?? '') !== 'cancelled').map(r => r.createdAt),
+      ...donations.filter(d => d.status !== DonationStatus.CANCELLED).map(d => d.createdAt),
+    ];
+    const regKeys = regDates.map(monthKeyOf);
+    const regThis = regKeys.filter(k => k === thisKey).length;
+    const regPrev = regKeys.filter(k => k === thisKey - 1).length;
+
+    // 3. 本月新信眾：依電話，第一次出現在任何一張表（含志工、含已取消——來過就是來過）的月份。
+    //    空電話不參與（空電話一律不對，同 samePhone）。
+    const firstSeen = new Map<string, number>();
+    const see = (phone: string | null | undefined, at: unknown) => {
+      const k = phoneKeyOf(phone);
+      const t = new Date(String(at ?? '')).getTime();
+      if (!k || Number.isNaN(t)) return;
+      const prev = firstSeen.get(k);
+      if (prev === undefined || t < prev) firstSeen.set(k, t);
+    };
+    bookings.forEach(r => see(r.phone, r.createdAt));
+    lampRegistrations.forEach(r => see(r.phone, r.createdAt));
+    blessingRegistrations.forEach(r => see(r.phone, r.createdAt));
+    donations.forEach(r => see(r.phone, r.createdAt));
+    fahuiRegistrations.forEach(r => see(r.phone, r.createdAt));
+    volunteerRegistrations.forEach(r => see(r.phone, r.createdAt));
+    const firstKeys = [...firstSeen.values()].map(t => { const d = new Date(t); return d.getFullYear() * 12 + d.getMonth(); });
+    const newThis = firstKeys.filter(k => k === thisKey).length;
+    const newPrev = firstKeys.filter(k => k === thisKey - 1).length;
+
+    // 4. 會員人數：一個人有好幾個帳號只算一次（toPersonKey，同會員資訊）；
+    //    「加入」取那個人最早的帳號（同會員資訊的加入欄）。
+    const earliest = new Map<string, string>();
+    memberProfiles.forEach(p => {
+      const k = toPersonKey(p);
+      const c = String(p.createdAt ?? '');
+      const prev = earliest.get(k);
+      if (prev === undefined || (c && c < prev)) earliest.set(k, c);
+    });
+    const membersNew = [...earliest.values()].filter(c => monthKeyOf(c) === thisKey).length;
+
+    return {
+      relocPaid, relocPending, relocUnchecked, relocPeople, relocCount: reloc.length,
+      regThis, regPrev, newThis, newPrev,
+      members: earliest.size, membersNew,
+    };
+  }, [donations, bookings, lampRegistrations, blessingRegistrations, fahuiRegistrations, volunteerRegistrations, memberProfiles]);
+
+  // ── 最新報名：各服務最新 5 筆（原樣搬回，紅點改用父層的 badgeFor） ──
+  const lampConfigMap    = Object.fromEntries(lampConfigs.map(c => [c.id, c.name]));
+  const blessingEventMap = Object.fromEntries(blessingEvents.map(e => [e.id, e.title]));
+  const latestLamps     = newestFive(lampRegistrations);
+  const latestBlessings = newestFive(blessingRegistrations);
+  const latestDonations = newestFive(donations);
+  const latestBookings  = newestFive(bookings);
+  const serviceTabs = [
+    { key: 'booking'  as const, label: '問事', badge: serviceBadges.bookings  },
+    { key: 'lamps'    as const, label: '點燈', badge: serviceBadges.lamps     },
+    { key: 'blessing' as const, label: '祈福', badge: serviceBadges.blessings },
+    { key: 'donation' as const, label: '捐獻', badge: serviceBadges.donations },
+  ];
+  /** 報名時間顯示成台灣那一天（createdAt 是 UTC ISO，slice(0,10) 早上 8 點前會差一天） */
+  const dayOf = (v: unknown) => localYmdOfIso(String(v ?? '')) || '';
+  const rowCls = 'flex items-center justify-between gap-2 py-2.5 border-b border-gray-50 last:border-0';
+  const nameCls = 'font-medium text-sm text-gray-800';
+  const subCls  = 'text-xs text-gray-400 ml-2';
+  const dateCls = 'text-xs text-gray-400';
+
   const nt = (n: number) => `NT$ ${n.toLocaleString()}`;
   const remindLoaded = remind !== null || !!remindErr;
   const showRemindTile = !remindErr && remindTotal > 0;
@@ -2636,8 +2786,29 @@ const OverviewTab = ({
   const headCls = 'font-semibold text-gray-800 text-base mb-3 flex items-center gap-2';
   const tileCls = 'text-left rounded-xl border px-3.5 py-3 transition-colors min-w-0';
 
+  const st = overviewStats;
+  /** 那一頁這個角色進得去才給點 */
+  const goIf = (tab: Tab) => (canOpen(tab) ? () => onNavigate(tab) : undefined);
+
   return (
     <div>
+      {/* ── 0. 四張數字卡（手機 2×2、桌機一排四張）── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+        <StatCard icon={<HeartHandshake className="w-5 h-5 text-temple-red" />} color="bg-temple-gold/15"
+          label="遷址累積金額" value={nt(st.relocPaid)} onClick={goIf('donations')}
+          sub={<>
+            {st.relocPending > 0 && <span className="block">另有待匯款 {nt(st.relocPending)}</span>}
+            {st.relocUnchecked > 0 && <span className="block">另有未核對 {nt(st.relocUnchecked)}</span>}
+            <span className="block">護持 {st.relocPeople} 人・{st.relocCount} 筆</span>
+          </>} />
+        <StatCard icon={<ClipboardList className="w-5 h-5 text-blue-600" />} color="bg-blue-50"
+          label="本月報名筆數" value={st.regThis} sub={`上月 ${st.regPrev} 筆`} />
+        <StatCard icon={<UserPlus className="w-5 h-5 text-green-600" />} color="bg-green-50"
+          label="本月新信眾" value={st.newThis} sub={`上月 ${st.newPrev} 位`} onClick={goIf('roster')} />
+        <StatCard icon={<Users className="w-5 h-5 text-purple-600" />} color="bg-purple-50"
+          label="會員人數" value={st.members} sub={`本月新增 ${st.membersNew} 位`} onClick={goIf('members')} />
+      </div>
+
       {/* ── 1. 今天要做的事 ── */}
       <section className={sectionCls}>
         <h3 className={headCls}><AlertCircle className="w-4 h-4 text-temple-red" aria-hidden="true" />今天要做的事</h3>
@@ -2745,13 +2916,13 @@ const OverviewTab = ({
         )}
       </section>
 
-      {/* ── 2. 近期行程（未來兩週） ── */}
+      {/* ── 2. 近期行程（未來一週） ── */}
       <section className={sectionCls}>
-        <h3 className={headCls}><CalendarClock className="w-4 h-4 text-temple-red" aria-hidden="true" />近期行程<span className="text-xs font-normal text-gray-400">未來兩週</span></h3>
+        <h3 className={headCls}><CalendarClock className="w-4 h-4 text-temple-red" aria-hidden="true" />近期行程<span className="text-xs font-normal text-gray-400">未來一週</span></h3>
         {!agendaLoaded ? (
           <p className="text-sm text-gray-400 py-2">讀取中…</p>
         ) : agenda.days.length === 0 ? (
-          <p className="text-sm text-gray-500 py-2">未來兩週沒有排定的行程。</p>
+          <p className="text-sm text-gray-500 py-2">未來一週沒有排定的行程。</p>
         ) : (
           <div className="space-y-4">
             {agenda.days.map(day => (
@@ -2827,6 +2998,113 @@ const OverviewTab = ({
           </button>
         </section>
       )}
+
+      {/* ── 4. 最新報名（2026-11-18 依廟方要求改回來）── */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+          <ClipboardList className="w-4 h-4 text-temple-red" /> 最新報名
+        </h3>
+
+        {/* Service tabs */}
+        <div className="flex gap-1 mb-5 bg-gray-50 p-1 rounded-lg">
+          {serviceTabs.map(({ key, label, badge }) => (
+            <button key={key} onClick={() => setActiveService(key)}
+              className={`relative flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeService === key ? 'bg-white text-temple-red shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {label}
+              {badge > 0 && (
+                <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[17px] h-[17px] flex items-center justify-center px-1 leading-none">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* 點燈 */}
+        {activeService === 'lamps' && (
+          latestLamps.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無點燈報名</p> : (
+            <div className="space-y-0.5">
+              {latestLamps.map(r => (
+                <div key={r.id} className={rowCls}>
+                  <div className="min-w-0"><span className={nameCls}>{r.name}</span><span className={subCls}>{lampConfigMap[r.serviceId] ?? r.serviceId}</span></div>
+                  <div className="flex items-center gap-2 shrink-0"><span className={dateCls}>{dayOf(r.createdAt)}</span>{statusBadge(r.status)}</div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* 祈福 */}
+        {activeService === 'blessing' && (
+          latestBlessings.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無祈福報名</p> : (
+            <div className="space-y-0.5">
+              {latestBlessings.map(r => (
+                <div key={r.id} className={rowCls}>
+                  <div className="min-w-0"><span className={nameCls}>{r.name}</span><span className={subCls}>{blessingEventMap[r.eventId] ?? r.eventId}</span></div>
+                  <div className="flex items-center gap-2 shrink-0"><span className={dateCls}>{dayOf(r.createdAt)}</span>{statusBadge(r.status)}</div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* 捐獻 */}
+        {activeService === 'donation' && (
+          latestDonations.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無捐獻紀錄</p> : (
+            <div className="space-y-0.5">
+              {latestDonations.map(d => (
+                <div key={d.id} className={rowCls}>
+                  <div className="min-w-0"><span className={nameCls}>{d.name}</span><span className={subCls}>{d.type}</span></div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={dateCls}>{dayOf(d.createdAt)}</span>
+                    <span className="text-xs font-semibold text-green-600">NT$ {Number(d.amount).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* 問事 */}
+        {activeService === 'booking' && (
+          latestBookings.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無問事報名</p> : (
+            <div className="space-y-0.5">
+              {latestBookings.map(b => (
+                <div key={b.id} className={rowCls}>
+                  <div className="min-w-0"><span className={nameCls}>{b.name}</span><span className={subCls}>{b.type} · {b.bookingDate}</span></div>
+                  <div className="flex items-center gap-2 shrink-0"><span className={dateCls}>{dayOf(b.createdAt)}</span>{statusBadge(b.status)}</div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* ── 5. LINE 導流統計（2026-11-18 依廟方要求改回來）── */}
+      <div className="bg-[#06C755]/5 border border-[#06C755]/30 rounded-xl p-5 flex flex-col sm:flex-row items-center gap-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-[#06C755] rounded-xl p-3 shrink-0">
+            <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500 mb-0.5">LINE 官方帳號導流</p>
+            <p className="text-xs text-gray-400">統計加入好友點擊次數</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-8 sm:ml-auto">
+          <div className="text-center">
+            <p className="text-3xl font-bold text-[#06C755]">{lineStats.today}</p>
+            <p className="text-xs text-gray-500 mt-0.5">今日點擊</p>
+          </div>
+          <div className="w-px h-12 bg-[#06C755]/20" />
+          <div className="text-center">
+            <p className="text-3xl font-bold text-gray-700">{lineStats.total}</p>
+            <p className="text-xs text-gray-500 mt-0.5">累計點擊</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -3527,6 +3805,49 @@ const StatBadges = ({ lamps, bookingCount, blessings, donation }: { lamps: numbe
   </div>
 );
 
+// ─── 人的比對（會員資訊與總覽共用）────────────────────────────────────────────
+// 原本是 MembersTab 裡的區域函式；2026-11-18 總覽的「會員人數」要用同一套規則，搬到模組層級共用。
+
+/**
+ * **空電話一律不對**（2026-10-30 補）。這一頁的統計全部是拿電話去比報名紀錄，
+ * 而 LINE 登入後還沒補電話的會員電話是空的（見 `toPersonKey` 的註解）。
+ * 不擋的話 `'' === ''`（或 `null === null`）會成立，**所有沒留電話的報名
+ * 會被算進每一個沒留電話的會員頭上**。信眾名冊那邊的 `linkMembersByPhone()`
+ * 早就寫明這條，這一頁漏掉了。
+ */
+function samePhone(a?: string | null, b?: string | null): boolean {
+  const x = (a ?? '').trim();
+  return x !== '' && x === (b ?? '').trim();
+}
+
+/**
+ * ── 同一個人有好幾個帳號時，列表只列一次 ──
+ *
+ * 2026-10-13 廟方回報：清單上有三筆「鍾介凡」，數字一模一樣。
+ * **數字一樣不是程式把金額複製過去**：這一頁的統計全部是拿電話去對報名紀錄的
+ * （`l.phone === p.phone`），三個帳號填的是同一支電話，所以看到的是同一筆
+ * NT$2,500 被顯示三次——錢沒有被重複計算，是「人」被重複列了三次。
+ * 換句話說**統計層早就把他們當成同一個人，只有列表層還當成三個**，這裡就是把
+ * 兩邊對齊。
+ *
+ * 一個人會有好幾個帳號的原因：用信箱註冊過一次、又用 LINE 登入一次（LINE 不給
+ * email，Supabase 只能開新帳號），或是 LINE 的 Provider 換過
+ * （LINE 的使用者 ID 綁 Provider 不是綁 channel，換了就全部對不上，見 CLAUDE.md）。
+ * 正解是請本人在會員中心「綁定 LINE 帳號」，那會把 identity 接到同一個 user id；
+ * **但已經各自存在的帳號合併不了**，所以後台至少要看得懂它們是同一個人。
+ *
+ * ── 合併的條件刻意收得很緊：電話**與**姓名都一樣 ──
+ * 只看電話會把共用一支電話的家人併成一個人（長輩常留子女的號碼），
+ * 那是把一位真的會員藏起來，比列重複嚴重得多。
+ * **電話空白的一律不併**：LINE 登入後還沒補電話的帳號電話都是空的，
+ * 只看電話的話會把他們全部併成一團。
+ */
+function toPersonKey(p: MemberProfileRecord): string {
+  const phone = (p.phone ?? '').replace(/[\s-]/g, '');
+  const name  = (p.name ?? '').replace(/[\s　]/g, '');   // 與信眾名冊的 nameKey 同一套
+  return phone && name ? `${phone}|${name}` : `uid:${p.userId}`;
+}
+
 /**
  * **`activities` 改名成 `blessings`**（2026-10-30）。這個鍵對應的欄位標籤一直是
  * 「祈福」，但它數的是 `bulletin_registrations`——一張前台**沒有任何程式會寫入**的
@@ -3577,17 +3898,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
   };
 
   // ── 統計 helpers ──
-  /**
-   * **空電話一律不對**（2026-10-30 補）。這一頁的統計全部是拿電話去比報名紀錄，
-   * 而 LINE 登入後還沒補電話的會員電話是空的（見 `toPersonKey` 的註解）。
-   * 不擋的話 `'' === ''`（或 `null === null`）會成立，**所有沒留電話的報名
-   * 會被算進每一個沒留電話的會員頭上**。信眾名冊那邊的 `linkMembersByPhone()`
-   * 早就寫明這條，這一頁漏掉了。
-   */
-  const samePhone = (a?: string | null, b?: string | null): boolean => {
-    const x = (a ?? '').trim();
-    return x !== '' && x === (b ?? '').trim();
-  };
 
   const getStatsByPhone = (phone: string) => {
     const lamps = lampRegistrations.filter(l => samePhone(l.phone, phone)).length;
@@ -3605,34 +3915,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
     const dn = donations.filter(d => samePhone(d.phone, memberPhone) && d.name === contactName);
     return { lamps, bookingCount: bkCount, blessings: bless, donation: dn.reduce((s, d) => s + Number(d.amount), 0) };
   };
-
-  /**
-   * ── 同一個人有好幾個帳號時，列表只列一次 ──
-   *
-   * 2026-10-13 廟方回報：清單上有三筆「鍾介凡」，數字一模一樣。
-   * **數字一樣不是程式把金額複製過去**：這一頁的統計全部是拿電話去對報名紀錄的
-   * （`l.phone === p.phone`），三個帳號填的是同一支電話，所以看到的是同一筆
-   * NT$2,500 被顯示三次——錢沒有被重複計算，是「人」被重複列了三次。
-   * 換句話說**統計層早就把他們當成同一個人，只有列表層還當成三個**，這裡就是把
-   * 兩邊對齊。
-   *
-   * 一個人會有好幾個帳號的原因：用信箱註冊過一次、又用 LINE 登入一次（LINE 不給
-   * email，Supabase 只能開新帳號），或是 LINE 的 Provider 換過
-   * （LINE 的使用者 ID 綁 Provider 不是綁 channel，換了就全部對不上，見 CLAUDE.md）。
-   * 正解是請本人在會員中心「綁定 LINE 帳號」，那會把 identity 接到同一個 user id；
-   * **但已經各自存在的帳號合併不了**，所以後台至少要看得懂它們是同一個人。
-   *
-   * ── 合併的條件刻意收得很緊：電話**與**姓名都一樣 ──
-   * 只看電話會把共用一支電話的家人併成一個人（長輩常留子女的號碼），
-   * 那是把一位真的會員藏起來，比列重複嚴重得多。
-   * **電話空白的一律不併**：LINE 登入後還沒補電話的帳號電話都是空的，
-   * 只看電話的話會把他們全部併成一團。
-   */
-  const toPersonKey = (p: MemberProfileRecord): string => {
-    const phone = (p.phone ?? '').replace(/[\s-]/g, '');
-    const name  = (p.name ?? '').replace(/[\s　]/g, '');   // 與信眾名冊的 nameKey 同一套
-    return phone && name ? `${phone}|${name}` : `uid:${p.userId}`;
-  };
+  // samePhone()／toPersonKey() 在模組層級（MembersTab 上方），總覽的會員人數也用同一套
 
   // ── 計算排序後的 rows ──
   const sortedProfiles = useMemo(() => {
@@ -8124,6 +8407,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
   const [fahuiRegistrations, setFahuiRegistrations] = useState<FahuiRegistrationRecord[]>([]);
   const [volunteerRegistrations, setVolunteerRegistrations] = useState<VolunteerRegistrationRecord[]>([]);
+  const [lineStats, setLineStats] = useState<{ today: number; total: number }>({ today: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -8139,7 +8423,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);
+      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -8157,6 +8441,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
       setAllRegistrations(ar);
       setBlessingEvents(be);
       setBlessingRegistrations(br);
+      setLineStats(ls);
       setFahuiRegistrations(fh);
       setVolunteerRegistrations(vol);
       setUrgentPending(up.filter(r => r.status === UrgentPrayerStatus.PENDING).length);
@@ -8435,7 +8720,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'overview'  && <OverviewTab todos={overviewTodos} onNavigate={goTab} canOpen={key => allowed.includes(key)}
                 showMoney={allowed.includes('receivables')}
                 blessingEvents={blessingEvents} blessingRegistrations={blessingRegistrations} fahuiCount={fahuiRegistrations.length}
-                lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} fahuiRegistrations={fahuiRegistrations} donations={donations} />}
+                lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} fahuiRegistrations={fahuiRegistrations} donations={donations}
+                bookings={bookings} volunteerRegistrations={volunteerRegistrations} memberProfiles={memberProfiles} lineStats={lineStats}
+                serviceBadges={{ bookings: badgeFor('bookings'), lamps: badgeFor('lamps'), blessings: badgeFor('blessings'), donations: badgeFor('donations') }} />}
               {tab === 'fahui'     && <FahuiTab registrations={fahuiRegistrations} onRefresh={fetchAll} />}
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
