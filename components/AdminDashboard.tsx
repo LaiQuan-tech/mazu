@@ -171,6 +171,24 @@ const genderBadge = (gender?: string | null) => {
   );
 };
 
+// ─── 空值 ────────────────────────────────────────────────────────────────────
+/**
+ * 表格裡「這一格沒有資料」的唯一寫法（2026-11-17 廟方：「後台的表單，目前有很多都是欄位資訊每行都重複，
+ * 這種都是閱讀干擾」）。
+ *
+ * 原本各表各寫各的：`'—'`、灰色的 —、斜體的「無備註」。桌機上一整欄的 — 已經是雜訊，
+ * **手機的卡片版更糟**——每一格都帶自己的欄名（data-label），於是每張卡都印一排
+ * 「方案 —／加購 —／備註 —」，真正有內容的兩三格被淹在裡面。
+ * 統一成這一支之後，`index.css` 在卡片版把「只有它」的格子整格藏起來（`.admin-empty`）。
+ * **新的表格遇到空值一律用它，不要再寫 '—'**，否則手機上又會長回那一排。
+ */
+const Dash = () => <span className="admin-empty text-gray-300" aria-label="無">—</span>;
+
+/** 一整欄都沒有資料就整欄不畫（表頭與每一格一起）。有任何一列有值就會自己回來 */
+function anyFilled<T>(rows: T[], get: (r: T) => unknown): boolean {
+  return rows.some(r => { const v = get(r); return Array.isArray(v) ? v.length > 0 : v != null && v !== '' && v !== 0; });
+}
+
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
 const StatCard = ({ icon, label, value, sub, color }: {
@@ -534,7 +552,7 @@ const DateRangeFilter = ({ from, to, onFrom, onTo }: { from: string; to: string;
  * 虛線想警告的那一種就被稀釋掉了。
  */
 const AccountCell = ({ rec, own }: { rec: DevoteeRecord; own: string[] }) => {
-  const dim = <span className="text-gray-300">—</span>;
+  const dim = <Dash />;
 
   // 事實一：這一筆就是那個帳號自己的資料。**沒編號也還是會員**，所以不能靠編號判斷
   if (rec.isMemberSelf) return (
@@ -599,7 +617,7 @@ const RelationCell = ({ row }: { row: DevoteeRow }) => {
   if (row.relationOf.length === 0 && others.length === 0) {
     return row.relations.includes('本人')
       ? <span className="text-gray-400 text-xs" title="歷次報名都是填「本人」，沒有填過與其他人的關係">都是本人</span>
-      : <span className="text-gray-300">—</span>;
+      : <Dash />;
   }
 
   return (
@@ -723,7 +741,7 @@ const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[]
           <tbody className="divide-y divide-gray-100">
             {merged.map(({ rec, n }, i) => (
               <tr key={i} className="hover:bg-gray-50/60">
-                <td data-label="日期" className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || '—'}</td>
+                <td data-label="日期" className="px-2.5 py-2 text-gray-400 whitespace-nowrap">{rec.at || <Dash />}</td>
                 <td data-label="管道" className="px-2.5 py-2 whitespace-nowrap">
                   <span className="px-1.5 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E]">{rec.source}</span>
                   {n > 1 && (
@@ -740,11 +758,11 @@ const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[]
                     <AccountCell rec={rec} own={own} />
                   </td>
                 )}
-                {varying.has('生日') && <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || '—'}</td>}
-                {varying.has('生肖') && <td data-label="生肖" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.zodiac || '—'}</td>}
-                {varying.has('性別') && <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || '—'}</td>}
-                {varying.has('電話') && <td data-label="電話" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.phone || '—'}</td>}
-                {varying.has('地址') && <td data-label="地址" className="px-2.5 py-2 text-gray-500 max-w-[200px] truncate" title={rec.address}>{rec.address || '—'}</td>}
+                {varying.has('生日') && <td data-label="生日" className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{rec.birthDate || <Dash />}</td>}
+                {varying.has('生肖') && <td data-label="生肖" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.zodiac || <Dash />}</td>}
+                {varying.has('性別') && <td data-label="性別" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.gender || <Dash />}</td>}
+                {varying.has('電話') && <td data-label="電話" className="px-2.5 py-2 text-gray-600 whitespace-nowrap">{rec.phone || <Dash />}</td>}
+                {varying.has('地址') && <td data-label="地址" className="px-2.5 py-2 text-gray-500 max-w-[200px] truncate" title={rec.address}>{rec.address || <Dash />}</td>}
                 {varying.has('關係') && (
                   <td data-label="關係" className="px-2.5 py-2 whitespace-nowrap">
                     {rec.relation
@@ -754,10 +772,10 @@ const RecordTable = ({ records, own }: { records: DevoteeRecord[]; own: string[]
                             : '這一筆報名表上填的關係；主詞是送出這筆報名的人，資料庫沒有記那是誰'}>
                           {rec.relation}
                         </span>
-                      : <span className="text-gray-300">—</span>}
+                      : <Dash />}
                   </td>
                 )}
-                {hasAmount && <td data-label="金額" className="px-2.5 py-2 text-right text-gray-700 whitespace-nowrap">{rec.amount > 0 ? `$${rec.amount.toLocaleString()}` : '—'}</td>}
+                {hasAmount && <td data-label="金額" className="px-2.5 py-2 text-right text-gray-700 whitespace-nowrap">{rec.amount > 0 ? `$${rec.amount.toLocaleString()}` : <Dash />}</td>}
               </tr>
             ))}
           </tbody>
@@ -1500,8 +1518,8 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       </span>
                     )}
                   </td>
-                  <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || '—'}</td>
-                  <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || '—'}</td>
+                  <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || <Dash />}</td>
+                  <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || <Dash />}</td>
                   <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {rosterBadges(r.counts).map(b => (
@@ -1513,18 +1531,18 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       {/* 註冊了帳號但還沒報過任何名的會員，管道會是空的——
                           「會員」那顆刻意不在這裡（姓名旁邊已經有了）。留白看起來像壞掉，
                           所以照其他欄位的慣例給一個破折號。 */}
-                      {rosterBadges(r.counts).length === 0 && <span className="text-gray-300">—</span>}
+                      {rosterBadges(r.counts).length === 0 && <Dash />}
                     </div>
                   </td>
                   {showMore && <>
                     <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
                     <td data-label="性別" className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
-                    <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || '—'}</td>
+                    <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || <Dash />}</td>
                     <td data-label="累計金額" className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
-                      {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : '—'}
+                      {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : <Dash />}
                     </td>
                     <td data-label="可能親屬" className="px-4 py-3 text-gray-500 max-w-[160px] truncate" title={r.relatives.join('、')}>
-                      {r.relatives.join('、') || '—'}
+                      {r.relatives.join('、') || <Dash />}
                     </td>
                   </>}
                   <td data-label="操作" className="px-4 py-3 whitespace-nowrap">
@@ -3038,10 +3056,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     onClick={() => setQuickView({ name: b.name, phone: b.phone, gender: b.gender || undefined, birthDate: b.birthDate, zodiac: b.zodiac || undefined, address: b.address || undefined, notes: b.notes || undefined, status: b.status, serviceLabel: `問事 · ${b.type}`, createdAt: b.createdAt, contactLabel: b.contactLabel, source: b.source, email: b.email, confirmSentAt: b.confirmSentAt, mailKind: 'confirm' })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
+                      {/* 原本每一列前面都有同一個人像圓圈，整欄一模一樣，只是把名字往右推（2026-11-17 拿掉） */}
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-temple-red" />
-                        </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold text-gray-900">{b.name}</p>
@@ -3228,6 +3244,8 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
   const total = filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const types = [...new Set(donations.map(d => d.type))];
 
+  const showDesignated = anyFilled(filtered, d => d.repairProjectName || d.relocationPlan);
+  const showDonNotes = anyFilled(filtered, d => d.notes);
   const handleExport = () => {
     // 生日與遷址方案 2026-10-23 加入：遷址護持的方案含誦經祈福與功德簿，
     // 廟方要拿這份去寫疏文與功德簿，少了生辰就得回頭一個一個問。
@@ -3311,7 +3329,9 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                 <tr>
                   {/* 「指定項目」一欄兩用：神尊修復的專案、遷址護持的方案。
                       兩者都是「這筆錢指定給哪一件事」，而且互斥，不必各開一欄 */}
-                  {['信眾資訊', '捐款金額', '類型', '指定項目', '備註', '時間'].map(h => (
+                  {/* 一整欄都空的不畫：一般捐獻幾乎沒有「指定項目」，備註也多半沒寫（2026-11-17） */}
+                  {['信眾資訊', '捐款金額', '類型',
+                    ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -3324,9 +3344,6 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-                          <HeartHandshake className="w-4 h-4 text-green-600" />
-                        </div>
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold text-gray-900">{d.name}</p>
@@ -3334,8 +3351,9 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{d.phone}</p>
                           {d.gender && <span className="text-xs text-gray-400">{d.gender}</span>}
-                          {d.birthDate && <p className="text-xs text-gray-400 mt-0.5">生日：{d.birthDate}</p>}
-                          {d.address && <p className="text-xs text-gray-400 mt-0.5">地址：{d.address}</p>}
+                          {/* 生日、地址一看就知道是什麼，每列再印一次「生日：」「地址：」只是雜訊 */}
+                          {d.birthDate && <p className="text-xs text-gray-400 mt-0.5">{d.birthDate}</p>}
+                          {d.address && <p className="text-xs text-gray-400 mt-0.5">{d.address}</p>}
                         </div>
                       </div>
                     </td>
@@ -3345,7 +3363,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     <td data-label="類型" className="px-5 py-4">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
                     </td>
-                    <td data-label="指定項目" className="px-4 py-3 text-sm text-gray-500">
+                    {showDesignated && <td data-label="指定項目" className="px-4 py-3 text-sm text-gray-500">
                       {d.repairProjectName ? (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
                           <Wrench className="w-3 h-3" />{d.repairProjectName}
@@ -3356,11 +3374,11 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           <span className="inline-flex items-center gap-1"><Home className="w-3 h-3" />{d.relocationPlan}</span>
                           {d.relocationTier && <span className="font-semibold">{d.relocationTier}</span>}
                         </span>
-                      ) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td data-label="備註" className="px-5 py-4 max-w-[180px]">
-                      <p className="text-sm text-gray-700 truncate">{d.notes || <span className="text-gray-300 italic">無備註</span>}</p>
-                    </td>
+                      ) : <Dash />}
+                    </td>}
+                    {showDonNotes && <td data-label="備註" className="px-5 py-4 max-w-[180px]">
+                      <p className="text-sm text-gray-700 truncate">{d.notes || <Dash />}</p>
+                    </td>}
                     <td data-label="時間" className="px-5 py-4">
                       <p className="text-xs text-gray-500">{fmtDate(d.createdAt)}</p>
                     </td>
@@ -3965,7 +3983,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                   >
                     <td data-label="編號" className="px-4 py-3">
                       <span className="text-xs font-mono text-gray-400">
-                        {p.memberNumber ? `#${String(p.memberNumber).padStart(3, '0')}` : '—'}
+                        {p.memberNumber ? `#${String(p.memberNumber).padStart(3, '0')}` : <Dash />}
                       </span>
                     </td>
                     <td data-label="姓名" className="px-4 py-3">
@@ -3983,7 +4001,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                     <td data-label="性別" className="px-4 py-3">
                       {p.gender
                         ? <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full">{p.gender}</span>
-                        : <span className="text-gray-300 text-xs">—</span>}
+                        : <Dash />}
                     </td>
                     <td data-label="點燈" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-amber-700 text-sm font-medium">
@@ -3998,7 +4016,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                     <td data-label="捐獻" className="px-4 py-3 text-right text-sm">
                       {p.stats.donation > 0
                         ? <span className="text-green-700 font-medium">NT${p.stats.donation.toLocaleString()}</span>
-                        : <span className="text-gray-300">—</span>}
+                        : <Dash />}
                     </td>
                     <td data-label="問事" className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-purple-700 text-sm font-medium">
@@ -4008,7 +4026,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                     <td data-label="最後登入" className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
                       {p.lastLogin
                         ? new Date(p.lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
-                        : <span className="text-gray-300">—</span>}
+                        : <Dash />}
                     </td>
                   </tr>
                 ))}
@@ -4435,7 +4453,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                       {serviceLabel[b.linkedService] ?? b.linkedService}
                     </span>
                   ) : (
-                    <span className="text-gray-300 text-xs">—</span>
+                    <Dash />
                   )}
                 </td>
                 <td data-label="操作" className="px-5 py-4 text-center">
@@ -5817,9 +5835,7 @@ const LampsTab = ({
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 cursor-pointer hover:border-orange-200 hover:bg-orange-50/30 transition-colors"
                 onClick={() => setQuickView({ name: r.name, phone: r.phone, gender: r.gender || undefined, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `點燈 · ${getServiceName(r.serviceId)}`, createdAt: r.createdAt, contactLabel: r.contactLabel, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt, mailKind: 'paid' })}
               >
-                <div className="p-2.5 rounded-xl bg-orange-50 shrink-0">
-                  <Flame className="w-5 h-5 text-orange-500" />
-                </div>
+                {/* 每張卡前面原本都有同一個火焰圖示，拿掉（2026-11-17，理由同問事清單的人像） */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-800">{r.name}</p>
@@ -5834,11 +5850,11 @@ const LampsTab = ({
                   <p className="text-sm text-gray-500 mt-1">
                     <Phone className="w-3 h-3 inline mr-1" />{r.phone}
                   </p>
-                  {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
+                  {/* 性別、生日、生肖收成一行、不帶欄名：「女・民國72年6月20日・豬」一看就懂 */}
                   <p className="text-xs text-gray-400 mt-0.5">
-                    生日：{r.birthDate}{r.zodiac ? `　生肖：${r.zodiac}` : ''}
+                    {[r.gender, r.birthDate, r.zodiac].filter(Boolean).join('・')}
                   </p>
-                  {r.address && <p className="text-xs text-gray-400 mt-0.5">地址：{r.address}</p>}
+                  {r.address && <p className="text-xs text-gray-400 mt-0.5">{r.address}</p>}
                   {(() => {
                     // 選項已經併進上面的燈種標籤，備註只印剩下的，同一件事不講兩次
                     const t = readChoiceTag(r.notes);
@@ -6304,6 +6320,12 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
 
   // ── 報名管理頁 ──
   if (view === 'regs' && selectedEvent) {
+    const regCols = {
+      pkg: anyFilled(filteredRegs, r => r.packageName),
+      addon: anyFilled(filteredRegs, r => [...(r.selectedAddons || []), ...(r.claimedOfferings || [])]),
+      addr: anyFilled(filteredRegs, r => r.address),
+      notes: anyFilled(filteredRegs, r => r.notes),
+    };
     return (
       <div>
         <button onClick={() => setView('list')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors">
@@ -6347,11 +6369,12 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
                     <th className="px-4 py-3 text-left">電話</th>
-                    <th className="px-4 py-3 text-left">方案</th>
-                    <th className="px-4 py-3 text-left">加購</th>
+                    {/* 沒設方案的活動整欄都是空的，加購、備註也常整欄空——空欄不畫（2026-11-17） */}
+                    {regCols.pkg && <th className="px-4 py-3 text-left">方案</th>}
+                    {regCols.addon && <th className="px-4 py-3 text-left">加購</th>}
                     <th className="px-4 py-3 text-left">生日 / 生肖</th>
-                    <th className="px-4 py-3 text-left">地址</th>
-                    <th className="px-4 py-3 text-left">備註</th>
+                    {regCols.addr && <th className="px-4 py-3 text-left">地址</th>}
+                    {regCols.notes && <th className="px-4 py-3 text-left">備註</th>}
                     <th className="px-4 py-3 text-left">狀態</th>
                     <th className="px-4 py-3 text-left">報名時間</th>
                     <th className="px-4 py-3 text-center">操作</th>
@@ -6368,15 +6391,15 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                         {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
                       </td>
                       <td data-label="電話" className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
-                      <td data-label="方案" className="px-4 py-3 text-sm text-gray-500">
+                      {regCols.pkg && <td data-label="方案" className="px-4 py-3 text-sm text-gray-500">
                         {r.packageName
                           ? <span className="inline-flex flex-col gap-0.5">
                               <span className="text-xs font-medium text-temple-red">{r.packageName}</span>
                               {r.packageFee !== undefined && <span className="text-xs text-gray-400">NT${r.packageFee.toLocaleString()}</span>}
                             </span>
-                          : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td data-label="加購" className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
+                          : <Dash />}
+                      </td>}
+                      {regCols.addon && <td data-label="加購" className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
                         {r.selectedAddons && r.selectedAddons.length > 0 && (
                           <span className="text-xs leading-relaxed">
                             {r.selectedAddons.map(a => `${a.name}(NT$${a.fee.toLocaleString()})`).join(' / ')}
@@ -6386,21 +6409,21 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                           <div className="mt-1 flex flex-wrap gap-1">
                             {r.claimedOfferings.map(o => (
                               <span key={o.id} className="inline-flex items-center gap-0.5 bg-orange-100 text-orange-700 text-[11px] font-medium px-1.5 py-0.5 rounded-full">
-                                🕯 {o.name}
+                                {o.name}
                               </span>
                             ))}
                           </div>
                         )}
                         {(!r.selectedAddons || r.selectedAddons.length === 0) && (!r.claimedOfferings || r.claimedOfferings.length === 0) && (
-                          <span className="text-gray-300">—</span>
+                          <Dash />
                         )}
-                      </td>
+                      </td>}
                       <td data-label="生日 / 生肖" className="px-4 py-3 text-sm text-gray-500">
                         {r.birthDate && <p>{r.birthDate}</p>}
                         {r.zodiac && <p className="text-xs">{r.zodiac}年</p>}
                       </td>
-                      <td data-label="地址" className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || '—'}</td>
-                      <td data-label="備註" className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || '—'}</td>
+                      {regCols.addr && <td data-label="地址" className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || <Dash />}</td>}
+                      {regCols.notes && <td data-label="備註" className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || <Dash />}</td>}
                       <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-start gap-1.5">
                           {statusBadge(r.status)}
@@ -7537,7 +7560,7 @@ const ReceivablesTab: React.FC<{
                       </td>
                       <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDay(row.date)}</td>
                       <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{row.name}</td>
-                      <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone || '—'}</td>
+                      <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone || <Dash />}</td>
                       <td data-label="項目" className="px-5 py-3 max-w-[220px]">
                         <div className="flex items-center gap-2">
                           {typeBadge(row.typeKey, row.type)}
@@ -7864,9 +7887,9 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
                         <span className="text-xs text-gray-400">{totalCount ? Math.round((g.count / totalCount) * 100) : 0}%</span>
                       </div>
                     </td>
-                    <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{g.amount ? `NT$${g.amount.toLocaleString()}` : '—'}</td>
+                    <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{g.amount ? `NT$${g.amount.toLocaleString()}` : <Dash />}</td>
                     {TRAFFIC_SERVICES.map(s => (
-                      <td key={s} data-label={s} className="px-5 py-3 text-sm text-gray-500">{g.byService[s] || '—'}</td>
+                      <td key={s} data-label={s} className="px-5 py-3 text-sm text-gray-500">{g.byService[s] || <Dash />}</td>
                     ))}
                   </tr>
                 ))}
@@ -7891,7 +7914,7 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
                     <td data-label="報名時間" className="px-5 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
                     <td data-label="服務" className="px-5 py-3 text-sm text-gray-600">{r.service}</td>
                     <td data-label="姓名" className="px-5 py-3 text-sm font-medium text-gray-800">{r.name}</td>
-                    <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{r.amount ? `NT$${r.amount.toLocaleString()}` : '—'}</td>
+                    <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{r.amount ? `NT$${r.amount.toLocaleString()}` : <Dash />}</td>
                     <td data-label="來源" className="px-5 py-3 text-sm font-mono text-gray-600">{r.source}</td>
                   </tr>
                 ))}

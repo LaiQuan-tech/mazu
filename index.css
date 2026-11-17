@@ -126,6 +126,13 @@
 
   /* 標籤：inline-block ＋ 固定寬。純文字的格子會排成「尊稱　觀音佛祖」一行；
      內容是區塊元素的格子，標籤自然落在上面一行。兩種都不會壞。 */
+  /* 空的格子在卡片版整格不畫（2026-11-17 廟方：「欄位資訊每行都重複，這種都是閱讀干擾」）。
+     桌機表格留著那一格（欄要對齊），卡片版每一格都帶自己的欄名，空格子等於每張卡都印一排
+     「方案 —／備註 —」。空值一律用 AdminDashboard 的 <Dash />（.admin-empty），這條才抓得到。 */
+  .admin-table td:empty,
+  .admin-table td:has(> .admin-empty:only-child),
+  .admin-table td:has(> p:only-child > .admin-empty:only-child) { display: none; }
+
   .admin-table td[data-label]::before {
     content: attr(data-label);
     display: inline-block;
@@ -137,6 +144,37 @@
     line-height: 1.6;
     font-weight: 500;
   }
+
+  /* 一看就知道是什麼的欄位，卡片版不再每張卡印一次欄名（2026-11-17 同一次）：
+     名字、電話、NT$ 金額、日期時間、狀態標籤、地址、生日、按鈕——值本身就說明了它是什麼。
+     **留著欄名的是「不看欄名就不知道在講什麼」的**：備註、方案、加購、來源、關係、管道⋯⋯
+     新增表格時，欄位屬於前者就把它的 data-label 加進這一串。 */
+  .admin-table td[data-label="操作"]::before,
+  .admin-table td[data-label="姓名"]::before,
+  .admin-table td[data-label="電話"]::before,
+  .admin-table td[data-label="信眾資訊"]::before,
+  .admin-table td[data-label="狀態"]::before,
+  .admin-table td[data-label="圖片"]::before,
+  .admin-table td[data-label="插圖"]::before,
+  .admin-table td[data-label="選取"]::before,
+  .admin-table td[data-label="報名時間"]::before,
+  .admin-table td[data-label="時間"]::before,
+  .admin-table td[data-label="日期"]::before,
+  .admin-table td[data-label="地址"]::before,
+  .admin-table td[data-label="生日"]::before,
+  .admin-table td[data-label="生日 / 生肖"]::before,
+  .admin-table td[data-label="名稱"]::before,
+  .admin-table td[data-label="標題"]::before,
+  .admin-table td[data-label="服務名稱"]::before,
+  .admin-table td[data-label="尊稱"]::before,
+  .admin-table td[data-label="捐款金額"]::before,
+  .admin-table td[data-label="金額"]::before,
+  .admin-table td[data-label="性別"]::before,
+  .admin-table td[data-label="生肖"]::before,
+  .admin-table td[data-label="啟用"]::before,
+  .admin-table td[data-label="預約時間 / 項目"]::before,
+  .admin-table td[data-label="類型"]::before { display: none; }
+
 
   /* 桌機用 truncate／line-clamp 省橫向空間；卡片有整行可用，讓它完整展開 */
   .admin-table td .truncate {
