@@ -6006,17 +6006,41 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
    * 那一顆就會顯示成未勾選——這是對的，那已經不是基本款那一項了，
    * 再點一次會另外新增一列，而不是覆蓋掉他改的名字。
    */
+  /**
+   * 勾選基本款時帶入「上一場用過的金額」（2026-11-17 廟方：「加購品項、供養名額，
+   * 除了預設勾選外，我還要預設金額，目前都預設為 0，每次都要重設」）。
+   *
+   * **從過去的活動學，不寫死一張價目表**：廟方每一場的價錢幾乎一樣
+   * （元寶 100、蓮花 600、鮮花 1000、壽桃 300⋯⋯），但總有一天會調價；
+   * 寫死的話調價那天要找工程師，學來的話他改一次、下一場就跟著新價錢走。
+   * 從來沒設過價錢的品項（蛋糕、壽酒、茶葉）照舊是 0。
+   *
+   * 找的是**活動日期最近**的那一場有同名品項的，比對 `trim()` 後**相等或開頭相同**：
+   * 廟方在活動裡打的是「蓮花9朵」，基本款按鈕是「蓮花」（朵數會變，見 ADDON_PRESETS）。
+   * **只帶金額，名額不帶**：名額每場差很多（1、3、5、6 都出現過），帶上一場的反而容易錯。
+   */
+  const lastFee = (kind: 'addons' | 'offerings', name: string): number => {
+    const byDate = [...events].sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+    for (const ev of byDate) {
+      const items: { name: string; fee?: number }[] = (kind === 'addons' ? ev.addons : ev.offerings) || [];
+      const hit = items.find(i => { const n = (i.name || '').trim(); return n === name || n.startsWith(name); });
+      if (hit) return Number(hit.fee) || 0;
+    }
+    return 0;
+  };
+
   const toggleOfferingPreset = (name: string) => {
     const list = form.offerings || [];
     const hit = list.find(o => o.name.trim() === name);
     if (!hit) {
       setForm(f => ({
         ...f,
-        offerings: [...(f.offerings || []), { id: Math.random().toString(36).slice(2), name, totalQty: 1, fee: 0 }],
+        offerings: [...(f.offerings || []), { id: Math.random().toString(36).slice(2), name, totalQty: 1, fee: lastFee('offerings', name) }],
       }));
       return;
     }
-    const touched = hit.totalQty !== 1 || (hit.fee ?? 0) !== 0 || !!hit.description?.trim();
+    // 「動過」要跟帶入的預設金額比，不是跟 0 比——否則剛勾起來的那一列也會被當成改過
+    const touched = hit.totalQty !== 1 || (hit.fee ?? 0) !== lastFee('offerings', name) || !!hit.description?.trim();
     // confirm 要在 setState 外面叫：StrictMode 會把 updater 跑兩次，寫在裡面會跳兩次視窗
     if (touched && !window.confirm(`「${name}」已經設定了名額或費用，確定要移除嗎？`)) return;
     setForm(f => ({ ...f, offerings: (f.offerings || []).filter(o => o.id !== hit.id) }));
@@ -6031,12 +6055,12 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
       // fee 0 ＝ 留空 ＝ 自由敬獻（見 deriveVoluntary）。那一顆因此不必特別處理
       setForm(f => ({
         ...f,
-        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: 0 }],
+        addons: [...(f.addons || []), { id: Math.random().toString(36).slice(2), name, fee: lastFee('addons', name) }],
       }));
       return;
     }
     // 「動過」只看費用與說明——自由敬獻不再是獨立欄位，fee 0 本來就是它的預設樣子
-    const touched = (hit.fee ?? 0) !== 0 || !!hit.description?.trim();
+    const touched = (hit.fee ?? 0) !== lastFee('addons', name) || !!hit.description?.trim();
     if (touched && !window.confirm(`「${name}」已經設定了費用，確定要移除嗎？`)) return;
     setForm(f => ({ ...f, addons: (f.addons || []).filter(a => a.id !== hit.id) }));
   };
@@ -6407,6 +6431,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                              : 'bg-white border-gray-300 text-gray-600 hover:border-temple-gold hover:text-temple-red'}`}>
                         {on ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 border border-current rounded-[3px]" />}
                         {name}
+                        {/* 勾下去會帶入的金額先寫在鈕上：廟方一眼看得到這一場會不會照舊價 */}
+                        {lastFee('addons', name) > 0 && <span className="opacity-70">${lastFee('addons', name)}</span>}
                       </button>
                     );
                   })}
@@ -6481,6 +6507,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                             真的 input 會讓點標籤與點方框變成兩種行為 */}
                         {on ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 border border-current rounded-[3px]" />}
                         {name}
+                        {/* 勾下去會帶入的金額先寫在鈕上：廟方一眼看得到這一場會不會照舊價 */}
+                        {lastFee('offerings', name) > 0 && <span className="opacity-70">${lastFee('offerings', name)}</span>}
                       </button>
                     );
                   })}
