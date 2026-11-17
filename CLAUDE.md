@@ -147,7 +147,11 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 2. `npx tsc --noEmit` 通過 → `npm run build` 通過 → 部署。
 3. 部署後三驗：`curl -s https://heshengtan.tw/ | grep -o '/assets/index-[^"]*\.js'` 確認 bundle 更新；本機 preview 跑關鍵流程 DOM 斷言；preview_console_logs 零新錯誤。
    誤判防呆：若「頁面載入正常但資料全部抓不到（console 大量 fetch 失敗／對 supabase.co 的請求 521）」＝Supabase 專案暫停，**不是部署失敗**——先去 Dashboard Restore，不要回滾部署。
-4. 報名表正在收件：任何影響 `FahuiRegistration.tsx`、`services/supabase.ts` 送出路徑的改動都算高風險，改完要實測一筆送出（然後用 SQL 刪測試資料，姓名用「測試」開頭以便清理）。
+4. **兩台電腦（筆電與桌機）同步開發**（2026-11-18 起廟方兩台都在用）：**動手前先 `git fetch`，落後就先 `git pull --rebase`；換到另一台之前先把這台的 commit push 上去**。
+   2026-11-18 踩過：這台落後 9 筆，其中一筆（另一台的「後台清單去掉每行重複的資訊」）改的正是同一批後台表格，rebase 時 `AdminDashboard.tsx` 衝突 9 處，只能逐處把兩邊的規則合起來。**解衝突時兩邊都是廟方要的，不要整段取一邊**——那次是另一台的「空值用 `<Dash />`、整欄空不畫」加上這台的「`data-more` 收折、隱私欄位就地展開」。
+   本機有沒推的 commit 時另一台看不到、正式站也沒有；而 Deploy Hook／GitHub 自動部署都從 git 建，沒 push 的東西等於不存在（同第 0 條）。
+   **這台的 Vercel CLI 可能沒登入**（`vercel` 會卡在 device login 等人按），那時 push 到 GitHub 就會自動部署，約 40 秒後 bundle 雜湊會換——用第 3 條的 curl 輪詢確認，不必跑 `vercel --prod`。
+5. 報名表正在收件：任何影響 `FahuiRegistration.tsx`、`services/supabase.ts` 送出路徑的改動都算高風險，改完要實測一筆送出（然後用 SQL 刪測試資料，姓名用「測試」開頭以便清理）。
 
 ## Supabase 陷阱（每一條都真實踩過）
 
@@ -202,6 +206,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   差別只在 `TABLES` 的那一行；六張表都實測過「anon 帶著自己產的 id 寫得進去」
   （只送 id 探測，五張表都回 `23502 null value in column "name"` 而不是 `42501`，
   證明權限沒擋、而且不會真的建立資料——這招用來驗權限不留垃圾資料）。
+  **收件信箱 2026-11-18 再驗一次：正確**。廟方指定一個管理用 Gmail，`NOTIFY_TO` 就是它——在官網送一筆「測試－通知信」的點燈登記，`?email=<id>` 回 `delivered`，廟方確認那個信箱收到了（測試資料已用 SQL 刪除）。
+  **信箱地址刻意不寫在這裡**：這個 repo 在 GitHub 是公開的。地址在 Vercel 的 `NOTIFY_TO` 與本機的 Claude 記憶，**要確認就問廟方或看 Vercel，不要從 repo 找**。端點回應會把信箱遮成 `***@***`，`?domains=1` 只說得出 `NOTIFY_TO: true`（有設），說不出設成哪一個——**要驗「寄到對的人」只能真的送一筆、請廟方看信箱**。
 - **信眾也會收到信：確認信與感謝信（`api/notify-confirm.ts`，2026-10-13）**。廟方：「報名經後台管理人員確認後，應該要發一個報名完成的確認信」「捐獻，直接寄感謝信」。
   **與 notify-registration 是兩件事**：那支寄給廟方（固定一個信箱），這支寄給信眾（資料庫裡那筆填的信箱）。差別造成完全不同的授權設計——
   **公開就等於「猜中任何一筆報名的 UUID 就能對那個人寄信」**，是一台針對特定人的騷擾工具。
