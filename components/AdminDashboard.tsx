@@ -7929,7 +7929,22 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
 };
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
-  const [tab, setTab] = useState<Tab>(role === 'finance' ? 'receivables' : 'overview');
+  /**
+   * 重新整理後停在原本那一頁（2026-11-17，與 App 的 ?admin=1 同一件事）。記在 sessionStorage：
+   * 只屬於這個分頁、關掉就忘——下次打開後台從總覽開始才是對的。
+   * 讀回來的值要確認這個角色看得到，否則財務組會被帶到一頁空白。
+   */
+  const [tab, setTabState] = useState<Tab>(() => {
+    const fallback: Tab = role === 'finance' ? 'receivables' : 'overview';
+    try {
+      const saved = sessionStorage.getItem('admin_tab') as Tab | null;
+      return saved && (ROLE_ALLOWED_TABS[role] as readonly string[]).includes(saved) ? saved : fallback;
+    } catch { return fallback; }
+  });
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    try { sessionStorage.setItem('admin_tab', t); } catch { /* 私密瀏覽等情況存不了就算了 */ }
+  };
   /** 手機側邊欄抽屜。桌機（lg 以上）常駐，這個狀態不影響桌機。 */
   const [navOpen, setNavOpen] = useState(false);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);

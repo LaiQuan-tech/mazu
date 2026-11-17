@@ -1583,6 +1583,16 @@ const App: React.FC = () => {
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [donationStatus, setDonationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [showAdmin, setShowAdmin] = useState(false);
+  /**
+   * 後台按重新整理不再被踢回首頁（2026-11-17 廟方：「後台網頁按重新整理後，就會直接導去前端首頁，這其實蠻困擾的」）。
+   *
+   * 原因：後台只是記憶體裡的一個開關（showAdmin），重新整理就歸零——**但 Supabase 的登入其實還在**。
+   * 現在兩件事：(1) 進後台時把網址補成 `?admin=1`、離開時拿掉；(2) 帶著 `?admin=1` 進站時，
+   * 先問 Supabase「現在是不是已經登入的管理員」，是就直接進後台、不跳登入框。
+   * 檢查的那一瞬間顯示載入中（adminBooting），不然會先閃一下前台首頁或登入框。
+   * 權限仍然每次都回 admin_profiles 查，**不是記在瀏覽器裡**——登出或被拿掉權限，重新整理就進不來。
+   */
+  const [adminBooting, setAdminBooting] = useState(adminEntry);
   // 法會收件期間顯示報名表的兩個入口：
   //   (1) /fahui —— 官網自己的報名網址，對外宣傳一律用這個（見 FAHUI_PATH）
   //   (2) 非官方網域的根路徑 —— 舊的分享連結還在流傳，維持原樣不要動
@@ -1696,7 +1706,43 @@ const App: React.FC = () => {
 
   const [volunteerPrefill, setVolunteerPrefill] = useState<{ name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string } | undefined>(undefined);
   const [adminRole, setAdminRole] = useState<AdminRole>('admin');
-  const [showLoginModal, setShowLoginModal] = useState(adminEntry);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  useEffect(() => {
+    if (!adminEntry) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('admin_profiles').select('role').eq('user_id', session.user.id).maybeSingle();
+          if (alive && profile) {
+            setAdminRole(profile.role as AdminRole);
+            setShowAdmin(true);
+            return;
+          }
+        }
+        if (alive) setShowLoginModal(true);
+      } catch {
+        if (alive) setShowLoginModal(true);
+      } finally {
+        if (alive) setAdminBooting(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // 網址跟著後台走：在後台＝有 ?admin=1（重新整理才回得來），離開後台就拿掉（否則按「回前台」再重新整理又被拉回後台）
+  useEffect(() => {
+    if (adminBooting) return;
+    const u = new URL(window.location.href);
+    const has = u.searchParams.has('admin');
+    if (showAdmin && !has) u.searchParams.set('admin', '1');
+    else if (!showAdmin && has && !showLoginModal) u.searchParams.delete('admin');
+    else return;
+    // hash 要原樣帶回去（LINE 登入的 token 在 hash 裡，見 CLAUDE.md）
+    window.history.replaceState(window.history.state, '', u.pathname + u.search + u.hash);
+  }, [showAdmin, showLoginModal, adminBooting]);
 
   const openVolunteer =(prefill?: { name: string; phone: string; address: string; birthDate: string; zodiac: string; lineId: string }) => {
     setVolunteerPrefill(prefill);
@@ -2999,6 +3045,7 @@ const App: React.FC = () => {
     : '';
 
   // 後台不計入流量分析（那是內部作業，不是訪客行為）
+  if (adminBooting) return <PageLoading />;
   if (showAdmin) {
     return <Suspense fallback={<PageLoading />}><AdminDashboard onBack={() => setShowAdmin(false)} role={adminRole} /></Suspense>;
   }
