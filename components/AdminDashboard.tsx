@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
-import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getBookingSessions, getDeityFeasts, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
@@ -15,6 +15,8 @@ import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPane
 import ReceiptPrint from './ReceiptPrint';
 import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
+import { resolveFeastDate, feastRuleLabel, weekdayLabel, solarToLunarLabel } from '../services/lunarCalendar';
+import { TAG_SOLID, TAG_GOLD, TAG_BROWN, TAG_STATE_OVER } from './tagStyles';
 import AdminShowerTab from './AdminShowerTab';
 import AdminUrgentTab from './AdminUrgentTab';
 import AdminDonationTypesTab from './AdminDonationTypesTab';
@@ -23,7 +25,7 @@ import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices'
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
 import { readChoiceTag, parseChoiceLines, formatChoiceLines, lampSeasonStart, type LampChoices } from '../services/lampChoice';
-import { RELATION_OPTIONS, ConsultationType, AdminRole, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, UrgentPrayerRecord, UrgentPrayerStatus, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
+import { RELATION_OPTIONS, ConsultationType, AdminRole, DeityFeast, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, UrgentPrayerRecord, UrgentPrayerStatus, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
   FileText, CheckCircle, XCircle, Clock3, LayoutDashboard,
@@ -189,21 +191,6 @@ const Dash = () => <span className="admin-empty text-gray-300" aria-label="無">
 function anyFilled<T>(rows: T[], get: (r: T) => unknown): boolean {
   return rows.some(r => { const v = get(r); return Array.isArray(v) ? v.length > 0 : v != null && v !== '' && v !== 0; });
 }
-
-// ─── Stat Card ───────────────────────────────────────────────────────────────
-
-const StatCard = ({ icon, label, value, sub, color }: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string;
-}) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
-    <div className={`p-3 rounded-xl ${color}`}>{icon}</div>
-    <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
-    </div>
-  </div>
-);
 
 const PAGE_SIZE = 25;
 
@@ -2433,35 +2420,80 @@ const REMIND_KEYS = [
   { key: '點燈到期提醒',    label: '點燈即將到期' },
 ] as const;
 
-const OverviewTab = ({
-  bookings, donations, lampRegistrations, blessingRegistrations, lampConfigs, blessingEvents, lineStats,
-}: {
-  bookings:             BookingRecord[];
-  donations:            DonationRecord[];
-  lampRegistrations:    LampRegistrationRecord[];
-  blessingRegistrations: BlessingRegistrationRecord[];
-  lampConfigs:          LampServiceConfig[];
-  blessingEvents:       BlessingEventRecord[];
-  lineStats:            { today: number; total: number };
-}) => {
-  const [activeService, setActiveService] = useState<'lamps' | 'blessing' | 'donation' | 'booking'>('lamps');
+/**
+ * 總覽（2026-11-18 依廟方決定重做）。
+ *
+ * 廟方：「最早當初我們是為了法會報名，但現在已升級成整個和聖壇的管理，需求不同，
+ * dashboard 重點也就不同」。原本的四張累計數字卡、LINE 導流、最新報名都拿掉了，
+ * 現在由上而下只有三塊：
+ *   1. 今天要做的事——還要廟方動手的事（紅點那幾項）＋可提醒的信眾
+ *   2. 近期行程——未來兩週的問事場次、祈福活動、神明聖誕
+ *   3. 本月款項——只給看得到「應收管理」的角色（admin／finance），staff 看不到
+ *
+ * **待辦數字不在這裡算**：由父層用 `navItems` ＋ `badgeFor` 組好傳進來（`todos`），
+ * 與側邊欄紅點是同一份規則。舊版在這裡自己重抄了四條狀態判斷，紅點改規則時就對不上。
+ */
+type OverviewTodo = { tab: Tab; label: string; count: number };
 
+/** yyyy-mm-dd（本地時區）。不可用 toISOString，台灣早上 8 點前會差一天 */
+const ymdOf = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** '2026-11-18' → '11/18' */
+const mdOf = (ymd: string): string => {
+  const [, m, d] = ymd.split('-');
+  return `${Number(m)}/${Number(d)}`;
+};
+/** 報名截止存的是 UTC ISO，要轉成台灣本地那一天；壞值回空字串 */
+const localYmdOfIso = (iso?: string): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : ymdOf(d);
+};
+
+type AgendaKind = '聖誕' | '祈福' | '問事';
+type AgendaItem = { key: string; date: string; kind: AgendaKind; title: string; sub: string; tab: Tab; muted?: boolean };
+const AGENDA_ORDER: Record<AgendaKind, number> = { 聖誕: 0, 祈福: 1, 問事: 2 };
+const AGENDA_TAG: Record<AgendaKind, string> = { 聖誕: TAG_SOLID, 祈福: TAG_GOLD, 問事: TAG_BROWN };
+const AGENDA_DAYS = 14;
+
+const OverviewTab = ({
+  todos, onNavigate, canOpen, showMoney,
+  blessingEvents, blessingRegistrations, fahuiCount,
+  lampRegistrations, lampConfigs, fahuiRegistrations, donations,
+}: {
+  /** 父層由 navItems ＋ badgeFor 組好、只含 count > 0 且這個角色看得到的 */
+  todos:                 OverviewTodo[];
+  /** 等同點側邊欄那一項 */
+  onNavigate:            (tab: Tab) => void;
+  /** 這個角色進得去那一頁嗎（近期行程的項目進不去就不給點） */
+  canOpen:               (tab: Tab) => boolean;
+  /** 本月款項：只有看得到應收管理的角色才顯示 */
+  showMoney:             boolean;
+  blessingEvents:        BlessingEventRecord[];
+  blessingRegistrations: BlessingRegistrationRecord[];
+  /** 法會報名筆數（external_form = 'fahui' 的活動，報名不在 blessing_registrations） */
+  fahuiCount:            number;
+  lampRegistrations:     LampRegistrationRecord[];
+  lampConfigs:           LampServiceConfig[];
+  fahuiRegistrations:    FahuiRegistrationRecord[];
+  donations:             DonationRecord[];
+}) => {
   /**
-   * 提醒作業（未匯款／問事前一天／點燈到期）。
+   * 提醒信眾（未匯款／問事前一天／點燈到期）。2026-11-18 起住在「今天要做的事」裡，
+   * **這是全後台唯一寄這幾種提醒的地方**，不要在搬版面時弄丟。
    *
-   * **進來就顯示，不必按**（廟方 2026-10-16：「直接顯示出來，不要查詢，還要按才會執行」）：
-   * 預覽是唯讀的，叫人先按一下才看得到等於多一道沒有意義的手續。
-   * 只有「立即執行」——那是真的會寄出去、收不回來的——才要按。
-   *
-   * 平常這三種由 Vercel Cron 每天早上九點自己跑；這一區的用途是
-   * 「看得到現在有誰該被提醒」，以及排程沒跑時手動補跑。
+   * **進來就讀，不必按**（廟方 2026-10-16：「直接顯示出來，不要查詢，還要按才會執行」）：
+   * 預覽是唯讀的 dry 查詢。只有「寄送提醒通知」——真的會寄出去、收不回來的——才要按。
+   * 有人可提醒時才多一格「可提醒信眾 N 位」，點開就地展開明細與寄送鈕。
    */
   const [remind, setRemind] = useState<Record<string, any> | null>(null);
   const [remindErr, setRemindErr] = useState('');
   const [remindBusy, setRemindBusy] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
 
   /** 現在總共有幾位要提醒。按鈕要把這個數字講出來，而不是叫「立即執行」 */
   const remindTotal = REMIND_KEYS.reduce((n, k) => n + (remind?.[k.key]?.對象 ?? 0), 0);
+  const remindPartialErr = REMIND_KEYS.some(k => !!remind?.[k.key]?.查詢錯誤);
 
   const loadRemind = async () => {
     setRemindBusy(true); setRemindErr('');
@@ -2500,251 +2532,301 @@ const OverviewTab = ({
     finally { setRemindBusy(false); }
   };
 
-  const now = Date.now();
-  const h24 = 24 * 60 * 60 * 1000;
+  // ── 近期行程：問事場次與神明聖誕自己抓，**失敗一律當空的**，不可以讓整個總覽空白 ──
+  const [sessions, setSessions] = useState<BookingSessionRecord[]>([]);
+  const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
+  const [feasts, setFeasts] = useState<DeityFeast[]>([]);
+  const [agendaLoaded, setAgendaLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      // 與問事管理（BookingsTab）同一組讀法：含已關閉的場次＋各場次報名數
+      const [ss, ct, fs] = await Promise.all([
+        getBookingSessions(false).catch(() => [] as BookingSessionRecord[]),
+        getBookingCountsBySession().catch(() => ({} as Record<string, number>)),
+        getDeityFeasts().catch(() => [] as DeityFeast[]),
+      ]);
+      if (!alive) return;
+      setSessions(ss); setSessionCounts(ct); setFeasts(fs); setAgendaLoaded(true);
+    })();
+    return () => { alive = false; };
+  }, []);
 
-  // name maps
-  const lampConfigMap    = Object.fromEntries(lampConfigs.map(c => [c.id, c.name]));
-  const blessingEventMap = Object.fromEntries(blessingEvents.map(e => [e.id, e.title]));
+  const agenda = useMemo(() => {
+    const now = new Date();
+    const from = ymdOf(now);
+    const to = ymdOf(new Date(now.getFullYear(), now.getMonth(), now.getDate() + AGENDA_DAYS - 1));
+    const inWin = (d: string) => !!d && d >= from && d <= to;
+    const items: AgendaItem[] = [];
 
-  // pending / new counts per service
-  const lampPending     = lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length;
-  const blessingPending = blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length;
-  const bookingPending  = bookings.filter(b => b.status === BookingStatus.PENDING).length;
-  // 同側邊欄：待匯款才算待辦，不是「24 小時內」
-  const donationRecent  = donations.filter(d => d.status === DonationStatus.PENDING).length;
+    for (const s of sessions) {
+      if (!inWin(s.sessionDate)) continue;
+      const n = sessionCounts[s.id] || 0;
+      // session_time 是自由文字（「晚上 19:00–21:00」），整串照印，不可以 slice
+      items.push({
+        key: `s:${s.id}`, date: s.sessionDate, kind: '問事', tab: 'bookings',
+        title: String(s.sessionTime ?? ''),
+        sub: `已報名 ${n}／${s.maxSlots}${s.isActive ? '' : '・已關閉'}`,
+        muted: !s.isActive,
+      });
+    }
 
-  // stat totals
-  const totalRegistrations = lampRegistrations.length + blessingRegistrations.length + bookings.length;
-  const allPending         = lampPending + blessingPending + bookingPending;
-  const totalDonation      = donations.reduce((s, d) => s + (Number(d.amount) || 0), 0);
-  const uniquePhones       = new Set([
-    ...lampRegistrations.map(r => r.phone),
-    ...blessingRegistrations.map(r => r.phone),
-    ...bookings.map(b => b.phone),
-    ...donations.map(d => d.phone),
-  ]).size;
+    for (const ev of blessingEvents) {
+      const count = ev.externalForm === 'fahui'
+        ? `報名 ${fahuiCount} 筆（法會報名）`
+        : `報名 ${blessingRegistrations.filter(r => r.eventId === ev.id && String(r.status ?? '') !== BlessingStatus.CANCELLED).length} 人`;
+      const deadline = localYmdOfIso(ev.registrationDeadline);
+      if (inWin(ev.startDate)) {
+        items.push({ key: `e:${ev.id}`, date: ev.startDate, kind: '祈福', tab: 'blessings', title: ev.title, sub: count });
+      }
+      // 截止日另列一行（同一天就不重複）
+      if (inWin(deadline) && deadline !== ev.startDate) {
+        items.push({ key: `d:${ev.id}`, date: deadline, kind: '祈福', tab: 'blessings', title: ev.title, sub: `報名截止 ${mdOf(deadline)}・${count}` });
+      }
+    }
 
-  // latest 5 per service (newest first)
-  const latestLamps     = [...lampRegistrations].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
-  const latestBlessings = [...blessingRegistrations].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
-  const latestDonations = [...donations].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
-  const latestBookings  = [...bookings].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, 5);
+    // 聖誕：用歲時節慶同一支 resolveFeastDate 換算（含「三十遇小月改列廿九」）。
+    // 視窗可能跨年，今年與明年都算
+    for (const f of feasts) {
+      for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
+        const r = resolveFeastDate(f, y);
+        if (!r || !inWin(r.date)) continue;
+        items.push({
+          key: `f:${f.id}:${y}`, date: r.date, kind: '聖誕', tab: 'feasts', title: f.title,
+          sub: `${feastRuleLabel(f)}${r.adjusted ? '（今年小月，改列廿九）' : ''}`,
+        });
+      }
+    }
 
-  const serviceTabs = [
-    { key: 'booking'  as const, label: '問事', badge: bookingPending  },
-    { key: 'lamps'    as const, label: '點燈', badge: lampPending     },
-    { key: 'blessing' as const, label: '祈福', badge: blessingPending },
-    { key: 'donation' as const, label: '捐獻', badge: donationRecent  },
-  ];
+    items.sort((a, b) => a.date.localeCompare(b.date) || AGENDA_ORDER[a.kind] - AGENDA_ORDER[b.kind]);
+    const days: { date: string; items: AgendaItem[] }[] = [];
+    for (const it of items) {
+      const last = days[days.length - 1];
+      if (last && last.date === it.date) last.items.push(it); else days.push({ date: it.date, items: [it] });
+    }
+    return { days, today: from };
+  }, [sessions, sessionCounts, feasts, blessingEvents, blessingRegistrations, fahuiCount]);
 
-  const rowCls = 'flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0';
-  const nameCls = 'font-medium text-sm text-gray-800';
-  const subCls  = 'text-xs text-gray-400 ml-2';
-  const dateCls = 'text-xs text-gray-400';
+  // ── 本月款項：與應收管理同一支 buildIncomeRows，不另算 ──
+  const money = useMemo(() => {
+    if (!showMoney) return null;
+    const rows = buildIncomeRows({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations });
+    const now = new Date();
+    const thisKey = now.getFullYear() * 12 + now.getMonth();
+    const keyOf = (s: string) => { const d = new Date(s); return Number.isNaN(d.getTime()) ? -1 : d.getFullYear() * 12 + d.getMonth(); };
+    const cur = rows.filter(r => keyOf(r.date) === thisKey && r.pay !== 'cancelled');
+    const prev = rows.filter(r => keyOf(r.date) === thisKey - 1 && r.pay !== 'cancelled');
+    const total = (xs: IncomeRow[]) => xs.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const byType = (['點燈', '祈福', '法會', '捐獻'] as const).map(t => ({ t, amount: total(cur.filter(r => r.type === t)) }));
+    return {
+      month: now.getMonth() + 1,
+      prevMonth: ((now.getMonth() + 11) % 12) + 1,
+      registered: total(cur),
+      paid: total(cur.filter(r => r.pay === 'paid')),
+      pending: total(cur.filter(r => r.pay === 'pending')),
+      prevRegistered: total(prev),
+      byType,
+    };
+  }, [showMoney, lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations]);
+
+  const nt = (n: number) => `NT$ ${n.toLocaleString()}`;
+  const remindLoaded = remind !== null || !!remindErr;
+  const showRemindTile = !remindErr && remindTotal > 0;
+  const sectionCls = 'bg-white border border-gray-200 rounded-xl p-4 sm:p-5 mb-4';
+  const headCls = 'font-semibold text-gray-800 text-base mb-3 flex items-center gap-2';
+  const tileCls = 'text-left rounded-xl border px-3.5 py-3 transition-colors min-w-0';
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-800 mb-6">總覽</h2>
+      {/* ── 1. 今天要做的事 ── */}
+      <section className={sectionCls}>
+        <h3 className={headCls}><AlertCircle className="w-4 h-4 text-temple-red" aria-hidden="true" />今天要做的事</h3>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
-        <StatCard icon={<ClipboardList className="w-5 h-5 text-blue-600" />}   label="總報名數"    value={totalRegistrations}                         sub="全部服務"    color="bg-blue-50" />
-        <StatCard icon={<AlertCircle className="w-5 h-5 text-yellow-600" />}   label="待處理報名"  value={allPending}                                 sub="需要處理"    color="bg-yellow-50" />
-        <StatCard icon={<Banknote className="w-5 h-5 text-green-600" />}       label="累計捐款"    value={`NT$ ${totalDonation.toLocaleString()}`}    sub="全部紀錄"    color="bg-green-50" />
-        <StatCard icon={<Users className="w-5 h-5 text-purple-600" />}         label="不重複信眾"  value={uniquePhones}                               sub="依電話計算"  color="bg-purple-50" />
-      </div>
-
-      {/* 提醒作業：進來就顯示現在有誰該被提醒；只有「立即執行」要按 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-          <div>
-            <p className="font-semibold text-gray-800 text-sm">自動提醒信眾</p>
-            {/* **不要用「提醒作業」「立即執行」這種詞**（廟方 2026-10-16：「立即執行，
-                我其實不知道這什麼動作」）。要寫的是「誰會收到什麼、什麼時候」，
-                不是功能的名字。 */}
-            <p className="text-xs text-gray-500 mt-0.5">
-              下面這些人可以用 LINE 或 email 提醒：還沒匯款的、明天要來問事的、點燈快到期的。
-              <span className="text-gray-400">　不會自動寄，按右邊的鈕才會送出。</span>
-            </p>
+        {(todos.length > 0 || showRemindTile) && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {todos.map(t => (
+              <button key={t.tab} type="button" onClick={() => onNavigate(t.tab)}
+                className={`${tileCls} border-gray-200 bg-white hover:border-temple-gold hover:bg-temple-gold/5`}>
+                <span className="block text-2xl font-bold text-temple-red leading-tight">{t.count}</span>
+                <span className="mt-0.5 flex items-center gap-1 text-sm text-gray-700">
+                  <span className="truncate">{t.label}</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                </span>
+              </button>
+            ))}
+            {showRemindTile && (
+              <button type="button" onClick={() => setRemindOpen(o => !o)} aria-expanded={remindOpen}
+                className={`${tileCls} ${remindOpen ? 'border-temple-gold bg-temple-gold/10' : 'border-gray-200 bg-white hover:border-temple-gold hover:bg-temple-gold/5'}`}>
+                <span className="block text-2xl font-bold text-temple-red leading-tight">{remindTotal}<span className="text-sm font-medium ml-0.5">位</span></span>
+                <span className="mt-0.5 flex items-center gap-1 text-sm text-gray-700">
+                  <span className="truncate">可提醒信眾</span>
+                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform ${remindOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </span>
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => void loadRemind()} disabled={remindBusy}
-              className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
-              {remindBusy ? '讀取中…' : '重新整理'}
-            </button>
-            {/* 按鈕的字要說出「會發生什麼事」（廟方 2026-10-16 定名「寄送提醒通知」）。
-                沒有人可寄的時候整顆按不下去——按了也不會發生事情，
-                留著只會讓人以為自己漏按了什麼；筆數在上面四格裡已經看得到，
-                不必再寫進按鈕一次。 */}
-            <button onClick={() => void runReminders()} disabled={remindBusy || remindTotal === 0}
-              title={remindTotal === 0
-                ? '目前沒有人需要提醒'
-                : `寄給上面那 ${remindTotal} 位（寄過的不會再寄一次）`}
-              className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              寄送提醒通知
-            </button>
-          </div>
-        </div>
+        )}
 
+        {todos.length === 0 && !showRemindTile && remindLoaded && (
+          <p className="text-sm text-gray-500 py-2">目前沒有待辦事項。</p>
+        )}
+        {todos.length === 0 && !remindLoaded && (
+          <p className="text-sm text-gray-400 py-2">讀取中…</p>
+        )}
+
+        {/* 讀不到提醒名單時不給那一格，但要留一行小字，失敗才不會悄悄的 */}
         {remindErr && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" role="alert">
-            {remindErr}
+          <p className="mt-3 text-xs text-gray-500" role="status">
+            可提醒信眾的名單讀不到（{remindErr}）。
+            <button type="button" onClick={() => void loadRemind()} disabled={remindBusy}
+              className="ml-1 underline text-temple-red disabled:opacity-50">{remindBusy ? '讀取中…' : '再試一次'}</button>
           </p>
         )}
-
-        {!remindErr && !remind && (
-          <p className="text-sm text-gray-400">讀取中…</p>
+        {!remindErr && remindPartialErr && !remindOpen && (
+          <p className="mt-3 text-xs text-gray-500">部分提醒名單查詢失敗，點「可提醒信眾」可看是哪一種。</p>
         )}
 
-        {remind && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {REMIND_KEYS.map(({ key, label }) => {
-              const v = remind[key] ?? {};
-              const n = v.對象 ?? 0;
-              return (
-                <div key={key} className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/60">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-gray-700">{label}</span>
-                    {/* 查詢失敗要自己一種顏色：它既不是「有人要提醒」也不是「沒有人」 */}
-                    {v.查詢錯誤
-                      ? <span className="text-xs font-medium text-red-600">查詢失敗</span>
-                      : <span className={`text-sm font-semibold ${n > 0 ? 'text-temple-red' : 'text-gray-400'}`}>{n} 位</span>}
+        {/* 提醒明細：點「可提醒信眾」就地展開 */}
+        {showRemindTile && remindOpen && remind && (
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              {/* **不要用「提醒作業」「立即執行」這種詞**（廟方 2026-10-16：「立即執行，
+                  我其實不知道這什麼動作」）。要寫的是「誰會收到什麼、什麼時候」，
+                  不是功能的名字。 */}
+              <p className="text-xs text-gray-500 min-w-0 flex-1">
+                下面這些人可以用 LINE 或 email 提醒：還沒匯款的、明天要來問事的、點燈快到期的。
+                <span className="text-gray-400">　不會自動寄，按「寄送提醒通知」才會送出。</span>
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button type="button" onClick={() => void loadRemind()} disabled={remindBusy}
+                  className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
+                  {remindBusy ? '讀取中…' : '重新整理'}
+                </button>
+                {/* 按鈕的字要說出「會發生什麼事」（廟方 2026-10-16 定名「寄送提醒通知」） */}
+                <button type="button" onClick={() => void runReminders()} disabled={remindBusy || remindTotal === 0}
+                  title={`寄給下面那 ${remindTotal} 位（寄過的不會再寄一次）`}
+                  className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  寄送提醒通知
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {REMIND_KEYS.map(({ key, label }) => {
+                const v = remind[key] ?? {};
+                const n = v.對象 ?? 0;
+                return (
+                  <div key={key} className="border border-gray-100 rounded-xl p-3.5 bg-gray-50 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium text-gray-700">{label}</span>
+                      {/* 查詢失敗要自己一種顏色：它既不是「有人要提醒」也不是「沒有人」 */}
+                      {v.查詢錯誤
+                        ? <span className="text-xs font-medium text-red-600">查詢失敗</span>
+                        : <span className={`text-sm font-semibold ${n > 0 ? 'text-temple-red' : 'text-gray-400'}`}>{n} 位</span>}
+                    </div>
+                    {v.查詢錯誤 && <p className="mt-1.5 text-xs text-red-600 break-all">{v.查詢錯誤}</p>}
+                    {/* 母體：讓「0 位」分得出是「沒有人欠款」還是「都落在時間窗外」 */}
+                    {!v.查詢錯誤 && v.母體 && <p className="mt-1 text-xs text-gray-400">{v.母體}</p>}
+                    {/* 是誰。沒有這個，數字就只能拿來問「你有把握嗎」 */}
+                    {!v.查詢錯誤 && n > 0 && (
+                      <ul className="mt-2 space-y-0.5">
+                        {(v.明細 ?? []).slice(0, 8).map((line: string, i: number) => (
+                          <li key={i} className="text-xs text-gray-600 break-words">・{line}</li>
+                        ))}
+                        {(v.明細 ?? []).length > 8 && (
+                          <li className="text-xs text-gray-400">…還有 {(v.明細 ?? []).length - 8} 位</li>
+                        )}
+                      </ul>
+                    )}
                   </div>
-
-                  {v.查詢錯誤 && (
-                    <p className="mt-1.5 text-xs text-red-600 break-all">{v.查詢錯誤}</p>
-                  )}
-
-                  {/* 母體：讓「0 位」分得出是「沒有人欠款」還是「都落在時間窗外」 */}
-                  {!v.查詢錯誤 && v.母體 && (
-                    <p className="mt-1 text-xs text-gray-400">{v.母體}</p>
-                  )}
-
-                  {/* 是誰。沒有這個，數字就只能拿來問「你有把握嗎」 */}
-                  {!v.查詢錯誤 && n > 0 && (
-                    <ul className="mt-2 space-y-0.5">
-                      {(v.明細 ?? []).slice(0, 8).map((line: string, i: number) => (
-                        <li key={i} className="text-xs text-gray-600">・{line}</li>
-                      ))}
-                      {(v.明細 ?? []).length > 8 && (
-                        <li className="text-xs text-gray-400">…還有 {(v.明細 ?? []).length - 8} 位</li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* LINE 導流統計 */}
-      <div className="bg-[#06C755]/5 border border-[#06C755]/30 rounded-xl p-5 mb-8 flex flex-col sm:flex-row items-center gap-6">
-        <div className="flex items-center gap-4">
-          <div className="bg-[#06C755] rounded-xl p-3 shrink-0">
-            <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-0.5">LINE 官方帳號導流</p>
-            <p className="text-xs text-gray-400">統計加入好友點擊次數</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-8 sm:ml-auto">
-          <div className="text-center">
-            <p className="text-3xl font-bold text-[#06C755]">{lineStats.today}</p>
-            <p className="text-xs text-gray-500 mt-0.5">今日點擊</p>
-          </div>
-          <div className="w-px h-12 bg-[#06C755]/20" />
-          <div className="text-center">
-            <p className="text-3xl font-bold text-gray-700">{lineStats.total}</p>
-            <p className="text-xs text-gray-500 mt-0.5">累計點擊</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 最新報名 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-temple-red" /> 最新報名
-        </h3>
-
-        {/* Service tabs */}
-        <div className="flex gap-1 mb-5 bg-gray-50 p-1 rounded-lg">
-          {serviceTabs.map(({ key, label, badge }) => (
-            <button key={key} onClick={() => setActiveService(key)}
-              className={`relative flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeService === key ? 'bg-white text-temple-red shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {label}
-              {badge > 0 && (
-                <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[17px] h-[17px] flex items-center justify-center px-1 leading-none">
-                  {badge > 9 ? '9+' : badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* 點燈 */}
-        {activeService === 'lamps' && (
-          latestLamps.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無點燈報名</p> : (
-            <div className="space-y-0.5">
-              {latestLamps.map(r => (
-                <div key={r.id} className={rowCls}>
-                  <div><span className={nameCls}>{r.name}</span><span className={subCls}>{lampConfigMap[r.serviceId] ?? r.serviceId}</span></div>
-                  <div className="flex items-center gap-2"><span className={dateCls}>{(r.createdAt ?? '').slice(0, 10)}</span>{statusBadge(r.status)}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          )
+          </div>
         )}
+      </section>
 
-        {/* 祈福 */}
-        {activeService === 'blessing' && (
-          latestBlessings.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無祈福報名</p> : (
-            <div className="space-y-0.5">
-              {latestBlessings.map(r => (
-                <div key={r.id} className={rowCls}>
-                  <div><span className={nameCls}>{r.name}</span><span className={subCls}>{blessingEventMap[r.eventId] ?? r.eventId}</span></div>
-                  <div className="flex items-center gap-2"><span className={dateCls}>{(r.createdAt ?? '').slice(0, 10)}</span>{statusBadge(r.status)}</div>
-                </div>
-              ))}
-            </div>
-          )
+      {/* ── 2. 近期行程（未來兩週） ── */}
+      <section className={sectionCls}>
+        <h3 className={headCls}><CalendarClock className="w-4 h-4 text-temple-red" aria-hidden="true" />近期行程<span className="text-xs font-normal text-gray-400">未來兩週</span></h3>
+        {!agendaLoaded ? (
+          <p className="text-sm text-gray-400 py-2">讀取中…</p>
+        ) : agenda.days.length === 0 ? (
+          <p className="text-sm text-gray-500 py-2">未來兩週沒有排定的行程。</p>
+        ) : (
+          <div className="space-y-4">
+            {agenda.days.map(day => (
+              <div key={day.date}>
+                {/* 廟方是用農曆在想事情的，日期旁邊一定要有農曆 */}
+                <p className="text-sm font-semibold text-gray-800 mb-1.5 flex flex-wrap items-baseline gap-x-2">
+                  <span>{mdOf(day.date)}（{weekdayLabel(day.date)}）</span>
+                  {day.date === agenda.today && <span className="text-xs font-medium text-temple-red">今天</span>}
+                  <span className="text-xs font-normal text-gray-500">{solarToLunarLabel(day.date)}</span>
+                </p>
+                <ul className="space-y-1.5">
+                  {day.items.map(it => {
+                    const clickable = canOpen(it.tab);
+                    const inner = (
+                      <>
+                        <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${it.muted ? TAG_STATE_OVER : AGENDA_TAG[it.kind]}`}>{it.kind}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block text-sm break-words ${it.muted ? 'text-gray-500' : 'text-gray-800'}`}>{it.title}</span>
+                          <span className="block text-xs text-gray-500 break-words">{it.sub}</span>
+                        </span>
+                        {clickable && <ArrowRight className="w-3.5 h-3.5 shrink-0 text-gray-400 mt-1" aria-hidden="true" />}
+                      </>
+                    );
+                    return (
+                      <li key={it.key}>
+                        {clickable ? (
+                          <button type="button" onClick={() => onNavigate(it.tab)}
+                            className="w-full flex items-start gap-2.5 text-left rounded-lg border border-gray-100 px-3 py-2 hover:border-temple-gold hover:bg-temple-gold/5 transition-colors">
+                            {inner}
+                          </button>
+                        ) : (
+                          <div className="flex items-start gap-2.5 rounded-lg border border-gray-100 px-3 py-2">{inner}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
+      </section>
 
-        {/* 捐獻 */}
-        {activeService === 'donation' && (
-          latestDonations.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無捐獻紀錄</p> : (
-            <div className="space-y-0.5">
-              {latestDonations.map(d => (
-                <div key={d.id} className={rowCls}>
-                  <div><span className={nameCls}>{d.name}</span><span className={subCls}>{d.type}</span></div>
-                  <div className="flex items-center gap-2">
-                    <span className={dateCls}>{(d.createdAt ?? '').slice(0, 10)}</span>
-                    <span className="text-xs font-semibold text-green-600">NT$ {Number(d.amount).toLocaleString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
-        )}
-
-        {/* 問事 */}
-        {activeService === 'booking' && (
-          latestBookings.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">尚無問事報名</p> : (
-            <div className="space-y-0.5">
-              {latestBookings.map(b => (
-                <div key={b.id} className={rowCls}>
-                  <div><span className={nameCls}>{b.name}</span><span className={subCls}>{b.type} · {b.bookingDate}</span></div>
-                  <div className="flex items-center gap-2"><span className={dateCls}>{(b.createdAt ?? '').slice(0, 10)}</span>{statusBadge(b.status)}</div>
-                </div>
-              ))}
-            </div>
-          )
-        )}
-      </div>
+      {/* ── 3. 本月款項（admin／finance；staff 看不到應收管理，所以整塊不出現） ── */}
+      {money && (
+        <section className={sectionCls}>
+          <h3 className={headCls}><Banknote className="w-4 h-4 text-temple-red" aria-hidden="true" />{money.month} 月款項</h3>
+          {/* 整塊點下去到應收管理。button 裡只能放 phrasing content，所以全部用 span */}
+          <button type="button" onClick={() => onNavigate('receivables')} className="w-full text-left group">
+            <span className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <span className="block rounded-xl bg-temple-gold/10 px-3.5 py-3 min-w-0">
+                <span className="block text-xs text-gray-600">報名金額</span>
+                <span className="block text-xl font-bold text-gray-900 break-words">{nt(money.registered)}</span>
+                <span className="block text-xs text-gray-500 mt-0.5">{money.prevMonth} 月 {nt(money.prevRegistered)}</span>
+              </span>
+              <span className="block rounded-xl bg-gray-50 px-3.5 py-3 min-w-0">
+                <span className="block text-xs text-gray-600">已收款</span>
+                <span className="block text-xl font-bold text-gray-900 break-words">{nt(money.paid)}</span>
+              </span>
+              <span className="block rounded-xl bg-gray-50 px-3.5 py-3 min-w-0">
+                <span className="block text-xs text-gray-600">待匯款</span>
+                <span className="block text-xl font-bold text-temple-red break-words">{nt(money.pending)}</span>
+              </span>
+            </span>
+            <span className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+              {money.byType.map(b => <span key={b.t}>{b.t} {nt(b.amount)}</span>)}
+            </span>
+            {/* 口徑要講清楚（同流量來源那條）：不寫的話會被當成收入看 */}
+            <span className="mt-1.5 block text-xs text-gray-400">
+              依報名日期歸月、不含已取消；是「報名金額」不是已入帳。已收款／待匯款是這些報名目前的收款狀態，與應收管理同一套算法。
+            </span>
+            <span className="mt-2 flex items-center gap-1 text-sm text-temple-red group-hover:underline">到應收管理<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" /></span>
+          </button>
+        </section>
+      )}
     </div>
   );
 };
@@ -7155,6 +7237,76 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
   );
 };
 
+// ─── 應收的列（應收管理與總覽「本月款項」共用）──────────────────────────────
+/**
+ * 把點燈／祈福／法會／捐獻四張表攤成同一種收款列。**應收管理與總覽共用這一支**，
+ * 兩頁的金額與收款狀態才不會各算各的（2026-11-18 從 ReceivablesTab 抽出）。
+ * 金額一律走 services/serviceAmount.ts。
+ */
+type PayState = 'pending' | 'paid' | 'cancelled' | 'unchecked';
+type IncomeRow = {
+  id: string; date: string; name: string; phone: string;
+  /** 報名時留的地址。收據要印，而四張報名表本來就都有存這一欄 */
+  address: string;
+  type: '點燈' | '祈福' | '法會' | '捐獻';
+  typeKey: 'lamp' | 'blessing' | 'fahui' | 'donation';
+  detail: string; amount: number;
+  pay: PayState;
+  /** 法會才有，用來展開既有的對帳區塊（整套搬過來，不另寫一份） */
+  fahui?: FahuiRegistrationRecord;
+};
+
+
+function buildIncomeRows(src: {
+  lampRegistrations:     LampRegistrationRecord[];
+  lampConfigs:           LampServiceConfig[];
+  blessingRegistrations: BlessingRegistrationRecord[];
+  blessingEvents:        BlessingEventRecord[];
+  fahuiRegistrations:    FahuiRegistrationRecord[];
+  donations:             DonationRecord[];
+}): IncomeRow[] {
+  const { lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations } = src;
+  // 金額一律走 services/serviceAmount.ts，不要在這裡自己算（理由見那支的檔頭）
+  const lampRows: IncomeRow[] = lampRegistrations.map(r => {
+    const cfg = lampConfigs.find(c => c.id === r.serviceId);
+    return { id: `lamp:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+      address: r.address ?? '',
+      type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—',
+      amount: lampAmount(r, lampConfigs),
+      pay: r.status === LampRegistrationStatus.CANCELLED ? 'cancelled'
+         : r.status === LampRegistrationStatus.CONFIRMED ? 'paid' : 'pending' };
+  });
+  const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
+    const ev = blessingEvents.find(e => e.id === r.eventId);
+    return { id: `blessing:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+      address: r.address ?? '',
+      type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
+      amount: blessingAmount(r, blessingEvents),
+      pay: r.status === BlessingStatus.CANCELLED ? 'cancelled'
+         : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending' };
+  });
+  // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
+  const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
+    id: `fahui:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+    address: r.address ?? '',
+    type: '法會', typeKey: 'fahui', detail: '法會報名',
+    amount: r.totalAmount,
+    pay: r.status === 'paid' ? 'paid' : 'pending',
+    fahui: r,
+  }));
+  const donationRows: IncomeRow[] = donations.map(r => ({
+    id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
+    address: r.address ?? '',
+    type: '捐獻', typeKey: 'donation', detail: r.type, amount: r.amount,
+    // undefined＝欄位存在之前的舊資料，從未核對過，**不是**「還沒收到」
+    pay: r.status === undefined ? 'unchecked'
+       : r.status === DonationStatus.CANCELLED ? 'cancelled'
+       : r.status === DonationStatus.CONFIRMED ? 'paid' : 'pending',
+  }));
+  return [...lampRows, ...blessingRows, ...fahuiRows, ...donationRows]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 // ─── ReceivablesTab（應收管理）────────────────────────────────────────────────
 
 /**
@@ -7254,60 +7406,9 @@ const ReceivablesTab: React.FC<{
     fahui: 'fahui_registrations', donation: 'donations',
   } as const;
 
-  type PayState = 'pending' | 'paid' | 'cancelled' | 'unchecked';
-  type IncomeRow = {
-    id: string; date: string; name: string; phone: string;
-    /** 報名時留的地址。收據要印，而四張報名表本來就都有存這一欄 */
-    address: string;
-    type: '點燈' | '祈福' | '法會' | '捐獻';
-    typeKey: 'lamp' | 'blessing' | 'fahui' | 'donation';
-    detail: string; amount: number;
-    pay: PayState;
-    /** 法會才有，用來展開既有的對帳區塊（整套搬過來，不另寫一份） */
-    fahui?: FahuiRegistrationRecord;
-  };
-
-  const rows = useMemo<IncomeRow[]>(() => {
-    // 金額一律走 services/serviceAmount.ts，不要在這裡自己算（理由見那支的檔頭）
-    const lampRows: IncomeRow[] = lampRegistrations.map(r => {
-      const cfg = lampConfigs.find(c => c.id === r.serviceId);
-      return { id: `lamp:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
-        address: r.address ?? '',
-        type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—',
-        amount: lampAmount(r, lampConfigs),
-        pay: r.status === LampRegistrationStatus.CANCELLED ? 'cancelled'
-           : r.status === LampRegistrationStatus.CONFIRMED ? 'paid' : 'pending' };
-    });
-    const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
-      const ev = blessingEvents.find(e => e.id === r.eventId);
-      return { id: `blessing:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
-        address: r.address ?? '',
-        type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
-        amount: blessingAmount(r, blessingEvents),
-        pay: r.status === BlessingStatus.CANCELLED ? 'cancelled'
-           : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending' };
-    });
-    // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
-    const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
-      id: `fahui:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
-      address: r.address ?? '',
-      type: '法會', typeKey: 'fahui', detail: '法會報名',
-      amount: r.totalAmount,
-      pay: r.status === 'paid' ? 'paid' : 'pending',
-      fahui: r,
-    }));
-    const donationRows: IncomeRow[] = donations.map(r => ({
-      id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
-      address: r.address ?? '',
-      type: '捐獻', typeKey: 'donation', detail: r.type, amount: r.amount,
-      // undefined＝欄位存在之前的舊資料，從未核對過，**不是**「還沒收到」
-      pay: r.status === undefined ? 'unchecked'
-         : r.status === DonationStatus.CANCELLED ? 'cancelled'
-         : r.status === DonationStatus.CONFIRMED ? 'paid' : 'pending',
-    }));
-    return [...lampRows, ...blessingRows, ...fahuiRows, ...donationRows]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations]);
+  const rows = useMemo<IncomeRow[]>(
+    () => buildIncomeRows({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations }),
+    [lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations]);
 
   const filtered = useMemo(() => {
     let r = rows;
@@ -8023,7 +8124,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
   const [fahuiRegistrations, setFahuiRegistrations] = useState<FahuiRegistrationRecord[]>([]);
   const [volunteerRegistrations, setVolunteerRegistrations] = useState<VolunteerRegistrationRecord[]>([]);
-  const [lineStats, setLineStats] = useState<{ today: number; total: number }>({ today: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -8039,7 +8139,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);
+      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -8057,7 +8157,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
       setAllRegistrations(ar);
       setBlessingEvents(be);
       setBlessingRegistrations(br);
-      setLineStats(ls);
       setFahuiRegistrations(fh);
       setVolunteerRegistrations(vol);
       setUrgentPending(up.filter(r => r.status === UrgentPrayerStatus.PENDING).length);
@@ -8135,6 +8234,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     : key === 'urgent'    ? urgentPending
     : 0;
   const totalPending = navItems.reduce((sum, n) => sum + badgeFor(n.key), 0);
+
+  /**
+   * 總覽「今天要做的事」的格子：**直接用 badgeFor**，不在總覽另抄一份狀態規則。
+   * 只列這個角色看得到、而且還有待辦的分頁；字要講出是什麼動作。
+   * 日後新增有紅點的分頁、這裡沒補字的話，退回「分頁名＋待處理」，不會靜默消失。
+   */
+  const TODO_LABEL: Partial<Record<Tab, string>> = {
+    bookings: '問事待處理', lamps: '點燈待匯款', blessings: '祈福待匯款', fahui: '法會待匯款',
+    donations: '捐獻待匯款', volunteer: '志工待聯絡', urgent: '緊急祈願待處理',
+  };
+  const overviewTodos = navItems
+    .map(n => ({ tab: n.key, label: TODO_LABEL[n.key] ?? `${n.label}待處理`, count: badgeFor(n.key) }))
+    .filter(t => t.count > 0);
+  /** 等同點側邊欄那一項 */
+  const goTab = (key: Tab) => { setTab(key); setNavOpen(false); };
 
   /**
    * 側邊欄分組。
@@ -8318,7 +8432,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
             </div>
           ) : (
             <>
-              {tab === 'overview'  && <OverviewTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} lampConfigs={lampConfigs} blessingEvents={blessingEvents} lineStats={lineStats} />}
+              {tab === 'overview'  && <OverviewTab todos={overviewTodos} onNavigate={goTab} canOpen={key => allowed.includes(key)}
+                showMoney={allowed.includes('receivables')}
+                blessingEvents={blessingEvents} blessingRegistrations={blessingRegistrations} fahuiCount={fahuiRegistrations.length}
+                lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} fahuiRegistrations={fahuiRegistrations} donations={donations} />}
               {tab === 'fahui'     && <FahuiTab registrations={fahuiRegistrations} onRefresh={fetchAll} />}
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
