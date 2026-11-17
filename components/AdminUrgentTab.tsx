@@ -54,7 +54,10 @@ const detailsOf = (r: UrgentPrayerRecord): [string, string][] => {
   return rows;
 };
 
-const AdminUrgentTab: React.FC = () => {
+const AdminUrgentTab: React.FC<{
+  /** 待處理筆數有變就回報給側邊欄的紅點（標記已祈福、刪除、重新整理都算） */
+  onPendingChange?: (n: number) => void;
+}> = ({ onPendingChange }) => {
   const [rows, setRows] = useState<UrgentPrayerRecord[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -113,6 +116,8 @@ const AdminUrgentTab: React.FC = () => {
   }, [rows, onlyPending]);
 
   const pendingCount = rows ? rows.filter(r => r.status === UrgentPrayerStatus.PENDING).length : 0;
+  // rows 還沒載入（null）時不回報，免得紅點先被清成 0 再跳回來
+  useEffect(() => { if (rows) onPendingChange?.(pendingCount); }, [rows, pendingCount, onPendingChange]);
 
   return (
     <div>
