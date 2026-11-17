@@ -192,6 +192,18 @@
   .admin-table td.justify-end { justify-content: flex-start; }
   .admin-table td > .justify-center,
   .admin-table td > .justify-end { justify-content: flex-start; }
+
+  /* 次要欄位收折（2026-11-18 廟方：「後台的表格也都要 RWD 優化，不用第一眼確認的資料都收折起來」）。
+     標了 data-more 的格子在卡片上預設不顯示，按卡片底部的「更多資料」（RowMoreCell）才攤開。
+     !important 是因為格子常自帶 Tailwind 的 flex，要壓得過；只在 1023px 以下，桌機完全不受影響。
+     用法見 components/AdminRowMore.tsx。 */
+  .admin-table tr:not(.admin-open) > td[data-more] { display: none !important; }
+  .admin-table td.admin-more-toggle { padding: 0 .875rem; }
+}
+
+/* 收折開關只屬於卡片模式；桌機是表格，欄位本來就全攤開 */
+@media (min-width: 1024px) {
+  .admin-table td.admin-more-toggle { display: none; }
 }
 
 /* ── 團紋底紋（龍與鳳）──────────────────────────────────────────────────────

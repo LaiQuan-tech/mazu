@@ -10,6 +10,7 @@ import AdminFaqTab from './AdminFaqTab';
 import AdminHomeVideoSection from './AdminHomeVideoSection';
 import AdminScriptureFullText from './AdminScriptureFullText';
 import AdminVouchersTab from './AdminVouchersTab';
+import { useOpenRows, RowMoreCell } from './AdminRowMore';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
 import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
@@ -1206,6 +1207,9 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
    *  廟方 2026-10-30：「這張表很長，後台操作不易。」收起來不是刪掉，
    *  點「檢視」一樣看得到全部。 */
   const [showMore, setShowMore] = useState(false);
+  const rosterRows = useOpenRows();
+  /** 地址是個資，桌機也不常駐一欄：姓名格裡按「地址」才就地展開（同問事管理） */
+  const rosterInfo = useOpenRows();
   const [onlyConflicts, setOnlyConflicts] = useState(false);
 
   // ── 人工校正 ──
@@ -1466,8 +1470,8 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
             className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
           只看疑似同名
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1"
-          title="關係、性別、地址、累計金額、可能親屬">
+        <label className="hidden lg:flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1"
+          title="關係、性別、累計金額、可能親屬">
           <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
             className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
           更多欄位
@@ -1482,24 +1486,22 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
             <thead className="bg-gray-50 text-gray-500 text-xs">
               <tr>
                 {/* 常用的排前面（廟方 2026-10-30）：找人 → 看他最近有沒有來 → 直接代報名。
-                    其餘五欄收在「更多欄位」後面，順序與表身必須一致。 */}
+                    其餘四欄（關係／性別／累計金額／可能親屬）收在「更多欄位」後面，順序與表身必須一致。 */}
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
                 <th className="px-4 py-3 text-left font-medium">電話</th>
                 <th className="px-4 py-3 text-left font-medium">最近參與</th>
                 <th className="px-4 py-3 text-left font-medium">參與管道</th>
-                {showMore && <>
-                  <th className="px-4 py-3 text-left font-medium">關係</th>
-                  <th className="px-4 py-3 text-left font-medium">性別</th>
-                  <th className="px-4 py-3 text-left font-medium">地址</th>
-                  <th className="px-4 py-3 text-right font-medium">累計金額</th>
-                  <th className="px-4 py-3 text-left font-medium">可能親屬</th>
-                </>}
+                {/* 這四欄一律輸出（地址改由姓名格的「地址」鈕就地展開，2026-11-18 隱私考量）：桌機由「更多欄位」決定顯示（lg:hidden），手機卡片由每張卡的「更多資料」展開 */}
+                <th className={`px-4 py-3 text-left font-medium${showMore ? '' : ' lg:hidden'}`}>關係</th>
+                <th className={`px-4 py-3 text-left font-medium${showMore ? '' : ' lg:hidden'}`}>性別</th>
+                <th className={`px-4 py-3 text-right font-medium${showMore ? '' : ' lg:hidden'}`}>累計金額</th>
+                <th className={`px-4 py-3 text-left font-medium${showMore ? '' : ' lg:hidden'}`}>可能親屬</th>
                 <th className="px-4 py-3 text-center font-medium">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(r => (
-                <tr key={r.name} className="hover:bg-gray-50/60">
+                <tr key={r.name} className={`hover:bg-gray-50/60${rosterRows.isOpen(r.name) ? ' admin-open' : ''}`}>
                   <td data-label="姓名" className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                     {r.name}
                     {/* 此人同時是註冊會員，可回「會員資訊」看登入紀錄。
@@ -1516,6 +1518,19 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                         title={`可能是不同人：${r.conflictHint}`}>
                         疑似同名
                       </span>
+                    )}
+                    {r.addresses.length > 0 && (
+                      <div>
+                    <button type="button" aria-expanded={rosterInfo.isOpen(r.name)}
+                      onClick={e => { e.stopPropagation(); rosterInfo.toggle(r.name); }}
+                      className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                      {rosterInfo.isOpen(r.name) ? '收合資料' : '地址'}
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${rosterInfo.isOpen(r.name) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                    </button>
+                        {rosterInfo.isOpen(r.name) && (
+                          <p className="mt-1 text-xs font-normal text-gray-500 whitespace-normal">{r.addresses.join('；')}</p>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || <Dash />}</td>
@@ -1534,17 +1549,14 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       {rosterBadges(r.counts).length === 0 && <Dash />}
                     </div>
                   </td>
-                  {showMore && <>
-                    <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
-                    <td data-label="性別" className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.genders.join('／')}</td>
-                    <td data-label="地址" className="px-4 py-3 text-gray-500 max-w-[220px] truncate" title={r.addresses.join('；')}>{r.addresses[0] || <Dash />}</td>
-                    <td data-label="累計金額" className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
-                      {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : <Dash />}
-                    </td>
-                    <td data-label="可能親屬" className="px-4 py-3 text-gray-500 max-w-[160px] truncate" title={r.relatives.join('、')}>
-                      {r.relatives.join('、') || <Dash />}
-                    </td>
-                  </>}
+                  <td data-label="關係" data-more className={`px-4 py-3 max-w-[200px]${showMore ? '' : ' lg:hidden'}`}><RelationCell row={r} /></td>
+                  <td data-label="性別" data-more className={`px-4 py-3 text-gray-500 whitespace-nowrap${showMore ? '' : ' lg:hidden'}`}>{r.genders.join('／')}</td>
+                  <td data-label="累計金額" data-more className={`px-4 py-3 text-right text-gray-700 whitespace-nowrap${showMore ? '' : ' lg:hidden'}`}>
+                    {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : <Dash />}
+                  </td>
+                  <td data-label="可能親屬" data-more className={`px-4 py-3 text-gray-500 max-w-[160px] truncate${showMore ? '' : ' lg:hidden'}`} title={r.relatives.join('、')}>
+                    {r.relatives.join('、') || <Dash />}
+                  </td>
                   <td data-label="操作" className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       {mergeFrom ? (
@@ -1582,6 +1594,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       )}
                     </div>
                   </td>
+                  <RowMoreCell open={rosterRows.isOpen(r.name)} onToggle={() => rosterRows.toggle(r.name)} hint="關係、性別、金額" />
                 </tr>
               ))}
             </tbody>
@@ -3190,6 +3203,9 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
 // ─── Donations Tab ────────────────────────────────────────────────────────────
 
 const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: DonationRecord[]; memberProfiles: MemberProfileRecord[]; onRefresh: () => void }) => {
+  const donationRows = useOpenRows();
+  /** 生日、地址是個資：按「生日・地址」才就地展開（同問事管理） */
+  const donationInfo = useOpenRows();
   /**
    * 年度捐獻明細：把某一年的捐獻整理成一則寄給每一位捐款人。
    * **先預覽再寄**是刻意的——這是一次寄給幾十個人的動作，按下去才發現年份選錯
@@ -3340,7 +3356,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
               <tbody className="divide-y divide-gray-50">
                 {paged.map(d => (
                   <tr key={d.id}
-                    className="hover:bg-green-50/40 transition-colors cursor-pointer"
+                    className={`hover:bg-green-50/40 transition-colors cursor-pointer${donationRows.isOpen(d.id) ? ' admin-open' : ''}`}
                     onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source, email: d.email, confirmSentAt: d.confirmSentAt, mailKind: 'thanks' })}
                   >
                     <td data-label="信眾資訊" className="px-5 py-4">
@@ -3352,9 +3368,21 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{d.phone}</p>
                           {d.gender && <span className="text-xs text-gray-400">{d.gender}</span>}
-                          {/* 生日、地址一看就知道是什麼，每列再印一次「生日：」「地址：」只是雜訊 */}
-                          {d.birthDate && <p className="text-xs text-gray-400 mt-0.5">{d.birthDate}</p>}
-                          {d.address && <p className="text-xs text-gray-400 mt-0.5">{d.address}</p>}
+                          {(d.birthDate || d.address) && (
+                            <button type="button" aria-expanded={donationInfo.isOpen(d.id)}
+                              onClick={e => { e.stopPropagation(); donationInfo.toggle(d.id); }}
+                              className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                              {donationInfo.isOpen(d.id) ? '收合資料' : '生日・地址'}
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${donationInfo.isOpen(d.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                            </button>
+                          )}
+                          {/* 生日、地址是隱私，預設收起（2026-11-18）；一看就知道是什麼，不加「生日：」前綴（2026-11-17） */}
+                          {donationInfo.isOpen(d.id) && (
+                            <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                              {d.birthDate && <p>{d.birthDate}</p>}
+                              {d.address && <p>{d.address}</p>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -3364,7 +3392,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     <td data-label="類型" className="px-5 py-4">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
                     </td>
-                    {showDesignated && <td data-label="指定項目" className="px-4 py-3 text-sm text-gray-500">
+                    {showDesignated && <td data-label="指定項目" data-more className="px-4 py-3 text-sm text-gray-500">
                       {d.repairProjectName ? (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
                           <Wrench className="w-3 h-3" />{d.repairProjectName}
@@ -3377,12 +3405,13 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                         </span>
                       ) : <Dash />}
                     </td>}
-                    {showDonNotes && <td data-label="備註" className="px-5 py-4 max-w-[180px]">
+                    {showDonNotes && <td data-label="備註" data-more className="px-5 py-4 max-w-[180px]">
                       <p className="text-sm text-gray-700 truncate">{d.notes || <Dash />}</p>
                     </td>}
                     <td data-label="時間" className="px-5 py-4">
                       <p className="text-xs text-gray-500">{fmtDate(d.createdAt)}</p>
                     </td>
+                    <RowMoreCell open={donationRows.isOpen(d.id)} onToggle={() => donationRows.toggle(d.id)} hint="指定項目、備註" />
                   </tr>
                 ))}
               </tbody>
@@ -3440,6 +3469,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
 }) => {
   // 已註冊會員詳情
   const [selectedProfile, setSelectedProfile] = useState<MemberProfileRecord | null>(null);
+  const memberRows = useOpenRows();
   /** 這個人底下的全部帳號（通常只有一個）。通訊錄是綁 user_id 的，所以要逐個抓 */
   const [selectedAccounts, setSelectedAccounts] = useState<MemberProfileRecord[]>([]);
   const [profileContacts, setProfileContacts] = useState<MemberContact[]>([]);
@@ -3980,7 +4010,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                       catch { setProfileContacts([]); }
                       finally { setContactsLoading(false); }
                     }}
-                    className="cursor-pointer hover:bg-temple-bg/60 transition-all group"
+                    className={`cursor-pointer hover:bg-temple-bg/60 transition-all group${memberRows.isOpen(p.userId) ? ' admin-open' : ''}`}
                   >
                     <td data-label="編號" className="px-4 py-3">
                       <span className="text-xs font-mono text-gray-400">
@@ -3999,27 +4029,27 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                         </span>
                       )}
                     </td>
-                    <td data-label="性別" className="px-4 py-3">
+                    <td data-label="性別" data-more className="px-4 py-3">
                       {p.gender
                         ? <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full">{p.gender}</span>
                         : <Dash />}
                     </td>
-                    <td data-label="點燈" className="px-4 py-3 text-center">
+                    <td data-label="點燈" data-more className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-amber-700 text-sm font-medium">
                         <Flame className="w-3.5 h-3.5" />{p.stats.lamps}
                       </span>
                     </td>
-                    <td data-label="祈福" className="px-4 py-3 text-center">
+                    <td data-label="祈福" data-more className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-blue-700 text-sm font-medium">
                         <Sparkles className="w-3.5 h-3.5" />{p.stats.blessings}
                       </span>
                     </td>
-                    <td data-label="捐獻" className="px-4 py-3 text-right text-sm">
+                    <td data-label="捐獻" data-more className="px-4 py-3 text-right text-sm">
                       {p.stats.donation > 0
                         ? <span className="text-green-700 font-medium">NT${p.stats.donation.toLocaleString()}</span>
                         : <Dash />}
                     </td>
-                    <td data-label="問事" className="px-4 py-3 text-center">
+                    <td data-label="問事" data-more className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-purple-700 text-sm font-medium">
                         <BookOpen className="w-3.5 h-3.5" />{p.stats.bookingCount}
                       </span>
@@ -4029,6 +4059,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                         ? new Date(p.lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
                         : <Dash />}
                     </td>
+                    <RowMoreCell open={memberRows.isOpen(p.userId)} onToggle={() => memberRows.toggle(p.userId)} hint="性別、統計" />
                   </tr>
                 ))}
               </tbody>
@@ -4236,6 +4267,7 @@ const SocialTab = () => {
 
 const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; onRefresh: () => void }) => {
   const [broadcastingId, setBroadcastingId] = useState<string | null>(null);
+  const bulletinRows = useOpenRows();
   const emptyForm: BulletinData = {
     title: '', content: '', category: BulletinCategory.GENERAL,
     isPinned: false, publishAt: null, linkedService: null, imageUrl: null,
@@ -4424,7 +4456,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             {filtered.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-12 text-gray-400">尚無公告</td></tr>
             ) : paged.map(b => (
-              <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
+              <tr key={b.id} className={`hover:bg-gray-50/50 transition-colors${bulletinRows.isOpen(b.id) ? ' admin-open' : ''}`}>
                 <td data-label="標題" className="px-5 py-4 font-medium text-gray-800">
                   <div className="flex items-center gap-3">
                     {b.imageUrl && (
@@ -4435,20 +4467,20 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     <span>{b.title}</span>
                   </div>
                 </td>
-                <td data-label="分類" className="px-5 py-4">
+                <td data-label="分類" data-more className="px-5 py-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>{b.category}</span>
                 </td>
                 <td data-label="發布狀態" className="px-5 py-4 text-gray-500">
                   {publishStatus(b) ?? <span className="text-xs text-green-600">已發布</span>}
                   <div className="text-xs text-gray-400 mt-0.5">{fmtDate(b.createdAt)}</div>
                 </td>
-                <td data-label="置頂" className="px-5 py-4 text-center">
+                <td data-label="置頂" data-more className="px-5 py-4 text-center">
                   <button onClick={() => handleTogglePin(b)}
                     className={`p-1.5 rounded-lg transition-colors ${b.isPinned ? 'text-temple-gold hover:bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}>
                     {b.isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
                   </button>
                 </td>
-                <td data-label="連結服務" className="px-5 py-4 text-center">
+                <td data-label="連結服務" data-more className="px-5 py-4 text-center">
                   {b.linkedService ? (
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>
                       {serviceLabel[b.linkedService] ?? b.linkedService}
@@ -4479,6 +4511,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     </button>
                   </div>
                 </td>
+                <RowMoreCell open={bulletinRows.isOpen(b.id)} onToggle={() => bulletinRows.toggle(b.id)} hint="分類、置頂、連結服務" />
               </tr>
             ))}
           </tbody>
@@ -4592,6 +4625,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
 // ─── Deities Tab (神明管理) ──────────────────────────────────────────────────────
 
 const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; halls: HallRecord[]; onRefresh: () => void }) => {
+  const deityRows = useOpenRows();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DeityData>({ name: '', title: '', description: '', imagePath: null, displayOrder: 0, isVisible: true, hallId: null });
@@ -4798,7 +4832,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                 onDragOver={(e) => dDragOver(e, idx)}
                 onDrop={() => dDrop(idx)}
                 onDragEnd={dDragEnd}
-                className={`transition-colors select-none ${!d.isVisible ? 'opacity-50' : ''} ${dDragId === d.id ? 'opacity-30 bg-gray-50' : ''} ${dOverIdx === idx && dDragId !== d.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50'}`}>
+                className={`transition-colors select-none ${!d.isVisible ? 'opacity-50' : ''} ${dDragId === d.id ? 'opacity-30 bg-gray-50' : ''} ${dOverIdx === idx && dDragId !== d.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50'}${deityRows.isOpen(d.id) ? ' admin-open' : ''}`}>
                 <td className="px-3 py-4 text-gray-300 lg:cursor-grab lg:active:cursor-grabbing">
                   <GripVertical className="w-4 h-4 hidden lg:block" />
                   {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
@@ -4829,11 +4863,11 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   {d.name}
                   {!d.isVisible && <span className="ml-2 text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">已隱藏</span>}
                 </td>
-                <td data-label="殿" className="px-6 py-4 text-gray-500">
+                <td data-label="殿" data-more className="px-6 py-4 text-gray-500">
                   {d.hallId ? (halls.find(h => h.id === d.hallId)?.name ?? '-') : '-'}
                 </td>
-                <td data-label="尊稱" className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
-                <td data-label="介紹" className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
+                <td data-label="尊稱" data-more className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
+                <td data-label="介紹" data-more className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
                 <td data-label="操作" className="px-6 py-4 text-right flex items-center justify-end gap-3">
                   <button onClick={() => handleToggleVisible(d)} disabled={togglingId === d.id}
                     title={d.isVisible ? '點擊隱藏' : '點擊顯示'}
@@ -4843,6 +4877,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   <button onClick={() => openEdit(d)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(d.id, d.name)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </td>
+                <RowMoreCell open={deityRows.isOpen(d.id)} onToggle={() => deityRows.toggle(d.id)} hint="殿、尊稱、介紹" />
               </tr>
             ))}
             {deities.length === 0 && (
@@ -5190,6 +5225,7 @@ const PhotosTab = ({ siteImages, heroSlides, onRefresh }: { siteImages: SiteImag
 const SCRIPTURE_STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site-images`;
 
 const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; onRefresh: () => void }) => {
+  const verseRows = useOpenRows();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [editingVerse, setEditingVerse] = useState<ScriptureVerseRecord | null>(null);
@@ -5328,7 +5364,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
           </thead>
           <tbody className="divide-y divide-gray-50">
             {paged.map(v => (
-              <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
+              <tr key={v.id} className={`hover:bg-gray-50/50 transition-colors${verseRows.isOpen(v.id) ? ' admin-open' : ''}`}>
                 <td data-label="插圖" className="px-4 py-3">
                   {v.imagePath ? (
                     <img
@@ -5346,7 +5382,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                 <td data-label="經文" className="px-4 py-3 text-gray-700 max-w-[200px]">
                   <p className="truncate">{v.verse.replace(/\n/g, ' ')}</p>
                 </td>
-                <td data-label="解說" className="px-4 py-3 text-gray-500 max-w-[300px]">
+                <td data-label="解說" data-more className="px-4 py-3 text-gray-500 max-w-[300px]">
                   <p className="truncate">{v.annotation.substring(0, 50)}...</p>
                 </td>
                 <td data-label="操作" className="px-4 py-3 text-center">
@@ -5358,6 +5394,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                     <Edit2 className="w-4 h-4" />
                   </button>
                 </td>
+                <RowMoreCell open={verseRows.isOpen(v.id)} onToggle={() => verseRows.toggle(v.id)} hint="解說" />
               </tr>
             ))}
             {filtered.length === 0 && (
@@ -5487,6 +5524,7 @@ const LampsTab = ({
   memberProfiles: MemberProfileRecord[];
 }) => {
   const [view, setView] = useState<'configs' | 'registrations'>('configs');
+  const lampConfigRows = useOpenRows();
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
   // ── Service config state ──
@@ -5727,7 +5765,7 @@ const LampsTab = ({
                     onDragOver={(e) => cDragOver(e, idx)}
                     onDrop={() => cDrop(idx)}
                     onDragEnd={cDragEnd}
-                    className={`select-none transition-colors ${cDragId === c.id ? 'opacity-30 bg-gray-50' : ''} ${cOverIdx === idx && cDragId !== c.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50/50'}`}>
+                    className={`select-none transition-colors ${cDragId === c.id ? 'opacity-30 bg-gray-50' : ''} ${cOverIdx === idx && cDragId !== c.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50/50'}${lampConfigRows.isOpen(c.id) ? ' admin-open' : ''}`}>
                     <td className="px-3 py-3 text-gray-300 lg:cursor-grab lg:active:cursor-grabbing">
                       <GripVertical className="w-4 h-4 hidden lg:block" />
                       {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
@@ -5757,7 +5795,7 @@ const LampsTab = ({
                     </td>
                     <td data-label="服務名稱" className="px-4 py-3 font-medium text-gray-800">{c.name}</td>
                     <td data-label="費用" className="px-4 py-3 text-temple-red font-semibold">NT$ {c.fee.toLocaleString()}</td>
-                    <td data-label="說明" className="px-4 py-3 text-gray-500 max-w-xs">
+                    <td data-label="說明" data-more className="px-4 py-3 text-gray-500 max-w-xs">
                       <p className="truncate">{c.description}</p>
                     </td>
                     <td data-label="操作" className="px-4 py-3">
@@ -5779,6 +5817,7 @@ const LampsTab = ({
                         </button>
                       </div>
                     </td>
+                    <RowMoreCell open={lampConfigRows.isOpen(c.id)} onToggle={() => lampConfigRows.toggle(c.id)} hint="說明" />
                   </tr>
                 ))}
                 {configs.length === 0 && (
@@ -6126,6 +6165,9 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
   onGoFahui: () => void;
 }) => {
   const [view, setView] = useState<'list' | 'regs'>('list');
+  const blessingRegRows = useOpenRows();
+  /** 生日、地址是個資，桌機也不常駐一欄：姓名格裡按「生日・地址」才就地展開（同問事管理） */
+  const blessingRegInfo = useOpenRows();
   const [selectedEvent, setSelectedEvent] = useState<BlessingEventRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -6324,7 +6366,6 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
     const regCols = {
       pkg: anyFilled(filteredRegs, r => r.packageName),
       addon: anyFilled(filteredRegs, r => [...(r.selectedAddons || []), ...(r.claimedOfferings || [])]),
-      addr: anyFilled(filteredRegs, r => r.address),
       notes: anyFilled(filteredRegs, r => r.notes),
     };
     return (
@@ -6370,11 +6411,10 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
                     <th className="px-4 py-3 text-left">電話</th>
-                    {/* 沒設方案的活動整欄都是空的，加購、備註也常整欄空——空欄不畫（2026-11-17） */}
+                    {/* 沒設方案的活動整欄都是空的，加購、備註也常整欄空——空欄不畫（2026-11-17）。
+                        生日／生肖與地址不再是欄位，改由姓名格就地展開（2026-11-18 隱私） */}
                     {regCols.pkg && <th className="px-4 py-3 text-left">方案</th>}
                     {regCols.addon && <th className="px-4 py-3 text-left">加購</th>}
-                    <th className="px-4 py-3 text-left">生日 / 生肖</th>
-                    {regCols.addr && <th className="px-4 py-3 text-left">地址</th>}
                     {regCols.notes && <th className="px-4 py-3 text-left">備註</th>}
                     <th className="px-4 py-3 text-left">狀態</th>
                     <th className="px-4 py-3 text-left">報名時間</th>
@@ -6384,12 +6424,26 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                 <tbody className="divide-y divide-gray-50">
                   {filteredRegs.map(r => (
                     <tr key={r.id}
-                      className="hover:bg-purple-50/40 transition-colors cursor-pointer"
+                      className={`hover:bg-purple-50/40 transition-colors cursor-pointer${blessingRegRows.isOpen(r.id) ? ' admin-open' : ''}`}
                       onClick={() => setQuickView({ name: r.name, phone: r.phone, birthDate: r.birthDate || undefined, zodiac: r.zodiac || undefined, gender: r.gender || undefined, address: r.address || undefined, notes: r.notes || undefined, status: r.status, serviceLabel: `祈福 · ${selectedEvent?.title ?? ''}`, createdAt: r.createdAt, source: r.source, email: r.email, confirmSentAt: r.confirmSentAt, mailKind: 'paid' })}
                     >
                       <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                         {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
+                        {(r.birthDate || r.zodiac || r.address) && <div>
+                          <button type="button" aria-expanded={blessingRegInfo.isOpen(r.id)}
+                            onClick={e => { e.stopPropagation(); blessingRegInfo.toggle(r.id); }}
+                            className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                            {blessingRegInfo.isOpen(r.id) ? '收合資料' : '生日・地址'}
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${blessingRegInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                          </button>
+                        </div>}
+                        {blessingRegInfo.isOpen(r.id) && (
+                          <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                            {(r.birthDate || r.zodiac) && <p>{r.birthDate}{r.zodiac ? `　${r.zodiac}年` : ''}</p>}
+                            {r.address && <p>{r.address}</p>}
+                          </div>
+                        )}
                       </td>
                       <td data-label="電話" className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
                       {regCols.pkg && <td data-label="方案" className="px-4 py-3 text-sm text-gray-500">
@@ -6400,7 +6454,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                             </span>
                           : <Dash />}
                       </td>}
-                      {regCols.addon && <td data-label="加購" className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
+                      {regCols.addon && <td data-label="加購" data-more className="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
                         {r.selectedAddons && r.selectedAddons.length > 0 && (
                           <span className="text-xs leading-relaxed">
                             {r.selectedAddons.map(a => `${a.name}(NT$${a.fee.toLocaleString()})`).join(' / ')}
@@ -6419,12 +6473,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                           <Dash />
                         )}
                       </td>}
-                      <td data-label="生日 / 生肖" className="px-4 py-3 text-sm text-gray-500">
-                        {r.birthDate && <p>{r.birthDate}</p>}
-                        {r.zodiac && <p className="text-xs">{r.zodiac}年</p>}
-                      </td>
-                      {regCols.addr && <td data-label="地址" className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{r.address || <Dash />}</td>}
-                      {regCols.notes && <td data-label="備註" className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || <Dash />}</td>}
+                      {regCols.notes && <td data-label="備註" data-more className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || <Dash />}</td>}
                       <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-start gap-1.5">
                           {statusBadge(r.status)}
@@ -6438,13 +6487,14 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                           />
                         </div>
                       </td>
-                      <td data-label="報名時間" className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
+                      <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
                       <td data-label="操作" className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleDeleteReg(r.id)} disabled={deletingRegId === r.id}
                           className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
+                      <RowMoreCell open={blessingRegRows.isOpen(r.id)} onToggle={() => blessingRegRows.toggle(r.id)} hint="加購、備註、報名時間" />
                     </tr>
                   ))}
                 </tbody>
@@ -7150,6 +7200,7 @@ const ReceivablesTab: React.FC<{
   onRefresh:             () => void;
 }> = ({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations, memberProfiles, onRefresh }) => {
   const [filter, setFilter] = useState<'all' | 'lamp' | 'blessing' | 'fahui' | 'donation'>('all');
+  const receivableRows = useOpenRows();
   /** 預設只看待收款——這是工作清單，不是報表 */
   const [payFilter, setPayFilter] = useState<'pending' | 'paid' | 'all'>('pending');
   const [search, setSearch] = useState('');
@@ -7551,7 +7602,7 @@ const ReceivablesTab: React.FC<{
                 const busy = busyId === row.id;
                 return (
                   <React.Fragment key={row.id}>
-                    <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                    <tr className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors${receivableRows.isOpen(row.id) ? ' admin-open' : ''}`}>
                       <td data-label="選取" className="px-4 py-3">
                         {/* 已取消的開不了收據 */}
                         {row.pay !== 'cancelled' && (
@@ -7561,7 +7612,7 @@ const ReceivablesTab: React.FC<{
                       </td>
                       <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDay(row.date)}</td>
                       <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{row.name}</td>
-                      <td data-label="電話" className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone || <Dash />}</td>
+                      <td data-label="電話" data-more className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone || <Dash />}</td>
                       <td data-label="項目" className="px-5 py-3 max-w-[220px]">
                         <div className="flex items-center gap-2">
                           {typeBadge(row.typeKey, row.type)}
@@ -7624,6 +7675,7 @@ const ReceivablesTab: React.FC<{
                           )}
                         </div>
                       </td>
+                      <RowMoreCell open={receivableRows.isOpen(row.id)} onToggle={() => receivableRows.toggle(row.id)} hint="電話" />
                     </tr>
                     {row.fahui && openReconcile === row.id && (
                       <tr className="bg-gray-50/70">
@@ -7724,6 +7776,7 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
   volunteerRegistrations: VolunteerRegistrationRecord[];
 }) => {
   const [view, setView] = useState<'summary' | 'detail'>('summary');
+  const trafficRows = useOpenRows();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
@@ -7874,13 +7927,13 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {groups.map(g => (
-                  <tr key={g.source} className="hover:bg-gray-50/60">
+                  <tr key={g.source} className={`hover:bg-gray-50/60${trafficRows.isOpen(g.source) ? ' admin-open' : ''}`}>
                     <td data-label="來源" className="px-5 py-3">
                       <span className="text-sm font-mono text-gray-800">{g.source}</span>
                     </td>
-                    <td data-label="平台" className="px-5 py-3 text-sm text-gray-600">{g.platform}</td>
+                    <td data-label="平台" data-more className="px-5 py-3 text-sm text-gray-600">{g.platform}</td>
                     <td data-label="筆數" className="px-5 py-3 text-sm font-semibold text-gray-800">{g.count}</td>
-                    <td data-label="佔比" className="px-5 py-3">
+                    <td data-label="佔比" data-more className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
                           <div className="h-full bg-temple-gold" style={{ width: `${totalCount ? (g.count / totalCount) * 100 : 0}%` }} />
@@ -7890,8 +7943,9 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
                     </td>
                     <td data-label="金額" className="px-5 py-3 text-sm text-temple-red">{g.amount ? `NT$${g.amount.toLocaleString()}` : <Dash />}</td>
                     {TRAFFIC_SERVICES.map(s => (
-                      <td key={s} data-label={s} className="px-5 py-3 text-sm text-gray-500">{g.byService[s] || <Dash />}</td>
+                      <td key={s} data-label={s} data-more className="px-5 py-3 text-sm text-gray-500">{g.byService[s] || <Dash />}</td>
                     ))}
+                    <RowMoreCell open={trafficRows.isOpen(g.source)} onToggle={() => trafficRows.toggle(g.source)} hint="平台、佔比、各服務" />
                   </tr>
                 ))}
               </tbody>

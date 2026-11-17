@@ -19,6 +19,7 @@ import {
 } from '../services/receipts';
 import { getSiteInfo, DEFAULT_SITE_INFO } from '../services/supabase';
 import ReceiptPrint, { ReceiptTempleInfo, printReceipt } from './ReceiptPrint';
+import { useOpenRows, RowMoreCell } from './AdminRowMore';
 
 const money = (n: number) => `NT$ ${n.toLocaleString()}`;
 
@@ -352,6 +353,7 @@ export const ReceiptListPanel: React.FC<{ temple: ReceiptTempleInfo; refreshKey:
   const [q, setQ] = useState('');
   const [printing, setPrinting] = useState<ReceiptRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const receiptRows = useOpenRows();
 
   const load = () => {
     setLoading(true);
@@ -407,18 +409,18 @@ export const ReceiptListPanel: React.FC<{ temple: ReceiptTempleInfo; refreshKey:
               {filtered.map(r => {
                 const voided = r.status === 'void';
                 return (
-                  <tr key={r.id} className={`border-b border-gray-50 ${voided ? 'opacity-55' : 'hover:bg-gray-50/50'}`}>
+                  <tr key={r.id} className={`border-b border-gray-50 ${voided ? 'opacity-55' : 'hover:bg-gray-50/50'}${receiptRows.isOpen(r.id) ? ' admin-open' : ''}`}>
                     <td data-label="收據編號" className="px-5 py-3 font-mono font-semibold text-gray-800 whitespace-nowrap">{r.receiptNo}</td>
                     <td data-label="日期" className="px-5 py-3 text-gray-400 text-xs whitespace-nowrap">
                       {new Date(r.issuedAt).toLocaleDateString('zh-TW')}
                     </td>
                     <td data-label="抬頭" className="px-5 py-3 text-gray-800">{r.title}</td>
-                    <td data-label="項目" className="px-5 py-3 text-gray-600 max-w-[220px] truncate"
+                    <td data-label="項目" data-more className="px-5 py-3 text-gray-600 max-w-[220px] truncate"
                       title={r.items.map(i => `${i.label} $${i.amount}`).join('、')}>
                       {r.items.map(i => i.label).join('、')}
                     </td>
                     <td data-label="金額" className="px-5 py-3 text-right font-semibold whitespace-nowrap">{money(receiptTotal(r.items))}</td>
-                    <td data-label="經手人" className="px-5 py-3 text-gray-500 text-xs">{r.createdByName || '—'}</td>
+                    <td data-label="經手人" data-more className="px-5 py-3 text-gray-500 text-xs">{r.createdByName || '—'}</td>
                     <td data-label="狀態" className="px-5 py-3">
                       {voided
                         ? <span className="px-2.5 py-0.5 rounded-full text-xs bg-red-100 text-red-700" title={r.voidReason}>已作廢</span>
@@ -440,6 +442,7 @@ export const ReceiptListPanel: React.FC<{ temple: ReceiptTempleInfo; refreshKey:
                         )}
                       </div>
                     </td>
+                    <RowMoreCell open={receiptRows.isOpen(r.id)} onToggle={() => receiptRows.toggle(r.id)} hint="項目、經手人" />
                   </tr>
                 );
               })}
