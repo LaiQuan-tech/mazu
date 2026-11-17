@@ -2735,6 +2735,14 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   const [savingSession, setSavingSession] = useState(false);
   const [sessionError, setSessionError] = useState('');
   const [filterSession, setFilterSession] = useState('');
+  /**
+   * 過期場次預設收起來（2026-11-17 廟方：「過期的場次，在後台要藏起來，需要查看時再點選即可」）。
+   * 場次一週好幾場、只增不減，半年後列表上全是辦完的，要找下一場得一直往下滑。
+   * **判準是日期不是「開放／關閉」**：今天的場次還沒辦完，照樣排在上面；
+   * 未來但被關閉的（例如額滿先關）也還是「要管的」，不收起來。
+   * 收起來的照樣能點開、能刪，**不刪任何資料**——報名紀錄與統計都還掛在那幾場上。
+   */
+  const [showPastSessions, setShowPastSessions] = useState(false);
 
   const loadSessions = async () => {
     setSessionLoading(true);
@@ -2907,8 +2915,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
         ) : sessions.length === 0 ? (
           <div className="text-center text-gray-400 text-sm py-4">尚無場次，請新增。</div>
         ) : (
-          <div className="space-y-2">
-            {sessions.map(s => {
+          (() => {
+            const renderSession = (s: BookingSessionRecord) => {
               const booked = sCountMap[s.id] || 0;
               const remaining = s.maxSlots - booked;
               const d = new Date(s.sessionDate + 'T12:00:00');
@@ -2935,8 +2943,30 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                   </div>
                 </div>
               );
-            })}
-          </div>
+            };
+            const today = todayYmd();
+            const upcoming = sessions.filter(s => s.sessionDate >= today);
+            // 過期的由新到舊：點開時最先看到的是剛辦完的那幾場，那才是會回頭查的
+            const past = sessions.filter(s => s.sessionDate < today).reverse();
+            return (
+              <div className="space-y-2">
+                {upcoming.length === 0 && (
+                  <div className="text-center text-gray-400 text-sm py-3">目前沒有即將到來的場次，請新增。</div>
+                )}
+                {upcoming.map(renderSession)}
+                {past.length > 0 && (
+                  <>
+                    <button type="button" onClick={() => setShowPastSessions(v => !v)} aria-expanded={showPastSessions}
+                      className="w-full flex items-center justify-center gap-1.5 mt-1 py-2 text-sm text-gray-500 hover:text-temple-red border border-dashed border-gray-200 rounded-lg hover:border-temple-red/40 transition-colors">
+                      {showPastSessions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {showPastSessions ? '收起已過期場次' : `已過期場次（${past.length} 場）`}
+                    </button>
+                    {showPastSessions && past.map(renderSession)}
+                  </>
+                )}
+              </div>
+            );
+          })()
         )}
       </div>
 
@@ -2961,11 +2991,21 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
         <select value={filterSession} onChange={e => setFilterSession(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
           <option value="">全部場次</option>
-          {sessions.map(s => {
-            const d = new Date(s.sessionDate + 'T12:00:00');
+          {/* 篩選照樣找得到過期的場次（要回頭查報名名單），只是分到後面那一組、由新到舊 */}
+          {(() => {
+            const today = todayYmd();
             const days = ['日', '一', '二', '三', '四', '五', '六'];
-            return <option key={s.id} value={s.id}>{d.getMonth()+1}月{d.getDate()}日（{days[d.getDay()]}）{s.sessionTime}</option>;
-          })}
+            const opt = (s: BookingSessionRecord) => {
+              const d = new Date(s.sessionDate + 'T12:00:00');
+              return <option key={s.id} value={s.id}>{d.getMonth()+1}月{d.getDate()}日（{days[d.getDay()]}）{s.sessionTime}</option>;
+            };
+            const up = sessions.filter(s => s.sessionDate >= today);
+            const past = sessions.filter(s => s.sessionDate < today).reverse();
+            return <>
+              {up.length > 0 && <optgroup label="即將到來">{up.map(opt)}</optgroup>}
+              {past.length > 0 && <optgroup label="已過期">{past.map(opt)}</optgroup>}
+            </>;
+          })()}
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
