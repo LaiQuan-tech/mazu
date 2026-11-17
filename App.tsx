@@ -69,6 +69,7 @@ import { deriveBulletins } from './services/derivedBulletins';
 import { BulletinCard, BulletinBody, SERVICE_CTA, scrollCardToTop } from './components/BulletinBody';
 import BulletinBanners from './components/BulletinBanners';
 import PosterImage, { POSTER_LIST_MAX_H } from './components/PosterImage';
+import LampCard from './components/LampCard';
 import Pagination, { pageSlice, pageCountOf } from './components/Pagination';
 import { currentLunarMonth } from './services/lunarCalendar';
 import { TAG_BROWN, TAG_SOLID, TAG_STATE_OVER } from './components/tagStyles';
@@ -1829,6 +1830,19 @@ const App: React.FC = () => {
   const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
   // ── 點燈多人 ──
   const [lampPersons, setLampPersons] = useState<LampPersonEntry[]>([{ id: newId(), serviceId: '', name: '', birthDate: '', zodiac: undefined, address: '', contactLabel: '本人' }]);
+  /**
+   * 燈種卡片的「選這盞燈登記」（LampCard）。把第一位**還沒選燈**的燈主預先選好；
+   * 每一位都選過了就不動任何人的選擇（那是他自己挑的，蓋掉會變成選錯燈），只捲過去。
+   * 捲動用 instant（減少動態效果的裝置上 smooth 會整個取消，見 CLAUDE.md）。
+   */
+  const pickLamp = (serviceId: string) => {
+    setLampPersons(prev => {
+      const i = prev.findIndex(p => !p.serviceId);
+      return i < 0 ? prev : prev.map((p, k) => (k === i ? { ...p, serviceId } : p));
+    });
+    const el = document.getElementById('lamp-form');
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 96, behavior: 'instant' as ScrollBehavior });
+  };
   const [lampNotes, setLampNotes] = useState('');
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [member, setMember] = useState<User | null>(null);
@@ -4661,33 +4675,7 @@ const App: React.FC = () => {
               return (
             <div className={`grid gap-6 mb-16 ${grid}`}>
               {lampConfigs.map(cfg => (
-                <div key={cfg.id} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
-                  {cfg.imageUrl && (
-                    /* 點開看原圖：海報上的小字在卡片尺寸仍讀不到（同祈福活動） */
-                    <button
-                      type="button"
-                      onClick={() => setPosterUrl(cfg.imageUrl!)}
-                      aria-label={`看 ${cfg.name} 的圖片大圖`}
-                      className="tap block w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-temple-red/40"
-                    >
-                      <PosterImage src={cfg.imageUrl} maxH={POSTER_LIST_MAX_H} className="hover:opacity-95 transition-opacity" />
-                    </button>
-                  )}
-                  <div className="p-6 flex flex-col items-center text-center flex-1">
-                  {/* 同一排有的有圖、有的沒有時，沒圖的那張照舊給圖示 */}
-                  {!cfg.imageUrl && (
-                    <div className="w-14 h-14 bg-temple-red/10 rounded-full flex items-center justify-center mb-4">
-                      <Flame className="w-7 h-7 text-temple-red" />
-                    </div>
-                  )}
-                  <h4 className="text-xl font-bold text-temple-dark font-serif mb-2">{cfg.name}</h4>
-                  <p className="text-gray-500 text-sm leading-relaxed mb-4 flex-1">{cfg.description}</p>
-                  <div className="mt-auto">
-                    <span className="text-2xl font-bold text-temple-red">NT$ {cfg.fee.toLocaleString()}</span>
-                    <span className="text-gray-400 text-sm ml-1">/ 年</span>
-                  </div>
-                  </div>
-                </div>
+                <LampCard key={cfg.id} cfg={cfg} onPoster={setPosterUrl} onPick={pickLamp} />
               ))}
             </div>
               );
@@ -4700,7 +4688,7 @@ const App: React.FC = () => {
           ))}
 
           {/* Registration Form */}
-          <div className="max-w-2xl mx-auto">
+          <div id="lamp-form" className="max-w-2xl mx-auto scroll-mt-24">
             {ENABLE_GROUP_BOOKING && sharedSession?.serviceType === 'lamp' && (
               <SharedFormPanel
                 session={sharedSession} isCreator={isCreator}
