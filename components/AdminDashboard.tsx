@@ -23,6 +23,7 @@ import AdminDonationTypesTab from './AdminDonationTypesTab';
 import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
+import AdminHelpChat from './AdminHelpChat';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
 import { readChoiceTag, parseChoiceLines, formatChoiceLines, lampSeasonStart, choiceFor, withChoiceTag, remainingFor, type LampChoices } from '../services/lampChoice';
 import { RELATION_OPTIONS, ConsultationType, AdminRole, DeityFeast, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, UrgentPrayerRecord, UrgentPrayerStatus, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
@@ -9014,6 +9015,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
           )}
         </div>
       </main>
+      {/* 操作小幫手（2026-11-18）：只教操作、看不到報名資料。前往鈕只給這個角色看得到的頁 */}
+      <AdminHelpChat pages={navItems.map(n => ({ key: n.key, label: n.label }))} onGo={k => goTab(k as Tab)} />
     </div>
   );
 };
