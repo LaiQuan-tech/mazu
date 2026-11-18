@@ -139,14 +139,14 @@ const AdminUrgentTab: React.FC<{
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <span className={`px-3 py-1 rounded-full text-sm ${pendingCount > 0 ? TAG_STATE_OPEN : TAG_GOLD}`}>
-          待處理 {pendingCount} 筆
-        </span>
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-          <input type="checkbox" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)}
-            className="w-4 h-4 accent-[#7C5C1E]" />
-          只看待處理
-        </label>
+        {/* 兩顆按鈕取代「待處理 N 筆」標籤＋「只看待處理」勾選框（2026-11-18，同其他名單的篩選鈕） */}
+        {([[true, `待處理 ${pendingCount}`], [false, `全部 ${(rows ?? []).length}`]] as const).map(([v, label]) => (
+          <button key={label} type="button" aria-pressed={onlyPending === v} onClick={() => setOnlyPending(v)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${onlyPending === v
+              ? 'bg-temple-red text-white border-temple-red' : 'bg-white text-gray-600 border-gray-300 hover:border-temple-red hover:text-temple-red'}`}>
+            {label}
+          </button>
+        ))}
         <button type="button" onClick={load} disabled={busy}
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${busy ? 'animate-spin' : ''}`} aria-hidden="true" />重新整理

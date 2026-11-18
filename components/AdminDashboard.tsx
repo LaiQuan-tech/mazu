@@ -2100,6 +2100,7 @@ const FahuiReconcileBlock = ({ r, onSaved }: { r: FahuiRegistrationRecord; onSav
 
 const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrationRecord[]; onRefresh: () => void }) => {
   const [search, setSearch] = useState('');
+  const [fPage, setFPage] = useState(0);
   const [filterStatus, setFilterStatus] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -2246,59 +2247,34 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
     }), ['報名人', '電話', 'LINE', '電子郵件', '地址', '聯絡人生日(國曆)', '聯絡人生日(農曆)', '聯絡人生肖', '項目數', '平安餐贊助', '應匯金額', '帳號後五碼', '贊普供品', '留言', '狀態', '報名時間', '報名來源']);
   };
 
+  useEffect(() => { setFPage(0); }, [search, filterStatus, dateFrom, dateTo]);
   return (
     <div>
-      {/* 統計卡 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">報名筆數</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.count}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">待匯款</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">總金額</p>
-          <p className="text-2xl font-bold text-temple-red">${stats.totalAmount.toLocaleString()}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">已收款金額</p>
-          <p className="text-2xl font-bold text-green-600">${stats.paidAmount.toLocaleString()}</p>
-        </div>
+      {/* 頂端原本四張統計大卡（2026-11-18 收掉）：筆數與待匯款已經在下面的篩選鈕上，金額併進標題這一行。
+          四顆匯出改成一排細框小鈕：一年用幾次，不該比名單本身還搶眼 */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <h2 className="text-xl font-bold text-gray-800">法會報名</h2>
+        <span className="text-sm text-gray-500">總金額 <b className="text-temple-red">${stats.totalAmount.toLocaleString()}</b>・已收款 <b className="text-green-700">${stats.paidAmount.toLocaleString()}</b></span>
       </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-xl font-bold text-gray-800">法會報名
-          <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 筆</span>
-        </h2>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={handleExportWorkbook}
-            className="flex items-center gap-2 px-4 py-2 bg-[#C49820] text-white rounded-lg text-sm hover:bg-[#A87F16] transition-colors">
-            <Download className="w-4 h-4" /> 法會表單（分頁）
+      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
+        <span className="text-gray-400">匯出</span>
+        {([['法會表單（分頁）', handleExportWorkbook], ['完整報名表', handleExportTemplate], ['對帳總表', handleExportSummary], ['牌位明細', handleExportDetail]] as const).map(([label, fn]) => (
+          <button key={label} onClick={fn}
+            className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:border-temple-red hover:text-temple-red transition-colors">
+            <Download className="w-3.5 h-3.5" /> {label}
           </button>
-          <button onClick={handleExportTemplate}
-            className="flex items-center gap-2 px-4 py-2 bg-[#7C5C1E] text-white rounded-lg text-sm hover:bg-[#5C441A] transition-colors">
-            <Download className="w-4 h-4" /> 完整報名表
-          </button>
-          <button onClick={handleExportSummary}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-            <Download className="w-4 h-4" /> 對帳總表
-          </button>
-          <button onClick={handleExportDetail}
-            className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors">
-            <Download className="w-4 h-4" /> 牌位明細
-          </button>
-        </div>
+        ))}
       </div>
 
       {/* 篩選 */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="relative flex-1">
+      <div className="mb-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / LINE / 信箱 / 後五碼"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <FilterChips value={filterStatus} onChange={setFilterStatus} allLabel="全部" allCount={registrations.length}
           options={[
             { value: 'pending', label: '待匯款', count: registrations.filter(r => r.status !== 'paid').length },
@@ -2311,7 +2287,7 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
         <div className="text-center text-gray-400 py-20">尚無符合條件的報名資料</div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(r => {
+          {filtered.slice(fPage * PAGE_SIZE, (fPage + 1) * PAGE_SIZE).map(r => {
             const isOpen = expanded.has(r.id);
             return (
               <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -2421,6 +2397,7 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
               </div>
             );
           })}
+          <Paginator total={filtered.length} page={fPage} onChange={setFPage} />
         </div>
       )}
     </div>
@@ -2440,6 +2417,7 @@ const fmtAvailability = (av?: Record<string, string[]>): string => {
 
 const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRegistrationRecord[]; onRefresh: () => void }) => {
   const [search, setSearch] = useState('');
+  const [vPage, setVPage] = useState(0);
   const [filterStatus, setFilterStatus] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -2483,19 +2461,10 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
    * 地址、生日、飲食、其他說明、報名時間與來源收進「更多資料」，就地展開（同問事的「生日・地址」）。
    */
   const volInfo = useOpenRows();
+  useEffect(() => { setVPage(0); }, [search, filterStatus, dateFrom, dateTo]);
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">志工報名數</p>
-          <p className="text-2xl font-bold text-gray-800">{registrations.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">待聯絡</p>
-          <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
-        </div>
-      </div>
-
+      {/* 兩張統計卡（報名數、待聯絡）收掉：跟下面篩選鈕上的數字一模一樣（2026-11-18） */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <h2 className="text-xl font-bold text-gray-800">志工報名
           <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 筆</span>
@@ -2506,12 +2475,14 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="relative flex-1">
+      <div className="mb-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / LINE"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <FilterChips value={filterStatus} onChange={setFilterStatus} allLabel="全部" allCount={registrations.length}
           options={[
             { value: 'pending', label: '待聯絡', count: registrations.filter(r => r.status !== 'contacted').length },
@@ -2524,7 +2495,7 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
         <div className="text-center text-gray-400 py-20">尚無符合條件的志工報名</div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(r => (
+          {filtered.slice(vPage * PAGE_SIZE, (vPage + 1) * PAGE_SIZE).map(r => (
             <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-3 flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2570,6 +2541,7 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
               </div>
             </div>
           ))}
+          <Paginator total={filtered.length} page={vPage} onChange={setVPage} />
         </div>
       )}
     </div>
@@ -4576,6 +4548,8 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
   }
 
   // ── 列表頁（排序表格） ──
+  const [mPage, setMPage] = useState(0);
+  useEffect(() => { setMPage(0); }, [search]);
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
@@ -4593,34 +4567,29 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
         </h2>
       </div>
 
+      {/* 搜尋獨佔一行，同其他名單（原本塞在表格的標題列裡，那一列又把人數講了第二次） */}
+      {memberProfiles.length > 0 && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="搜尋姓名 / 電話 / 信箱 / 編號"
+            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+        </div>
+      )}
+      {search.trim() && <p className="-mt-2 mb-3 text-xs text-gray-500">符合條件 {visibleProfiles.length} 人</p>}
+
       {memberProfiles.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 text-sm">
           尚無已註冊會員
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-temple-gold/30 overflow-hidden">
-          <div className="px-5 py-3 bg-temple-gold/10 border-b border-temple-gold/20 flex flex-col sm:flex-row sm:items-center gap-2.5">
-            <div className="flex items-center gap-2 shrink-0">
-              <UserPlus className="w-4 h-4 text-temple-red" />
-              <h3 className="font-semibold text-temple-dark text-sm">已註冊會員帳號</h3>
-              <span className="text-xs font-normal text-gray-500">
-                {search.trim() ? `${visibleProfiles.length} / ${sortedProfiles.length} 人` : `${sortedProfiles.length} 人`}
-              </span>
-            </div>
-            <div className="relative sm:ml-auto sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="搜尋姓名 / 電話 / 信箱 / 編號"
-                className="w-full pl-9 pr-3 py-1.5 bg-white border border-temple-gold/30 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-            </div>
-          </div>
           <div className="overflow-x-auto">
             <table className="admin-table w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">編號</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">姓名</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">性別</th>
                   <SortTh col="lamps"      label="點燈"   align="center" />
                   <SortTh col="blessings"  label="祈福"   align="center" />
                   <SortTh col="donation"   label="捐獻"   align="right" />
@@ -4629,7 +4598,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {visibleProfiles.map(p => (
+                {visibleProfiles.slice(mPage * PAGE_SIZE, (mPage + 1) * PAGE_SIZE).map(p => (
                   <tr key={p.userId}
                     onClick={async () => {
                       setSelectedProfile(p); setSelectedAccounts(p.accounts); setContactsLoading(true);
@@ -4667,11 +4636,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                         </span>
                       )}
                     </td>
-                    <td data-label="性別" data-more className="px-4 py-3">
-                      {p.gender
-                        ? <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full">{p.gender}</span>
-                        : <Dash />}
-                    </td>
                     <td data-label="點燈" data-more className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-amber-700 text-sm font-medium">
                         <Flame className="w-3.5 h-3.5" />{p.stats.lamps}
@@ -4697,12 +4661,13 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                         ? new Date(p.lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
                         : <Dash />}
                     </td>
-                    <RowMoreCell open={memberRows.isOpen(p.userId)} onToggle={() => memberRows.toggle(p.userId)} hint="性別、統計" />
+                    <RowMoreCell open={memberRows.isOpen(p.userId)} onToggle={() => memberRows.toggle(p.userId)} hint="點燈、祈福、捐獻、問事" />
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Paginator total={visibleProfiles.length} page={mPage} onChange={setMPage} />
         </div>
       )}
     </div>
