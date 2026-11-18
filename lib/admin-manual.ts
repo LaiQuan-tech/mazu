@@ -14,6 +14,25 @@ export const ROLE_PAGES: Record<string, string[]> = {
 
 export const ADMIN_MANUAL = `# 後台操作手冊
 
+## 快速問答
+- 標記已收款：到點燈管理、祈福管理或捐獻管理 → 那一項的名單 → 按「標記已收款」（法會報名在列表上直接按）。
+- 信眾匯款了：到點燈管理、祈福管理或捐獻管理找到那一筆，按「標記已收款」。
+- 幫信眾報名、代為報名、LINE 或電話報名：信眾資訊 → 搜尋那個人 → 按「代為報名」。
+- 確認問事預約：問事管理 → 那一場的「預約名單」→ 按「確認預約」。
+- 新增問事場次：問事管理 → 按「新增場次」→ 填日期、時段、名額 →「確認新增」。
+- 新增祈福活動：祈福管理 → 按「新增祈福活動」→ 填好 →「儲存」。
+- 新增燈種：點燈管理 → 按「新增服務」→ 填好 →「儲存」。
+- 專屬神明燈、設定神明名額：點燈管理 → 那一盞燈的鉛筆（編輯）→「請信眾選擇（選填）」，行尾數字是名額。
+- 寄提醒、催繳、提醒匯款：總覽 →「今天要做的事」裡的「可提醒信眾」→ 按「寄送提醒通知」。
+- 紅點、紅色數字：選單旁的紅色數字是那一頁還要處理的筆數，處理完就會減少。
+- 開收據、補印收據：應收管理 → 勾選那幾筆 → 按「開立收據」。
+- 新增公告、發公告：公佈欄管理 → 按「新增公告」→ 填好 →「儲存」。
+- 改地址、改電話、改開放時間：基本資料 → 改完按「儲存」，再按「重新發布」。
+- 合併同一個人：信眾資訊 → 在要併掉的那一列按「合併」→ 在要保留的那一列按「比對併入」。
+- 志工聯絡：志工報名 → 聯絡完按「標記已聯絡」。
+- 緊急祈願：緊急祈願 → 祈福完成後按「標記已祈福」。
+- 年度捐獻明細：捐獻管理 → 選年份 →「預覽明細」→ 確認後「寄年度明細」。
+
 ## 進入後台與畫面
 - 網址 https://heshengtan.tw/?admin=1 ，會自動跳出登入。只有被加進後台名單的帳號進得去。
 - 重新整理會停在後台、停在原本那一頁。
@@ -143,31 +162,52 @@ export const ADMIN_MANUAL = `# 後台操作手冊
 `;
 
 /**
- * 沒有 AI 時的退路：把手冊照「## 」切段，找跟問題最像的一兩段原文給他。
- * 用中文二字詞重疊數打分——夠用、零依賴，而且手冊只有幾十段。
+ * 沒有 AI 時的退路：找手冊裡**最相關的那一條**（不是整段），短短一兩行就好，
+ * 讓前端底下的「前往 XX」鈕去做剩下的事（2026-11-18 廟方：「回答的文字太多了，簡單說明後，直接顯示按鈕，導去該頁即可」）。
+ * 打分：問題與「段名＋那一條」的中文二字詞重疊數；段名命中加重（問「點燈怎麼收款」要的是點燈那一段）。
+ * 回答開頭帶頁名（例如「點燈管理：」），前端才認得出要給哪一顆前往鈕。
  */
 export const searchManual = (q: string): string => {
-  const sections = ADMIN_MANUAL.split(/\n(?=## )/).slice(1);
   const grams = (t: string) => {
-    const s = t.replace(/[^一-鿿A-Za-z0-9]/g, '');
+    const s = t.replace(/[^\u4e00-\u9fffA-Za-z0-9]/g, '');
     const out = new Set<string>();
     for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2));
     return out;
   };
   const qg = grams(q);
   if (qg.size === 0) return '';
-  const scored = sections
-    .map(sec => {
-      // 段名（「點燈管理」）命中要算重一點：問「點燈怎麼收款」的人要的是點燈那一段，不是講紅點的那一段
-      const title = grams(sec.split('\n')[0]);
-      const g = grams(sec); let n = 0;
-      qg.forEach(x => { if (g.has(x)) n++; if (title.has(x)) n += 3; });
-      return { sec, n };
-    })
-    .filter(x => x.n >= 2)
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 2);
-  if (scored.length === 0) return '';
-  return '（小幫手的 AI 暫時無法回應，以下是操作手冊裡相關的段落）\n\n'
-    + scored.map(x => x.sec.replace(/^## /, '【').replace(/\n/, '】\n').replace(/\*\*/g, '')).join('\n\n');
+  const items: { title: string; line: string; g: Set<string>; tg: Set<string>; n: number }[] = [];
+  for (const sec of ADMIN_MANUAL.split(/\n(?=## )/).slice(1)) {
+    const [head, ...rest] = sec.split('\n');
+    const title = head.replace(/^## /, '');
+    const tg = grams(title);
+    for (const raw of rest) {
+      const line = raw.replace(/^- /, '').replace(/\*\*/g, '').trim();
+      if (line) items.push({ title, line, g: grams(line), tg, n: 0 });
+    }
+  }
+  // 很多條都有的詞（「設定」「信眾」「按」）幾乎不帶資訊，依出現的條數打折（IDF）
+  const df = new Map<string, number>();
+  items.forEach(it => it.g.forEach(x => df.set(x, (df.get(x) ?? 0) + 1)));
+  const w = (x: string) => Math.log((items.length + 1) / ((df.get(x) ?? 0) + 1));
+  items.forEach(it => {
+    let n = 0;
+    qg.forEach(x => { if (it.g.has(x)) n += w(x); if (it.tg.has(x)) n += 0.5 * w(x); });
+    // 長的條目重疊字本來就多，要除掉長度的優勢，不然短而準的那一條永遠輸給長的
+    it.n = n * 60 / (it.line.length + 60);
+  });
+  items.sort((a, b) => b.n - a.n);
+  const best = items[0];
+  if (!best || best.n < 1.2) return '';
+  // 只講到第一句：細節交給前往鈕帶去的那一頁
+  let short = best.line.split('。')[0] + '。';
+  // 還是太長（一整串步驟）就切在 70 字前最後一個「→」或「，」，其餘交給前往鈕帶去的那一頁
+  if (short.length > 70) {
+    const cut = Math.max(short.lastIndexOf('→', 70), short.lastIndexOf('，', 70));
+    if (cut > 20) short = short.slice(0, cut).trim() + '…';
+  }
+  if (best.title === '快速問答') return short.replace(/^[^：]*：/, '');
+  // 頁名取段名括號前那一截（「點燈管理（太歲點燈）」→「點燈管理」），前端靠它給前往鈕
+  const page = best.title.replace(/（.*$/, '');
+  return short.includes(page) ? short : `${page}：${short}`;
 };
