@@ -33,6 +33,9 @@ const statusClass = (s: UrgentPrayerStatus) =>
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+/** 清單頁一直看得到的欄位：做祈福時要用的。其餘（生日、地址、病房號、准考證號⋯⋯）按「更多資料」才展開 */
+const KEY_FIELDS = new Set(['醫院名稱', '學校／考場', '安奉位置', '詳細現況', '考試日期', '三等親內']);
+
 /** 一筆裡面有值的欄位才列出來——三種情況各有各的空欄位，一律印出來會是一片「—」 */
 const detailsOf = (r: UrgentPrayerRecord): [string, string][] => {
   const rows: [string, string][] = [];
@@ -62,6 +65,7 @@ const AdminUrgentTab: React.FC<{
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [onlyPending, setOnlyPending] = useState(true);
+  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -171,14 +175,23 @@ const AdminUrgentTab: React.FC<{
                   <span className="text-xs text-gray-400 ml-auto">{fmt(r.createdAt)}</span>
                 </div>
 
-                <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm mb-3">
-                  {detailsOf(r).map(([k, v]) => (
+                {/* 清單只留祈福要用的（醫院／考場、安奉位置、現況、考試日期）；生日、地址、病房號、准考證號這些
+                    個資收進「更多資料」（2026-11-18 廟方：「非必要資訊，不用出現在表單清單頁，需要再點開」） */}
+                <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm mb-1">
+                  {detailsOf(r).filter(([k]) => KEY_FIELDS.has(k) || openIds.has(r.id)).map(([k, v]) => (
                     <div key={k} className="flex gap-2">
                       <dt className="text-gray-400 shrink-0">{k}</dt>
                       <dd className="text-gray-700 break-words">{v}</dd>
                     </div>
                   ))}
                 </dl>
+                {detailsOf(r).some(([k]) => !KEY_FIELDS.has(k)) && (
+                  <button type="button" aria-expanded={openIds.has(r.id)}
+                    onClick={() => setOpenIds(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                    className="mb-3 text-xs text-gray-500 hover:text-temple-red">
+                    {openIds.has(r.id) ? '收合資料 ▴' : '更多資料 ▾'}
+                  </button>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 text-temple-red hover:underline">

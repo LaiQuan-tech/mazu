@@ -1119,7 +1119,7 @@ export const submitLampRegistration = async (data: LampRegistrationData, opts?: 
     notes: data.notes || null,
     status: LampRegistrationStatus.PENDING,
     email: data.email?.trim() || null,
-    source: getSource(),
+    source: opts?.source ?? getSource(),   // 後台代為報名標成 admin/line（見 PROXY_SOURCE）
   }, ['email'], { status: '待處理' });
   if (opts?.notify !== false) notifyRegistration('lamp_registrations', id);
   return id;

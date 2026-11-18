@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
 import { queueConfirmEmail } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
-import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, getDeityFeasts, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, updateDonationStatus, supabase } from '../services/supabase';
+import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, getDeityFeasts, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, submitLampRegistration, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
 import AdminRelocationTab from './AdminRelocationTab';
 import AdminFaqTab from './AdminFaqTab';
@@ -24,7 +24,7 @@ import AdminSiteInfoTab from './AdminSiteInfoTab';
 import { FAHUI_SERVICE_META, fahuiEntryAmount } from '../services/fahuiServices';
 import { buildFahuiSheets } from '../services/fahuiWorkbook';
 import { buildDevoteeRoster, toNameKey, toBirthKey, DevoteeOverride, DevoteeRecord, DevoteeRow, RosterSources } from '../services/devoteeRoster';
-import { readChoiceTag, parseChoiceLines, formatChoiceLines, lampSeasonStart, type LampChoices } from '../services/lampChoice';
+import { readChoiceTag, parseChoiceLines, formatChoiceLines, lampSeasonStart, choiceFor, withChoiceTag, remainingFor, type LampChoices } from '../services/lampChoice';
 import { RELATION_OPTIONS, ConsultationType, AdminRole, DeityFeast, ADMIN_ROLE_LABEL, ROLE_ALLOWED_TABS, AnalyticsSettings, SocialSettings, SOCIAL_KEYS, BlessingAddon, BlessingEventData, BlessingEventPackage, BlessingEventRecord, BlessingRegistrationRecord, BlessingStatus, BookingRecord, BookingSessionData, BookingSessionRecord, BookingStatus, BulletinCategory, BulletinData, BulletinRecord, DeityData, DeityRecord, DonationRecord, DonationStatus, FahuiRegistrationRecord, FahuiPaymentMethod, FahuiReconcilePatch, FAHUI_PAYMENT_METHODS, VolunteerRegistrationRecord, HallData, HallRecord, HeroSlideRecord, LampRegistrationRecord, LampRegistrationStatus, LampServiceConfig, LampServiceConfigData, MemberContact, MemberProfileRecord, RegistrationRecord, UrgentPrayerRecord, UrgentPrayerStatus, RepairProject, RepairProjectData, ScriptureVerseRecord, SiteImageRecord, SiteImageSection, ZodiacSign } from '../types';
 import {
   ArrowLeft, RefreshCw, Calendar, Clock, User, Phone,
@@ -904,7 +904,7 @@ const todayYmd = (): string => {
 };
 
 /**
- * 代為報名：廟方在後台直接幫信眾報名祈福活動或問事。
+ * 代為報名：廟方在後台直接幫信眾報名祈福活動、問事或太歲點燈。
  *
  * ── 為什麼需要這個 ──
  * 廟方 2026-10-30：「目前還是有大量的信眾從 LINE 官方帳號手動通知報名。」
@@ -916,7 +916,9 @@ const todayYmd = (): string => {
  * 2. **不寄「報名成功」信**（`notify: false`）：對方剛在 LINE 跟廟方講完話，
  *    再收一封信只會困惑，而且多數 LINE 來的人沒留信箱。
  *    「已收款」那封不受影響，還是廟方在後台按下去才寄。
- * 3. 涵蓋祈福活動與問事。**年度點燈刻意不做**——它不是檔期性的報名。
+ * 3. 涵蓋祈福活動、問事、**太歲點燈**。點燈原本刻意不做（「不是檔期性的報名」），
+ *    **2026-11-18 廟方改口要加**：「信眾管理可以協助報名，目前有祈福活動跟問事，也加上點燈」。
+ *    專屬神明燈一樣要選指定神明、一樣扣名額（同前台，見 services/lampChoice.ts）。
  * 4. 重複報名**只提醒不擋**：真的有人要報兩個名額。
  *
  * ── 已截止的場次照樣列出來 ──
@@ -935,7 +937,12 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   onClose: () => void;
   onDone: () => void;
 }) => {
-  const [kind, setKind] = useState<'blessing' | 'booking'>('blessing');
+  const [kind, setKind] = useState<'blessing' | 'booking' | 'lamp'>('blessing');
+  const [lampConfigs, setLampConfigs] = useState<LampServiceConfig[]>([]);
+  const [lampChoiceMap, setLampChoiceMap] = useState<LampChoices>({});
+  const [lampCounts, setLampCounts] = useState<Record<string, number> | null>(null);
+  const [lampId, setLampId] = useState('');
+  const [lampChoice, setLampChoice] = useState('');
   const [events, setEvents] = useState<BlessingEventRecord[]>([]);
   const [sessions, setSessions] = useState<BookingSessionRecord[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -952,13 +959,15 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [ev, ss, ct] = await Promise.all([
+      const [ev, ss, ct, lc, ch] = await Promise.all([
         getBlessingEvents().catch(() => [] as BlessingEventRecord[]),
         getBookingSessions(false).catch(() => [] as BookingSessionRecord[]),
         getBookingCountsBySession().catch(() => ({} as Record<string, number>)),
+        getLampServiceConfigs(true).catch(() => [] as LampServiceConfig[]),
+        getLampChoices(),
       ]);
       if (!alive) return;
-      setEvents(ev); setSessions(ss); setCounts(ct); setLoading(false);
+      setEvents(ev); setSessions(ss); setCounts(ct); setLampConfigs(lc); setLampChoiceMap(ch); setLoading(false);
     })();
     return () => { alive = false; };
   }, []);
@@ -1003,22 +1012,38 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   const evt = events.find(e => e.id === eventId);
   const pkg = evt?.packages?.find(p => p.id === packageId);
   const sess = sessions.find(s => s.id === sessionId);
-  const amount = kind === 'blessing' ? (pkg ? pkg.fee : (evt?.fee ?? 0)) : 0;
+  const lampCfg = lampConfigs.find(c => c.id === lampId);
+  const lampCh = choiceFor(lampChoiceMap, lampId);
+  // 選了有名額的燈種就抓這一季的計數（同前台；讀不到回 null＝不擋人）
+  useEffect(() => {
+    setLampCounts(null);
+    if (lampId && lampChoiceMap[lampId]?.quotas) getLampChoiceCounts(lampId, lampSeasonStart()).then(setLampCounts);
+  }, [lampId, lampChoiceMap]);
+  const amount = kind === 'blessing' ? (pkg ? pkg.fee : (evt?.fee ?? 0)) : kind === 'lamp' ? (lampCfg?.fee ?? 0) : 0;
 
   /** 重複報名偵測：同姓名＋同電話、同一場。**只提醒不擋**（廟方 2026-10-30）。 */
   const nameK = toNameKey(person.name);
   const dupes = kind === 'blessing'
     ? (sources.blessings ?? []).filter(b =>
         b.eventId === eventId && toNameKey(b.name) === nameK && (b.phone ?? '') === person.phone)
+    : kind === 'lamp'
+    // 點燈一年一期：這一季已經點過同一盞才算重複
+    ? (sources.lamps ?? []).filter(l =>
+        l.serviceId === lampId && toNameKey(l.name) === nameK && (l.phone ?? '') === person.phone
+        && l.status !== '已取消' && (l.createdAt ?? '') >= lampSeasonStart())
     : (sources.bookings ?? []).filter(b =>
         b.sessionId === sessionId && toNameKey(b.name) === nameK && (b.phone ?? '') === person.phone);
 
   const chosenClosed = kind === 'blessing'
     ? (evt ? !isOpen(evt) : false)
+    : kind === 'lamp' ? false
     : (sess ? !(sess.isActive && sess.sessionDate >= today) : false);
+  const lampLeft = lampCh && lampChoice ? remainingFor(lampCh, lampChoice, lampCounts) : null;
 
   const canSubmit = !saving && !!person.name
-    && (kind === 'blessing' ? !!eventId : (!!sessionId && !!person.birthDate));
+    && (kind === 'blessing' ? !!eventId
+      : kind === 'lamp' ? (!!lampId && !!person.birthDate && (!lampCh || !!lampChoice) && (lampLeft == null || lampLeft > 0))
+      : (!!sessionId && !!person.birthDate));
 
   const submit = async () => {
     setErr(''); setSaving(true);
@@ -1037,6 +1062,19 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           packageName: pkg?.name,
           packageFee: pkg?.fee,
         }, { notify: false, source: PROXY_SOURCE });
+      } else if (kind === 'lamp') {
+        await submitLampRegistration({
+          serviceId: lampId,
+          name: person.name,
+          phone: person.phone,
+          gender: person.gender || undefined,
+          birthDate: person.birthDate,
+          zodiac: (person.zodiac || undefined) as ZodiacSign | undefined,
+          address: person.address || undefined,
+          contactLabel: '本人',
+          // 指定神明寫進備註開頭，與前台同一個格式（後台列表與匯出才讀得到）
+          notes: (lampCh ? withChoiceTag(notes || undefined, lampCh.label, lampChoice) : notes) || undefined,
+        }, { notify: false, source: PROXY_SOURCE });
       } else {
         await submitBooking({
           name: person.name,
@@ -1053,7 +1091,9 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           notes: notes || undefined,
         }, { notify: false, source: PROXY_SOURCE });
       }
-      setDone(kind === 'blessing' ? `已幫 ${person.name} 報名「${evt?.title}」` : `已幫 ${person.name} 預約 ${sess?.sessionDate} 的問事`);
+      setDone(kind === 'blessing' ? `已幫 ${person.name} 報名「${evt?.title}」`
+        : kind === 'lamp' ? `已幫 ${person.name} 登記「${lampCfg?.name}${lampChoice ? `・${lampChoice}` : ''}」`
+        : `已幫 ${person.name} 預約 ${sess?.sessionDate} 的問事`);
       onDone();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '送出失敗，請再試一次');
@@ -1094,7 +1134,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
 
             {/* 服務 */}
             <div className="flex gap-2">
-              {([['blessing', '祈福活動'], ['booking', '問事']] as const).map(([k, label]) => (
+              {([['blessing', '祈福活動'], ['booking', '問事'], ['lamp', '太歲點燈']] as const).map(([k, label]) => (
                 <button key={k} onClick={() => { setKind(k); setErr(''); }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border ${kind === k
                     ? 'bg-temple-red text-white border-temple-red'
@@ -1103,9 +1143,37 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-gray-400 -mt-2">年度點燈不在這裡——它不是檔期性的報名，請走點燈管理。</p>
 
-            {loading ? <p className="text-sm text-gray-400 py-6 text-center">載入場次…</p> : kind === 'blessing' ? (
+            {loading ? <p className="text-sm text-gray-400 py-6 text-center">載入場次…</p> : kind === 'lamp' ? (
+              <>
+                <label className="block">
+                  <span className="block text-xs font-medium text-gray-600 mb-1">燈種 *</span>
+                  <select value={lampId} onChange={e => { setLampId(e.target.value); setLampChoice(''); }} className={field}>
+                    <option value="">請選擇</option>
+                    {lampConfigs.map(c => <option key={c.id} value={c.id}>{c.name}　NT$ {c.fee.toLocaleString()} / 年</option>)}
+                  </select>
+                </label>
+                {lampCh && (
+                  <label className="block">
+                    <span className="block text-xs font-medium text-gray-600 mb-1">{lampCh.label} *</span>
+                    <select value={lampChoice} onChange={e => setLampChoice(e.target.value)} className={field}>
+                      <option value="">請選擇{lampCh.label}</option>
+                      {lampCh.options.map(o => {
+                        const left = remainingFor(lampCh, o, lampCounts);
+                        return <option key={o} value={o} disabled={left != null && left <= 0}>
+                          {o}{left == null ? '' : left <= 0 ? '（已額滿）' : `（剩 ${left} 盞）`}
+                        </option>;
+                      })}
+                    </select>
+                  </label>
+                )}
+                {!person.birthDate && (
+                  <p className="text-xs text-temple-red">
+                    點燈必須有生日，但名冊上這個人沒有。請先從他既有的報名紀錄補上，或改用前台表單。
+                  </p>
+                )}
+              </>
+            ) : kind === 'blessing' ? (
               <>
                 <label className="block">
                   <span className="block text-xs font-medium text-gray-600 mb-1">活動場次 *</span>
@@ -1590,7 +1658,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       ) : (
                         <>
                           {/* 日常最常按的放最前面；校正（檢視／合併／拆分）是偶爾才做的事 */}
-                          <button onClick={() => setProxyRow(r)} disabled={busy} title="直接幫這個人報名祈福活動或問事"
+                          <button onClick={() => setProxyRow(r)} disabled={busy} title="直接幫這個人報名祈福活動、問事或太歲點燈"
                             className="text-xs px-2 py-1 rounded-lg border border-temple-red/40 text-temple-red hover:bg-temple-red/5 disabled:opacity-40">
                             代為報名
                           </button>
@@ -2348,6 +2416,12 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
     }), ['姓名', '電話', '通訊地址', '用餐習慣', '生日(國曆)', '生日(農曆)', '生肖', 'LINE', '可出勤時段', '其他時段說明', '狀態', '報名時間', '報名來源']);
   };
 
+  /**
+   * 清單頁只留聯絡與排班要用的：姓名、電話、LINE、出勤、狀態（2026-11-18 廟方：「志工報名表單太多資訊了，
+   * 像地址都可以隱藏⋯⋯非必要資訊，不用出現在表單清單頁，需要再點開」）。
+   * 地址、生日、飲食、其他說明、報名時間與來源收進「更多資料」，就地展開（同問事的「生日・地址」）。
+   */
+  const volInfo = useOpenRows();
   return (
     <div>
       <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
@@ -2398,21 +2472,24 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
                   <span className="text-sm text-gray-400">{r.phone}</span>
                   {r.lineId && <span className="text-xs bg-[#06C755]/10 text-[#06C755] px-2 py-0.5 rounded-full">LINE: {r.lineId}</span>}
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5">{r.address}</p>
-                {r.diet && (
-                  <span className="inline-block text-xs bg-[#C49820]/10 text-[#7C5C1E] px-2 py-0.5 rounded-full mt-1">{r.diet}</span>
-                )}
-                {(r.birthDate || r.zodiac) && (
-                  <p className="text-xs text-gray-400 mt-0.5">{r.birthDate}{r.zodiac ? `（${r.zodiac}）` : ''}</p>
-                )}
                 {fmtAvailability(r.availability) && (
                   <p className="text-xs text-[#7C5C1E] mt-0.5">出勤：{fmtAvailability(r.availability)}</p>
                 )}
-                {r.availabilityNote && (
-                  <p className="text-xs text-gray-400 mt-0.5">其他：{r.availabilityNote}</p>
+                <button type="button" aria-expanded={volInfo.isOpen(r.id)}
+                  onClick={e => { e.stopPropagation(); volInfo.toggle(r.id); }}
+                  className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                  {volInfo.isOpen(r.id) ? '收合資料' : '更多資料'}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${volInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+                {volInfo.isOpen(r.id) && (
+                  <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                    {r.address && <p>{r.address}</p>}
+                    {(r.birthDate || r.zodiac) && <p>{r.birthDate}{r.zodiac ? `（${r.zodiac}）` : ''}</p>}
+                    {r.diet && <p>飲食：{r.diet}</p>}
+                    {r.availabilityNote && <p>其他：{r.availabilityNote}</p>}
+                    <p className="text-gray-400">報名 {fmtDate(r.createdAt)}{r.source ? `・${r.source}` : ''}</p>
+                  </div>
                 )}
-                <p className="text-[11px] text-gray-300 mt-0.5">{fmtDate(r.createdAt)}</p>
-                {r.source && <p className="text-[11px] text-gray-300 font-mono">{r.source}</p>}
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${
                 r.status === 'contacted' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -5999,6 +6076,8 @@ const LampsTab = ({
   const [selectedConfig, setSelectedConfig] = useState<LampServiceConfig | null>(null);
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
+  /** 生日、地址是個資：按「生日・地址」才就地展開（2026-11-18，同問事、捐獻、祈福） */
+  const lampInfo = useOpenRows();
   // ── Service config state ──
   const [editingConfig, setEditingConfig] = useState<LampServiceConfig | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -6376,11 +6455,21 @@ const LampsTab = ({
                   <p className="text-sm text-gray-500 mt-1">
                     <Phone className="w-3 h-3 inline mr-1" />{r.phone}
                   </p>
+                  {(r.birthDate || r.address || r.gender) && (
+                    <button type="button" aria-expanded={lampInfo.isOpen(r.id)}
+                  onClick={e => { e.stopPropagation(); lampInfo.toggle(r.id); }}
+                  className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                  {lampInfo.isOpen(r.id) ? '收合資料' : '生日・地址'}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${lampInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+                  )}
                   {/* 性別、生日、生肖收成一行、不帶欄名：「女・民國72年6月20日・豬」一看就懂 */}
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {[r.gender, r.birthDate, r.zodiac].filter(Boolean).join('・')}
-                  </p>
-                  {r.address && <p className="text-xs text-gray-400 mt-0.5">{r.address}</p>}
+                  {lampInfo.isOpen(r.id) && (
+                    <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                      <p>{[r.gender, r.birthDate, r.zodiac].filter(Boolean).join('・')}</p>
+                      {r.address && <p>{r.address}</p>}
+                    </div>
+                  )}
                   {(() => {
                     // 選項已經併進上面的燈種標籤，備註只印剩下的，同一件事不講兩次
                     const t = readChoiceTag(r.notes);
