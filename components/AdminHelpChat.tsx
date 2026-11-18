@@ -112,6 +112,24 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
                 )}
               </div>
             ))}
+            {/* 回答完照樣給常見問題（2026-11-18 廟方：「回答完，還是要顯示預設問題」）；問過的不再列 */}
+            {!busy && msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant' && (() => {
+              const asked = new Set(msgs.filter(m => m.role === 'user').map(m => m.content));
+              // 六題都問過了就整組再列一次，不要讓這一區突然消失
+              const left = STARTERS.filter(q => !asked.has(q));
+              const rest = left.length > 0 ? left : STARTERS;
+              return (
+                <div className="pt-1 space-y-1.5">
+                  <p className="text-xs text-gray-400">還想問：</p>
+                  {rest.map(q => (
+                    <button key={q} type="button" onClick={() => ask(q)}
+                      className="block w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 hover:border-temple-red hover:text-temple-red">
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             {busy && <p className="text-gray-400 text-xs">小幫手正在想…</p>}
             <div ref={endRef} />
           </div>
