@@ -98,6 +98,39 @@ const PaymentActions = <T extends string>({ status, pending, confirmed, cancelle
   );
 };
 
+/**
+ * 問事的狀態按鈕（2026-11-18 廟方：「操作按鈕，最好不要用選單，因為選單要點選二次以上」）。
+ * 原本是四選一的下拉；廟方實際只做兩件事：待處理 → 確認、確認 → 完成。主按鈕永遠是「下一步」，
+ * 取消是小圖示跟主按鈕拉開（同 PaymentActions），已完成／已取消給一顆灰的退回鈕，按錯救得回來。
+ */
+const BookingActions = ({ status, busy, onChange }: {
+  status?: BookingStatus | string; busy: boolean; onChange: (next: BookingStatus) => void;
+}) => {
+  const s = status || BookingStatus.PENDING;
+  const grey = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50';
+  if (s === BookingStatus.CANCELLED) return (
+    <button onClick={() => onChange(BookingStatus.PENDING)} disabled={busy} className={grey}>還原為待處理</button>
+  );
+  if (s === BookingStatus.COMPLETED) return (
+    <button onClick={() => onChange(BookingStatus.CONFIRMED)} disabled={busy} className={grey}>改回已確認</button>
+  );
+  const isConfirmed = s === BookingStatus.CONFIRMED;
+  return (
+    <div className="flex items-center gap-1">
+      <button onClick={() => onChange(isConfirmed ? BookingStatus.COMPLETED : BookingStatus.CONFIRMED)} disabled={busy}
+        className={`px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50 whitespace-nowrap ${
+          isConfirmed ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+        {isConfirmed ? '標記已完成' : '確認預約'}
+      </button>
+      <button onClick={() => onChange(BookingStatus.CANCELLED)} disabled={busy}
+        title="標記取消" aria-label="標記取消"
+        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50">
+        <XCircle className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
 const statusBadge = (status?: BookingStatus | LampRegistrationStatus | BlessingStatus | string) => {
   const map: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
     // 收款那一組（點燈／祈福／法會）。顏色與 fahuiStatusBadge 一致：黃＝還沒收、綠＝收到了
@@ -2264,14 +2297,10 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-800">{r.name}</span>
-                      <span className="text-sm text-gray-400">{r.phone}</span>
-                      {r.lineId && <span className="text-xs bg-[#06C755]/10 text-[#06C755] px-2 py-0.5 rounded-full">LINE: {r.lineId}</span>}
+                      {/* 電話、LINE、信箱、報名時間 2026-11-18 收進展開區；後五碼留著——對帳收款就是看它 */}
+                      <span className="text-xs text-gray-400">{countEntries(r)} 個項目</span>
                       {r.accountLast5 && <span className="text-xs bg-[#C49820]/10 text-[#7C5C1E] px-2 py-0.5 rounded-full">後五碼: {r.accountLast5}</span>}
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {countEntries(r)} 個項目・{fmtDate(r.createdAt)}
-                      {r.email && <span className="ml-2 text-gray-400">{r.email}</span>}
-                    </p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-temple-red">${r.totalAmount.toLocaleString()}</p>
@@ -2295,6 +2324,11 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
                   <div className="border-t border-gray-100 bg-gray-50/60 px-5 py-4 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs text-gray-500">
+                        {r.phone}
+                        {r.lineId && <span className="ml-2 text-[#06C755]">LINE: {r.lineId}</span>}
+                        {r.email && <span className="ml-2">{r.email}</span>}
+                        <span className="ml-2 text-gray-400">報名 {fmtDate(r.createdAt)}</span>
+                        <br />
                         聯絡地址：{r.address}
                         {r.contactGender && <span className="ml-2 text-gray-400">性別：{r.contactGender}</span>}
                         {r.source && <span className="ml-2 text-gray-400">來源：<span className="font-mono">{r.source}</span></span>}
@@ -3544,7 +3578,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             <table className="admin-table min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '預約時間 / 項目', '備註／神明的話', '狀態', '操作'].map(h => (
+                  {['信眾資訊', '問事項目', '備註／神明的話', '狀態', '操作'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -3563,16 +3597,17 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                             <p className="text-sm font-semibold text-gray-900">{b.name}</p>
                             {b.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{b.contactLabel}</span>}
                           </div>
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{b.phone}</p>
                           <button type="button" aria-expanded={openInfo.has(b.id)}
                             onClick={e => { e.stopPropagation(); toggleIn(setOpenInfo, b.id); }}
                             className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                            {openInfo.has(b.id) ? '收合資料' : '生日・地址'}
+                            {openInfo.has(b.id) ? '收合資料' : '個人資料'}
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openInfo.has(b.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
                           </button>
                           {openInfo.has(b.id) && (
                             <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                              {b.phone && <p className="flex items-center gap-1"><Phone className="w-3 h-3" />{b.phone}</p>}
                               {b.gender && <p>性別：{b.gender}</p>}
+                              <p className="text-gray-400">登記 {fmtDate(b.createdAt)}</p>
                               <p>生日：{b.birthDate || '—'}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
                               {b.address && <p>地址：{b.address}</p>}
                             </div>
@@ -3580,13 +3615,13 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                         </div>
                       </div>
                     </td>
-                    <td data-label="預約時間 / 項目" className="px-5 py-4">
-                      <p className="text-sm text-gray-800 flex items-center gap-1.5 mb-1"><Calendar className="w-3.5 h-3.5 text-gray-400" />{b.bookingDate}</p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1.5 mb-2"><Clock className="w-3.5 h-3.5 text-gray-400" />
-                        {b.bookingTime === 'evening' ? '晚上 (19:00-21:00)' : b.bookingTime}
-                      </p>
+                    {/* 名單一定屬於某一場，日期時段整份都一樣，摘要卡已經寫了；只有「未指定場次」那份每列不同才印 */}
+                    <td data-label="問事項目" className="px-5 py-4">
+                      {filterSession === NO_SESSION && (
+                        <p className="text-xs text-gray-500 flex items-center gap-1.5 mb-1.5"><Calendar className="w-3.5 h-3.5 text-gray-400" />{b.bookingDate}
+                          　{b.bookingTime === 'evening' ? '晚上 (19:00-21:00)' : b.bookingTime}</p>
+                      )}
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">{b.type}</span>
-                      <p className="text-[11px] text-gray-400 mt-1.5">登記 {fmtDate(b.createdAt)}</p>
                     </td>
                     {/* 備註與神明的話收成兩個圖示（2026-11-11 廟方：「可以做成 icon，有內容時會變色顯示即可，
                         應該大部分時都沒有」）。有內容＝上色、點了就地展開；沒內容＝淡灰。
@@ -3634,12 +3669,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     </td>
                     <td data-label="狀態" className="px-5 py-4">{statusBadge(b.status)}</td>
                     <td data-label="操作" className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                      <select value={b.status || BookingStatus.PENDING}
-                        onChange={e => onStatusChange(b.id, e.target.value as BookingStatus)}
-                        disabled={updatingId === b.id}
-                        className="block w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red disabled:opacity-50">
-                        {Object.values(BookingStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                      <BookingActions status={b.status} busy={updatingId === b.id} onChange={next => onStatusChange(b.id, next)} />
                     </td>
                   </tr>
                 ))}
@@ -3692,8 +3722,15 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
 
 const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: DonationRecord[]; memberProfiles: MemberProfileRecord[]; onRefresh: () => void }) => {
   const donationRows = useOpenRows();
-  /** 生日、地址是個資：按「生日・地址」才就地展開（同問事管理） */
+  /** 電話、性別、生日、地址：按「個人資料」才就地展開（同問事管理；電話 2026-11-18 收進來） */
   const donationInfo = useOpenRows();
+  const [donBusyId, setDonBusyId] = useState<string | null>(null);
+  const handleDonationStatus = async (id: string, next: DonationStatus) => {
+    setDonBusyId(id);
+    try { await updateDonationStatus(id, next); onRefresh(); }
+    catch { alert('更新收款狀態失敗，請再試一次'); }
+    finally { setDonBusyId(null); }
+  };
   /**
    * 年度捐獻明細：把某一年的捐獻整理成一則寄給每一位捐款人。
    * **先預覽再寄**是刻意的——這是一次寄給幾十個人的動作，按下去才發現年份選錯
@@ -3891,7 +3928,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                   {/* 一整欄都空的不畫：一般捐獻幾乎沒有「指定項目」，備註也多半沒寫（2026-11-17） */}
                   {/* 「類型」欄拿掉：整份名單都是同一類 */}
                   {['信眾資訊', '捐款金額',
-                    ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間'].map(h => (
+                    ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間', '收款'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -3909,19 +3946,19 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                             <p className="text-sm font-semibold text-gray-900">{d.name}</p>
                             {d.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{d.contactLabel}</span>}
                           </div>
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{d.phone}</p>
-                          {d.gender && <span className="text-xs text-gray-400">{d.gender}</span>}
-                          {(d.birthDate || d.address) && (
+                          {(d.phone || d.gender || d.birthDate || d.address) && (
                             <button type="button" aria-expanded={donationInfo.isOpen(d.id)}
                               onClick={e => { e.stopPropagation(); donationInfo.toggle(d.id); }}
                               className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                              {donationInfo.isOpen(d.id) ? '收合資料' : '生日・地址'}
+                              {donationInfo.isOpen(d.id) ? '收合資料' : '個人資料'}
                               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${donationInfo.isOpen(d.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
                             </button>
                           )}
                           {/* 生日、地址是隱私，預設收起（2026-11-18）；一看就知道是什麼，不加「生日：」前綴（2026-11-17） */}
                           {donationInfo.isOpen(d.id) && (
                             <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                              {d.phone && <p className="flex items-center gap-1"><Phone className="w-3 h-3" />{d.phone}</p>}
+                              {d.gender && <p>{d.gender}</p>}
                               {d.birthDate && <p>{d.birthDate}</p>}
                               {d.address && <p>{d.address}</p>}
                             </div>
@@ -3950,6 +3987,20 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     </td>}
                     <td data-label="時間" className="px-5 py-4">
                       <p className="text-xs text-gray-500">{fmtDate(d.createdAt)}</p>
+                    </td>
+                    {/* 收款按鈕直接放在名單上（2026-11-18）：原本只有應收管理改得了，捐獻管理的紅點寫「N 待匯款」卻沒有地方按 */}
+                    <td data-label="收款" className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-col items-start gap-1.5">
+                        {statusBadge(d.status || DonationStatus.PENDING)}
+                        <PaymentActions
+                          status={(d.status || DonationStatus.PENDING) as DonationStatus}
+                          pending={DonationStatus.PENDING}
+                          confirmed={DonationStatus.CONFIRMED}
+                          cancelled={DonationStatus.CANCELLED}
+                          busy={donBusyId === d.id}
+                          onChange={next => handleDonationStatus(d.id, next)}
+                        />
+                      </div>
                     </td>
                     <RowMoreCell open={donationRows.isOpen(d.id)} onToggle={() => donationRows.toggle(d.id)} hint="指定項目、備註" />
                   </tr>
@@ -6078,7 +6129,7 @@ const LampsTab = ({
   const [selectedConfig, setSelectedConfig] = useState<LampServiceConfig | null>(null);
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
-  /** 生日、地址是個資：按「生日・地址」才就地展開（2026-11-18，同問事、捐獻、祈福） */
+  /** 電話、生日、地址、備註、登記時間：按「個人資料」才就地展開（2026-11-18，同問事、捐獻、祈福） */
   const lampInfo = useOpenRows();
   // ── Service config state ──
   const [editingConfig, setEditingConfig] = useState<LampServiceConfig | null>(null);
@@ -6454,31 +6505,29 @@ const LampsTab = ({
                     )}
                     {statusBadge(r.status)}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    <Phone className="w-3 h-3 inline mr-1" />{r.phone}
-                  </p>
-                  {(r.birthDate || r.address || r.gender) && (
+                  {(r.phone || r.birthDate || r.address || r.gender || r.notes) && (
                     <button type="button" aria-expanded={lampInfo.isOpen(r.id)}
                   onClick={e => { e.stopPropagation(); lampInfo.toggle(r.id); }}
                   className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                  {lampInfo.isOpen(r.id) ? '收合資料' : '生日・地址'}
+                  {lampInfo.isOpen(r.id) ? '收合資料' : '個人資料'}
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${lampInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
                 </button>
                   )}
                   {/* 性別、生日、生肖收成一行、不帶欄名：「女・民國72年6月20日・豬」一看就懂 */}
                   {lampInfo.isOpen(r.id) && (
                     <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                      {r.phone && <p className="flex items-center gap-1"><Phone className="w-3 h-3" />{r.phone}</p>}
                       <p>{[r.gender, r.birthDate, r.zodiac].filter(Boolean).join('・')}</p>
                       {r.address && <p>{r.address}</p>}
+                      {(() => {
+                        // 選項已經併進上面的燈種標籤，備註只印剩下的，同一件事不講兩次
+                        const t = readChoiceTag(r.notes);
+                        const rest = t ? t.rest.trim() : r.notes;
+                        return rest ? <p>備註：{rest}</p> : null;
+                      })()}
+                      <p className="text-gray-400">登記 {fmtDate(r.createdAt)}</p>
                     </div>
                   )}
-                  {(() => {
-                    // 選項已經併進上面的燈種標籤，備註只印剩下的，同一件事不講兩次
-                    const t = readChoiceTag(r.notes);
-                    const rest = t ? t.rest.trim() : r.notes;
-                    return rest ? <p className="text-xs text-gray-400 mt-0.5">備註：{rest}</p> : null;
-                  })()}
-                  <p className="text-xs text-gray-300 mt-1">{fmtDate(r.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                   <PaymentActions
@@ -6987,7 +7036,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                 <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
-                    <th className="px-4 py-3 text-left">電話</th>
+                    {/* 電話 2026-11-18 收進姓名格的「個人資料」 */}
                     {/* 沒設方案的活動整欄都是空的，加購、備註也常整欄空——空欄不畫（2026-11-17）。
                         生日／生肖與地址不再是欄位，改由姓名格就地展開（2026-11-18 隱私） */}
                     {regCols.pkg && <th className="px-4 py-3 text-left">方案</th>}
@@ -7006,23 +7055,23 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                     >
                       <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
-                        {r.gender && <span className="text-xs text-gray-400">{r.gender}</span>}
-                        {(r.birthDate || r.zodiac || r.address) && <div>
+                        {(r.phone || r.gender || r.birthDate || r.zodiac || r.address) && <div>
                           <button type="button" aria-expanded={blessingRegInfo.isOpen(r.id)}
                             onClick={e => { e.stopPropagation(); blessingRegInfo.toggle(r.id); }}
                             className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                            {blessingRegInfo.isOpen(r.id) ? '收合資料' : '生日・地址'}
+                            {blessingRegInfo.isOpen(r.id) ? '收合資料' : '個人資料'}
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${blessingRegInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
                           </button>
                         </div>}
                         {blessingRegInfo.isOpen(r.id) && (
                           <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                            {r.phone && <p>{r.phone}</p>}
+                            {r.gender && <p>{r.gender}</p>}
                             {(r.birthDate || r.zodiac) && <p>{r.birthDate}{r.zodiac ? `　${r.zodiac}年` : ''}</p>}
                             {r.address && <p>{r.address}</p>}
                           </div>
                         )}
                       </td>
-                      <td data-label="電話" className="px-4 py-3 text-sm text-gray-600">{r.phone}</td>
                       {regCols.pkg && <td data-label="方案" className="px-4 py-3 text-sm text-gray-500">
                         {r.packageName
                           ? <span className="inline-flex flex-col gap-0.5">

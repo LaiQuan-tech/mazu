@@ -185,7 +185,8 @@ const AdminUrgentTab: React.FC<{
                     </div>
                   ))}
                 </dl>
-                {detailsOf(r).some(([k]) => !KEY_FIELDS.has(k)) && (
+                {/* 電話與通知狀態 2026-11-18 也收進來，所以這顆鈕每一筆都有 */}
+                {(
                   <button type="button" aria-expanded={openIds.has(r.id)}
                     onClick={() => setOpenIds(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
                     className="mb-3 text-xs text-gray-500 hover:text-temple-red">
@@ -193,7 +194,7 @@ const AdminUrgentTab: React.FC<{
                   </button>
                 )}
 
-                <div className="flex flex-wrap items-center gap-3 text-sm">
+                {openIds.has(r.id) && <div className="flex flex-wrap items-center gap-3 text-sm mb-1">
                   <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 text-temple-red hover:underline">
                     <Phone className="w-4 h-4" aria-hidden="true" />{r.phone}
                   </a>
@@ -208,7 +209,7 @@ const AdminUrgentTab: React.FC<{
                         ? `標記已祈福後會寄到 ${r.email}`
                         : '未留信箱，不會寄通知'}
                   </span>
-                </div>
+                </div>}
 
                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-100">
                   {r.status === UrgentPrayerStatus.PENDING ? (
