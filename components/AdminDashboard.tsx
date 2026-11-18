@@ -3379,6 +3379,11 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   };
 
   const types = [...new Set(bookings.map(b => b.type))];
+  /** 這一場的預約（不吃其他篩選）：篩選鈕上的數字從這裡數，按下去才知道有幾筆 */
+  const inSession = bookings.filter(b => filterSession === NO_SESSION ? !b.sessionId : b.sessionId === filterSession);
+  const sessionTypes = [...new Set(inSession.map(b => b.type))];
+  const chip = (on: boolean) => `px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+    on ? 'bg-temple-red text-white border-temple-red' : 'bg-white text-gray-600 border-gray-300 hover:border-temple-red hover:text-temple-red'}`;
 
   return (
     <div>
@@ -3550,21 +3555,27 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             placeholder="搜尋姓名或電話..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-          <option value="">全部狀態</option>
-          {Object.values(BookingStatus).map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-          <option value="">全部項目</option>
-          {types.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-          <option value="time">依時間排序</option>
-          <option value="name">依姓名排序</option>
-        </select>
+        {/* 篩選與排序改成一排按鈕（2026-11-18 廟方：「操作最好不要用下拉選單」）：下拉要點兩次、而且看不到每一類有幾筆 */}
+        <button type="button" onClick={() => setSortBy(sortBy === 'time' ? 'name' : 'time')}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:border-temple-red hover:text-temple-red whitespace-nowrap">
+          {sortBy === 'time' ? '依時間排序' : '依姓名排序'} ⇅
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-5 -mt-2">
+        <button type="button" onClick={() => setFilterStatus('')} className={chip(!filterStatus)}>全部 {inSession.length}</button>
+        {Object.values(BookingStatus).map(st => {
+          const n = inSession.filter(b => (b.status || BookingStatus.PENDING) === st).length;
+          return n > 0 || filterStatus === st
+            ? <button key={st} type="button" onClick={() => setFilterStatus(filterStatus === st ? '' : st)} className={chip(filterStatus === st)}>{st} {n}</button>
+            : null;
+        })}
+        {/* 項目只有一種時這排不出現：篩了也是同一份 */}
+        {sessionTypes.length > 1 && <span className="w-px bg-gray-200 mx-1" aria-hidden="true" />}
+        {sessionTypes.length > 1 && sessionTypes.map(t => (
+          <button key={t} type="button" onClick={() => setFilterType(filterType === t ? '' : t)} className={chip(filterType === t)}>
+            {t} {inSession.filter(b => b.type === t).length}
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -3578,7 +3589,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             <table className="admin-table min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['信眾資訊', '問事項目', '備註／神明的話', '狀態', '操作'].map(h => (
+                  {['信眾資訊', '問事項目', '備註／神明的話', '狀態'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -3595,7 +3606,6 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold text-gray-900">{b.name}</p>
-                            {b.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{b.contactLabel}</span>}
                           </div>
                           <button type="button" aria-expanded={openInfo.has(b.id)}
                             onClick={e => { e.stopPropagation(); toggleIn(setOpenInfo, b.id); }}
@@ -3606,6 +3616,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                           {openInfo.has(b.id) && (
                             <div className="mt-1 text-xs text-gray-500 space-y-0.5">
                               {b.phone && <p className="flex items-center gap-1"><Phone className="w-3 h-3" />{b.phone}</p>}
+                              {b.contactLabel && <p>稱謂：{b.contactLabel}</p>}
                               {b.gender && <p>性別：{b.gender}</p>}
                               <p className="text-gray-400">登記 {fmtDate(b.createdAt)}</p>
                               <p>生日：{b.birthDate || '—'}{b.zodiac ? `　生肖：${b.zodiac}` : ''}</p>
@@ -3667,9 +3678,12 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                         </div>
                       )}
                     </td>
-                    <td data-label="狀態" className="px-5 py-4">{statusBadge(b.status)}</td>
-                    <td data-label="操作" className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                      <BookingActions status={b.status} busy={updatingId === b.id} onChange={next => onStatusChange(b.id, next)} />
+                    {/* 狀態與按鈕同一格（同捐獻、祈福）：看到狀態的同時就按得到下一步 */}
+                    <td data-label="狀態" className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-col items-start gap-1.5">
+                        {statusBadge(b.status)}
+                        <BookingActions status={b.status} busy={updatingId === b.id} onChange={next => onStatusChange(b.id, next)} />
+                      </div>
                     </td>
                   </tr>
                 ))}
