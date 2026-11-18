@@ -4899,6 +4899,15 @@ const SocialTab = () => {
 
 // ─── Bulletins Tab (公佈欄管理) ────────────────────────────────────────────────
 
+/**
+ * 公告的「分類」由「連結服務」推出來，不再另外選（2026-11-18 廟方：「分類跟連結服務只保留一個就好，不然都是重複資料干擾」）。
+ * 兩者本來就一一對應（線上兩則：點燈公告↔點燈、捐獻公告↔遷址）。分類欄照樣存，因為前台 /bulletins 的分類篩選靠它。
+ */
+const categoryOfService = (svc: BulletinData['linkedService']): BulletinCategory => ({
+  lamp: BulletinCategory.LAMP, blessing: BulletinCategory.BLESSING, booking: BulletinCategory.BOOKING,
+  donation: BulletinCategory.DONATION, relocation: BulletinCategory.DONATION,
+} as Record<string, BulletinCategory>)[svc ?? ''] ?? BulletinCategory.GENERAL;
+
 const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; onRefresh: () => void }) => {
   const [broadcastingId, setBroadcastingId] = useState<string | null>(null);
   const bulletinRows = useOpenRows();
@@ -4963,9 +4972,9 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
     setSaving(true);
     try {
       if (editingId) {
-        await updateBulletin(editingId, form);
+        await updateBulletin(editingId, { ...form, category: categoryOfService(form.linkedService) });
       } else {
-        await createBulletin(form);
+        await createBulletin({ ...form, category: categoryOfService(form.linkedService) });
       }
       setShowModal(false);
       onRefresh();
@@ -5079,16 +5088,15 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
             <tr>
               <th className="px-5 py-3 text-left">標題</th>
-              <th className="px-5 py-3 text-left">分類</th>
+              <th className="px-5 py-3 text-left">類別</th>
               <th className="px-5 py-3 text-left">發布狀態</th>
               <th className="px-5 py-3 text-center">置頂</th>
-              <th className="px-5 py-3 text-center">連結服務</th>
               <th className="px-5 py-3 text-center">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">尚無公告</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">尚無公告</td></tr>
             ) : paged.map(b => (
               <tr key={b.id} className={`hover:bg-gray-50/50 transition-colors${bulletinRows.isOpen(b.id) ? ' admin-open' : ''}`}>
                 <td data-label="標題" className="px-5 py-4 font-medium text-gray-800">
@@ -5101,8 +5109,11 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     <span>{b.title}</span>
                   </div>
                 </td>
-                <td data-label="分類" data-more className="px-5 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>{b.category}</span>
+                {/* 分類與連結服務原本兩欄講同一件事，併成一欄（2026-11-18） */}
+                <td data-label="類別" data-more className="px-5 py-4">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${categoryColor(categoryOfService(b.linkedService))}`}>
+                    {b.linkedService ? (serviceLabel[b.linkedService] ?? b.linkedService) : '一般公告'}
+                  </span>
                 </td>
                 <td data-label="發布狀態" className="px-5 py-4 text-gray-500">
                   {publishStatus(b) ?? <span className="text-xs text-green-600">已發布</span>}
@@ -5113,15 +5124,6 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     className={`p-1.5 rounded-lg transition-colors ${b.isPinned ? 'text-temple-gold hover:bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}>
                     {b.isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
                   </button>
-                </td>
-                <td data-label="連結服務" data-more className="px-5 py-4 text-center">
-                  {b.linkedService ? (
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${categoryColor(b.category)}`}>
-                      {serviceLabel[b.linkedService] ?? b.linkedService}
-                    </span>
-                  ) : (
-                    <Dash />
-                  )}
                 </td>
                 <td data-label="操作" className="px-5 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -5145,7 +5147,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                     </button>
                   </div>
                 </td>
-                <RowMoreCell open={bulletinRows.isOpen(b.id)} onToggle={() => bulletinRows.toggle(b.id)} hint="分類、置頂、連結服務" />
+                <RowMoreCell open={bulletinRows.isOpen(b.id)} onToggle={() => bulletinRows.toggle(b.id)} hint="類別、置頂" />
               </tr>
             ))}
           </tbody>
@@ -5168,11 +5170,17 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red" placeholder="公告標題" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">分類</label>
-                <select value={form.category} onChange={e => setForm({...form, category: e.target.value as BulletinCategory})}
+                <label className="block text-sm font-medium text-gray-700 mb-1">類別</label>
+                <select value={form.linkedService ?? ''} onChange={e => setForm({...form, linkedService: (e.target.value || null) as BulletinData['linkedService']})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red">
-                  {Object.values(BulletinCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">一般公告（不加按鈕）</option>
+                  <option value="lamp">點燈</option>
+                  <option value="blessing">祈福</option>
+                  <option value="booking">問事</option>
+                  <option value="donation">捐獻</option>
+                  <option value="relocation">遷址募資</option>
                 </select>
+                <p className="text-xs text-gray-400 mt-1">選了服務，信眾展開公告時會有一顆按鈕直接前往該服務；前台公佈欄的分類也跟著它</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">內容</label>
@@ -5210,21 +5218,6 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                   </label>
                 )}
                 <p className="text-xs text-gray-400 mt-1">照片會顯示在「最新活動」的公告卡片上</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  連結服務 <span className="text-gray-400 font-normal">（選填）</span>
-                </label>
-                <select value={form.linkedService ?? ''} onChange={e => setForm({...form, linkedService: (e.target.value || null) as BulletinData['linkedService']})}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red">
-                  <option value="">無連結</option>
-                  <option value="lamp">點燈</option>
-                  <option value="blessing">祈福</option>
-                  <option value="booking">問事</option>
-                  <option value="donation">捐獻</option>
-                  <option value="relocation">遷址募資</option>
-                </select>
-                <p className="text-xs text-gray-400 mt-1">設定後，信眾展開公告時可直接點擊按鈕前往該服務登記表單</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
