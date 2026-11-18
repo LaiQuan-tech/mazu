@@ -1715,8 +1715,9 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                         <>
                           {/* 日常最常按的放最前面；校正（檢視／合併／拆分）是偶爾才做的事 */}
                           <button onClick={() => setProxyRow(r)} disabled={busy} title="直接幫這個人報名祈福活動、問事或太歲點燈"
-                            className="text-xs px-2 py-1 rounded-lg border border-temple-red/40 text-temple-red hover:bg-temple-red/5 disabled:opacity-40">
-                            代為報名
+                            className="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-lg bg-temple-red text-white shadow-sm hover:bg-[#5C4310] disabled:opacity-40">
+                            {/* 實心深底（2026-11-18 廟方：「代為報名，這是重要的按鈕，請凸顯」）；旁邊的檢視／合併維持細框小字 */}
+                            <UserPlus className="w-4 h-4" aria-hidden="true" />代為報名
                           </button>
                           {/* 一律提供「檢視」：不看原始紀錄無從判斷該拆還是該併 */}
                           <button onClick={() => { setInspect(r); setForceSplit(false); }} disabled={busy} title="查看這個人的每一筆原始紀錄"
