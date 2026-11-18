@@ -3225,7 +3225,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       const matchSearch = !q || b.name.toLowerCase().includes(q) || b.phone.includes(q);
       const matchStatus = !filterStatus || b.status === filterStatus;
       const matchType = !filterType || b.type === filterType;
-      const matchSession = !filterSession || (b as any).sessionId === filterSession;
+      const matchSession = filterSession === '__none__' ? !b.sessionId : b.sessionId === filterSession;
       return matchSearch && matchStatus && matchType && matchSession;
     });
     if (sortBy === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
@@ -3235,8 +3235,30 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
   useEffect(() => { setPage(0); }, [search, filterStatus, filterType, filterSession, sortBy]);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  /** 「未指定場次」那一列的鍵：場次功能上線前的預約沒有 session_id */
+  const NO_SESSION = '__none__';
+  /** 每一場還待處理的筆數（紅點）。沒掛場次的歸 NO_SESSION */
+  const pendingBySession = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const b of bookings) if (b.status === BookingStatus.PENDING) {
+      const k = b.sessionId || NO_SESSION;
+      m[k] = (m[k] ?? 0) + 1;
+    }
+    return m;
+  }, [bookings]);
+  const noSessionCount = bookings.filter(b => !b.sessionId).length;
+  const openSessionRec = sessions.find(x => x.id === filterSession) ?? null;
+  const sessionTitle = (id: string) => {
+    if (id === NO_SESSION) return '未指定場次（場次功能上線前的預約）';
+    const x = sessions.find(y => y.id === id);
+    if (!x) return '預約名單';
+    const d = new Date(x.sessionDate + 'T12:00:00');
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${'日一二三四五六'[d.getDay()]}）${x.sessionTime}`;
+  };
+  const openSessionList = (id: string) => { setFilterSession(id); setSearch(''); setFilterStatus(''); setFilterType(''); };
+
   const handleExport = () => {
-    exportExcel('預約資料.xlsx', filtered.map(b => [
+    exportExcel(`預約資料_${sessionTitle(filterSession).slice(0, 20)}.xlsx`, filtered.map(b => [
       b.name, b.phone, b.gender || '', b.birthDate, b.zodiac || '', b.address || '', b.bookingDate,
       b.bookingTime === 'evening' ? '晚上' : b.bookingTime,
       b.type, b.status || '', b.notes || '', fmtDate(b.createdAt), b.source || ''
@@ -3247,15 +3269,14 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-xl font-bold text-gray-800">問事管理
-          <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 筆</span>
-        </h2>
-        <button onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-          <Download className="w-4 h-4" /> 匯出 Excel
-        </button>
-      </div>
+      {/* 問事管理照點燈管理的版型（2026-11-18 廟方：「點燈管理表單改得非常好，後台其他表單，依相同設計概念重新調整」）：
+          場次一列一列，列上看得到預約數、待處理數與「預約名單」；名單一定是某一場的。
+          原本是場次清單底下再接一張所有場次混在一起的大表，要靠「全部場次」下拉自己篩。
+          **沒掛場次的預約另成一列「未指定場次」**：場次功能上線前的預約都沒有 session_id（2026-11-18 線上 15 筆裡有 9 筆），
+          不給它一列的話那些人就再也找不到。 */}
+      {!filterSession && (
+        <h2 className="text-xl font-bold text-gray-800 mb-5">問事管理</h2>
+      )}
 
       {sessionError && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
@@ -3265,6 +3286,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       )}
 
       {/* 場次管理 */}
+      {!filterSession && (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -3323,8 +3345,15 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     </span>
                     <span className="text-sm font-medium text-gray-800">{label}</span>
                     <span className="text-xs text-gray-500">{booked}/{s.maxSlots} 位 · {remaining <= 0 ? <span className="text-red-500 font-medium">額滿</span> : `剩 ${remaining}`}</span>
+                    {pendingBySession[s.id] > 0 && (
+                      <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{pendingBySession[s.id]} 待處理</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <button onClick={() => openSessionList(s.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      <List className="w-3.5 h-3.5" /> 預約名單
+                    </button>
                     <button onClick={() => handleToggleSession(s)}
                       className="text-xs px-2.5 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors">
                       {s.isActive ? '關閉' : '開放'}
@@ -3357,10 +3386,47 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     {showPastSessions && past.map(renderSession)}
                   </>
                 )}
+                {noSessionCount > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-dashed border-gray-200 bg-white">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">未指定場次</span>
+                      <span className="text-xs text-gray-400">場次功能上線前的預約・{noSessionCount} 位</span>
+                      {pendingBySession[NO_SESSION] > 0 && (
+                        <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{pendingBySession[NO_SESSION]} 待處理</span>
+                      )}
+                    </div>
+                    <button onClick={() => openSessionList(NO_SESSION)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      <List className="w-3.5 h-3.5" /> 預約名單
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })()
         )}
+      </div>
+      )}
+
+      {/* ── 某一場的預約名單 ── */}
+      {filterSession && (
+      <>
+      <button onClick={() => setFilterSession('')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+        <ArrowLeft className="w-4 h-4" /> 返回場次列表
+      </button>
+      <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5 flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-gray-800">{sessionTitle(filterSession)}</h2>
+          {openSessionRec && <p className="text-sm text-gray-500 mt-0.5">{sCountMap[openSessionRec.id] || 0}/{openSessionRec.maxSlots} 位</p>}
+        </div>
+        <span className="text-sm font-semibold text-temple-red">共 {filtered.length} 筆</span>
+        {(pendingBySession[filterSession] ?? 0) > 0 && (
+          <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{pendingBySession[filterSession]} 待處理</span>
+        )}
+        <button onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
+          <Download className="w-4 h-4" /> 匯出 Excel
+        </button>
       </div>
 
       {/* 搜尋 & 篩選 */}
@@ -3380,25 +3446,6 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
           <option value="">全部項目</option>
           {types.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={filterSession} onChange={e => setFilterSession(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-          <option value="">全部場次</option>
-          {/* 篩選照樣找得到過期的場次（要回頭查報名名單），只是分到後面那一組、由新到舊 */}
-          {(() => {
-            const today = todayYmd();
-            const days = ['日', '一', '二', '三', '四', '五', '六'];
-            const opt = (s: BookingSessionRecord) => {
-              const d = new Date(s.sessionDate + 'T12:00:00');
-              return <option key={s.id} value={s.id}>{d.getMonth()+1}月{d.getDate()}日（{days[d.getDay()]}）{s.sessionTime}</option>;
-            };
-            const up = sessions.filter(s => s.sessionDate >= today);
-            const past = sessions.filter(s => s.sessionDate < today).reverse();
-            return <>
-              {up.length > 0 && <optgroup label="即將到來">{up.map(opt)}</optgroup>}
-              {past.length > 0 && <optgroup label="已過期">{past.map(opt)}</optgroup>}
-            </>;
-          })()}
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
@@ -3523,6 +3570,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
           </div>
         )}
       </div>
+      </>
+      )}
       {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
 
       {/* 神明的話 編輯 Modal */}
@@ -3608,7 +3657,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
     const result = donations.filter(d => {
       const q = search.toLowerCase();
       const matchSearch = !q || d.name.toLowerCase().includes(q) || d.phone.includes(q);
-      const matchType = !filterType || d.type === filterType;
+      const matchType = d.type === filterType;
       return matchSearch && matchType;
     });
     if (sortBy === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
@@ -3619,14 +3668,32 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const total = filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0);
-  const types = [...new Set(donations.map(d => d.type))];
+  /**
+   * 捐獻管理照點燈管理的版型（2026-11-18 廟方：「後台其他表單，依相同設計概念重新調整」）：
+   * 一種捐獻類型一列，列上看得到筆數、累計金額、待匯款，按「捐款名單」才進那一類的名單。
+   * 三類收的錢去處不同（一般捐獻與遷址護持是**不同帳戶**，見 BankInfoBox），混在一張表裡對帳最容易出錯。
+   */
+  const typeStats = useMemo(() => {
+    const m = new Map<string, { count: number; amount: number; pending: number; last: string }>();
+    for (const d of donations) {
+      const k = m.get(d.type) ?? { count: 0, amount: 0, pending: 0, last: '' };
+      k.count++;
+      if (d.status !== DonationStatus.CANCELLED) k.amount += Number(d.amount) || 0;
+      if (d.status === DonationStatus.PENDING) k.pending++;
+      if ((d.createdAt ?? '') > k.last) k.last = d.createdAt ?? '';
+      m.set(d.type, k);
+    }
+    // 最近有人捐的排前面：那一類才是現在要看的
+    return [...m.entries()].sort((a, b) => b[1].last.localeCompare(a[1].last));
+  }, [donations]);
+  const openType = (t: string) => { setFilterType(t); setSearch(''); };
 
   const showDesignated = anyFilled(filtered, d => d.repairProjectName || d.relocationPlan);
   const showDonNotes = anyFilled(filtered, d => d.notes);
   const handleExport = () => {
     // 生日與遷址方案 2026-10-23 加入：遷址護持的方案含誦經祈福與功德簿，
     // 廟方要拿這份去寫疏文與功德簿，少了生辰就得回頭一個一個問。
-    exportExcel('捐款資料.xlsx', filtered.map(d => [
+    exportExcel(`捐款資料_${filterType}.xlsx`, filtered.map(d => [
       d.name, d.phone, d.gender || '', d.birthDate || '', d.address || '', Number(d.amount), d.type,
       d.repairProjectName || '', d.relocationPlan || '', d.relocationTier || '',
       d.notes || '', fmtDate(d.createdAt), d.source || ''
@@ -3638,12 +3705,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">捐款管理
-            <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 筆</span>
-          </h2>
-          <p className="text-sm text-green-600 font-semibold mt-1">
-            篩選合計：NT$ {total.toLocaleString()}
-          </p>
+          <h2 className="text-xl font-bold text-gray-800">捐款管理</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* 年度明細：先預覽再寄。這是一次寄給幾十個人的動作，按下去就收不回來了 */}
@@ -3664,15 +3726,61 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
               <Send className="w-4 h-4" /> 寄年度明細
             </button>
           </div>
-          <button onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-            <Download className="w-4 h-4" /> 匯出 Excel
-          </button>
         </div>
       </div>
 
+      {!filterType && (
+      <>
       {/* 捐款類別設定：預設收合，不擋住每天要看的捐款列表 */}
       <AdminDonationTypesTab donations={donations} onRefresh={onRefresh} />
+
+      <div className="space-y-2">
+        {typeStats.length === 0 && (
+          <div className="p-12 text-center text-gray-400 bg-white rounded-xl border border-gray-100">
+            <HeartHandshake className="w-10 h-10 mx-auto mb-3 text-gray-200" />
+            <p>尚無捐款紀錄</p>
+          </div>
+        )}
+        {typeStats.map(([t, st]) => (
+          <div key={t} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-800">{t}</h3>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400 mt-1">
+                <span className="text-temple-red font-medium">{st.count} 筆</span>
+                <span>累計 NT$ {st.amount.toLocaleString()}</span>
+                {st.last && <span>最近 {fmtDate(st.last)}</span>}
+                {st.pending > 0 && <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{st.pending} 待匯款</span>}
+              </div>
+            </div>
+            <button onClick={() => openType(t)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+              <List className="w-3.5 h-3.5" /> 捐款名單
+            </button>
+          </div>
+        ))}
+      </div>
+      </>
+      )}
+
+      {filterType && (
+      <>
+      <button onClick={() => setFilterType('')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+        <ArrowLeft className="w-4 h-4" /> 返回捐款類型
+      </button>
+      <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5 flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-gray-800">{filterType}</h2>
+          <p className="text-sm text-green-600 font-semibold mt-0.5">合計 NT$ {total.toLocaleString()}</p>
+        </div>
+        <span className="text-sm font-semibold text-temple-red">共 {filtered.length} 筆</span>
+        {(typeStats.find(([t]) => t === filterType)?.[1].pending ?? 0) > 0 && (
+          <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{typeStats.find(([t]) => t === filterType)![1].pending} 待匯款</span>
+        )}
+        <button onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
+          <Download className="w-4 h-4" /> 匯出 Excel
+        </button>
+      </div>
 
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px]">
@@ -3681,11 +3789,6 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
             placeholder="搜尋姓名或電話..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
         </div>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-          <option value="">全部類型</option>
-          {types.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
           <option value="time">依時間排序</option>
@@ -3707,7 +3810,8 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                   {/* 「指定項目」一欄兩用：神尊修復的專案、遷址護持的方案。
                       兩者都是「這筆錢指定給哪一件事」，而且互斥，不必各開一欄 */}
                   {/* 一整欄都空的不畫：一般捐獻幾乎沒有「指定項目」，備註也多半沒寫（2026-11-17） */}
-                  {['信眾資訊', '捐款金額', '類型',
+                  {/* 「類型」欄拿掉：整份名單都是同一類 */}
+                  {['信眾資訊', '捐款金額',
                     ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
@@ -3749,9 +3853,6 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     <td data-label="捐款金額" className="px-5 py-4">
                       <p className="text-base font-bold text-green-700">NT$ {Number(d.amount).toLocaleString()}</p>
                     </td>
-                    <td data-label="類型" className="px-5 py-4">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">{d.type}</span>
-                    </td>
                     {showDesignated && <td data-label="指定項目" data-more className="px-4 py-3 text-sm text-gray-500">
                       {d.repairProjectName ? (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
@@ -3780,6 +3881,8 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
           </div>
         )}
       </div>
+      </>
+      )}
       {quickView && <MemberInfoModal reg={quickView} memberProfiles={memberProfiles} onClose={() => setQuickView(null)} />}
     </div>
   );
@@ -5185,7 +5288,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
               <th className="px-6 py-3 text-left">名稱</th>
               <th className="px-6 py-3 text-left">殿</th>
               <th className="px-6 py-3 text-left">尊稱</th>
-              <th className="px-6 py-3 text-left">介紹</th>
+              {/* 「介紹」欄拿掉（2026-11-18，同點燈管理拿掉說明欄）：一整段只截得到第一句，要看全文按編輯 */}
               <th className="px-6 py-3 text-right">操作</th>
             </tr>
           </thead>
@@ -5232,7 +5335,6 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   {d.hallId ? (halls.find(h => h.id === d.hallId)?.name ?? '-') : '-'}
                 </td>
                 <td data-label="尊稱" data-more className="px-6 py-4 text-gray-500">{d.title || '-'}</td>
-                <td data-label="介紹" data-more className="px-6 py-4 text-gray-500 max-w-xs truncate">{d.description}</td>
                 <td data-label="操作" className="px-6 py-4 text-right flex items-center justify-end gap-3">
                   <button onClick={() => handleToggleVisible(d)} disabled={togglingId === d.id}
                     title={d.isVisible ? '點擊隱藏' : '點擊顯示'}
@@ -5242,7 +5344,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   <button onClick={() => openEdit(d)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(d.id, d.name)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </td>
-                <RowMoreCell open={deityRows.isOpen(d.id)} onToggle={() => deityRows.toggle(d.id)} hint="殿、尊稱、介紹" />
+                <RowMoreCell open={deityRows.isOpen(d.id)} onToggle={() => deityRows.toggle(d.id)} hint="殿、尊稱" />
               </tr>
             ))}
             {deities.length === 0 && (
@@ -7219,6 +7321,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
           {eSaving && <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs rounded-lg flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
           {localEvents.map((e, idx) => {
             const count = registrations.filter(r => r.eventId === e.id).length;
+            // 紅色待匯款跟點燈、問事同一個樣子（2026-11-18 全後台一致化）
+            const pending = registrations.filter(r => r.eventId === e.id && r.status === BlessingStatus.PENDING).length;
             const closed = isDeadlinePassed(e.registrationDeadline);
             // 報名走法會那套獨立表單的活動（目前只有普渡）：這裡數 blessing_registrations
             // 一定是 0，直接寫 0 筆等於告訴廟方「沒有人報名」。改成指去正確的分頁。
@@ -7267,7 +7371,10 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                         {fahuiCount} 筆報名在「法會報名」分頁 →
                       </button>
                     ) : (
-                      <span className="text-temple-red font-medium">{count} 筆報名</span>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-temple-red font-medium">{count} 筆報名</span>
+                        {pending > 0 && <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{pending} 待匯款</span>}
+                      </span>
                     )}
                   </div>
                 </div>
