@@ -1292,7 +1292,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
    *  點「檢視」一樣看得到全部。 */
   const [showMore, setShowMore] = useState(false);
   const rosterRows = useOpenRows();
-  /** 地址是個資，桌機也不常駐一欄：姓名格裡按「地址」才就地展開（同問事管理） */
+  /** 電話、地址是個資，桌機也不常駐一欄：姓名格裡按「電話・地址」才就地展開（同問事管理；電話 2026-11-18 收進來） */
   const rosterInfo = useOpenRows();
   const [onlyConflicts, setOnlyConflicts] = useState(false);
 
@@ -1572,7 +1572,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                 {/* 常用的排前面（廟方 2026-10-30）：找人 → 看他最近有沒有來 → 直接代報名。
                     其餘四欄（關係／性別／累計金額／可能親屬）收在「更多欄位」後面，順序與表身必須一致。 */}
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
-                <th className="px-4 py-3 text-left font-medium">電話</th>
+                {/* 電話 2026-11-18 收進姓名格的「電話・地址」（廟方：「信眾資訊 表單的電話可以收折」）；搜尋照樣吃電話 */}
                 <th className="px-4 py-3 text-left font-medium">最近參與</th>
                 <th className="px-4 py-3 text-left font-medium">參與管道</th>
                 {/* 這四欄一律輸出（地址改由姓名格的「地址」鈕就地展開，2026-11-18 隱私考量）：桌機由「更多欄位」決定顯示（lg:hidden），手機卡片由每張卡的「更多資料」展開 */}
@@ -1603,21 +1603,23 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                         疑似同名
                       </span>
                     )}
-                    {r.addresses.length > 0 && (
+                    {(r.addresses.length > 0 || r.phones.length > 0) && (
                       <div>
                     <button type="button" aria-expanded={rosterInfo.isOpen(r.name)}
                       onClick={e => { e.stopPropagation(); rosterInfo.toggle(r.name); }}
                       className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                      {rosterInfo.isOpen(r.name) ? '收合資料' : '地址'}
+                      {rosterInfo.isOpen(r.name) ? '收合資料' : [r.phones.length ? '電話' : '', r.addresses.length ? '地址' : ''].filter(Boolean).join('・')}
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${rosterInfo.isOpen(r.name) ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
                         {rosterInfo.isOpen(r.name) && (
-                          <p className="mt-1 text-xs font-normal text-gray-500 whitespace-normal">{r.addresses.join('；')}</p>
+                          <div className="mt-1 text-xs font-normal text-gray-500 whitespace-normal space-y-0.5">
+                            {r.phones.length > 0 && <p>{r.phones.join('、')}</p>}
+                            {r.addresses.length > 0 && <p>{r.addresses.join('；')}</p>}
+                          </div>
                         )}
                       </div>
                     )}
                   </td>
-                  <td data-label="電話" className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.phones.join('、') || <Dash />}</td>
                   <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || <Dash />}</td>
                   <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
