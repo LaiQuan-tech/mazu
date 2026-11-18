@@ -131,6 +131,32 @@ const BookingActions = ({ status, busy, onChange }: {
   );
 };
 
+/**
+ * 篩選用的一排按鈕，取代下拉選單（2026-11-18 廟方：「操作最好不要用下拉選單，因為選單要點選二次以上」）。
+ * 一按就篩、再按同一顆取消；有給 count 就把筆數寫在鈕上——下拉看不到每一類有幾筆。
+ * count 為 0 的選項不畫（除非正選著），免得一排都是點了也是空的鈕。
+ */
+const FilterChips = ({ value, onChange, allLabel, allCount, options }: {
+  value: string; onChange: (v: string) => void; allLabel: string; allCount?: number;
+  options: { value: string; label?: string; count?: number }[];
+}) => {
+  const chip = (on: boolean) => `px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+    on ? 'bg-temple-red text-white border-temple-red' : 'bg-white text-gray-600 border-gray-300 hover:border-temple-red hover:text-temple-red'}`;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" onClick={() => onChange('')} className={chip(!value)}>
+        {allLabel}{allCount !== undefined ? ` ${allCount}` : ''}
+      </button>
+      {options.filter(o => o.count === undefined || o.count > 0 || o.value === value).map(o => (
+        <button key={o.value} type="button" aria-pressed={value === o.value}
+          onClick={() => onChange(value === o.value ? '' : o.value)} className={chip(value === o.value)}>
+          {o.label ?? o.value}{o.count !== undefined ? ` ${o.count}` : ''}
+        </button>
+      ))}
+    </div>
+  );
+};
+
 const statusBadge = (status?: BookingStatus | LampRegistrationStatus | BlessingStatus | string) => {
   const map: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
     // 收款那一組（點燈／祈福／法會）。顏色與 fahuiStatusBadge 一致：黃＝還沒收、綠＝收到了
@@ -1572,16 +1598,12 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 信箱 / LINE / 地址 / 會員編號"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
-        <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none">
-          <option value="">全部管道</option>
-          {ROSTER_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={relationFilter} onChange={e => setRelationFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none">
-          <option value="">全部關係</option>
-          {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
+        <div className="w-full space-y-2">
+          <FilterChips value={sourceFilter} onChange={setSourceFilter} allLabel="全部管道"
+            options={ROSTER_SOURCES.map(s => ({ value: s, count: rows.filter(r => (r.counts[s] ?? 0) > 0).length }))} />
+          <FilterChips value={relationFilter} onChange={setRelationFilter} allLabel="全部關係"
+            options={RELATION_OPTIONS.map(x => ({ value: x, count: rows.filter(r => r.relations.includes(x)).length }))} />
+        </div>
         <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1">
           <input type="checkbox" checked={onlyConflicts} onChange={e => setOnlyConflicts(e.target.checked)}
             className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
@@ -2273,12 +2295,11 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / LINE / 信箱 / 後五碼"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none">
-          <option value="">全部狀態</option>
-          <option value="pending">待匯款</option>
-          <option value="paid">已收款</option>
-        </select>
+        <FilterChips value={filterStatus} onChange={setFilterStatus} allLabel="全部" allCount={registrations.length}
+          options={[
+            { value: 'pending', label: '待匯款', count: registrations.filter(r => r.status !== 'paid').length },
+            { value: 'paid', label: '已收款', count: registrations.filter(r => r.status === 'paid').length },
+          ]} />
         <DateRangeFilter from={dateFrom} to={dateTo} onFrom={setDateFrom} onTo={setDateTo} />
       </div>
 
@@ -2487,12 +2508,11 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / LINE"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none">
-          <option value="">全部狀態</option>
-          <option value="pending">待聯絡</option>
-          <option value="contacted">已聯絡</option>
-        </select>
+        <FilterChips value={filterStatus} onChange={setFilterStatus} allLabel="全部" allCount={registrations.length}
+          options={[
+            { value: 'pending', label: '待聯絡', count: registrations.filter(r => r.status !== 'contacted').length },
+            { value: 'contacted', label: '已聯絡', count: registrations.filter(r => r.status === 'contacted').length },
+          ]} />
         <DateRangeFilter from={dateFrom} to={dateTo} onFrom={setDateFrom} onTo={setDateTo} />
       </div>
 
@@ -3840,11 +3860,14 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
         <div className="flex flex-wrap items-center gap-2">
           {/* 年度明細：先預覽再寄。這是一次寄給幾十個人的動作，按下去就收不回來了 */}
           <div className="flex items-center gap-1.5 text-sm">
-            <select value={stmtYear} onChange={e => setStmtYear(Number(e.target.value))}
-              className="px-2 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-temple-red/20">
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-                .map(y => <option key={y} value={y}>{y} 年</option>)}
-            </select>
+            {/* 年份用兩顆鈕不用下拉：年度明細實際只會寄今年或去年 */}
+            {[new Date().getFullYear(), new Date().getFullYear() - 1].map(y => (
+              <button key={y} type="button" aria-pressed={stmtYear === y} onClick={() => setStmtYear(y)}
+                className={`px-3 py-2 rounded-lg text-sm border transition-colors ${stmtYear === y
+                  ? 'bg-temple-red text-white border-temple-red' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                {y} 年
+              </button>
+            ))}
             <button onClick={() => sendStatement(true)} disabled={stmtBusy}
               title="只看筆數與內容，不會寄出"
               className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
@@ -3919,11 +3942,10 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
             placeholder="搜尋姓名或電話..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
         </div>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as 'time' | 'name')}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red">
-          <option value="time">依時間排序</option>
-          <option value="name">依姓名排序</option>
-        </select>
+        <button type="button" onClick={() => setSortBy(sortBy === 'time' ? 'name' : 'time')}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:border-temple-red hover:text-temple-red whitespace-nowrap">
+          {sortBy === 'time' ? '依時間排序' : '依姓名排序'} ⇅
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -6483,14 +6505,11 @@ const LampsTab = ({
                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
               />
             </div>
-            <select
-              value={regStatusFilter}
-              onChange={e => setRegStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 outline-none focus:ring-2 focus:ring-temple-red/20"
-            >
-              <option value="">所有狀態</option>
-              {Object.values(LampRegistrationStatus).map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <FilterChips value={regStatusFilter} onChange={setRegStatusFilter} allLabel="全部"
+              allCount={registrations.filter(r => r.serviceId === selectedConfig?.id).length}
+              options={Object.values(LampRegistrationStatus).map(st => ({
+                value: st, count: registrations.filter(r => r.serviceId === selectedConfig?.id && r.status === st).length,
+              }))} />
             <button
               onClick={exportRegsExcel}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
