@@ -1353,7 +1353,14 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
   const rosterRows = useOpenRows();
   /** 電話、地址是個資，桌機也不常駐一欄：姓名格裡按「電話・地址」才就地展開（同問事管理；電話 2026-11-18 收進來） */
   const rosterInfo = useOpenRows();
-  const [onlyConflicts, setOnlyConflicts] = useState(false);
+  /**
+   * 統計卡兼篩選（2026-11-18 廟方：「信眾資訊頁，整體再調整優化一下」）：原本六張大卡疊在最上面、
+   * 佔掉手機第一屏，數字又按不下去；另有一個「只看疑似同名」勾選框跟其中一張卡講同一件事。
+   * 現在是一排按鈕，按了就只看那一群人。
+   */
+  const [view, setView] = useState<'' | 'active90' | 'new' | 'dormant' | 'repeat' | 'conflict'>('');
+  const [rosterPage, setRosterPage] = useState(0);
+  const [showIntro, setShowIntro] = useState(false);
 
   // ── 人工校正 ──
   const [overrides, setOverrides] = useState<DevoteeOverride[]>([]);
@@ -1411,6 +1418,20 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
     return apply(() => deleteDevoteeOverride(o.id!));
   };
 
+  const viewTest = useMemo(() => {
+    const d = new Date();
+    const ymd = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const days = (n: number) => { const t = new Date(d); t.setDate(t.getDate() - n); return ymd(t); };
+    const d90 = days(90), d365 = days(365);
+    return {
+      active90: (r: DevoteeRow) => !!r.lastSeen && r.lastSeen >= d90,
+      new: (r: DevoteeRow) => !!r.firstSeen && r.firstSeen >= monthStart,
+      dormant: (r: DevoteeRow) => !!r.lastSeen && r.lastSeen < d365,
+      repeat: (r: DevoteeRow) => rosterTotalCount(r.counts) > 1,
+      conflict: (r: DevoteeRow) => r.nameConflict,
+    } as Record<string, (r: DevoteeRow) => boolean>;
+  }, []);
   const filtered = useMemo(() => rows.filter(r => {
     // 信箱不分大小寫（信眾自己填的大小寫不一致，廟方從信件複製貼上更不會一致）
     const q = search.trim();
@@ -1425,8 +1446,10 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       || r.relations.some(x => x.includes(q))
       || r.relationOf.some(x => `${x.who}的${x.relation}`.includes(q));
     const matchSource = !sourceFilter || (r.counts[sourceFilter] ?? 0) > 0;
-    return matchSearch && matchSource && (!onlyConflicts || r.nameConflict);
-  }), [rows, search, sourceFilter, onlyConflicts]);
+    return matchSearch && matchSource && (!view || viewTest[view](r));
+  }), [rows, search, sourceFilter, view, viewTest]);
+  useEffect(() => { setRosterPage(0); }, [search, sourceFilter, view]);
+  const pagedRoster = filtered.slice(rosterPage * PAGE_SIZE, (rosterPage + 1) * PAGE_SIZE);
 
   /**
    * **這幾個數字的用途是「現在要找誰」**（廟方 2026-10-30 把「曾參與法會」換掉：
@@ -1489,50 +1512,16 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
 
   return (
     <div>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">信眾人數</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">其中 {stats.members} 位有會員帳號</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">近 90 天有參與</p>
-          <p className="text-2xl font-bold text-green-600">{stats.active90}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">還在往來的人</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">本月新增</p>
-          <p className="text-2xl font-bold text-[#C49820]">{stats.newThisMonth}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">這個月第一次出現</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">久未參與</p>
-          <p className="text-2xl font-bold text-gray-500">{stats.dormant}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">超過一年沒有紀錄</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">參與 2 次以上</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.repeat}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">疑似同名不同人</p>
-          <p className="text-2xl font-bold text-temple-red">{stats.conflicts}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">信眾資訊
-            <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 人</span>
-          </h2>
-          <p className="text-xs text-gray-400 mt-1">
-            凡報名過任一服務者皆為信眾（法會、志工、問事、點燈、捐款、活動、通訊錄，含註冊會員）。
-            以姓名彙整；同電話者僅提示可能親屬，不會合併成同一人。
-          </p>
-        </div>
-        <div className="flex items-center gap-2 self-start">
+      {/* 標題列：名稱與人數、校正、匯出。說明收進「？」——第一眼要看到的是人，不是一段規則 */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <h2 className="text-xl font-bold text-gray-800">信眾資訊
+          <span className="ml-2 text-sm font-normal text-gray-400">共 {stats.total} 人・{stats.members} 位有會員帳號</span>
+        </h2>
+        <button type="button" onClick={() => setShowIntro(v => !v)} aria-expanded={showIntro}
+          className="text-xs text-gray-400 hover:text-temple-red underline underline-offset-2">誰算信眾？</button>
+        <div className="flex items-center gap-2 ml-auto">
           <button onClick={() => setShowRules(v => !v)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm border transition-colors ${
+            className={`px-3 py-2 rounded-lg text-sm border transition-colors ${
               showRules ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
             }`}>
             已校正 {overrides.length}
@@ -1543,6 +1532,12 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
           </button>
         </div>
       </div>
+      {showIntro && (
+        <p className="-mt-2 mb-4 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+          凡報名過任一服務者皆為信眾（法會、志工、問事、點燈、捐款、活動、通訊錄，含註冊會員）。
+          以姓名彙整；同電話者僅提示可能親屬，不會合併成同一人。
+        </p>
+      )}
 
       {/**
         * 合併模式的提示。三件事以前都講錯或沒講（廟方 2026-10-13 回報「沒有『併入此人』的按鈕」）：
@@ -1593,34 +1588,40 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 關係 / 信箱 / LINE / 地址 / 會員編號"
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
-        </div>
-        <div className="w-full space-y-2">
+      {/* 搜尋一整行；底下是「哪一群人」與「哪個管道」兩排按鈕 */}
+      <div className="relative mb-3">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 關係 / 信箱 / LINE / 地址 / 會員編號"
+          className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
+      </div>
+      <div className="space-y-2 mb-5">
+        <FilterChips value={view} onChange={v => setView(v as typeof view)} allLabel="全部信眾" allCount={stats.total}
+          options={[
+            { value: 'active90', label: '近 90 天有參與', count: stats.active90 },
+            { value: 'new', label: '本月新增', count: stats.newThisMonth },
+            { value: 'repeat', label: '參與 2 次以上', count: stats.repeat },
+            { value: 'dormant', label: '超過一年沒來', count: stats.dormant },
+            { value: 'conflict', label: '疑似同名不同人', count: stats.conflicts },
+          ]} />
+        <div className="flex flex-wrap items-center gap-2">
           <FilterChips value={sourceFilter} onChange={setSourceFilter} allLabel="全部管道"
-            options={ROSTER_SOURCES.map(s => ({ value: s, count: rows.filter(r => (r.counts[s] ?? 0) > 0).length }))} />
-          {/* 「關係」篩選 2026-11-18 拿掉（廟方：「關係好像不再重要」）；關係欄仍在「更多欄位」、檢視與匯出裡 */}
+            options={ROSTER_SOURCES.map(x => ({ value: x, count: rows.filter(r => (r.counts[x] ?? 0) > 0).length }))} />
+          <label className="hidden lg:flex items-center gap-2 text-xs text-gray-500 whitespace-nowrap ml-auto"
+            title="性別、累計金額、可能親屬">
+            <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
+              className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
+            顯示性別、金額、可能親屬
+          </label>
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1">
-          <input type="checkbox" checked={onlyConflicts} onChange={e => setOnlyConflicts(e.target.checked)}
-            className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
-          只看疑似同名
-        </label>
-        <label className="hidden lg:flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1"
-          title="性別、累計金額、可能親屬">
-          <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
-            className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
-          更多欄位
-        </label>
       </div>
 
       {filtered.length === 0 ? (
         <div className="text-center text-gray-400 py-20">尚無符合條件的信眾</div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+          {filtered.length !== stats.total && (
+            <p className="px-4 pt-3 text-xs text-gray-500">符合條件 {filtered.length} 人</p>
+          )}
           <table className="admin-table w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs">
               <tr>
@@ -1639,7 +1640,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map(r => (
+              {pagedRoster.map(r => (
                 <tr key={r.name} className={`hover:bg-gray-50/60${rosterRows.isOpen(r.name) ? ' admin-open' : ''}`}>
                   <td data-label="姓名" className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                     {r.name}
@@ -1741,6 +1742,8 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
               ))}
             </tbody>
           </table>
+          {/* 上百人一次全列，捲到底才找得到人（2026-11-18 加分頁，同其他名單 25 筆一頁） */}
+          <Paginator total={filtered.length} page={rosterPage} onChange={setRosterPage} />
         </div>
       )}
 
