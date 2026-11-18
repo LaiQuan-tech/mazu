@@ -1420,7 +1420,8 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       || r.addresses.some(a => a.includes(q))
       || r.emails.some(e => e.toLowerCase().includes(ql))
       || r.lineIds.some(l => l.toLowerCase().includes(ql))
-      || r.memberNumbers.some(n => n.includes(q));
+      || r.memberNumbers.some(n => n.includes(q))
+      || r.relations.some(x => x.includes(q));
     const matchSource = !sourceFilter || (r.counts[sourceFilter] ?? 0) > 0;
     return matchSearch && matchSource && (!onlyConflicts || r.nameConflict);
   }), [rows, search, sourceFilter, onlyConflicts]);
@@ -1593,7 +1594,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 信箱 / LINE / 地址 / 會員編號"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 關係 / 信箱 / LINE / 地址 / 會員編號"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
         <div className="w-full space-y-2">
@@ -1607,7 +1608,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
           只看疑似同名
         </label>
         <label className="hidden lg:flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1"
-          title="關係、性別、累計金額、可能親屬">
+          title="性別、累計金額、可能親屬">
           <input type="checkbox" checked={showMore} onChange={e => setShowMore(e.target.checked)}
             className="rounded border-gray-300 text-temple-red focus:ring-temple-red/30" />
           更多欄位
@@ -1622,13 +1623,14 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
             <thead className="bg-gray-50 text-gray-500 text-xs">
               <tr>
                 {/* 常用的排前面（廟方 2026-10-30）：找人 → 看他最近有沒有來 → 直接代報名。
-                    其餘四欄（關係／性別／累計金額／可能親屬）收在「更多欄位」後面，順序與表身必須一致。 */}
+                    關係常駐；其餘三欄（性別／累計金額／可能親屬）收在「更多欄位」後面，順序與表身必須一致。 */}
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
                 {/* 電話 2026-11-18 收進姓名格的「電話・地址」（廟方：「信眾資訊 表單的電話可以收折」）；搜尋照樣吃電話 */}
                 <th className="px-4 py-3 text-left font-medium">最近參與</th>
                 <th className="px-4 py-3 text-left font-medium">參與管道</th>
                 {/* 這四欄一律輸出（地址改由姓名格的「地址」鈕就地展開，2026-11-18 隱私考量）：桌機由「更多欄位」決定顯示（lg:hidden），手機卡片由每張卡的「更多資料」展開 */}
-                <th className={`px-4 py-3 text-left font-medium${showMore ? '' : ' lg:hidden'}`}>關係</th>
+                {/* 關係常駐（2026-11-18 廟方：「關係要顯示，也要能搜尋，但不要一整排關係按鈕」） */}
+                <th className="px-4 py-3 text-left font-medium">關係</th>
                 <th className={`px-4 py-3 text-left font-medium${showMore ? '' : ' lg:hidden'}`}>性別</th>
                 <th className={`px-4 py-3 text-right font-medium${showMore ? '' : ' lg:hidden'}`}>累計金額</th>
                 <th className={`px-4 py-3 text-left font-medium${showMore ? '' : ' lg:hidden'}`}>可能親屬</th>
@@ -1687,7 +1689,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       {rosterBadges(r.counts).length === 0 && <Dash />}
                     </div>
                   </td>
-                  <td data-label="關係" data-more className={`px-4 py-3 max-w-[200px]${showMore ? '' : ' lg:hidden'}`}><RelationCell row={r} /></td>
+                  <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
                   <td data-label="性別" data-more className={`px-4 py-3 text-gray-500 whitespace-nowrap${showMore ? '' : ' lg:hidden'}`}>{r.genders.join('／')}</td>
                   <td data-label="累計金額" data-more className={`px-4 py-3 text-right text-gray-700 whitespace-nowrap${showMore ? '' : ' lg:hidden'}`}>
                     {r.totalAmount > 0 ? `$${r.totalAmount.toLocaleString()}` : <Dash />}
@@ -1732,7 +1734,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                       )}
                     </div>
                   </td>
-                  <RowMoreCell open={rosterRows.isOpen(r.name)} onToggle={() => rosterRows.toggle(r.name)} hint="關係、性別、金額" />
+                  <RowMoreCell open={rosterRows.isOpen(r.name)} onToggle={() => rosterRows.toggle(r.name)} hint="性別、金額" />
                 </tr>
               ))}
             </tbody>
