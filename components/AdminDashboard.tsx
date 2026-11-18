@@ -1344,7 +1344,6 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
 const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => void }) => {
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
-  const [relationFilter, setRelationFilter] = useState('');
   const [proxyRow, setProxyRow] = useState<DevoteeRow | null>(null);
   /** 次要欄位（關係／性別／地址／累計金額／可能親屬）預設收起來。
    *  廟方 2026-10-30：「這張表很長，後台操作不易。」收起來不是刪掉，
@@ -1423,9 +1422,8 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       || r.lineIds.some(l => l.toLowerCase().includes(ql))
       || r.memberNumbers.some(n => n.includes(q));
     const matchSource = !sourceFilter || (r.counts[sourceFilter] ?? 0) > 0;
-    const matchRelation = !relationFilter || r.relations.includes(relationFilter);
-    return matchSearch && matchSource && matchRelation && (!onlyConflicts || r.nameConflict);
-  }), [rows, search, sourceFilter, relationFilter, onlyConflicts]);
+    return matchSearch && matchSource && (!onlyConflicts || r.nameConflict);
+  }), [rows, search, sourceFilter, onlyConflicts]);
 
   /**
    * **這幾個數字的用途是「現在要找誰」**（廟方 2026-10-30 把「曾參與法會」換掉：
@@ -1601,8 +1599,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
         <div className="w-full space-y-2">
           <FilterChips value={sourceFilter} onChange={setSourceFilter} allLabel="全部管道"
             options={ROSTER_SOURCES.map(s => ({ value: s, count: rows.filter(r => (r.counts[s] ?? 0) > 0).length }))} />
-          <FilterChips value={relationFilter} onChange={setRelationFilter} allLabel="全部關係"
-            options={RELATION_OPTIONS.map(x => ({ value: x, count: rows.filter(r => r.relations.includes(x)).length }))} />
+          {/* 「關係」篩選 2026-11-18 拿掉（廟方：「關係好像不再重要」）；關係欄仍在「更多欄位」、檢視與匯出裡 */}
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap px-1">
           <input type="checkbox" checked={onlyConflicts} onChange={e => setOnlyConflicts(e.target.checked)}
