@@ -5888,8 +5888,13 @@ const LampsTab = ({
   onRefresh: () => void;
   memberProfiles: MemberProfileRecord[];
 }) => {
-  const [view, setView] = useState<'configs' | 'registrations'>('configs');
-  const lampConfigRows = useOpenRows();
+  /**
+   * 點燈管理照祈福管理的樣子：**每個燈種一列、列上就看得到報名數與待匯款，按「報名名單」才進那一盞的名單**
+   * （2026-11-18 廟方：「為什麼不像祈福管理一樣，可以在各自的行就看到新增報名人數，目前是要點選
+   * 『登記紀錄』，而且是全部的燈都混在一起，我是覺得要一致性，這樣好學習與管理」）。
+   * 原本頂端一顆「服務設定／登記紀錄」切換，名單是四種燈混在一起、要再用下拉篩；現在名單一定是某一盞的。
+   */
+  const [selectedConfig, setSelectedConfig] = useState<LampServiceConfig | null>(null);
   const [quickView, setQuickView] = useState<RegViewItem | null>(null);
 
   // ── Service config state ──
@@ -5923,7 +5928,6 @@ const LampsTab = ({
 
   // ── Registration state ──
   const [regSearch, setRegSearch] = useState('');
-  const [regServiceFilter, setRegServiceFilter] = useState('');
   const [regStatusFilter, setRegStatusFilter] = useState('');
   const [updatingRegId, setUpdatingRegId] = useState<string | null>(null);
   const [regPage, setRegPage] = useState(0);
@@ -6020,13 +6024,29 @@ const LampsTab = ({
       const matchSearch = !regSearch.trim() ||
         r.name.toLowerCase().includes(regSearch.toLowerCase()) ||
         r.phone.includes(regSearch);
-      const matchService = !regServiceFilter || r.serviceId === regServiceFilter;
+      const matchService = !!selectedConfig && r.serviceId === selectedConfig.id;
       const matchStatus = !regStatusFilter || r.status === regStatusFilter;
       return matchSearch && matchService && matchStatus;
     });
-  }, [registrations, regSearch, regServiceFilter, regStatusFilter]);
+  }, [registrations, regSearch, selectedConfig, regStatusFilter]);
 
-  useEffect(() => { setRegPage(0); }, [regSearch, regServiceFilter, regStatusFilter]);
+  useEffect(() => { setRegPage(0); }, [regSearch, selectedConfig, regStatusFilter]);
+
+  /**
+   * 列上的數字：**本季**的報名筆數（九月一日起，與「丁未點燈」換年同一條界線，見 lampSeasonStart），
+   * 以及**不分季**的待匯款筆數——還沒收到的錢不會因為換季就不用處理。已取消的不算。
+   */
+  const seasonStart = lampSeasonStart();
+  const regStats = useMemo(() => {
+    const m: Record<string, { season: number; pending: number }> = {};
+    for (const r of registrations) {
+      const k = (m[r.serviceId] ??= { season: 0, pending: 0 });
+      if (r.status === LampRegistrationStatus.PENDING) k.pending++;
+      if (r.status !== LampRegistrationStatus.CANCELLED && r.createdAt && new Date(r.createdAt) >= new Date(seasonStart)) k.season++;
+    }
+    return m;
+  }, [registrations, seasonStart]);
+  const openRegs = (c: LampServiceConfig) => { setSelectedConfig(c); setRegSearch(''); setRegStatusFilter(''); };
   const pagedRegs = filteredRegs.slice(regPage * PAGE_SIZE, (regPage + 1) * PAGE_SIZE);
 
   const getServiceName = (serviceId: string) =>
@@ -6061,7 +6081,7 @@ const LampsTab = ({
 
   const exportRegsExcel = () => {
     // 「指定項目」單獨一欄（專屬神明燈點給哪一尊），廟方要照這欄排燈位；備註只留剩下的
-    exportExcel('點燈登記.xlsx', filteredRegs.map(r => {
+    exportExcel(`點燈登記_${selectedConfig?.name ?? ''}.xlsx`, filteredRegs.map(r => {
       const t = readChoiceTag(r.notes);
       return [
         getServiceName(r.serviceId), t ? t.value : '', r.name, r.phone, r.gender || '', r.birthDate, r.zodiac || '', r.address || '',
@@ -6072,34 +6092,14 @@ const LampsTab = ({
 
   return (
     <div className="space-y-6">
-      {/* Header + sub-view toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800">太歲點燈管理</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {view === 'configs' ? `共 ${configs.length} 個服務項目` : `共 ${registrations.length} 筆登記紀錄`}
-          </p>
-        </div>
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-          <button
-            onClick={() => setView('configs')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${view === 'configs' ? 'bg-temple-red text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-          >
-            服務設定
-          </button>
-          <button
-            onClick={() => setView('registrations')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${view === 'registrations' ? 'bg-temple-red text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-          >
-            登記紀錄
-          </button>
-        </div>
-      </div>
-
-      {/* ── Service Configs View ── */}
-      {view === 'configs' && (
+      {/* ── 燈種列表（每一列帶自己的報名數與「報名名單」，同祈福管理） ── */}
+      {!selectedConfig && (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">太歲點燈管理</h3>
+              <p className="text-sm text-gray-500 mt-1">共 {configs.length} 種燈・報名數為本季（{seasonStart.slice(0, 4)} 年 9 月起）</p>
+            </div>
             <button
               onClick={openAddConfig}
               className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors"
@@ -6118,7 +6118,9 @@ const LampsTab = ({
                   <th className="text-left px-4 py-3 text-gray-500 font-medium w-20">啟用</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium">服務名稱</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium w-32">費用</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">說明</th>
+                  {/* 「說明」欄拿掉（廟方：「表格這麼大段在顯示說明，這非常浪費，也無意義」）——
+                      一整段只截得到第一句，要看全文本來就得按編輯 */}
+                  <th className="text-left px-4 py-3 text-gray-500 font-medium">報名</th>
                   <th className="text-center px-4 py-3 text-gray-500 font-medium w-24">操作</th>
                 </tr>
               </thead>
@@ -6130,7 +6132,7 @@ const LampsTab = ({
                     onDragOver={(e) => cDragOver(e, idx)}
                     onDrop={() => cDrop(idx)}
                     onDragEnd={cDragEnd}
-                    className={`select-none transition-colors ${cDragId === c.id ? 'opacity-30 bg-gray-50' : ''} ${cOverIdx === idx && cDragId !== c.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50/50'}${lampConfigRows.isOpen(c.id) ? ' admin-open' : ''}`}>
+                    className={`select-none transition-colors ${cDragId === c.id ? 'opacity-30 bg-gray-50' : ''} ${cOverIdx === idx && cDragId !== c.id ? 'border-t-2 border-temple-red' : 'hover:bg-gray-50/50'}`}>
                     <td className="px-3 py-3 text-gray-300 lg:cursor-grab lg:active:cursor-grabbing">
                       <GripVertical className="w-4 h-4 hidden lg:block" />
                       {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
@@ -6160,8 +6162,19 @@ const LampsTab = ({
                     </td>
                     <td data-label="服務名稱" className="px-4 py-3 font-medium text-gray-800">{c.name}</td>
                     <td data-label="費用" className="px-4 py-3 text-temple-red font-semibold">NT$ {c.fee.toLocaleString()}</td>
-                    <td data-label="說明" data-more className="px-4 py-3 text-gray-500 max-w-xs">
-                      <p className="truncate">{c.description}</p>
+                    <td data-label="報名" className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-temple-red font-medium">{regStats[c.id]?.season ?? 0} 筆</span>
+                        {(regStats[c.id]?.pending ?? 0) > 0 && (
+                          <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">
+                            {regStats[c.id]!.pending} 待匯款
+                          </span>
+                        )}
+                        <button onClick={() => openRegs(c)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                          <List className="w-3.5 h-3.5" /> 報名名單
+                        </button>
+                      </div>
                     </td>
                     <td data-label="操作" className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
@@ -6182,11 +6195,11 @@ const LampsTab = ({
                         </button>
                       </div>
                     </td>
-                    <RowMoreCell open={lampConfigRows.isOpen(c.id)} onToggle={() => lampConfigRows.toggle(c.id)} hint="說明" />
+                    {/* 原本這裡有手機版的「更多資料（說明）」開關，收的就是說明欄；說明欄 2026-11-18 整欄拿掉，開關也跟著拿掉 */}
                   </tr>
                 ))}
                 {configs.length === 0 && (
-                  <tr><td colSpan={5} className="text-center py-12 text-gray-400">尚無服務項目，請點「新增服務」建立</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">尚無服務項目，請點「新增服務」建立</td></tr>
                 )}
               </tbody>
             </table>
@@ -6194,9 +6207,22 @@ const LampsTab = ({
         </div>
       )}
 
-      {/* ── Registrations View ── */}
-      {view === 'registrations' && (
+      {/* ── 某一盞燈的報名名單 ── */}
+      {selectedConfig && (
         <div className="space-y-4">
+          <button onClick={() => setSelectedConfig(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> 返回燈種列表
+          </button>
+          <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-gray-800">{selectedConfig.name}</h2>
+              <p className="text-sm text-gray-500 mt-0.5">NT$ {selectedConfig.fee.toLocaleString()} / 年</p>
+            </div>
+            <span className="text-sm font-semibold text-temple-red">本季 {regStats[selectedConfig.id]?.season ?? 0} 筆</span>
+            {(regStats[selectedConfig.id]?.pending ?? 0) > 0 && (
+              <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{regStats[selectedConfig.id]!.pending} 待匯款</span>
+            )}
+          </div>
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-48">
@@ -6209,14 +6235,6 @@ const LampsTab = ({
                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none"
               />
             </div>
-            <select
-              value={regServiceFilter}
-              onChange={e => setRegServiceFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 outline-none focus:ring-2 focus:ring-temple-red/20"
-            >
-              <option value="">所有服務</option>
-              {configs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
             <select
               value={regStatusFilter}
               onChange={e => setRegStatusFilter(e.target.value)}
@@ -6245,11 +6263,12 @@ const LampsTab = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-800">{r.name}</p>
                     {r.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{r.contactLabel}</span>}
-                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
-                      {getServiceName(r.serviceId)}
-                      {/* 專屬神明燈點給哪一尊：存在備註開頭（見 services/lampChoice.ts），這裡拉出來跟燈種放一起 */}
-                      {readChoiceTag(r.notes) && `・${readChoiceTag(r.notes)!.value}`}
-                    </span>
+                    {/* 整份名單都是同一盞燈，燈名不再每張卡印一次；只留專屬神明燈點給哪一尊（存在備註開頭，見 services/lampChoice.ts） */}
+                    {readChoiceTag(r.notes) && (
+                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                        {readChoiceTag(r.notes)!.value}
+                      </span>
+                    )}
                     {statusBadge(r.status)}
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
