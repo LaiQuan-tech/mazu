@@ -1343,8 +1343,9 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   );
 };
 
-const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => void }) => {
-  const [search, setSearch] = useState('');
+const RosterTab = ({ sources, onDone, initialSearch }: { sources: RosterSources; onDone: () => void; initialSearch?: string }) => {
+  // initialSearch：從操作小幫手「找 某某」跳過來時，搜尋框直接帶好（2026-11-18）
+  const [search, setSearch] = useState(initialSearch ?? '');
   const [sourceFilter, setSourceFilter] = useState('');
   const [proxyRow, setProxyRow] = useState<DevoteeRow | null>(null);
   /** 次要欄位（關係／性別／地址／累計金額／可能親屬）預設收起來。
@@ -4105,7 +4106,9 @@ function toPersonKey(p: MemberProfileRecord): string {
 type MemberSortKey = 'default' | 'lamps' | 'bookings' | 'blessings' | 'donation' | 'lastLogin';
 type MemberSortDir = 'asc' | 'desc';
 
-const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin, memberEmails }: {
+const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin, memberEmails, initialSearch }: {
+  /** 從操作小幫手「找 某某」跳過來時，搜尋框直接帶好 */
+  initialSearch?: string;
   bookings: BookingRecord[];
   donations: DonationRecord[];
   lampRegistrations: LampRegistrationRecord[];
@@ -4128,7 +4131,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
   // 歷史紀錄 tab
   const [historyTab, setHistoryTab] = useState<'lamp' | 'booking' | 'blessing' | 'donation'>('lamp');
   // 搜尋
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch ?? '');
   // 排序
   const [sortBy, setSortBy] = useState<MemberSortKey>('default');
   const [sortDir, setSortDir] = useState<MemberSortDir>('desc');
@@ -8796,6 +8799,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     .filter(t => t.count > 0);
   /** 等同點側邊欄那一項 */
   const goTab = (key: Tab) => { setTab(key); setNavOpen(false); };
+  /** 小幫手「找 某某」要帶進信眾資訊／會員資訊搜尋框的字；n 每次加一，讓那一頁重新掛載吃到新的字 */
+  const [jump, setJump] = useState<{ q: string; n: number } | null>(null);
+  // 自己換到別頁就不再帶：不然之後從選單點回信眾資訊，搜尋框還留著上次找的名字
+  useEffect(() => { if (tab !== 'roster' && tab !== 'members') setJump(null); }, [tab]);
 
   /**
    * 側邊欄分組。
@@ -8989,8 +8996,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} onRefresh={fetchAll} />}
-              {tab === 'members'   && <MembersTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} memberEmails={memberEmails} />}
-              {tab === 'roster'    && <RosterTab sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, blessings: blessingRegistrations, registrations: allRegistrations }} onDone={() => fetchAll()} />}
+              {tab === 'members'   && <MembersTab key={`m${jump?.n ?? 0}`} initialSearch={jump?.q} bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} memberEmails={memberEmails} />}
+              {tab === 'roster'    && <RosterTab key={`r${jump?.n ?? 0}`} initialSearch={jump?.q} sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, blessings: blessingRegistrations, registrations: allRegistrations }} onDone={() => fetchAll()} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} halls={deityHalls} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
@@ -9016,7 +9023,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
         </div>
       </main>
       {/* 操作小幫手（2026-11-18）：只教操作、看不到報名資料。前往鈕只給這個角色看得到的頁 */}
-      <AdminHelpChat pages={navItems.map(n => ({ key: n.key, label: n.label }))} onGo={k => goTab(k as Tab)} />
+      <AdminHelpChat pages={navItems.map(n => ({ key: n.key, label: n.label }))} onGo={k => goTab(k as Tab)}
+        onFind={(k, q) => { setJump(j => ({ q, n: (j?.n ?? 0) + 1 })); goTab(k as Tab); }} />
     </div>
   );
 };

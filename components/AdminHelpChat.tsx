@@ -12,10 +12,30 @@ import { supabase } from '../services/supabase';
 interface Props {
   pages: { key: string; label: string }[];
   onGo: (key: string) => void;
+  /** 「找 某某」：跳到那一頁並把搜尋框帶好 */
+  onFind: (key: string, q: string) => void;
 }
-interface Msg { role: 'user' | 'assistant'; content: string }
+/** local：在瀏覽器裡就處理掉的那一來一回（找人），**不送進後端、也不放進之後送給 AI 的對話歷史** */
+interface Msg { role: 'user' | 'assistant'; content: string; local?: boolean; find?: string }
+
+/**
+ * 「找 李沛玲」「查 0912345678」：在這裡就攔下來，不問 AI（2026-11-18 廟方要小幫手找得到信眾與會員，
+ * 但當初選了「只教操作」——免費版 Gemini 會拿輸入改進模型，信眾姓名電話不能送過去）。
+ * 只給「去哪一頁搜尋」的按鈕，顯示的就是那兩頁本來就看得到的資料，不多開放任何東西。
+ * 「怎麼找」「如何查」這種是問操作，照常交給小幫手回答。
+ */
+const findTarget = (text: string): string | null => {
+  const t = text.trim();
+  if (/怎麼|如何|怎樣|[?？]/.test(t)) return null;
+  const m = t.match(/^(?:幫我)?(?:找|查詢|查|搜尋|搜)(?:一下)?\s*[:：]?\s*(.{1,30})$/);
+  if (m) return m[1].replace(/(這個人|的資料|資料)$/, '').trim() || null;
+  // 只打一串電話也當成找人
+  if (/^[0-9\-\s]{6,15}$/.test(t)) return t.replace(/[\s-]/g, '');
+  return null;
+};
 
 const STARTERS = [
+  '找 某位信眾（打「找」加姓名或電話）',
   '信眾匯款了，要怎麼標記已收款？',
   '信眾在 LINE 說要報名，怎麼幫他報？',
   '怎麼新增一場問事？',
@@ -24,7 +44,7 @@ const STARTERS = [
   '怎麼新增一個祈福活動？',
 ];
 
-const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
+const AdminHelpChat: React.FC<Props> = ({ pages, onGo, onFind }) => {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -36,6 +56,13 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
   const ask = async (q: string) => {
     const text = q.trim();
     if (!text || busy) return;
+    const who = findTarget(text);
+    if (who) {
+      setInput('');
+      setMsgs([...msgs, { role: 'user', content: text, local: true },
+        { role: 'assistant', content: `要找「${who}」，選要在哪一頁搜尋：`, local: true, find: who }]);
+      return;
+    }
     const next: Msg[] = [...msgs, { role: 'user', content: text }];
     setMsgs(next); setInput(''); setBusy(true);
     try {
@@ -43,13 +70,21 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
       const r = await fetch('/api/admin-help', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
-        body: JSON.stringify({ messages: next }),
+        // 找人的那幾則不送：名字電話只留在這台電腦的畫面上
+        body: JSON.stringify({ messages: next.filter(m => !m.local).map(({ role, content }) => ({ role, content })) }),
       });
       const j = await r.json().catch(() => ({}));
       setMsgs([...next, { role: 'assistant', content: j.reply || j.error || '小幫手暫時沒有回應，請稍後再試。' }]);
     } catch {
       setMsgs([...next, { role: 'assistant', content: '連不上小幫手，請確認網路後再試一次。' }]);
     } finally { setBusy(false); }
+  };
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** 「找 某位信眾」那一題不是真的問題：把「找 」放進輸入框讓他接著打名字 */
+  const pick = (q: string) => {
+    if (q.startsWith('找 某位')) { setInput('找 '); setTimeout(() => inputRef.current?.focus(), 0); return; }
+    ask(q);
   };
 
   /** 回答裡出現「點燈管理」這種頁名，就給一顆前往鈕（最多三顆，照出現順序） */
@@ -87,7 +122,7 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
               <div className="space-y-2">
                 <p className="text-gray-500">想做什麼？直接問，或點下面的常見問題：</p>
                 {STARTERS.map(q => (
-                  <button key={q} type="button" onClick={() => ask(q)}
+                  <button key={q} type="button" onClick={() => pick(q)}
                     className="block w-full text-left px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:border-temple-red hover:text-temple-red">
                     {q}
                   </button>
@@ -100,7 +135,20 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
                   m.role === 'user' ? 'bg-temple-red text-white' : 'bg-gray-100 text-gray-800'}`}>
                   {m.content}
                 </div>
-                {m.role === 'assistant' && linksIn(m.content).length > 0 && (
+                {m.find && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {pages.filter(p => p.key === 'roster' || p.key === 'members').map(p => (
+                      <button key={p.key} type="button" onClick={() => { onFind(p.key, m.find!); setOpen(false); }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-xs font-semibold hover:bg-[#5C4310]">
+                        在{p.label}搜尋<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    ))}
+                    {!pages.some(p => p.key === 'roster' || p.key === 'members') && (
+                      <span className="text-xs text-gray-500">你的帳號看不到信眾資訊與會員資訊，請洽管理員。</span>
+                    )}
+                  </div>
+                )}
+                {m.role === 'assistant' && !m.find && linksIn(m.content).length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {linksIn(m.content).map(p => (
                       <button key={p.key} type="button" onClick={() => { onGo(p.key); setOpen(false); }}
@@ -122,7 +170,7 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
                 <div className="pt-1 space-y-1.5">
                   <p className="text-xs text-gray-400">還想問：</p>
                   {rest.map(q => (
-                    <button key={q} type="button" onClick={() => ask(q)}
+                    <button key={q} type="button" onClick={() => pick(q)}
                       className="block w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 hover:border-temple-red hover:text-temple-red">
                       {q}
                     </button>
@@ -135,8 +183,8 @@ const AdminHelpChat: React.FC<Props> = ({ pages, onGo }) => {
           </div>
 
           <form onSubmit={e => { e.preventDefault(); ask(input); }} className="flex items-center gap-2 px-3 py-3 border-t border-gray-100">
-            <input value={input} onChange={e => setInput(e.target.value)} maxLength={500}
-              placeholder="例如：怎麼幫信眾代為報名點燈？"
+            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} maxLength={500}
+              placeholder="問操作，或打「找 姓名／電話」"
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
             <button type="submit" disabled={busy || !input.trim()} aria-label="送出"
               className="p-2.5 rounded-lg bg-temple-red text-white disabled:opacity-40"><Send className="w-4 h-4" /></button>
