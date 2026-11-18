@@ -2419,7 +2419,7 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
   };
 
   /**
-   * 清單頁只留聯絡與排班要用的：姓名、電話、LINE、出勤、狀態（2026-11-18 廟方：「志工報名表單太多資訊了，
+   * 清單頁只留聯絡要用的：姓名、電話、LINE、狀態（出勤 2026-11-18 也收進「更多資料」）（2026-11-18 廟方：「志工報名表單太多資訊了，
    * 像地址都可以隱藏⋯⋯非必要資訊，不用出現在表單清單頁，需要再點開」）。
    * 地址、生日、飲食、其他說明、報名時間與來源收進「更多資料」，就地展開（同問事的「生日・地址」）。
    */
@@ -2467,24 +2467,23 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
       ) : (
         <div className="space-y-3">
           {filtered.map(r => (
-            <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-3 flex-wrap">
+            <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-3 flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-gray-800">{r.name}</span>
                   <span className="text-sm text-gray-400">{r.phone}</span>
                   {r.lineId && <span className="text-xs bg-[#06C755]/10 text-[#06C755] px-2 py-0.5 rounded-full">LINE: {r.lineId}</span>}
+                  {/* 「更多資料」跟名字同一行、出勤也收進去（2026-11-18 廟方：「出勤⋯⋯不用在名字下面，這樣可以更多行」）：一張卡一行，一屏看得到更多人 */}
+                  <button type="button" aria-expanded={volInfo.isOpen(r.id)}
+                    onClick={e => { e.stopPropagation(); volInfo.toggle(r.id); }}
+                    className="text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                    {volInfo.isOpen(r.id) ? '收合資料' : '更多資料'}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${volInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  </button>
                 </div>
-                {fmtAvailability(r.availability) && (
-                  <p className="text-xs text-[#7C5C1E] mt-0.5">出勤：{fmtAvailability(r.availability)}</p>
-                )}
-                <button type="button" aria-expanded={volInfo.isOpen(r.id)}
-                  onClick={e => { e.stopPropagation(); volInfo.toggle(r.id); }}
-                  className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                  {volInfo.isOpen(r.id) ? '收合資料' : '更多資料'}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${volInfo.isOpen(r.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
-                </button>
                 {volInfo.isOpen(r.id) && (
                   <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                    {fmtAvailability(r.availability) && <p className="text-[#7C5C1E]">出勤：{fmtAvailability(r.availability)}</p>}
                     {r.address && <p>{r.address}</p>}
                     {(r.birthDate || r.zodiac) && <p>{r.birthDate}{r.zodiac ? `（${r.zodiac}）` : ''}</p>}
                     {r.diet && <p>飲食：{r.diet}</p>}
