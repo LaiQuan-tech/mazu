@@ -125,7 +125,8 @@ export interface DevoteeRow {
    * 通訊錄綁 `user_id`，所以這是事實。一個人可能同時在好幾個帳號的通訊錄裡
    * （夫妻各自把小孩加一次），所以是陣列。
    */
-  relationOf: Array<{ tag: string; relation: string }>;
+  /** `who` 是那個帳號的姓名（2026-11-18 廟方：「#1041 的兒女」看不出是誰，要寫「李沛玲的兒女」），沒填姓名時是空字串 */
+  relationOf: Array<{ tag: string; relation: string; who: string }>;
   /** 可能的親屬：與本人有共同電話的其他姓名 */
   relatives: string[];
   /** 由拆分產生的列，記下原始姓名（顯示名稱會加上生日以資區別） */
@@ -165,6 +166,8 @@ interface Sighting {
   isMemberSelf?: boolean;
   memberNumber?: string;
   contactOf?: string;
+  /** 通訊錄主人的姓名（member_profiles.name），顯示「誰的兒女」用 */
+  contactOwnerName?: string;
   relation?: string;
   /** 這一筆自己那個帳號的代稱，`linkMembersByPhone()` 用來排除「自己對到自己」。
    *  沒編號的帳號也要有代稱，否則它在電話比對裡會變成空字串、把別人的也濾掉。 */
@@ -254,13 +257,15 @@ function collectSightings(src: RosterSources): Sighting[] {
   // 通訊錄綁 `user_id`，所以「這是誰的通訊錄」是**查得到的事實**，不必拿電話去猜
   // （而且家人那幾筆本來就沒有電話，猜也猜不到）。
   const ownerTag = new Map<string, string>();
-  (src.members ?? []).forEach(m => ownerTag.set(m.userId, memberTag(m)));
+  const ownerName = new Map<string, string>();
+  (src.members ?? []).forEach(m => { ownerTag.set(m.userId, memberTag(m)); if (m.name?.trim()) ownerName.set(m.userId, m.name.trim()); });
   (src.contacts ?? []).forEach(c => out.push({
     name: c.name, source: '通訊錄', at: localDate(c.createdAt), gender: c.gender,
     phone: c.phone, address: c.address, birthDate: c.birthDate, zodiac: c.zodiac,
     // 抓不到那個帳號的資料（有通訊錄卻沒有 member_profiles 那一列）時也要說得出
     // 「這是某個帳號的通訊錄」，那比留白誠實
     contactOf: ownerTag.get(c.userId) ?? '未編號會員',
+    contactOwnerName: ownerName.get(c.userId),
     relation: c.label,
   }));
 
@@ -393,7 +398,7 @@ function foldSightings(name: string, list: Sighting[]): DevoteeRow {
       const tag = clean(s.contactOf);
       const relation = clean(s.relation);
       if (!row.relationOf.some(x => x.tag === tag && x.relation === relation)) {
-        row.relationOf.push({ tag, relation });
+        row.relationOf.push({ tag, relation, who: clean(s.contactOwnerName) });
       }
     }
     if (s.isMemberSelf) { row.memberAccounts += 1; pushUnique(row.memberTags, s.accountTag); }

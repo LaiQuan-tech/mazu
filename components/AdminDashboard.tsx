@@ -698,11 +698,12 @@ const RelationCell = ({ row }: { row: DevoteeRow }) => {
 
   return (
     <span className="inline-flex flex-wrap gap-1">
-      {row.relationOf.map(({ tag, relation }) => (
+      {row.relationOf.map(({ tag, relation, who }) => (
         <span key={`${tag}-${relation}`}
           className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs whitespace-nowrap"
-          title={`${tag} 的通訊錄把他記成「${relation}」。通訊錄綁帳號，所以「是誰的${relation}」是查得到的事實`}>
-          {tag} 的{relation}
+          title={`${who || tag}（會員 ${tag}）的通訊錄把他記成「${relation}」。通訊錄綁帳號，所以「是誰的${relation}」是查得到的事實`}>
+          {/* 寫姓名不寫編號（2026-11-18 廟方：「#1041 的兒女」不知道是誰）；帳號沒填姓名才退回編號 */}
+          {who ? `${who}的${relation}` : `${tag} 的${relation}`}
         </span>
       ))}
       {unsourced.map(r => (
@@ -1421,7 +1422,8 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       || r.emails.some(e => e.toLowerCase().includes(ql))
       || r.lineIds.some(l => l.toLowerCase().includes(ql))
       || r.memberNumbers.some(n => n.includes(q))
-      || r.relations.some(x => x.includes(q));
+      || r.relations.some(x => x.includes(q))
+      || r.relationOf.some(x => `${x.who}的${x.relation}`.includes(q));
     const matchSource = !sourceFilter || (r.counts[sourceFilter] ?? 0) > 0;
     return matchSearch && matchSource && (!onlyConflicts || r.nameConflict);
   }), [rows, search, sourceFilter, onlyConflicts]);
@@ -1472,7 +1474,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
       r.zodiacs.join('／'),
       r.lineIds.join('、'),
       r.emails.join('、'),
-      r.relationOf.map(x => `${x.tag} 的${x.relation}`).join('、'),
+      r.relationOf.map(x => x.who ? `${x.who}（${x.tag}）的${x.relation}` : `${x.tag} 的${x.relation}`).join('、'),
       r.relations.filter(x => x && x !== '本人' && !r.relationOf.some(y => y.relation === x)).join('、'),
       ROSTER_SOURCES.filter(s => r.counts[s]).map(s => `${s}${r.counts[s]}`).join('、'),
       rosterTotalCount(r.counts),
@@ -1625,8 +1627,7 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                 {/* 常用的排前面（廟方 2026-10-30）：找人 → 看他最近有沒有來 → 直接代報名。
                     關係常駐；其餘三欄（性別／累計金額／可能親屬）收在「更多欄位」後面，順序與表身必須一致。 */}
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
-                {/* 電話 2026-11-18 收進姓名格的「電話・地址」（廟方：「信眾資訊 表單的電話可以收折」）；搜尋照樣吃電話 */}
-                <th className="px-4 py-3 text-left font-medium">最近參與</th>
+                {/* 電話、最近參與 2026-11-18 收進姓名格的「個人資料」（廟方：「電話可以收折」「最近參與可以收折」）；搜尋照樣吃電話 */}
                 <th className="px-4 py-3 text-left font-medium">參與管道</th>
                 {/* 這四欄一律輸出（地址改由姓名格的「地址」鈕就地展開，2026-11-18 隱私考量）：桌機由「更多欄位」決定顯示（lg:hidden），手機卡片由每張卡的「更多資料」展開 */}
                 {/* 關係常駐（2026-11-18 廟方：「關係要顯示，也要能搜尋，但不要一整排關係按鈕」） */}
@@ -1657,24 +1658,24 @@ const RosterTab = ({ sources, onDone }: { sources: RosterSources; onDone: () => 
                         疑似同名
                       </span>
                     )}
-                    {(r.addresses.length > 0 || r.phones.length > 0) && (
+                    {(r.addresses.length > 0 || r.phones.length > 0 || r.lastSeen) && (
                       <div>
                     <button type="button" aria-expanded={rosterInfo.isOpen(r.name)}
                       onClick={e => { e.stopPropagation(); rosterInfo.toggle(r.name); }}
                       className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
-                      {rosterInfo.isOpen(r.name) ? '收合資料' : [r.phones.length ? '電話' : '', r.addresses.length ? '地址' : ''].filter(Boolean).join('・')}
+                      {rosterInfo.isOpen(r.name) ? '收合資料' : '個人資料'}
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${rosterInfo.isOpen(r.name) ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
                         {rosterInfo.isOpen(r.name) && (
                           <div className="mt-1 text-xs font-normal text-gray-500 whitespace-normal space-y-0.5">
                             {r.phones.length > 0 && <p>{r.phones.join('、')}</p>}
                             {r.addresses.length > 0 && <p>{r.addresses.join('；')}</p>}
+                            {r.lastSeen && <p className="text-gray-400">最近參與 {r.lastSeen}</p>}
                           </div>
                         )}
                       </div>
                     )}
                   </td>
-                  <td data-label="最近參與" className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.lastSeen || <Dash />}</td>
                   <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {rosterBadges(r.counts).map(b => (
