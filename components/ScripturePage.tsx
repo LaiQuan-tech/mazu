@@ -545,12 +545,11 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
       {/* ── 開場 ── */}
       <div data-intro="true" style={{ maxWidth: 680, margin: '0 auto', padding: '20px 32px 40px', textAlign: 'center' }}>
         <p className="sp-up" style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 18 }}>✦ 按章節閱讀 ✦</p>
-        <p className="sp-up sp-d1" style={{ color: INK.inkBody, fontSize: 15, lineHeight: 2.4, letterSpacing: '.07em' }}>
-          聖母經乃歷代信眾虔誠奉誦之頌詞，記載天上聖母慈悲護佑之事蹟。<br />
-          以下各節，輔以圖繪與說解，願讀者沐浴聖恩，心生清淨。
-        </p>
+        {/* 原本這裡還有兩行引言（「聖母經乃歷代信眾虔誠奉誦之頌詞⋯⋯」），與封面那句
+            「天上聖母護佑眾生・慈悲顯化・靈感無邊」講同一件事。2026-11-20 廟方：「這二段應該可以保留
+            一段即可，這樣會更快進入經文」——留封面那句（短、在第一屏），這裡只剩讀法的兩顆鈕 */}
         {/* 兩種讀法給兩種人：要誦讀的人只要經文，要理解的人一段一段點開註解 */}
-        <div className="sp-up sp-d2" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 24 }}>
+        <div className="sp-up sp-d1" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 8 }}>
           <button type="button" onClick={onOpenFull} style={{ color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '10px 22px', fontSize: 15, letterSpacing: '.15em', cursor: 'pointer' }}>
             {/* 原本「只看經文全文（誦讀用）」，廟方 2026-11-09 嫌長又饒舌。
                 用全文頁自己標題裡的兩個詞，按鈕寫的就是點進去那一頁的名字 */}
