@@ -159,7 +159,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
       ))}
       <main style={{ position: 'relative', zIndex: 10, maxWidth: 720, margin: '0 auto', padding: '48px 20px 96px' }}>
         <header style={{ textAlign: 'center', marginBottom: 40 }}>
-          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 16 }}>台 北 古 亭 和 聖 壇</p>
+          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 16 }}>和 聖 壇</p>
           <h1 style={{ color: SUTRA.gold, textShadow: `0 0 24px ${SUTRA.glow}`, fontSize: 'clamp(30px,6vw,44px)', fontWeight: 900, letterSpacing: '.2em', marginBottom: 12 }}>天上聖母經全文</h1>
           <p style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.2em' }}>
             {loading ? '載入中…' : '誦讀版'}

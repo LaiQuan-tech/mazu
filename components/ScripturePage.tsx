@@ -496,7 +496,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
           }} />
         ))}
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
-          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>台 北 古 亭 和 聖 壇</p>
+          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>和 聖 壇</p>
           {/*
             **這裡必須是 h1**：整頁原本一個標題標籤都沒有（2026-09-10 實測
             document.querySelectorAll('h1,h2,h3,h4') 回傳空陣列）。五個字是逐字
