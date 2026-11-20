@@ -59,7 +59,25 @@ interface CalendarEntry {
   note?: string;
   /** 辦事日：還能不能線上預約。false 只是不收報名，那天照樣辦事，所以仍要列 */
   bookingOpen?: boolean;
+  /**
+   * 這一天的祈福活動（聖誕當天的祝賀寶燈等）。聖誕那一列掛上它的報名連結
+   * （2026-11-20 廟方：「歲時節慶，如有神明祝賀寶燈，要在該神明生日顯示報名連結」）。
+   * 活動自己那一列也帶（不同天的單次活動）。
+   */
+  signups?: { id: string; title: string; open: boolean }[];
 }
+
+/**
+ * 這一場現在還收不收報名。規則同 App 的 isBlessingClosed（截止時間過了就不收），
+ * 再加上：後台下架（isActive=false）、走外部表單（法會，報名不在這條流程）、活動已經辦完。
+ */
+const signupOf = (ev: BlessingEventRecord, today: string) => ({
+  id: ev.id,
+  title: ev.title,
+  open: ev.isActive !== false && !ev.externalForm
+    && !(ev.registrationDeadline && new Date(ev.registrationDeadline) < new Date())
+    && (ev.endDate || ev.startDate) >= today,
+});
 
 const todayYmd = (): string => {
   // 一律本地時區組字串，不用 toISOString（台灣早上 8 點前會差一天，見 CLAUDE.md）
@@ -67,7 +85,7 @@ const todayYmd = (): string => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const CalendarPage: React.FC<{ onBack: () => void; onSignup?: (eventId: string) => void }> = ({ onBack, onSignup }) => {
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
   const [feasts, setFeasts] = useState<DeityFeast[]>([]);
@@ -136,10 +154,18 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
      */
     const feastDates = new Set(list.filter(e => e.kind === 'feast').map(e => e.date));
 
+    const today0 = todayYmd();
     events.forEach(ev => {
       if (!ev.startDate?.startsWith(String(year))) return;
-      if (feastDates.has(ev.startDate)) return;   // 當天已有聖誕，不重複列
+      // 當天已有聖誕：不另列一行，但把報名連結掛到聖誕那一列上（祝賀寶燈就是在那一天點的）
+      if (feastDates.has(ev.startDate)) {
+        if (ev.externalForm) return;   // 法會走自己的報名表，掛「報名已截止」只會誤導
+        list.filter(e => e.kind === 'feast' && e.date === ev.startDate)
+          .forEach(e => { (e.signups ??= []).push(signupOf(ev, today0)); });
+        return;
+      }
       list.push({
+        signups: ev.externalForm ? undefined : [signupOf(ev, today0)],
         key: `e-${ev.id}`, date: ev.startDate,
         endDate: ev.endDate && ev.endDate !== ev.startDate ? ev.endDate : undefined,
         title: ev.title, kind: 'event',
@@ -295,6 +321,22 @@ const CalendarPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                               {/* 辦事日直接給預約的入口：看到「10/5 有辦事」的下一個念頭就是要預約，
                                   讓他再自己從導覽列找一次問事頁是多餘的。已過去或已關閉的不給連結——
                                   點進去只會看到那一場不在清單上，那是把人帶去撞牆 */}
+                              {/* 祝賀寶燈等活動的報名：可報名的給一顆實心鈕，直接開那一場的報名表；
+                                  截止的據實寫「報名已截止」，不給按鈕（點進去只會撞牆） */}
+                              {x.signups && !past && x.signups.length > 0 && (
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  {x.signups.map(sg => sg.open && onSignup ? (
+                                    <button key={sg.id} type="button" onClick={() => onSignup(sg.id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
+                                      {x.kind === 'feast' ? `報名${sg.title}` : '我要報名'} →
+                                    </button>
+                                  ) : (
+                                    <span key={sg.id} className="text-sm text-gray-500">
+                                      {x.kind === 'feast' ? `${sg.title}：` : ''}報名已截止
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                               {x.kind === 'booking' && !past && (
                                 x.bookingOpen
                                   ? <a href="/booking" className="inline-block mt-2 text-sm font-medium text-temple-red hover:underline">線上預約問事 →</a>

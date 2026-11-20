@@ -5699,7 +5699,7 @@ const App: React.FC = () => {
           入口在導覽列的「更多」下拉最上方。聖誕來自 deity_feasts（存農曆規則，
           每年換算），壇務活動來自 blessing_events（存確定的國曆日） */}
       {page === 'calendar' && (
-        <Suspense fallback={<PageLoading />}><CalendarPage onBack={() => goToPage('home')} /></Suspense>
+        <Suspense fallback={<PageLoading />}><CalendarPage onBack={() => goToPage('home')} onSignup={id => openServiceFromBulletin('blessing', id)} /></Suspense>
       )}
 
       {/* ── 公佈欄完整清單（獨立分頁 /bulletins）──
