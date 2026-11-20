@@ -2,7 +2,7 @@ import React from 'react';
 import PatternMedallion, { PatternMotif } from './PatternMedallion';
 
 /**
- * 圖文穿插的長頁版型（關於我們、遷址捐款共用）
+ * 圖文穿插的長頁版型（關於我們、遷址募款共用）
  *
  * 這類頁面的重點是「讀得下去」，所以有兩個刻意的設計：
  *   1. 純文字段落限制在 65ch 以內——一行超過這個寬度，眼睛換行時容易跳行。
@@ -139,7 +139,7 @@ export interface StoryPageProps {
   /** 開場段，排在標題下方、置中，作為整頁的引言 */
   lead?: string[];
   blocks: StoryBlock[];
-  /** 接在圖文之後的內容，例如遷址捐款的方案表格 */
+  /** 接在圖文之後的內容，例如遷址募款的方案表格 */
   children?: React.ReactNode;
   onBack: () => void;
 }

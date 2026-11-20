@@ -445,7 +445,7 @@ export interface SiteInfo {
   hoursClose: string;
 }
 
-/** 遷址捐款的方案表格：金額當欄、回饋項目當列的矩陣 */
+/** 遷址募款的方案表格：金額當欄、回饋項目當列的矩陣 */
 export interface RelocationPlanRow {
   label: string;
   /** 每一格的內容，長度對應 tiers；渲染時會自動補齊，少填不會壞版 */
@@ -471,7 +471,7 @@ export interface RelocationPlan {
 
 export type RelocationPlanData = Omit<RelocationPlan, 'id'>;
 
-/** 首頁「遷址捐款」摘要：與 /relocation 的段落分開，可獨立寫得更精簡 */
+/** 首頁「遷址募款」摘要：與 /relocation 的段落分開，可獨立寫得更精簡 */
 export interface RelocationHome {
   heading: string;
   body: string;

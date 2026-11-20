@@ -2843,7 +2843,7 @@ export const uploadHomeVideoCover = async (id: string): Promise<string | null> =
   return null;
 };
 
-// ─── 遷址捐款方案（金額當欄、回饋項目當列的矩陣表）──────────────────────────
+// ─── 遷址募款方案（金額當欄、回饋項目當列的矩陣表）──────────────────────────
 
 /** cells 少於 tiers 時補空字串：後台加了一欄但還沒填格子，前台不該因此壞版 */
 const normalizePlanRows = (rows: unknown, tierCount: number): RelocationPlanRow[] =>
@@ -2914,7 +2914,7 @@ export const deleteRelocationPlan = async (id: string): Promise<void> => {
   if (error) { console.error('Error deleting relocation plan:', error); throw error; }
 };
 
-// ─── 首頁「遷址捐款」摘要 ────────────────────────────────────────────────────
+// ─── 首頁「遷址募款」摘要 ────────────────────────────────────────────────────
 // 沿用 site_settings，不另外開表：這只是兩個字串，為它建一張表沒有意義。
 // 留空時前台會退回 /relocation 的第一個段落，所以不必強迫填。
 

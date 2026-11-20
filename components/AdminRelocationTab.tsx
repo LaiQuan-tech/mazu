@@ -8,7 +8,7 @@ import {
 import { RelocationPlan, RelocationPlanRow, RelocationHome } from '../types';
 
 /**
- * 後台「遷址捐款」
+ * 後台「遷址募款」
  *
  * 圖文段落沿用 AdminAboutTab（page='relocation'），下方接方案矩陣編輯器。
  * 矩陣＝金額當欄、回饋項目當列，格子點一下就在 ✓ ／ — ／ 空白之間切換——
@@ -279,7 +279,7 @@ const HomeSummaryEditor = () => {
     <div className="mt-10 pt-6 border-t border-gray-200">
       <h3 className="text-lg font-bold text-gray-800 mb-1">首頁摘要</h3>
       <p className="text-sm text-gray-500 mb-4">
-        顯示在首頁「祀奉神尊」下方的遷址捐款區塊。<strong>留空</strong>就自動使用下方第一個段落的內容。
+        顯示在首頁「祀奉神尊」下方的遷址募款區塊。<strong>留空</strong>就自動使用下方第一個段落的內容。
         照片同樣取自第一個段落。
       </p>
       <div className="space-y-3 max-w-3xl">
@@ -307,8 +307,8 @@ const HomeSummaryEditor = () => {
 const AdminRelocationTab = () => (
   <AdminAboutTab
     page="relocation"
-    title="遷址捐款"
-    description={<>這裡的段落會顯示在「遷址捐款」頁；方案表格排在段落之後。</>}
+    title="遷址募款"
+    description={<>這裡的段落會顯示在「遷址募款」頁；方案表格排在段落之後。</>}
   >
     <HomeSummaryEditor />
     <PlansEditor />

@@ -205,8 +205,8 @@ const SectionCard: React.FC<SectionCardProps> = ({
 };
 
 /**
- * 段落編輯器。「關於我們」與「遷址捐款」的段落結構相同，用 page 分流同一套介面。
- * children 讓各頁接上自己專屬的區塊（關於我們接數字卡、遷址捐款接方案表格）。
+ * 段落編輯器。「關於我們」與「遷址募款」的段落結構相同，用 page 分流同一套介面。
+ * children 讓各頁接上自己專屬的區塊（關於我們接數字卡、遷址募款接方案表格）。
  */
 interface AdminSectionsTabProps {
   page?: SectionPage;

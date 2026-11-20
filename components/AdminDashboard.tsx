@@ -8757,7 +8757,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'vouchers',    label: '財務憑證',   icon: <Receipt className="w-4 h-4" /> },
     { key: 'traffic',     label: '流量來源',   icon: <TrendingUp className="w-4 h-4" /> },
     { key: 'about',       label: '關於我們',   icon: <FileText className="w-4 h-4" /> },
-    { key: 'relocation',  label: '遷址捐款',   icon: <HeartHandshake className="w-4 h-4" /> },
+    { key: 'relocation',  label: '遷址募款',   icon: <HeartHandshake className="w-4 h-4" /> },
     { key: 'faq',         label: '常見問題',   icon: <BookOpenCheck className="w-4 h-4" /> },
     { key: 'feasts',      label: '歲時節慶', icon: <CalendarClock className="w-4 h-4" /> },
     { key: 'urgent',      label: '緊急祈願', icon: <Flame className="w-4 h-4" /> },

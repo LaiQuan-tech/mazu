@@ -17,7 +17,7 @@ export interface RelocationDonorDefaults {
 }
 
 /**
- * 遷址捐款（獨立頁）
+ * 遷址募款（獨立頁）
  *
  * 圖文段落與捐款方案表格都來自後台，廟方自行維護：
  *   段落 → about_sections（page = 'relocation'）
@@ -470,7 +470,7 @@ const RelocationPage: React.FC<{
   }, []);
 
   return (
-    <StoryPage eyebrow="護持遷址" title="遷址捐款" blocks={blocks} onBack={onBack} medallion="dragon">
+    <StoryPage eyebrow="護持遷址" title="遷址募款" blocks={blocks} onBack={onBack} medallion="dragon">
       {plans.map(p => <PlanTable key={p.id} plan={p} />)}
       {/* 順序是：看方案 → 填登記 → 匯款。
           登記表排在匯款資訊之前，因為要先知道選哪一級才知道要匯多少；

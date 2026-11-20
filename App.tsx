@@ -506,13 +506,13 @@ const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMont
 /**
  * 導覽列的順序＝**服務在前、介紹在後**（廟方 2026-10-17 重排）。
  *
- * 之前是「最新活動／關於我們／祀奉神尊／遷址捐款」全排在服務前面——等於還沒讓人
+ * 之前是「最新活動／關於我們／祀奉神尊／遷址募款」全排在服務前面——等於還沒讓人
  * 看到本壇在做什麼，就先要他讀沿革、再開口募款。會進到這個網站的人絕大多數是來
  * 辦事的，辦事的入口該排在最前面。
  *
  * **緊急祈願緊接在首頁後面**（廟方 2026-10-17 再調）：它是整列裡唯一「晚一分鐘
  * 就有差」的，所以不只是排在服務前段，而是排在**第一個位置**。
- * **遷址捐款留在服務之後、介紹之前**（廟方指定）：募資是現在進行中的重點，
+ * **遷址募款留在服務之後、介紹之前**（廟方指定）：募資是現在進行中的重點，
  * 不要沉到最後一個。
  *
  * 第四格是點燈／祈福互換的那一格（見 isLampSeason）。順序改了寬度沒變——
@@ -520,7 +520,7 @@ const isLampSeason = (): boolean => LAMP_SEASON_MONTHS.includes(currentLunarMont
  */
 /**
  * 桌機頂層那一列。**順序是廟方定的優先序，不是版面考量**（2026-10-23）：
- *   緊急祈願 → 遷址捐款 → 最新活動 → 其餘
+ *   緊急祈願 → 遷址募款 → 最新活動 → 其餘
  * 廟方的原話：「緊急祈願是服務緊急的信眾，永遠最重要，次重要就是遷址，
  * 然後最新的活動公布」。改動前三項之前要先問過他們。
  *
@@ -555,7 +555,7 @@ const NAV_PRIMARY: NavItem[] = [
    * 收一層就變成兩個動作，而這一頁存在的理由就是「馬上」。
    */
   { id: 'urgent', label: '緊急祈願', kind: 'page' },
-  { id: 'relocation', label: '遷址捐款', kind: 'page' },
+  { id: 'relocation', label: '遷址募款', kind: 'page' },
   // 最新活動由 ENABLE_BULLETIN 控制；關閉時不出現在導覽列（桌機與手機選單共用這份資料）
   ...(ENABLE_BULLETIN ? [{ id: 'bulletin', label: '最新活動', kind: 'section' } as NavItem] : []),
   { id: 'booking', label: '預約問事', kind: 'page' },
@@ -1623,7 +1623,7 @@ const App: React.FC = () => {
       lamps:      '太歲點燈｜安太歲・太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
       blessing:   '祈福法會報名｜台北古亭和聖壇',
       urgent:     '緊急祈願燈｜急難代為稟告祈福，不收費｜台北古亭和聖壇',
-      relocation: '遷址捐款｜護持和聖壇道場遷址',
+      relocation: '遷址募款｜護持和聖壇道場遷址',
       donation:   '隨喜捐獻｜護持台北古亭和聖壇壇務',
       repair:     '神尊修復｜台北古亭和聖壇',
       deitiesAll: '祀奉神尊｜台北古亭和聖壇的神尊介紹',
@@ -1853,7 +1853,7 @@ const App: React.FC = () => {
   const [aboutImageUrl, setAboutImageUrl] = useState('');
   // 首頁摘要取後台第一個顯示中的段落；還沒載入或沒資料時用下面寫死的保底文案
   const [aboutLead, setAboutLead] = useState<AboutSection | null>(null);
-  // 首頁遷址捐款區塊＝後台「遷址捐款」第一個顯示中的段落
+  // 首頁遷址募款區塊＝後台「遷址募款」第一個顯示中的段落
   const [relocationLead, setRelocationLead] = useState<AboutSection | null>(null);
   // 首頁摘要可在後台單獨寫；留空則退回 /relocation 的第一段
   const [relocationHome, setRelocationHome] = useState<RelocationHome>({ heading: '', body: '' });
@@ -2273,8 +2273,8 @@ const App: React.FC = () => {
       // 捲到定位時區塊頂端就落在 80，跟 120 只差 40——平滑捲動少捲 41px（觸控板碰一下、
       // 或圖片載入把版面往下推）高亮就會退回上一個區塊。這正是「點祀奉神尊卻亮關於我們」的成因。
       const line = Math.max(120, Math.min(window.innerHeight * 0.35, 300));
-      // relocation-intro／services 是首頁區塊：前者對應導覽的「遷址捐款」，
-      // 後者沒有對應項目，就讓高亮停在「遷址捐款」直到捲進常見問題。
+      // relocation-intro／services 是首頁區塊：前者對應導覽的「遷址募款」，
+      // 後者沒有對應項目，就讓高亮停在「遷址募款」直到捲進常見問題。
       // 由下往上排，取第一個已捲過判定線的區塊，所以順序必須與頁面由下而上一致。
       // bulletin 夾在 about 與 home 之間（頁面上它在 hero 之下、關於我們之上）。
       // **沒有 donation**：2026-10-23 廟方要求那一區整個從首頁移除，現在只剩分頁 /donation，
@@ -3808,6 +3808,18 @@ const App: React.FC = () => {
 
         {/* 輪播圓點已隨輪播照片一起移除 */}
 
+        {/* 遷址募款入口（2026-11-21 廟方：「首頁 hero 要不要加一個按鈕導引去遷址募款頁」）。
+            **絕對定位、z-30**：不進 hero-actions 那一格（法會報名用的，會把神尊與書法擠動），
+            版面一個像素都不動。手機在神尊腳下置中、桌機在左下角書法淡出的地方。
+            深底泥金字（.btn-sutra）：金箔牆上白字只有 3.17:1。不加動畫（hero 動態已被否決四次）。 */}
+        <button
+          type="button"
+          onClick={() => goToPage('relocation')}
+          className="btn-sutra absolute z-30 bottom-5 left-1/2 -translate-x-1/2 lg:left-10 lg:translate-x-0 lg:bottom-8 px-5 py-2.5 text-sm sm:text-base font-bold tracking-wider whitespace-nowrap"
+        >
+          遷址募款 →
+        </button>
+
         {/* 底部的倒三角切角已移除，改成平的收邊：
             用一道極短的漸層讓織錦自然過渡到下一段的米白，不做幾何造型。 */}
         <div
@@ -4204,8 +4216,8 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 遷址捐款（首頁摘要）──
-          內容取自後台「遷址捐款」第一個顯示中的段落，與 /relocation 同一份資料。
+      {/* ── 遷址募款（首頁摘要）──
+          內容取自後台「遷址募款」第一個顯示中的段落，與 /relocation 同一份資料。
           版型比照「關於和聖壇」，但不放數字卡——那兩張是關於我們專屬的。
           後台還沒有任何段落時整區不渲染，首頁不會出現空殼。 */}
       {relocationLead && (
@@ -4236,7 +4248,7 @@ const App: React.FC = () => {
                 護持遷址
               </h2>
               <h3 className="sr sr-up sr-d1 balance-text text-3xl sm:text-4xl font-bold text-temple-dark mb-2 font-serif leading-snug">
-                {relocationHome.heading || relocationLead.heading || '遷址捐款'}
+                {relocationHome.heading || relocationLead.heading || '遷址募款'}
               </h3>
               <div className="sr sr-up sr-d1 flex items-center gap-3 mt-2 mb-6">
                 <span className="w-8 h-px bg-temple-gold/70" />
@@ -5756,7 +5768,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* ── 遷址捐款（獨立分頁 /relocation）──
+      {/* ── 遷址募款（獨立分頁 /relocation）──
           入口在導覽列的「更多」下拉 */}
       {/* donorDefaults 是單向往下傳的（這一頁懶載入，不能反向 import App）：
           已登入的人不必在遷址登記表重打自己的姓名生日地址，規則同四個表單——只補空欄位。 */}
