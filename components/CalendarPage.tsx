@@ -59,6 +59,8 @@ interface CalendarEntry {
   note?: string;
   /** 辦事日：還能不能線上預約。false 只是不收報名，那天照樣辦事，所以仍要列 */
   bookingOpen?: boolean;
+  /** 辦事日對應的問事場次 id：按「預約這一場」時直接選好這一場 */
+  sessionId?: string;
   /**
    * 這一天的祈福活動（聖誕當天的祝賀寶燈等）。聖誕那一列掛上它的報名連結
    * （2026-11-20 廟方：「歲時節慶，如有神明祝賀寶燈，要在該神明生日顯示報名連結」）。
@@ -85,7 +87,12 @@ const todayYmd = (): string => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const CalendarPage: React.FC<{ onBack: () => void; onSignup?: (eventId: string) => void }> = ({ onBack, onSignup }) => {
+const CalendarPage: React.FC<{
+  onBack: () => void;
+  onSignup?: (eventId: string) => void;
+  /** 辦事日的預約鈕：換到問事頁並選好這一場（App 換頁，不整頁重載） */
+  onBook?: (sessionId: string) => void;
+}> = ({ onBack, onSignup, onBook }) => {
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
   const [feasts, setFeasts] = useState<DeityFeast[]>([]);
@@ -183,7 +190,7 @@ const CalendarPage: React.FC<{ onBack: () => void; onSignup?: (eventId: string) 
       list.push({
         key: `b-${s.id}`, date: s.sessionDate, title: '辦事日', kind: 'booking',
         ruleLabel: [solarToLunarLabel(s.sessionDate), s.sessionTime].filter(Boolean).join('　'),
-        bookingOpen: s.isActive,
+        bookingOpen: s.isActive, sessionId: s.id,
       });
     });
 
@@ -339,7 +346,11 @@ const CalendarPage: React.FC<{ onBack: () => void; onSignup?: (eventId: string) 
                               )}
                               {x.kind === 'booking' && !past && (
                                 x.bookingOpen
-                                  ? <a href="/booking" className="inline-block mt-2 text-sm font-medium text-temple-red hover:underline">線上預約問事 →</a>
+                                  // 與聖誕的報名鈕同一個樣子（2026-11-20 廟方：「辦事日的連結，也像聖誕一樣，要用按鈕的方式呈現」）
+                                  ? <button type="button" onClick={() => onBook ? onBook(x.sessionId!) : window.location.assign('/booking')}
+                                      className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
+                                      預約這一場問事 →
+                                    </button>
                                   : <p className="mt-2 text-sm text-gray-500">這一場的線上預約已關閉，請洽本壇。</p>
                               )}
                             </div>
