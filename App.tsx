@@ -48,7 +48,7 @@ import PatternMedallion from './components/PatternMedallion';
 import VideoFacade from './components/VideoFacade';
 import InstagramStrip from './components/InstagramStrip';
 import TaijiIcon from './components/TaijiIcon';
-import { INK_PAPER_CSS, INK_PAPER_BG } from './components/inkTheme';
+import { INK_PAPER_CSS, INK_PAPER_BG, SCROLL } from './components/inkTheme';
 import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
@@ -1674,7 +1674,8 @@ const App: React.FC = () => {
     const dark = INK_MODE && !(showShower || showShowerCheckin);
     if (!showScripture) document.body.style.backgroundColor = dark ? INK_PAPER_BG : '';
     const el = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    if (el) el.setAttribute('content', dark || showScripture ? INK_PAPER_BG : '#7C5C1E');
+    // 聖母經 2026-11-20 改成古代畫紙（淺色），網址列跟著紙色，不再是靛藍
+    if (el) el.setAttribute('content', showScripture ? SCROLL.paper : dark ? INK_PAPER_BG : '#7C5C1E');
   }, [showShower, showShowerCheckin, showScripture]);
   /**
    * 開發模式的防呆：**Hero 收邊淡進的顏色必須等於它下一個區塊的底色**

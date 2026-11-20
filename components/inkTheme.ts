@@ -111,6 +111,45 @@ export const SUTRA = {
   glow: 'rgba(232,188,74,.28)',         // 經文的微光，讓金色有「泛著光」的感覺而不是平塗
 } as const;
 
+/**
+ * 天上聖母經兩頁的「古代畫紙」色票（2026-11-20 廟方：「為了要讓整體的風格一致，天上聖母經改成
+ * 古代畫紙風格，經文顏色用深黑色的字」）。原本兩頁用上面那組青花紙（`INK`／`SUTRA`），全站其他頁
+ * 早已換回米色金箔（2026-10-24），只剩聖母經是深色——進去像換了一個網站。
+ *
+ * **鍵名刻意與 `INK` 一模一樣**：兩頁 `import { SCROLL as INK, SCROLL_SUTRA as SUTRA }` 就整頁換色，
+ * 版面、字級、動畫一個字都不必動；哪天要換回青花紙也只是把 import 改回來。
+ * `INK`／`SUTRA` 沒有刪：全站 `?ink=1` 主題還在用。
+ *
+ * 對比量在 paper（#EFE4C9）上：經文 14.1:1、註解 10.2:1、主要字 12.3:1（都過 AAA 7:1）；
+ * soft 6.7、faint 5.4（過 AA 4.5）。gold（赭色）只有 4.1，**只拿來畫線與裝飾點，不要拿來寫字**。
+ */
+export const SCROLL = {
+  paper:     '#EFE4C9',                    // 古紙
+  paperDeep: '#E4D5B1',                    // 漸層的深處（紙邊泛黃）
+  panel:     '#F6EDD8',
+  navBar:    'rgba(239,228,201,0.96)',
+  ink:       '#2B2219',                    // 大標、按鈕字
+  inkBody:   '#3B3023',                    // 長段內文
+  inkSoft:   '#5B4A34',
+  inkFaint:  '#6B573D',
+  gold:      '#8A6634',                    // 赭：線條、裝飾點
+  goldLine:  'rgba(122,92,50,.35)',
+  rule:      'rgba(122,92,50,.16)',
+  frame:     'rgba(122,92,50,.30)',
+  fieldFace: 'rgba(255,255,255,.45)',
+  btnFace:   'rgba(122,92,50,.08)',
+  btnEdge:   'rgba(122,92,50,.42)',
+  glow:      'rgba(255,250,236,.55)',      // 淺色的光暈：紙上要的是「亮一塊」不是金光
+  shadow:    'rgba(70,45,15,.16)',
+} as const;
+
+/** 經文是深黑色的字（廟方指定），註解比經文淡一階、仍是墨色；不加光暈，紙上的墨字不發光 */
+export const SCROLL_SUTRA = {
+  gold: '#1B1712',
+  text: '#3B3023',
+  glow: 'transparent',
+} as const;
+
 export const INK_PAPER_CSS = `
   .ink-paper { background: ${INK.paper}; color-scheme: dark; }
 

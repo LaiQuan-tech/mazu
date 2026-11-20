@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses } from '../services/supabase';
-import { INK, SUTRA } from './inkTheme';
+// 2026-11-20 起用古代畫紙色票（鍵名同 INK，換回青花紙只要改這一行）
+import { SCROLL as INK, SCROLL_SUTRA as SUTRA } from './inkTheme';
 import { sectionHeading } from '../services/scriptureText';
 
 
@@ -310,9 +311,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
           要再加回來，素材是 public/pattern-dragon.png，見 git 歷史。
         */
         .brush-line { border:none; height:1px; background:linear-gradient(to right, transparent, ${INK.gold}, transparent); opacity:.55; margin:0 auto; max-width:560px; }
-        .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,${INK.gold},#F0D9A4,${INK.gold}); opacity:.18; pointer-events:none; z-index:40; }
+        .scroll-rail { position:fixed; top:0; bottom:0; width:4px; background:linear-gradient(to bottom,${INK.gold},#B8955E,${INK.gold}); opacity:.18; pointer-events:none; z-index:40; }
         @keyframes sp-bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
-        @keyframes sp-ring   { 0%{box-shadow:0 0 0 0 rgba(201,168,106,.55)} 70%{box-shadow:0 0 0 16px rgba(201,168,106,.0)} 100%{box-shadow:0 0 0 0 rgba(201,168,106,.0)} }
+        @keyframes sp-ring   { 0%{box-shadow:0 0 0 0 rgba(122,92,50,.55)} 70%{box-shadow:0 0 0 16px rgba(122,92,50,.0)} 100%{box-shadow:0 0 0 0 rgba(122,92,50,.0)} }
         .sp-scroll-btn { transition: opacity .25s, transform .25s; }
         .sp-scroll-btn:hover { opacity:.95; transform: translateX(-50%) scale(1.04) !important; }
         /* ── Hero 字元進場 ── */
@@ -329,7 +330,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
         /* ── 香煙粒子 ── */
         .sp-particle {
           position:absolute; border-radius:50%;
-          background:rgba(240,217,164,.65); pointer-events:none;
+          background:rgba(122,92,50,.45); pointer-events:none;
           animation: sp-rise linear infinite;
         }
         @keyframes sp-rise {
@@ -352,7 +353,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
         }
         /* ── 水印當前章節高亮 ── */
         .sp-watermark { will-change:transform; transition:color 0.8s ease; }
-        .sp-watermark-active { color:rgba(201,168,106,.26) !important; }
+        .sp-watermark-active { color:rgba(122,92,50,.13) !important; }
         /* ── Mobile ── */
         @media (max-width: 767px) {
           /* ── 插圖與經文並排，塞不下才把插圖擠到上面 ──
@@ -453,7 +454,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
           }}>
             {currentSection > 0 ? currentSection : '―'}&thinsp;/&thinsp;{verses.length}
           </span>
-          <div style={{ width: 2, height: 72, background: 'rgba(201,168,106,.22)', borderRadius: 1, overflow: 'hidden' }}>
+          <div style={{ width: 2, height: 72, background: 'rgba(122,92,50,.22)', borderRadius: 1, overflow: 'hidden' }}>
             <div style={{
               width: '100%', height: `${scrollProgress * 100}%`,
               background: `linear-gradient(to bottom, ${INK.gold}, ${INK.ink})`,
@@ -593,7 +594,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
               }} />
 
               {/* Watermark section number：當前章節亮度提升 */}
-              <span className={`sp-watermark${currentSection === idx + 1 ? ' sp-watermark-active' : ''}`} style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(201,168,106,.07)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
+              <span className={`sp-watermark${currentSection === idx + 1 ? ' sp-watermark-active' : ''}`} style={{ position: 'absolute', top: '50%', [isEven ? 'right' : 'left']: '3%', transform: 'translateY(-50%)', fontSize: 'clamp(60px,11vw,150px)', color: 'rgba(122,92,50,.07)', fontWeight: 700, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>
                 {String(section.sectionNumber).padStart(3, '0')}
               </span>
 

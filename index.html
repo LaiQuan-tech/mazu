@@ -972,7 +972,7 @@
       翻錯邊的症狀是整站載入時閃一下靛藍，而且 body 會留在深色（頁尾下方、
       手機回彈時看得到一條深帶）。
 
-      **天上聖母經是唯一永遠深色的頁**（廟方 2026-10-24 指名維持原樣），
+      **天上聖母經有自己的底色**（2026-11-20 起是古代畫紙 #EFE4C9，之前是靛藍），
       所以它要單獨列進來——它雖然自己在 effect 裡設 body，但那是 React 掛載
       之後的事，不列的話那一頁反而會閃一下米色。
       沐浴車那兩頁永遠是淺色，維持排除。
@@ -983,8 +983,15 @@
         try {
           var p = location.pathname.replace(/\/+$/, '') || '/';
           var ink = new URLSearchParams(location.search).get('ink') === '1';
-          // 聖母經永遠是靛藍紙；其餘頁面只有開了 ?ink=1 才是深的
-          if (!ink && p !== '/scripture' && p !== '/scripture/full') return;
+          // 聖母經 2026-11-20 起是古代畫紙（#EFE4C9，同 inkTheme 的 SCROLL.paper，改一邊要改另一邊）
+          if (p === '/scripture' || p === '/scripture/full') {
+            var sc = document.createElement('style');
+            sc.textContent = 'body{background-color:#EFE4C9}';
+            document.head.appendChild(sc);
+            return;
+          }
+          // 其餘頁面只有開了 ?ink=1 才是深的
+          if (!ink) return;
           var bath = /^(www\.)?17bath\.org$/.test(location.hostname);
           var light = p === '/shower' || p === '/shower/checkin'
             || (bath && (p === '/' || p === '/checkin'));

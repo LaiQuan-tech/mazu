@@ -3,7 +3,8 @@ import { ChevronLeft } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses, getScriptureFullText } from '../services/supabase';
 import { scriptureLines, fullTextFromVerses, MAX_UNBREAKABLE } from '../services/scriptureText';
-import { INK, SUTRA } from './inkTheme';
+// 2026-11-20 起用古代畫紙色票（鍵名同 INK，換回青花紙只要改這一行）
+import { SCROLL as INK, SCROLL_SUTRA as SUTRA } from './inkTheme';
 
 /**
  * 天上聖母經全文（/scripture/full，2026-11-09 廟方：「要不要有一個天上聖母經全文，
@@ -104,7 +105,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 46,
           flexDirection: 'column', alignItems: 'center', pointerEvents: 'none',
         }}>
-          <div style={{ width: 2, height: 72, background: 'rgba(201,168,106,.22)', borderRadius: 1, overflow: 'hidden' }}>
+          <div style={{ width: 2, height: 72, background: 'rgba(122,92,50,.22)', borderRadius: 1, overflow: 'hidden' }}>
             <div style={{
               width: '100%', height: `${progress * 100}%`,
               background: `linear-gradient(to bottom, ${INK.gold}, ${INK.ink})`,
