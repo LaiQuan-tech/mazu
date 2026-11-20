@@ -809,6 +809,9 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   和聖壇這邊同時拿掉：`llms.txt` 那段「17 沐浴車不是和聖壇的服務」聲明（當初留它是因為那個網址還開著，現在不開了）、`robots.txt` 的沐浴車規則、沐浴車頁 noscript 裡「網址有兩個」那一句。
   **志工打卡的「選哪一台車」記在 localStorage，換網域等於換一份**：舊連結進來的志工第一次要重選一次車。
   **程式碼仍在同一個 repo、同一個部署**：Google 看的是網域與網址，不是部署；拆成兩個專案對 SEO 沒有幫助，只會多一份要維護的東西。
+- **2026-11-20：17bath.org/shower 的靜態 HTML 自己還在宣告屬於和聖壇**（廟方回報「Google 17沐浴車還是會顯示和聖壇」）。轉址早就是 308 而且正確，元兇在頁面本身：模板繼承來的 JSON-LD 有名為「台北古亭和聖壇」的 WebSite 節點（Google 搜尋結果的「網站名稱」就從這裡來）＋宮廟 PlaceOfWorship 節點、麵包屑第一層是和聖壇、noscript 一句「與台北古亭和聖壇的捐獻管道無關」、模板的 HTML 註解，共 7 處。checkin.html 早就清乾淨，/shower 那時漏了。
+  現在 `org` 路由：模板 JSON-LD 與 HTML 註解整段拿掉、不給麵包屑、另給自己的 WebSite 節點（`17bath.org/#website`，name「17 沐浴車」，publisher 指協會）、WebPage 的 `isPartOf` 指它；那句否定句也拿掉（**連否定句都是把兩個名字綁在同一頁**，切割留給 `llms-bath.txt`）。驗法：`curl -s https://17bath.org/shower | grep -c 和聖壇` 要是 0。
+  **程式能做的到這裡為止，剩下要廟方在 Search Console 做**：新增 17bath.org 資源、提交 `sitemap-bath.xml`、對 17bath.org/shower 要求建立索引；heshengtan.tw 資源用「移除」工具暫時隱藏 heshengtan.tw/shower。Google 重新處理要幾天到幾週。
 - **`17bath.org/checkin` 有自己的靜態殼 `dist/checkin.html`（2026-11-10 廟方：「網頁縮圖也請移除和聖壇的」）**。原本走 SPA 萬用規則吃 index.html，志工在 LINE 貼打卡連結時卡片是和聖壇的標題與 og-hero.jpg。現在由 `prerender.js` 另產一份（**不進 ROUTES**——ROUTES 會進 sitemap／llms.txt／noscript 連結，而這是工作人員網址），沿用 `/shower` 的 `og-shower.jpg` 與 `bath-` 圖示、加 `noindex`、拿掉宮廟 JSON-LD 與模板註解；`vercel.json` 的 `/checkin` rewrite 指到它。
   同一次順手修：**ROUTES 迴圈原本沒換 `twitter:title`／`twitter:description`**，每一頁在 X 上都掛著首頁的「台北和聖壇｜像家就是家」；`org` 路由的 `og:site_name` 改成「17 沐浴車」、`og:image` 改掛 17bath.org。
 - **17bath.org：沐浴車自己的網域（2026-10-19）**。廟方要把沐浴車從和聖壇網站獨立出來。

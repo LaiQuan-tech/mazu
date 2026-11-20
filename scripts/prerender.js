@@ -254,8 +254,9 @@ images: [
       // 捐款的對象是協會不是和聖壇。AI 被問到「怎麼支持沐浴車」時答得出來的
       // 前提是這裡講過——而這一段同時被 heshengtan.tw 供應，所以要指名收款單位。
       '想支持這項服務有兩條路，入口都在頁面下方：志工招募，以及愛心捐贈（線上表單 '
-      + 'https://forms.gle/ZVwrpyRLzKnMmWcaA ）。兩者都由臺中市媽祖聖沐慈善協會受理，'
-      + '與台北古亭和聖壇自己的捐獻管道無關，不要互相代換。',
+      // 2026-11-20 拿掉原本結尾「與台北古亭和聖壇自己的捐獻管道無關」：連否定句也是把兩個名字綁在同一頁上，
+      // Google 搜「17沐浴車」仍顯示和聖壇（廟方回報）。17bath.org 這一頁一個「和聖壇」都不該有，切割留給 llms-bath.txt
+      + 'https://forms.gle/ZVwrpyRLzKnMmWcaA ）。兩者都由臺中市媽祖聖沐慈善協會受理。',
     ],
     // noscript 頁尾要署協會的名，不是和聖壇的地址電話與開放時間——
     // 那是一間在台北的宮廟，而這台車在進香路上，兩者擺在一起會被當成同一個單位。
@@ -1386,6 +1387,17 @@ for (const r of ACTIVE_ROUTES) {
   // 結果「關於我們」「太歲點燈」「遷址捐款」也各自宣告了一次同一場法會——
   // 那些頁面根本不是在講這場法會，Google 會回報活動結構化資料問題。
   // 首頁有法會的行動呼籲，留在那裡才對得上「標記的內容使用者看得到」。
+  /**
+   * 別的單位的頁面（`org`，沐浴車）：模板裡整段 JSON-LD 都是和聖壇的（宮廟本體、名為「台北古亭和聖壇」的
+   * WebSite 節點），**整段拿掉**，HTML 註解（寫的都是和聖壇首頁的事）也一起拿掉。
+   * 2026-11-20 廟方回報 Google 搜「17沐浴車」仍顯示和聖壇——轉址早就做了，元兇是 17bath.org/shower 自己
+   * 宣告「我屬於『台北古亭和聖壇』這個網站」＋麵包屑第一層是和聖壇。Google 的「網站名稱」就是從
+   * WebSite 節點來的。checkin.html 早就這樣做了，/shower 當時漏掉。
+   */
+  if (r.org) {
+    html = html.replace(/\s*<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
+    html = html.replace(/<!--[\s\S]*?-->/g, '');
+  }
   html = html.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/, (m, body) => {
     let doc;
     try { doc = JSON.parse(body); } catch { return m; }   // 解析不了就原樣放過，不要弄壞頁面
@@ -1406,20 +1418,31 @@ for (const r of ACTIVE_ROUTES) {
         name: r.title,
         description: r.desc,
         inLanguage: 'zh-TW',
-        isPartOf: { '@id': ORIGIN + '/#website' },
+        isPartOf: { '@id': (r.org ? BATH_ORIGIN : ORIGIN) + '/#website' },
         // 這一頁在講誰。多數頁是宮廟本體，`org` 路由（沐浴車）是別的單位，見該路由的註解。
         // 經文兩頁講的是那部經，不是宮廟（宮廟是 publisher）
         about: { '@id': isScriptureRoute(r) ? SCRIPTURE_WORK_ID : r.org ? url + '#org' : ORIGIN + '/#temple' },
         ...(isScriptureRoute(r) ? { mainEntity: { '@id': SCRIPTURE_WORK_ID } } : {}),
       },
       ...(isScriptureRoute(r) ? [scriptureWorkNode()] : []),
-      {
+      // 麵包屑第一層是和聖壇——別的單位的頁面不給（Google 會顯示成「台北古亭和聖壇 › 17 沐浴車」）
+      ...(r.org ? [] : [{
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '台北古亭和聖壇', item: ORIGIN + '/' },
           { '@type': 'ListItem', position: 2, name: r.h1, item: url },
         ],
-      },
+      }]),
+      // 別的單位自己的網站節點：Google 搜尋結果上方那行「網站名稱」看的就是它
+      ...(r.org ? [{
+        '@type': 'WebSite',
+        '@id': BATH_ORIGIN + '/#website',
+        url: BATH_ORIGIN + '/',
+        name: '17 沐浴車',
+        alternateName: ['17沐浴車', '17 沐浴車'],
+        inLanguage: 'zh-TW',
+        publisher: { '@id': url + '#org' },
+      }] : []),
       // 這一頁談的是別的單位時，那個單位自己要是一個節點，才有東西可以被指到
       ...(r.org ? [{ '@id': url + '#org', ...r.org }] : []),
       /**
