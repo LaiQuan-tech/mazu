@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { ScriptureVerseRecord } from '../types';
 import { getScriptureVerses, getScriptureFullText } from '../services/supabase';
 import { scriptureLines, fullTextFromVerses, MAX_UNBREAKABLE } from '../services/scriptureText';
 // 2026-11-20 起用古代畫紙色票（鍵名同 INK，換回青花紙只要改這一行）
 import { SCROLL as INK, SCROLL_SUTRA as SUTRA } from './inkTheme';
+import PatternMedallion from './PatternMedallion';
 
 /**
  * 天上聖母經全文（/scripture/full，2026-11-09 廟方：「要不要有一個天上聖母經全文，
@@ -76,6 +77,29 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
     ]).finally(() => setLoading(false));
   }, []);
 
+  /**
+   * 龍紋／鳳紋沿著整篇交替出現（2026-11-20 廟方：「天上聖母經全文，要有做龍紋鳳紋交替顯示，間距你自己抓」）。
+   * 全文是一長欄（720px 置中），桌機兩側整片空著，正好掛紋飾；手機版文字吃滿寬度，
+   * 紋飾會壓在經文上，所以照全站規則只在 1024px 以上顯示（.pattern-medallion 的 display）。
+   * 間距 `MEDALLION_GAP`：一屏（約 800px）露一枚、左右交替，捲動時兩側輪流出現，不會同時兩枚擠在一屏。
+   * 第一枚從標題下方開始（`MEDALLION_START`），不壓在標題區。數量依實際頁長算，全文改長改短都跟著走。
+   */
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [bodyH, setBodyH] = useState(0);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    // 內容到齊時直接量一次（畫面在背景時 ResizeObserver 可能不回呼），之後字級或視窗變了再由它補
+    setBodyH(el.offsetHeight);
+    const ro = new ResizeObserver(() => setBodyH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading]);
+  const MEDALLION_START = 520;
+  const MEDALLION_GAP = 820;
+  const medallionYs: number[] = [];
+  for (let y = MEDALLION_START; y < bodyH - 300; y += MEDALLION_GAP) medallionYs.push(y);
+
   const linkBtn: React.CSSProperties = {
     color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999,
     padding: '10px 22px', fontSize: 15, letterSpacing: '.15em', cursor: 'pointer',
@@ -125,7 +149,15 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
         </div>
       </div>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 20px 96px' }}>
+      <div ref={bodyRef} style={{ position: 'relative' }}>
+      {/* 紋飾層：每一枚掛在一條 0 高的橫線上，中心對齊那個高度；左右交替、龍鳳交替。
+          整頁根節點有 overflowX: clip，出血到畫面外的部分會被裁掉，不會撐寬頁面 */}
+      {medallionYs.map((y, k) => (
+        <div key={y} aria-hidden="true" style={{ position: 'absolute', top: y, left: 0, right: 0, height: 0, pointerEvents: 'none' }}>
+          <PatternMedallion motif={k % 2 === 0 ? 'dragon' : 'phoenix'} side={k % 2 === 0 ? 'l' : 'r'} />
+        </div>
+      ))}
+      <main style={{ position: 'relative', zIndex: 10, maxWidth: 720, margin: '0 auto', padding: '48px 20px 96px' }}>
         <header style={{ textAlign: 'center', marginBottom: 40 }}>
           <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.5em', marginBottom: 16 }}>台 北 古 亭 和 聖 壇</p>
           <h1 style={{ color: SUTRA.gold, textShadow: `0 0 24px ${SUTRA.glow}`, fontSize: 'clamp(30px,6vw,44px)', fontWeight: 900, letterSpacing: '.2em', marginBottom: 12 }}>天上聖母經全文</h1>
@@ -170,6 +202,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
           </footer>
         )}
       </main>
+      </div>
     </div>
   );
 };
