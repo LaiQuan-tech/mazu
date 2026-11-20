@@ -139,13 +139,15 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
         </div>
       )}
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: INK.navBar, backdropFilter: 'blur(10px)', borderBottom: `1px solid ${INK.goldLine}` }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 20px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
           <button onClick={onBack} aria-label="返回首頁" title="返回首頁"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '6px 8px', cursor: 'pointer' }}>
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '6px 8px', cursor: 'pointer', justifySelf: 'start' }}>
             <ChevronLeft size={18} />
           </button>
-          <span style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.35em' }}>天 上 聖 母 經</span>
-          <div style={{ width: 34 }} />
+          {/* 三欄格線置中（左右兩欄等寬），原本 space-between 左邊鈕 36px、右邊空位 88px，標題偏左 26px（2026-11-20 廟方指出）。
+              paddingLeft 補掉最後一個字後面多出來的字距 */}
+          <span style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.35em', paddingLeft: '.35em' }}>天 上 聖 母 經</span>
+          <div />
         </div>
       </div>
 

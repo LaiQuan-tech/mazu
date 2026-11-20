@@ -472,12 +472,14 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
         borderBottom: atTop ? 'none' : `1px solid ${INK.goldLine}`,
         transition: 'all .4s ease',
       }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '6px 8px', cursor: 'pointer' }} title="返回首頁">
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 28px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
+          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK.ink, background: INK.btnFace, border: `1px solid ${INK.btnEdge}`, borderRadius: 999, padding: '6px 8px', cursor: 'pointer', justifySelf: 'start' }} title="返回首頁">
             <ChevronLeft size={18} />
           </button>
-          <span style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.35em' }}>天 上 聖 母 經</span>
-          <div style={{ width: 88 }} />
+          {/* 三欄格線置中（左右兩欄等寬），原本 space-between 左邊鈕 36px、右邊空位 88px，標題偏左 26px（2026-11-20 廟方指出）。
+              paddingLeft 補掉最後一個字後面多出來的字距 */}
+          <span style={{ color: INK.inkSoft, fontSize: 15, letterSpacing: '.35em', paddingLeft: '.35em' }}>天 上 聖 母 經</span>
+          <div />
         </div>
       </div>
 
@@ -496,7 +498,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
           }} />
         ))}
         <div style={{ position: 'relative', textAlign: 'center', zIndex: 1 }}>
-          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>和 聖 壇</p>
+          <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.65em', paddingLeft: '.65em', marginBottom: 32, animation: 'sp-fade-up 0.9s ease 0.1s both' }}>和 聖 壇</p>
           {/*
             **這裡必須是 h1**：整頁原本一個標題標籤都沒有（2026-09-10 實測
             document.querySelectorAll('h1,h2,h3,h4') 回傳空陣列）。五個字是逐字
@@ -518,9 +520,9 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
               </span>
             ))}
           </h1>
-          <p style={{ color: INK.inkSoft, fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　解　說　與　故　事</p>
+          <p style={{ color: INK.inkSoft, fontSize: 'clamp(13px,2vw,20px)', letterSpacing: '.55em', paddingLeft: '.55em', marginBottom: 28, fontWeight: 500, animation: 'sp-fade-up 0.9s ease 1.2s both' }}>的　解　說　與　故　事</p>
           <hr className="brush-line" style={{ marginBottom: 28, maxWidth: 280, animation: 'sp-fade-up 0.9s ease 1.5s both' }} />
-          <p className="hero-sub" style={{ color: INK.inkSoft, fontSize: 14, letterSpacing: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
+          <p className="hero-sub" style={{ color: INK.inkSoft, fontSize: 14, letterSpacing: '.35em', paddingLeft: '.35em', lineHeight: 2.2, animation: 'sp-fade-up 0.9s ease 1.7s both' }}>天上聖母護佑眾生・慈悲顯化・靈感無邊</p>
           <p style={{ color: INK.inkFaint, fontSize: 12, letterSpacing: '.2em', marginTop: 16, animation: 'sp-fade-up 0.8s ease 1.9s both' }}>
             {loading ? '載入中…' : `全經共 ${verses.length} 節`}
           </p>
@@ -528,7 +530,7 @@ const ScripturePage: React.FC<ScripturePageProps> = ({ onBack, onOpenFull }) => 
         <div className="sp-scroll-btn"
           onClick={() => window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' })}
           style={{ position: 'absolute', bottom: 36, left: '50%', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: 'sp-bounce 2.4s ease-in-out infinite', userSelect: 'none' }}>
-          <span style={{ color: INK.inkSoft, fontSize: 12, letterSpacing: '.6em' }}>開 始 閱 讀</span>
+          <span style={{ color: INK.inkSoft, fontSize: 12, letterSpacing: '.6em', paddingLeft: '.6em' }}>開 始 閱 讀</span>
           <div style={{
             width: 50, height: 50, borderRadius: '50%',
             border: `1.5px solid ${INK.btnEdge}`,
