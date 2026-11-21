@@ -189,6 +189,36 @@
   .admin-table.lamp-cfg td[data-label="報名"]::before { display: none; }
   .admin-table.lamp-cfg td[colspan] { grid-column: 1 / -1; }
 
+  /* 報名名單（祈福、捐獻）的卡片分左右兩欄（2026-11-22 廟方截圖：「都是靠左，右邊都沒有，這很醜」）：
+       ┌──────────────────┬──────────────┐
+       │ 周木生            │     待匯款      │
+       │ 個人資料 ▾        │ [標記已收款]⊗ 🗑│
+       ├──────────────────┴──────────────┤
+       │ 更多資料（加購、備註…）            │
+       └─────────────────────────────────┘
+     左欄放「這是誰、多少錢、哪天」，右欄放「現在什麼狀態、要按什麼」。
+     dense 讓左欄的格子依序往上補，不會因為右欄跨兩列而空出一格。 */
+  .admin-table.reg-list tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-auto-flow: row dense;
+    column-gap: .75rem;
+    align-items: start;
+  }
+  .admin-table.reg-list td { grid-column: 1; }
+  .admin-table.reg-list td:is([data-label="狀態"], [data-label="收款"]) {
+    grid-column: 2; grid-row: 1 / span 2;
+    justify-self: end; text-align: right;
+  }
+  /* 刪除鈕排在狀態那一欄的右邊、跟按鈕同一條底線，不要自己再佔一行 */
+  .admin-table.reg-list td[data-label="操作"] { grid-column: 3; grid-row: 1 / span 2; align-self: end; padding-left: 0; padding-bottom: .625rem; }
+  .admin-table.reg-list td[data-more],
+  .admin-table.reg-list td.admin-more-toggle,
+  .admin-table.reg-list td[colspan] { grid-column: 1 / -1; }
+  /* 金額與時間在左欄排成一行小字（「NT$ 600　2026/11/22」） */
+  .admin-table.reg-list td:is([data-label="捐款金額"], [data-label="方案"]) { padding-bottom: 0; }
+  .admin-table.reg-list td[data-label="捐款金額"] p { font-size: .9375rem; }
+
   /* 這幾條要壓得過格子上的 utility（px-6 py-4／max-w-xs／text-right），
      所以維持 .admin-table td 的 0,1,1，不要包 :where()。 */
   .admin-table td {
@@ -246,6 +276,7 @@
   .admin-table td[data-label="金額"]::before,
   .admin-table td[data-label="費用"]::before,
   .admin-table td[data-label="編號"]::before,
+  .admin-table td[data-label="收款"]::before,
   .admin-table td[data-label="問事項目"]::before,
   .admin-table td[data-label="備註／神明的話"]::before,
   .admin-table td[data-label="性別"]::before,

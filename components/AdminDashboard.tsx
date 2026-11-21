@@ -3943,7 +3943,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="admin-table min-w-full divide-y divide-gray-100">
+            <table className="admin-table reg-list min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
                   {/* 「指定項目」一欄兩用：神尊修復的專案、遷址護持的方案。
@@ -4013,7 +4013,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     </td>
                     {/* 收款按鈕直接放在名單上（2026-11-18）：原本只有應收管理改得了，捐獻管理的紅點寫「N 待匯款」卻沒有地方按 */}
                     <td data-label="收款" className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                      <div className="flex flex-col items-start gap-1.5">
+                      <div className="flex flex-col items-end lg:items-start gap-1.5">
                         {statusBadge(d.status || DonationStatus.PENDING)}
                         <PaymentActions
                           status={(d.status || DonationStatus.PENDING) as DonationStatus}
@@ -7043,7 +7043,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
             <p className="px-5 py-10 text-center text-sm text-gray-400">尚無報名資料</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="admin-table w-full min-w-[700px]">
+              <table className="admin-table reg-list w-full min-w-[700px]">
                 <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
@@ -7112,7 +7112,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                       </td>}
                       {regCols.notes && <td data-label="備註" data-more className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || <Dash />}</td>}
                       <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <div className="flex flex-col items-start gap-1.5">
+                        <div className="flex flex-col items-end lg:items-start gap-1.5">
                           {statusBadge(r.status)}
                           <PaymentActions
                             status={r.status}
