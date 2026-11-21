@@ -26,7 +26,7 @@
  * 顯示「18:42」他還要自己算。超過兩小時另外加一句提醒，因為那時位置很可能已經過期。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, ArrowRight } from 'lucide-react';
+import { MapPin, Navigation, RefreshCw, ShowerHead, AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 import { getShowerLocations } from '../services/supabase';
 import { heroSrc } from '../services/assetUrl';
 import { formatShowerNote } from '../services/showerNote';
@@ -479,6 +479,12 @@ const ShowerPage: React.FC = () => {
   const [trucks, setTrucks] = useState<ShowerTruckLocation[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number>(0);
+  /**
+   * 「關於我們」四段預設收起（2026-11-21 廟方：「把關於我們做成收折，讓影片與常見問題更容易被滑到」）。
+   * 收起時每段只留標題與第一段的兩行，其餘段落展開才出現；四段共用一顆「展開閱讀」，
+   * 不必一段一段按。文字都還在 DOM 裡，noscript 與 FAQ 標記不受影響。每次載入都收著。
+   */
+  const [storyOpen, setStoryOpen] = useState(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -562,11 +568,30 @@ const ShowerPage: React.FC = () => {
               </div>
               <div className="mt-3 pl-1 border-l-2 border-[#D6246B]/25 space-y-3">
                 {sec.paras.map((t, i) => (
-                  <p key={i} className="pl-4 text-gray-700 leading-relaxed">{t}</p>
+                  <p key={i} className={`pl-4 text-gray-700 leading-relaxed ${
+                    storyOpen ? '' : i === 0 ? 'line-clamp-2' : 'hidden'
+                  }`}>{t}</p>
                 ))}
               </div>
             </section>
           ))}
+          {/* 收合鈕放在四段之後：收著時按了就往下長，正在讀的位置不會被推走 */}
+          <button
+            type="button"
+            onClick={() => {
+              // 收起時內容在上方縮短，人會被留在下面的影片附近；把他帶回「關於我們」開頭（instant，見 MENU 那段）
+              if (storyOpen) {
+                const top = document.getElementById('shower-01')?.getBoundingClientRect().top ?? 0;
+                if (top < 0) window.scrollTo({ top: window.scrollY + top - MENU_OFFSET - 8, behavior: 'instant' as ScrollBehavior });
+              }
+              setStoryOpen(o => !o);
+            }}
+            aria-expanded={storyOpen}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full border border-[#D6246B]/40 text-[#B01350] text-sm font-medium hover:bg-[#D6246B]/5 transition-colors"
+          >
+            {storyOpen ? '收起' : '展開閱讀'}
+            <ChevronDown className={`w-4 h-4 transition-transform ${storyOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
         </div>
 
         {/* 影片。編號接著協會那四段走，排版才對得齊；01–04 是協會給的文案，這一段是我們加的 */}
