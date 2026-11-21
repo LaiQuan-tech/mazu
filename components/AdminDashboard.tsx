@@ -2293,7 +2293,8 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
             const isOpen = expanded.has(r.id);
             return (
               <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-4">
+                {/* 手機上第一行是姓名、第二行才是金額／狀態／按鈕；擠成一列時姓名被壓成一字一行（2026-11-22） */}
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 px-4 sm:px-5 py-4">
                   <button onClick={() => toggleExpand(r.id)} className="shrink-0 text-gray-400 hover:text-gray-700">
                     {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                   </button>
@@ -2305,8 +2306,9 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
                       {r.accountLast5 && <span className="text-xs bg-[#C49820]/10 text-[#7C5C1E] px-2 py-0.5 rounded-full">後五碼: {r.accountLast5}</span>}
                     </div>
                   </div>
+                  <div className="w-full sm:w-auto flex items-center justify-end gap-3 shrink-0">
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-temple-red">${r.totalAmount.toLocaleString()}</p>
+                    <p className="font-bold text-temple-red whitespace-nowrap">${r.totalAmount.toLocaleString()}</p>
                   </div>
                   <div className="shrink-0">{fahuiStatusBadge(r.status)}</div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -2320,6 +2322,7 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
                       className="p-1.5 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50">
                       <Trash2 className="w-4 h-4" />
                     </button>
+                  </div>
                   </div>
                 </div>
 
@@ -2498,8 +2501,9 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
       ) : (
         <div className="space-y-3">
           {filtered.slice(vPage * PAGE_SIZE, (vPage + 1) * PAGE_SIZE).map(r => (
-            <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-3 flex items-center gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
+            <div key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 sm:px-5 py-3 flex items-center gap-3 flex-wrap">
+              {/* flex-1 的基準寬是 0，只靠 flex-wrap 永遠不會換行、只會把姓名與出勤壓窄；給一個下限才會真的折到下一行 */}
+              <div className="flex-1 min-w-[13rem]">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-gray-800">{r.name}</span>
                   {/* 出勤是志工清單最重要的資料，跟名字同一行常駐；電話收進「更多資料」（2026-11-18 廟方更正） */}
@@ -3454,18 +3458,20 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
               const days = ['日', '一', '二', '三', '四', '五', '六'];
               const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）${s.sessionTime}`;
               return (
-                <div key={s.id} className={`flex items-center justify-between px-4 py-3 rounded-lg border ${s.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
-                  <div className="flex items-center gap-3">
+                // 手機上一列放不下「狀態＋日期＋人數＋三顆鈕」：原本硬擠成一列，日期被壓成一字一行（2026-11-22 廟方：「手機端還需要加強」）。
+                // sm 以下改成上下兩段：上面資訊可換行、下面按鈕一排；sm 以上維持原本的一列。
+                <div key={s.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 rounded-lg border ${s.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
                       {s.isActive ? '開放中' : '已關閉'}
                     </span>
                     <span className="text-sm font-medium text-gray-800">{label}</span>
-                    <span className="text-xs text-gray-500">{booked}/{s.maxSlots} 位 · {remaining <= 0 ? <span className="text-red-500 font-medium">額滿</span> : `剩 ${remaining}`}</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap">{booked}/{s.maxSlots} 位 · {remaining <= 0 ? <span className="text-red-500 font-medium">額滿</span> : `剩 ${remaining}`}</span>
                     {pendingBySession[s.id] > 0 && (
-                      <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{pendingBySession[s.id]} 待處理</span>
+                      <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none whitespace-nowrap">{pendingBySession[s.id]} 待處理</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
                     <button onClick={() => openSessionList(s.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
                       <List className="w-3.5 h-3.5" /> 預約名單
@@ -3503,8 +3509,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                   </>
                 )}
                 {noSessionCount > 0 && (
-                  <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-dashed border-gray-200 bg-white">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 rounded-lg border border-dashed border-gray-200 bg-white">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="text-sm font-medium text-gray-700">未指定場次</span>
                       <span className="text-xs text-gray-400">場次功能上線前的預約・{noSessionCount} 位</span>
                       {pendingBySession[NO_SESSION] > 0 && (
@@ -3530,8 +3536,9 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
       <button onClick={() => setFilterSession('')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" /> 返回場次列表
       </button>
-      <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5 flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-0">
+      <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-4 sm:p-5 mb-5 flex items-center gap-3 flex-wrap">
+        {/* 標題在手機上獨佔一行：跟數字與按鈕擠一列時會被壓成一字一行（2026-11-22） */}
+        <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
           <h2 className="text-lg font-bold text-gray-800">{sessionTitle(filterSession)}</h2>
           {openSessionRec && <p className="text-sm text-gray-500 mt-0.5">{sCountMap[openSessionRec.id] || 0}/{openSessionRec.maxSlots} 位</p>}
         </div>
@@ -3678,7 +3685,8 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                     </td>
                     {/* 狀態與按鈕同一格（同捐獻、祈福）：看到狀態的同時就按得到下一步 */}
                     <td data-label="狀態" className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                      <div className="flex flex-col items-start gap-1.5">
+                      {/* 手機卡片上狀態與按鈕排同一行；桌機表格維持上下兩行（欄寬窄） */}
+                      <div className="flex flex-wrap lg:flex-col items-center lg:items-start gap-2 lg:gap-1.5">
                         {statusBadge(b.status)}
                         <BookingActions status={b.status} busy={updatingId === b.id} onChange={next => onStatusChange(b.id, next)} />
                       </div>
@@ -3837,7 +3845,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* 年度明細：先預覽再寄。這是一次寄給幾十個人的動作，按下去就收不回來了 */}
-          <div className="flex items-center gap-1.5 text-sm">
+          <div className="flex flex-wrap items-center gap-1.5 text-sm [&>button]:whitespace-nowrap">
             {/* 年份用兩顆鈕不用下拉：年度明細實際只會寄今年或去年 */}
             {[new Date().getFullYear(), new Date().getFullYear() - 1].map(y => (
               <button key={y} type="button" aria-pressed={stmtYear === y} onClick={() => setStmtYear(y)}
@@ -3898,8 +3906,9 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
       <button onClick={() => setFilterType('')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" /> 返回捐款類型
       </button>
-      <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 mb-5 flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-0">
+      <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-4 sm:p-5 mb-5 flex items-center gap-3 flex-wrap">
+        {/* 標題在手機上獨佔一行：跟數字與按鈕擠一列時會被壓成一字一行（2026-11-22） */}
+        <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
           <h2 className="text-lg font-bold text-gray-800">{filterType}</h2>
           <p className="text-sm text-green-600 font-semibold mt-0.5">合計 NT$ {total.toLocaleString()}</p>
         </div>
@@ -4623,10 +4632,12 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                     }}
                     className={`cursor-pointer hover:bg-temple-bg/60 transition-all group${memberRows.isOpen(p.userId) ? ' admin-open' : ''}`}
                   >
+                    {/* 沒編號時 <Dash /> 要直接放在格子底下：包在 span 裡，卡片版「空格整格不畫」那條認不出來，
+                        手機上每張卡頂端都多一行「編號 —」（2026-11-22） */}
                     <td data-label="編號" className="px-4 py-3">
-                      <span className="text-xs font-mono text-gray-400">
-                        {p.memberNumber ? `#${String(p.memberNumber).padStart(3, '0')}` : <Dash />}
-                      </span>
+                      {p.memberNumber
+                        ? <span className="text-xs font-mono text-gray-400">#{String(p.memberNumber).padStart(3, '0')}</span>
+                        : <Dash />}
                     </td>
                     <td data-label="姓名" className="px-4 py-3">
                       <span className="text-sm font-semibold text-gray-800 group-hover:text-temple-red transition-colors">
@@ -6338,7 +6349,7 @@ const LampsTab = ({
             </div>
             <button
               onClick={openAddConfig}
-              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors whitespace-nowrap shrink-0"
             >
               <Plus className="w-4 h-4" /> 新增服務
             </button>
@@ -6449,8 +6460,8 @@ const LampsTab = ({
           <button onClick={() => setSelectedConfig(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors">
             <ArrowLeft className="w-4 h-4" /> 返回燈種列表
           </button>
-          <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-5 flex items-center gap-3 flex-wrap">
-            <div className="flex-1 min-w-0">
+          <div className="bg-white rounded-xl border border-temple-gold/30 shadow-sm p-4 sm:p-5 flex items-center gap-3 flex-wrap">
+            <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
               <h2 className="text-lg font-bold text-gray-800">{selectedConfig.name}</h2>
               <p className="text-sm text-gray-500 mt-0.5">NT$ {selectedConfig.fee.toLocaleString()} / 年</p>
             </div>
@@ -7012,7 +7023,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                   : selectedEvent.fee > 0 && <span className="ml-3">費用：NT${selectedEvent.fee.toLocaleString()}</span>}
               </p>
             </div>
-            <span className="text-sm font-semibold text-temple-red">{eventRegs.length} 筆報名</span>
+            <span className="text-sm font-semibold text-temple-red whitespace-nowrap">{eventRegs.length} 筆報名</span>
           </div>
         </div>
 
@@ -8094,24 +8105,24 @@ const ReceivablesTab: React.FC<{
   return (
     <div className="space-y-6">
       {/* 統計卡片：這是工作清單，所以先講「還沒收的」 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-yellow-200 shadow-sm">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-yellow-200 shadow-sm">
           <p className="text-sm text-gray-500 mb-1">待收款</p>
-          <p className="text-2xl font-bold text-yellow-700">NT$ {totalPending.toLocaleString()}</p>
+          <p className="text-lg sm:text-2xl font-bold whitespace-nowrap text-yellow-700">NT$ {totalPending.toLocaleString()}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">{pendingRows.length} 筆等著核對</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
           <p className="text-sm text-gray-500 mb-1">已收款</p>
-          <p className="text-2xl font-bold text-green-600">NT$ {totalPaid.toLocaleString()}</p>
+          <p className="text-lg sm:text-2xl font-bold whitespace-nowrap text-green-600">NT$ {totalPaid.toLocaleString()}</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
           <p className="text-sm text-gray-500 mb-1">未核對</p>
-          <p className="text-2xl font-bold text-gray-400">{uncheckedRows.length}</p>
+          <p className="text-lg sm:text-2xl font-bold whitespace-nowrap text-gray-400">{uncheckedRows.length}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">舊捐獻，當初沒有核對欄位</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
           <p className="text-sm text-gray-500 mb-1">全部收入</p>
-          <p className="text-2xl font-bold text-temple-red">NT$ {sum(() => true).toLocaleString()}</p>
+          <p className="text-lg sm:text-2xl font-bold whitespace-nowrap text-temple-red">NT$ {sum(() => true).toLocaleString()}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">報名金額，不是已入帳</p>
         </div>
       </div>

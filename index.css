@@ -114,6 +114,39 @@
   }
   .admin-table tr:last-child { margin-bottom: 0; }
 
+  /* 卡片裡短的格子並排、長的格子獨佔一行（2026-11-22 廟方：「後台表單在手機端還需要加強」）。
+     原本每一格都是 block、一格一行，一筆點燈＝日期／姓名／項目／金額／狀態／按鈕六行，
+     一張卡 300px、手機一屏只看得到兩筆半。現在 tr 是 flex-wrap：預設每格佔滿一行
+     （姓名、項目、備註這種長的），下面這幾種短的（金額、狀態、日期、按鈕、開關⋯⋯）
+     縮成內容寬、擠在同一行。**新增表格時，短欄位的 data-label 加進這一串**。
+     tr 要用 .admin-table tr（0,1,1）才壓得過上面 :where() 給的 block。 */
+  .admin-table tr { display: flex; flex-wrap: wrap; align-items: center; }
+  .admin-table td { flex: 1 1 100%; min-width: 0; }
+  .admin-table td:is(
+    [data-label="狀態"], [data-label="收款"], [data-label="金額"], [data-label="捐款金額"], [data-label="費用"],
+    [data-label="啟用"], [data-label="圖片"], [data-label="插圖"], [data-label="操作"], [data-label="選取"],
+    [data-label="性別"], [data-label="生肖"], [data-label="日期"], [data-label="時間"], [data-label="報名時間"],
+    [data-label="編號"]
+  ),
+  .admin-table td:not([data-label]):not([colspan]):not(.admin-more-toggle) { flex: 0 1 auto; }
+  /* 會員編號接在姓名前面同一行（「#007 王美玲」），不要自己佔一行 */
+  .admin-table td[data-label="編號"] + td[data-label="姓名"] { flex: 1 1 8rem; }
+  .admin-table td[data-label="編號"]:not(:has(> .admin-empty:only-child)) + td[data-label="姓名"] { padding-left: 0; }
+
+  /* 問事名單的卡片排成兩行（2026-11-22 廟方：「手機版變全靠左一列，這樣區塊變很大，也很醜」）：
+     第一行 姓名｜問事項目｜備註／神明的話兩個圖示，第二行 狀態＋按鈕（中間一條虛線分開）。
+     項目與圖示本身就看得懂，不印欄名；備註或神明的話展開時那一格才拉成整行，不然全文會被擠在窄欄裡。 */
+  .admin-table td[data-label="信眾資訊"] { flex: 1 1 7rem; }
+  .admin-table td[data-label="問事項目"],
+  .admin-table td[data-label="備註／神明的話"] { flex: 0 1 auto; padding-left: .25rem; }
+  .admin-table td[data-label="備註／神明的話"]:has(.mt-2) { flex-basis: 100%; padding-left: .875rem; }
+  .admin-table td[data-label="信眾資訊"] ~ td[data-label="狀態"] {
+    flex: 1 1 100%;
+    margin: .25rem .875rem 0;
+    padding: .5rem 0 .375rem;
+    border-top: 1px dashed #e5e7eb;
+  }
+
   /* 這幾條要壓得過格子上的 utility（px-6 py-4／max-w-xs／text-right），
      所以維持 .admin-table td 的 0,1,1，不要包 :where()。 */
   .admin-table td {
@@ -169,6 +202,10 @@
   .admin-table td[data-label="尊稱"]::before,
   .admin-table td[data-label="捐款金額"]::before,
   .admin-table td[data-label="金額"]::before,
+  .admin-table td[data-label="費用"]::before,
+  .admin-table td[data-label="編號"]::before,
+  .admin-table td[data-label="問事項目"]::before,
+  .admin-table td[data-label="備註／神明的話"]::before,
   .admin-table td[data-label="性別"]::before,
   .admin-table td[data-label="生肖"]::before,
   .admin-table td[data-label="啟用"]::before,
