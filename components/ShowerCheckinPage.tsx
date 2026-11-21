@@ -18,13 +18,18 @@
  *   GPS 抓不到時不是死路：可以只填地標文字送出。
  *   送出後把「香客現在會看到什麼」照抄一遍，志工才知道自己填的東西對不對。
  *
+ * ── 一組共用密碼（2026-11-21 廟方：「簡單做一個密碼輸入，不需要做到會員帳號密碼」）──
+ * 比對在資料庫（shower_checkin 自己驗），這裡只是讓人有地方打。輸入一次就記在這支手機，
+ * 之後開啟跟以前一樣直接按；廟方換了密碼，下次送出會被擋回來重新輸入。
+ * 後台沒設密碼時（或 migration 還沒跑）整個密碼畫面不出現。
+ *
  * ── 為什麼不自動送出 ──
  * 一進頁面就抓 GPS 並送出，看起來更快，但車還在移動時志工只是先把頁面打開，
  * 那樣會記下一個錯的位置。按鈕按下去的那一刻才是「車停好了」。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { MapPin, Send, CheckCircle2, AlertCircle, LocateFixed, Lock } from 'lucide-react';
-import { getShowerLocations, showerCheckin } from '../services/supabase';
+import { MapPin, Send, CheckCircle2, AlertCircle, LocateFixed, Lock, KeyRound } from 'lucide-react';
+import { getShowerLocations, showerCheckin, verifyShowerCheckinPassword, ShowerPasswordError } from '../services/supabase';
 import { ShowerTruckLocation } from '../types';
 import { formatShowerNote } from '../services/showerNote';
 
@@ -47,6 +52,15 @@ const geoMessage = (e: GeolocationPositionError): string => {
   return '定位逾時，請再試一次，或改填地名。';
 };
 
+/** 這支手機輸入過的打卡密碼。記住才能維持「開了直接按」 */
+const PASSWORD_KEY = 'shower_checkin_pw';
+const readPassword = (): string => {
+  try { return localStorage.getItem(PASSWORD_KEY) ?? ''; } catch { return ''; }
+};
+const rememberPassword = (pw: string): void => {
+  try { if (pw) localStorage.setItem(PASSWORD_KEY, pw); else localStorage.removeItem(PASSWORD_KEY); } catch { /* 無痕模式 */ }
+};
+
 const readLastTruck = (): string => {
   try { return localStorage.getItem(LAST_TRUCK_KEY) ?? ''; } catch { return ''; }
 };
@@ -63,6 +77,12 @@ const ShowerCheckinPage: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<{ name: string; at: number; place: string; note: string } | null>(null);
   const [error, setError] = useState('');
+  // 密碼：checking＝正在確認手機記住的那組；need＝要輸入；ok＝可以打卡
+  const [auth, setAuth] = useState<'checking' | 'need' | 'ok'>('checking');
+  const [password, setPassword] = useState('');
+  const [pwInput, setPwInput] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
 
   /** 一進頁面就先抓位置（不送出）：按下按鈕時座標通常已經到手，少等好幾秒 */
   const locate = useCallback(() => {
@@ -79,7 +99,42 @@ const ShowerCheckinPage: React.FC = () => {
     );
   }, []);
 
+  // 先確認手機記住的密碼還對不對（或根本不需要密碼）
   useEffect(() => {
+    const saved = readPassword();
+    verifyShowerCheckinPassword(saved)
+      .then(ok => {
+        if (ok) { setPassword(saved); setAuth('ok'); }
+        else { rememberPassword(''); setAuth('need'); }
+      })
+      // 連不上就先讓他進去：送出時資料庫還會再驗一次，不會因此放行錯的密碼
+      .catch(() => { setPassword(saved); setAuth('ok'); });
+  }, []);
+
+  const submitPassword = async () => {
+    const pw = pwInput.trim();
+    if (!pw || pwBusy) return;
+    setPwBusy(true);
+    setPwError('');
+    try {
+      if (await verifyShowerCheckinPassword(pw)) {
+        rememberPassword(pw);
+        setPassword(pw);
+        setPwInput('');
+        setAuth('ok');
+      } else {
+        setPwError('密碼不對，請再確認一次。不知道密碼請洽廟方。');
+      }
+    } catch {
+      setPwError('連線失敗，可能是訊號不穩。請稍後再按一次。');
+    } finally {
+      setPwBusy(false);
+    }
+  };
+
+  // 密碼過了才開始定位：不然手機會在密碼畫面就跳出定位權限的詢問
+  useEffect(() => {
+    if (auth !== 'ok') return;
     locate();
     getShowerLocations().then(list => {
       setTrucks(list);
@@ -88,7 +143,7 @@ const ShowerCheckinPage: React.FC = () => {
       if (list.length === 1) setTruckId(list[0].id);
       else if (last && list.some(t => t.id === last)) setTruckId(last);
     }).catch(() => setTrucks([]));
-  }, [locate]);
+  }, [auth, locate]);
 
   const canSend = !!truckId && (geo.kind === 'ok' || place.trim().length > 0);
 
@@ -104,7 +159,7 @@ const ShowerCheckinPage: React.FC = () => {
         lng: geo.kind === 'ok' ? geo.lng : undefined,
         place: place.trim() || undefined,
         note: note.trim() || undefined,
-      });
+      }, password);
       // null＝這台車被停用或已刪除。跟網路錯誤是兩回事，給的指示也不一樣
       if (!name) {
         setError('這台沐浴車已停用，請向廟方確認。');
@@ -113,12 +168,63 @@ const ShowerCheckinPage: React.FC = () => {
       rememberTruck(truckId);
       setDone({ name, at: Date.now(), place: place.trim(), note: formatShowerNote(note) });
       setNote('');
-    } catch {
+    } catch (e) {
+      // 廟方換了密碼：手機記的那組失效，回到密碼畫面。填好的地點與備註留著
+      if (e instanceof ShowerPasswordError) {
+        rememberPassword('');
+        setPassword('');
+        setPwError('打卡密碼已更換，請輸入新的密碼後再送出一次。');
+        setAuth('need');
+        return;
+      }
       setError('送出失敗，可能是訊號不穩。請確認網路後再按一次。');
     } finally {
       setSending(false);
     }
   };
+
+  if (auth !== 'ok') {
+    return (
+      <div className="min-h-screen bg-temple-bg">
+        <main className="max-w-md mx-auto px-4 py-12">
+          <header className="text-center mb-6">
+            <div className="w-14 h-14 bg-temple-gold/15 rounded-full flex items-center justify-center mx-auto mb-4">
+              <KeyRound className="w-7 h-7 text-temple-red" aria-hidden="true" />
+            </div>
+            <h1 className="font-serif text-2xl font-bold text-temple-dark">沐浴車打卡</h1>
+            <p className="text-gray-500 text-sm mt-2">
+              {auth === 'checking' ? '載入中…' : '請輸入工作人員打卡密碼。輸入一次，這支手機就會記住。'}
+            </p>
+          </header>
+          {auth === 'need' && (
+            <form onSubmit={e => { e.preventDefault(); submitPassword(); }}>
+              <label className="block mb-4">
+                <span className="block text-sm font-medium text-gray-700 mb-1">打卡密碼</span>
+                <input
+                  value={pwInput}
+                  onChange={e => setPwInput(e.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  autoFocus
+                  className={inputClass}
+                />
+              </label>
+              {pwError && (
+                <p role="alert" className="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">{pwError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={!pwInput.trim() || pwBusy}
+                className="w-full px-6 py-4 rounded-xl bg-temple-red text-white text-lg font-bold hover:bg-[#5C4310] transition-colors disabled:bg-gray-300"
+              >
+                {pwBusy ? '確認中…' : '進入打卡'}
+              </button>
+            </form>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   if (done) {
     return (
@@ -171,13 +277,13 @@ const ShowerCheckinPage: React.FC = () => {
           <p className="text-gray-500 text-sm mt-2">車停好之後按一下，香客那邊立刻就會更新。</p>
         </header>
 
-        {/* 沒有密碼保護是刻意的取捨（見檔頭），所以這條警示是這個設計的一部分，不是裝飾。
+        {/* 密碼是一組共用的（見檔頭），網址與密碼一起外流就擋不住，所以這條警示仍然要在。
             放在最上面、整年都在——志工每次打卡都會看到，轉傳前才會想一下 */}
         <p className="flex items-start gap-2 rounded-xl bg-temple-gold/15 border border-temple-gold/40 px-4 py-3 mb-5 text-sm text-[#5C4310] leading-relaxed">
           <Lock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
           <span>
             <strong>這是工作人員專用的網址，請勿公開張貼或轉傳給香客。</strong>
-            任何拿到這條網址的人都能更改沐浴車的位置。
+            網址與打卡密碼都只給現場同工。
           </span>
         </p>
 

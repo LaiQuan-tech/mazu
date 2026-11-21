@@ -18,9 +18,10 @@
  * 重發之後舊連結立刻失效，這點要在確認視窗裡講明白。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2, Eye, EyeOff, RefreshCw, Copy, Check, ShowerHead, ExternalLink, Lock } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, RefreshCw, Copy, Check, ShowerHead, ExternalLink, Lock, KeyRound } from 'lucide-react';
 import {
   getShowerTrucks, createShowerTruck, updateShowerTruck, deleteShowerTruck,
+  getShowerCheckinPassword, setShowerCheckinPassword,
 } from '../services/supabase';
 import { ShowerTruckAdmin } from '../types';
 
@@ -32,8 +33,8 @@ const inputClass =
  * 志工進去選一次是哪一台，之後手機記住。
  * 帶上網域是因為這串要貼到 LINE，只有路徑點不開。
  */
-const CHECKIN_URL = (): string =>
-  `${typeof window === 'undefined' ? 'https://heshengtan.tw' : window.location.origin}/shower/checkin`;
+// 2026-11-21 起直接給 17bath.org 的網址：heshengtan.tw/shower/checkin 只會再轉址過去
+const CHECKIN_URL = (): string => 'https://17bath.org/checkin';
 
 const AdminShowerTab: React.FC = () => {
   const [trucks, setTrucks] = useState<ShowerTruckAdmin[]>([]);
@@ -41,6 +42,10 @@ const AdminShowerTab: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  // 打卡密碼。null＝讀不到（shower_checkin_password.sql 還沒跑）
+  const [pw, setPw] = useState<string | null>(null);
+  const [pwDraft, setPwDraft] = useState('');
+  const [pwSaved, setPwSaved] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +55,26 @@ const AdminShowerTab: React.FC = () => {
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    getShowerCheckinPassword().then(v => { setPw(v); setPwDraft(v ?? ''); });
+  }, []);
+
+  const savePassword = async () => {
+    const next = pwDraft.trim();
+    if (pw && !next && !window.confirm('清空之後打卡不需要密碼，任何拿到網址的人都能更改位置。確定嗎？')) return;
+    if (pw && next && next !== pw && !window.confirm(
+      '換密碼之後，志工手機記住的舊密碼會失效，下次打卡要輸入新密碼。\n請記得把新密碼告訴現場同工。確定要換嗎？',
+    )) return;
+    setBusy(true);
+    try {
+      await setShowerCheckinPassword(next);
+      setPw(next);
+      setPwSaved(true);
+      window.setTimeout(() => setPwSaved(false), 2000);
+    } catch {
+      alert('儲存失敗。若尚未執行 shower_checkin_password.sql，請先到 Supabase 的 SQL Editor 執行該檔。');
+    } finally { setBusy(false); }
+  };
 
   const patch = async (id: string, d: Partial<{ name: string; isActive: boolean }>) => {
     setTrucks(prev => prev.map(t => (t.id === id ? { ...t, ...d } : t)));   // 先動畫面，操作才跟手
@@ -109,7 +134,7 @@ const AdminShowerTab: React.FC = () => {
           <p className="font-medium text-gray-800 mb-1">志工打卡連結</p>
           <p className="text-sm text-gray-600 leading-relaxed mb-3">
             用 LINE 傳給現場志工，或請他們加入手機書籤。點開選一次是哪一台車、按「我在這裡」就完成，
-            <strong>不必註冊也不必登入</strong>；之後再開啟會記住上次選的車。
+            <strong>不必註冊也不必登入</strong>；之後再開啟會記住上次選的車{pw ? '與密碼' : ''}。
           </p>
           <input
             readOnly
@@ -123,13 +148,44 @@ const AdminShowerTab: React.FC = () => {
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
             {copied ? '已複製' : '複製連結'}
           </button>
-          {/* 這條連結沒有密碼保護，是為了讓志工能快速打卡而做的取捨（廟方 2026-10-08 決定）。
-              風險要講在廟方發連結的地方，不能只寫在志工那一頁 */}
+          {/* 打卡密碼（2026-11-21 廟方要求）。一組共用，志工輸入一次手機就記住 */}
+          <div className="mt-4 pt-4 border-t border-temple-gold/30">
+            <p className="font-medium text-gray-800 mb-1 flex items-center gap-1.5">
+              <KeyRound className="w-4 h-4 text-temple-red" aria-hidden="true" />打卡密碼
+            </p>
+            {pw === null ? (
+              <p className="text-sm text-red-700">
+                讀不到密碼設定。請先到 Supabase 的 SQL Editor 執行 shower_checkin_password.sql。
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 leading-relaxed mb-2">
+                  {pw ? '志工第一次打開連結要輸入這組密碼，之後手機會記住。' : '目前沒有設密碼，打開連結就能打卡。'}
+                  留空儲存＝不需要密碼。
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={pwDraft}
+                    onChange={e => setPwDraft(e.target.value)}
+                    placeholder="例：1688"
+                    aria-label="打卡密碼"
+                    className={`${inputClass} bg-white`}
+                  />
+                  <button type="button" onClick={savePassword} disabled={busy || pwDraft.trim() === pw}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-sm bg-temple-red text-white rounded-lg hover:bg-[#5C4310] disabled:opacity-40">
+                    {pwSaved ? <Check className="w-4 h-4" /> : null}
+                    {pwSaved ? '已儲存' : '儲存'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          {/* 風險要講在廟方發連結的地方，不能只寫在志工那一頁 */}
           <p className="mt-3 flex items-start gap-2 text-sm text-[#5C4310] leading-relaxed">
             <Lock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             <span>
               <strong>請勿公開張貼</strong>（網站、臉書、公開群組）。
-              這條網址沒有密碼，任何拿到的人都能更改沐浴車的位置。只私訊給現場同工。
+              {pw ? '網址與密碼都只私訊給現場同工。' : '這條網址沒有密碼，任何拿到的人都能更改沐浴車的位置。只私訊給現場同工。'}
             </span>
           </p>
         </div>

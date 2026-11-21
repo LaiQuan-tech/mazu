@@ -3106,19 +3106,57 @@ export const getShowerLocations = async (): Promise<ShowerTruckLocation[]> => {
  * **回 null 與丟例外要分得開**：志工站在田邊，前者代表「這台車被停用了，去問廟方」、
  * 後者代表「訊號不穩，再按一次」。給錯指示會讓人在原地反覆按一個不會成功的按鈕。
  */
+/** 函式不存在（migration 還沒跑）。PostgREST 回 PGRST202 */
+const isMissingFn = (e: { code?: string } | null): boolean => !!e && e.code === 'PGRST202';
+
+/** 打卡密碼不對時丟這個，前台據此叫志工重新輸入（RPC 用 28P01 回報） */
+export class ShowerPasswordError extends Error {}
+
+/**
+ * 打卡密碼對不對（沒設密碼也回 true）。見 shower_checkin_password.sql。
+ * **函式還不存在時當成「不需要密碼」**：程式可能比 migration 先上線，
+ * 那段時間打卡要照舊能用，不能卡在一個永遠驗不過的密碼框。
+ */
+export const verifyShowerCheckinPassword = async (password: string): Promise<boolean> => {
+  const { data, error } = await supabase.rpc('shower_checkin_verify', { p_password: password });
+  if (isMissingFn(error)) return true;
+  if (error) { console.error('Error verify shower password:', error); throw error; }
+  return data === true;
+};
+
 export const showerCheckin = async (
   truckId: string,
   loc: { lat?: number; lng?: number; place?: string; note?: string },
+  password = '',
 ): Promise<string | null> => {
-  const { data, error } = await supabase.rpc('shower_checkin', {
+  const args = {
     p_truck_id: truckId,
     p_lat:   loc.lat ?? null,
     p_lng:   loc.lng ?? null,
     p_place: loc.place ?? null,
     p_note:  loc.note ?? null,
-  });
+  };
+  let { data, error } = await supabase.rpc('shower_checkin', { ...args, p_password: password });
+  // migration 還沒跑：資料庫只有舊的五參數版本，退回去叫它
+  if (isMissingFn(error)) ({ data, error } = await supabase.rpc('shower_checkin', args));
+  if (error?.code === '28P01') throw new ShowerPasswordError('打卡密碼不正確');
   if (error) { console.error('Error shower checkin:', error); throw error; }
   return (data as string | null) ?? null;
+};
+
+/** 後台：讀目前的打卡密碼（null＝表還沒建、''＝沒設） */
+export const getShowerCheckinPassword = async (): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('shower_checkin_password').select('password').eq('id', true).maybeSingle();
+  if (error) { console.error('Error get shower password:', error); return null; }
+  return String(data?.password ?? '');
+};
+
+/** 後台：設定打卡密碼（空字串＝不需要密碼） */
+export const setShowerCheckinPassword = async (password: string): Promise<void> => {
+  const { error } = await supabase.from('shower_checkin_password')
+    .upsert({ id: true, password: password.trim() || null, updated_at: new Date().toISOString() });
+  if (error) { console.error('Error set shower password:', error); throw error; }
 };
 
 // ── 後台：洗澡車管理（只有管理員，走一般的表存取） ──
