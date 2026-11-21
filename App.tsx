@@ -1853,12 +1853,6 @@ const App: React.FC = () => {
   const [aboutImageUrl, setAboutImageUrl] = useState('');
   // 首頁摘要取後台第一個顯示中的段落；還沒載入或沒資料時用下面寫死的保底文案
   const [aboutLead, setAboutLead] = useState<AboutSection | null>(null);
-  /**
-   * 首頁「關於和聖壇」預設收起來（2026-11-21 廟方：「把關於我們做成收折，讓影片與常見問題更容易被滑到」）。
-   * 收起時只留標題與兩行引言；照片、數字卡、「更多」展開才出現。文字仍整段在 DOM 裡（line-clamp），
-   * 完整沿革本來就在 /about。每次載入都收著，不記在瀏覽器裡。
-   */
-  const [aboutOpen, setAboutOpen] = useState(false);
   // 首頁遷址募款區塊＝後台「遷址募款」第一個顯示中的段落
   const [relocationLead, setRelocationLead] = useState<AboutSection | null>(null);
   // 首頁摘要可在後台單獨寫；留空則退回 /relocation 的第一段
@@ -4036,13 +4030,11 @@ const App: React.FC = () => {
             下面的「遷址緣起」照片在右，所以那一段反過來放左邊。 */}
         <PatternMedallion motif="phoenix" side="r" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className={`grid gap-12 items-center ${aboutOpen ? 'md:grid-cols-2' : 'max-w-3xl'}`}>
+          <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* 三層各司其職，不能疊在同一個元素上：
                 外層 .sr 進場（transform 由 CSS 控制）、中層 .sr-figure 視差（transform 由 JS 每次捲動寫入）、
                 內層才是照片與金框。兩個 transform 寫在同一層會互相蓋掉，效果只會剩一個。 */}
-            {/* 手機上展開時照片排在文字後面：排在上面的話，一按「展開閱讀」照片就從標題上方插進來，
-                正在讀的那段被推出畫面。桌機維持照片在左 */}
-            <div className={`sr sr-left order-last md:order-first ${aboutOpen ? '' : 'hidden'}`}>
+            <div className="sr sr-left">
               <div className="sr-figure">
                 <div className="relative">
                   <div className="absolute -top-4 -left-4 w-full h-full border-4 border-temple-gold rounded-lg z-0"></div>
@@ -4076,7 +4068,7 @@ const App: React.FC = () => {
                 <span className="w-2 h-2 rotate-45 bg-temple-gold inline-block" />
                 <span className="w-20 h-px bg-temple-gold/70" />
               </div>
-              <p id="about-lead" className={`sr sr-up sr-d2 text-gray-600 leading-relaxed text-lg ${aboutOpen ? 'mb-8' : 'mb-4 line-clamp-2'}`}>
+              <p className="sr sr-up sr-d2 text-gray-600 mb-8 leading-relaxed text-lg">
                 {renderInline(
                   splitParagraphs(aboutLead?.body || '')[0]
                   || '和聖壇創立近四十年，秉持著天上聖母傳道的精神。我們深信，心中有善不畏苦；家有溫暖路有光。信仰不止於燒香祈福，更是落實於日常的為人處世。以信仰安頓身心，以善念引領前行，將媽祖的教誨實踐於生活之中，讓慈悲與善念一路延續。'
@@ -4099,19 +4091,6 @@ const App: React.FC = () => {
                 **不另外加「看全部神尊 ›」那種字**：標籤已經寫著祀奉神尊，再寫一次是
                 同一件事講兩遍。可按這件事交給整張卡的游標、hover 與那個箭頭去講。
               */}
-              {!aboutOpen && (
-                <button
-                  type="button"
-                  onClick={() => setAboutOpen(true)}
-                  aria-expanded={false}
-                  aria-controls="about-lead"
-                  className="tap inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors"
-                >
-                  展開閱讀
-                  <ChevronDown className="w-4 h-4" aria-hidden="true" />
-                </button>
-              )}
-              <div className={aboutOpen ? '' : 'hidden'}>
               <div className="grid grid-cols-2 gap-6">
                 {(aboutFacts ? [[aboutFacts.fact1Value, aboutFacts.fact1Label], [aboutFacts.fact2Value, aboutFacts.fact2Label]] : []).map(([value, label], fi) => {
                   const target: SitePage = String(label).includes('神尊') ? 'deitiesAll' : 'about';
@@ -4134,26 +4113,13 @@ const App: React.FC = () => {
               </div>
 
               {/* 首頁這段是摘要，完整沿革與照片在 /about */}
-              <div className="mt-8 flex items-center gap-4">
-                <button
-                  onClick={() => goToPage('about')}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors"
-                >
-                  更多
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAboutOpen(false)}
-                  aria-expanded={true}
-                  aria-controls="about-lead"
-                  className="inline-flex items-center gap-1 px-2 py-2.5 text-sm text-gray-500 hover:text-temple-red"
-                >
-                  收起
-                  <ChevronDown className="w-4 h-4 rotate-180" aria-hidden="true" />
-                </button>
-              </div>
-              </div>
+              <button
+                onClick={() => goToPage('about')}
+                className="mt-8 inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-temple-gold/60 text-temple-red hover:bg-temple-gold/10 transition-colors"
+              >
+                更多
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
