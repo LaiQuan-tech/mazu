@@ -3815,9 +3815,13 @@ const App: React.FC = () => {
         <button
           type="button"
           onClick={() => goToPage('relocation')}
-          className="btn-sutra absolute z-30 bottom-5 left-1/2 -translate-x-1/2 lg:left-10 lg:translate-x-0 lg:bottom-8 px-5 py-2.5 text-sm sm:text-base font-bold tracking-wider whitespace-nowrap"
+          aria-label="遷址募款：護持和聖壇道場遷址"
+          className="hero-reloc absolute z-30 bottom-5 left-1/2 -translate-x-1/2 lg:left-10 lg:translate-x-0 lg:bottom-10 whitespace-nowrap"
         >
-          遷址募款 →
+          <span>
+            <span className="rl-eyebrow">和聖壇道場遷址</span>
+            <span className="rl-title">護持遷址募款</span>
+          </span>
         </button>
 
         {/* 底部的倒三角切角已移除，改成平的收邊：

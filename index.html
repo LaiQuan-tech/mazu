@@ -949,6 +949,31 @@
         outline: 2px solid #F7E6BC;
         outline-offset: 3px;
       }
+      /* Hero 的遷址募款入口（2026-11-21 廟方：第一版「不明顯也不好看」）：朱漆匾額。
+         金箔牆上要靠「深＋飽和」跳出來，磁青太冷會沉進陰影；朱紅是廟裡匾額與門的顏色。
+         金字壓朱漆 ≥ 7:1。不做動畫，只有 hover 微亮。 */
+      .hero-reloc {
+        display: inline-flex; align-items: center; gap: 14px;
+        padding: 10px 22px;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #9E2A1E 0%, #7E1D14 55%, #63150E 100%);
+        color: #F6E3B0;
+        border: 1px solid rgba(240, 210, 140, 0.95);
+        box-shadow:
+          inset 0 0 0 3px #7E1D14,
+          inset 0 0 0 4px rgba(240, 210, 140, 0.55),
+          0 12px 30px rgba(60, 12, 6, 0.45);
+        text-align: center;
+      }
+      .hero-reloc:hover { background: linear-gradient(180deg, #B03322 0%, #8E2318 55%, #6E1810 100%); }
+      .hero-reloc:focus-visible { outline: 2px solid #F7E6BC; outline-offset: 3px; }
+      .hero-reloc .rl-eyebrow { display:block; font-size: 11px; letter-spacing: .3em; color: #EBC97A; line-height: 1.2; }
+      .hero-reloc .rl-title { display:block; font-family: 'Noto Serif TC', serif; font-weight: 700; font-size: 20px; letter-spacing: .12em; line-height: 1.35; }
+      @media (min-width: 1024px) {
+        .hero-reloc { padding: 12px 28px; }
+        .hero-reloc .rl-eyebrow { font-size: 12px; }
+        .hero-reloc .rl-title { font-size: 24px; }
+      }
     </style>
   <script type="importmap">
 {
