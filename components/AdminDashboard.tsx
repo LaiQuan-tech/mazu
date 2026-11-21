@@ -6357,7 +6357,8 @@ const LampsTab = ({
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             {cSaving && <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
-            <table className="admin-table w-full text-sm">
+            {/* lamp-cfg：手機卡片排成三格（圖｜燈名＋費用｜開關），下面一行報名數與按鈕，見 index.css */}
+            <table className="admin-table lamp-cfg w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-3 w-8"></th>
@@ -7485,19 +7486,10 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                 onDragOver={(ev) => eDragOver(ev, idx)}
                 onDrop={() => eDrop(idx)}
                 onDragEnd={eDragEnd}
-                className={`bg-white rounded-xl border shadow-sm p-5 flex flex-wrap items-center gap-4 select-none transition-all ${eDragId === e.id ? 'opacity-30' : ''} ${eOverIdx === idx && eDragId !== e.id ? 'border-temple-red border-2' : 'border-gray-100'}`}>
+                className={`bg-white rounded-xl border shadow-sm p-4 lg:p-5 flex flex-wrap items-center gap-3 lg:gap-4 select-none transition-all ${eDragId === e.id ? 'opacity-30' : ''} ${eOverIdx === idx && eDragId !== e.id ? 'border-temple-red border-2' : 'border-gray-100'}`}>
                 <GripVertical className="w-5 h-5 text-gray-300 cursor-grab active:cursor-grabbing shrink-0 hidden lg:block" />
-                {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
-                <div className="flex items-center gap-1 lg:hidden shrink-0">
-                  <button type="button" onClick={() => eMove(idx, -1)} disabled={idx === 0}
-                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="上移">
-                    <ChevronUp className="w-4 h-4" />
-                  </button>
-                  <button type="button" onClick={() => eMove(idx, 1)} disabled={idx === localEvents.length - 1}
-                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="下移">
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
+                {/* 手機的上下移鍵搬到下面那一行最右邊（2026-11-22 廟方：「內容都是靠左，很醜，又疊很高」）：
+                    原本排在最前面，把縮圖與標題往右推，標題被擠窄、整張卡變高 */}
                 {e.imageUrl
                   ? <img src={e.imageUrl} alt={e.title} className="w-14 h-14 object-cover rounded-xl border border-gray-100 shrink-0" />
                   : <div className="w-10 h-10 bg-temple-red/10 rounded-full flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5 text-temple-red" /></div>}
@@ -7528,17 +7520,30 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => external ? onGoFahui() : viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                {/* 手機：獨佔一行，左邊報名名單、右邊編輯刪除與上下移；桌機維持排在列尾 */}
+                <div className="w-full lg:w-auto flex items-center justify-between lg:justify-start gap-2 shrink-0 border-t border-dashed border-gray-100 pt-3 lg:border-0 lg:pt-0">
+                  <button onClick={() => external ? onGoFahui() : viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
                     <List className="w-3.5 h-3.5" /> 報名名單
                   </button>
-                  <button onClick={() => openEdit(e)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
-                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openEdit(e)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" aria-label="編輯">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
+                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" aria-label="刪除">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
+                    <span className="lg:hidden w-px h-5 bg-gray-200 mx-1" aria-hidden="true" />
+                    <button type="button" onClick={() => eMove(idx, -1)} disabled={idx === 0}
+                      className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="上移">
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => eMove(idx, 1)} disabled={idx === localEvents.length - 1}
+                      className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label="下移">
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

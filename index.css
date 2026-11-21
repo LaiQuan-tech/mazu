@@ -147,6 +147,48 @@
     border-top: 1px dashed #e5e7eb;
   }
 
+  /* 點燈燈種的卡片（2026-11-22 廟方截圖：「點燈的清單、祈福的清單，這種表單，內容都是靠左，很醜，又疊很高」）。
+     原本七格各佔一行、一張卡 450px。改成格線：
+       ┌────┬───────────┬────────┐
+       │ 圖 │ 燈名      │ 開關   │
+       │    │ NT$ 300   │ ↑ ↓    │
+       ├────┴───────────┴────────┤
+       │ 4 筆 2待匯款 報名名單 ✎ 🗑 │
+       └─────────────────────────┘
+     格子是靠 data-label 對到區塊的；表頭與桌機表格完全不受影響（只在 1023px 以下）。 */
+  .admin-table.lamp-cfg tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "img name toggle" "img fee move" "regs regs ops";
+    column-gap: .75rem;
+    row-gap: .125rem;
+    align-items: center;
+    padding: .875rem;
+  }
+  .admin-table.lamp-cfg td { padding: 0; }
+  .admin-table.lamp-cfg td[data-label="圖片"] { grid-area: img; align-self: center; }
+  .admin-table.lamp-cfg td[data-label="圖片"] > div:has(img) { height: auto; }
+  /* 沒圖的佔位框跟有圖的一樣寬，燈名才會對齊同一條線 */
+  .admin-table.lamp-cfg td[data-label="圖片"] > div:not(:has(img)) { width: 5.25rem; height: 3.5rem; }
+  .admin-table.lamp-cfg td[data-label="圖片"] img { max-height: 3.5rem; max-width: 5.25rem; }
+  .admin-table.lamp-cfg td[data-label="服務名稱"] { grid-area: name; font-size: 1rem; }
+  .admin-table.lamp-cfg td[data-label="費用"] { grid-area: fee; }
+  .admin-table.lamp-cfg td[data-label="啟用"] { grid-area: toggle; justify-self: end; }
+  .admin-table.lamp-cfg td:not([data-label]) { grid-area: move; justify-self: end; }
+  .admin-table.lamp-cfg td:not([data-label]) button { padding: .25rem; }
+  .admin-table.lamp-cfg td[data-label="報名"] {
+    grid-area: regs;
+    margin-top: .625rem; padding-top: .625rem;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .admin-table.lamp-cfg td[data-label="操作"] {
+    grid-area: ops;
+    margin-top: .625rem; padding-top: .625rem;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .admin-table.lamp-cfg td[data-label="報名"]::before { display: none; }
+  .admin-table.lamp-cfg td[colspan] { grid-column: 1 / -1; }
+
   /* 這幾條要壓得過格子上的 utility（px-6 py-4／max-w-xs／text-right），
      所以維持 .admin-table td 的 0,1,1，不要包 :where()。 */
   .admin-table td {
