@@ -22,13 +22,13 @@ const SHENGXIAO_MAP: Record<string, ZodiacSign> = {
 
 const THIS_YEAR = new Date().getFullYear();
 
-// 國曆與農曆年份一律以民國年顯示（民國72年），value 仍為西元年供換算
+// 年份同時顯示民國與西元（廟方 2026-11-23：「民國70年 西元1981年」），value 仍為西元年供換算
 const YEAR_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: '吉年' },
   ...Array.from({ length: THIS_YEAR - 1911 }, (_, i) => {
     const g = THIS_YEAR - i;
     const roc = g - 1911;
-    return { value: g, label: `民國${roc === 1 ? '元' : roc}年` };
+    return { value: g, label: `民國${roc === 1 ? '元' : roc}年 西元${g}年` };
   }),
 ];
 
@@ -193,6 +193,14 @@ interface BirthDatePickerProps {
   /** 隱藏內建「生日」標題列（由外層自訂標題時使用） */
   hideLabel?: boolean;
 }
+
+/**
+ * 換算結果的**顯示用**字串：民國年後面補上西元年。
+ * 只給畫面用，**存進資料庫的字串不可以帶西元**——後台拆欄、信眾比對與
+ * parseBirthDate 都認「民國72年6月20日（農曆…）」這個固定格式。
+ */
+const withWesternYear = (d: string): string =>
+  d.replace(/^民國(\d+)年/, (m, y) => `${m} 西元${Number(y) + 1911}年`);
 
 // ── 元件 ───────────────────────────────────────────────────────────────────────
 
@@ -370,7 +378,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
           {currentBirthDate && (
             <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2">
               <RefreshCw className="w-3.5 h-3.5 text-temple-gold flex-shrink-0" />
-              <span className="text-sm text-temple-dark font-medium">{currentBirthDate}</span>
+              <span className="text-sm text-temple-dark font-medium">{withWesternYear(currentBirthDate)}</span>
               <span className="text-xs text-gray-400 ml-1">（自動換算）</span>
             </div>
           )}
@@ -396,7 +404,7 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({ birthDate: initBirthD
           {/* 目前結果 */}
           {currentBirthDate && (
             <div className="flex items-center gap-1.5 bg-temple-bg border border-temple-gold/30 rounded-lg px-3 py-2 flex-wrap">
-              <span className="text-sm text-temple-dark font-medium">{currentBirthDate}</span>
+              <span className="text-sm text-temple-dark font-medium">{withWesternYear(currentBirthDate)}</span>
               {!lunarYear && (
                 <span className="text-xs text-gray-400 ml-1">（未填年份，生肖請手動選）</span>
               )}
