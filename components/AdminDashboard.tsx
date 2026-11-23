@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { isValidGa4, isValidGtm, isValidPixel } from './Analytics';
-import { queueConfirmEmail } from '../services/notifyConfirm';
+import { queueConfirmEmail, sendProxyNotice, type ProxyNoticeResult } from '../services/notifyConfirm';
 import { lampAmount, blessingAmount } from '../services/serviceAmount';
 import { getBookings, updateBookingStatus, updateBookingDivineMessage, getDonations, getBulletins, createBulletin, updateBulletin, deleteBulletin, getRegistrations, deleteRegistration, uploadBulletinImage, getAnalyticsSettings, saveAnalyticsSettings, getSocialSettings, saveSocialSettings, getDevoteeOverrides, saveDevoteeOverride, deleteDevoteeOverride, getSiteImages, uploadSiteImage, getSiteImagePublicUrl, getDeities, createDeity, updateDeity, deleteDeity, uploadDeityImage, getDeityHalls, createDeityHall, updateDeityHall, deleteDeityHall, getHeroSlides, uploadHeroSlide, deleteHeroSlide, getScriptureVerses, updateScriptureVerse, uploadScriptureImage, deleteScriptureImage, getLampServiceConfigs, createLampServiceConfig, updateLampServiceConfig, deleteLampServiceConfig, getLampRegistrations, updateLampRegistrationStatus, deleteLampRegistration, getAllMemberProfiles, getMemberContactsByUserId, getMemberContacts, getUsersLastLogin, getBlessingEvents, createBlessingEvent, updateBlessingEvent, deleteBlessingEvent, getBlessingRegistrations, updateBlessingRegistrationStatus, deleteBlessingRegistration, uploadBlessingImage, uploadLampImage, getLampChoices, saveLampChoices, getLampChoiceCounts, getRepairProjects, getRepairProjectTotals, createRepairProject, updateRepairProject, deleteRepairProject, uploadRepairProjectImage, getLineClickStats, getBookingSessions, getDeityFeasts, createBookingSession, updateBookingSession, deleteBookingSession, getBookingCountsBySession, getUrgentPrayers, getFahuiRegistrations, updateFahuiStatus, updateFahuiReconcile, updateFahuiEntries, updateFahuiContact, deleteFahuiRegistration, getVolunteerRegistrations, updateVolunteerStatus, deleteVolunteerRegistration, getAllMemberContactsAdmin, createBlessingRegistration, submitBooking, submitLampRegistration, updateDonationStatus, supabase } from '../services/supabase';
 import AdminAboutTab from './AdminAboutTab';
@@ -974,7 +974,7 @@ const todayYmd = (): string => {
  *
  * ── 刻意的四個決定（廟方 2026-10-30）──
  * 1. `source` 標成 `admin/line`，與信眾自己報名的分得開（理由見 PROXY_SOURCE）。
- * 2. **不寄「報名成功」信**（`notify: false`）：對方剛在 LINE 跟廟方講完話，
+ * 2. **不寄「報名成功」信，改推 LINE**（2026-11-23 起，見 sendProxyNotice；`notify: false` 關的是給廟方的信）：對方剛在 LINE 跟廟方講完話，
  *    再收一封信只會困惑，而且多數 LINE 來的人沒留信箱。
  *    「已收款」那封不受影響，還是廟方在後台按下去才寄。
  * 3. 涵蓋祈福活動、問事、**太歲點燈**。點燈原本刻意不做（「不是檔期性的報名」），
@@ -1016,6 +1016,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState('');
+  const [notice, setNotice] = useState<ProxyNoticeResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -1109,8 +1110,9 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   const submit = async () => {
     setErr(''); setSaving(true);
     try {
+      let newId = '';
       if (kind === 'blessing') {
-        await createBlessingRegistration({
+        newId = await createBlessingRegistration({
           eventId,
           name: person.name,
           phone: person.phone,
@@ -1124,7 +1126,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           packageFee: pkg?.fee,
         }, { notify: false, source: PROXY_SOURCE });
       } else if (kind === 'lamp') {
-        await submitLampRegistration({
+        newId = await submitLampRegistration({
           serviceId: lampId,
           name: person.name,
           phone: person.phone,
@@ -1137,7 +1139,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           notes: (lampCh ? withChoiceTag(notes || undefined, lampCh.label, lampChoice) : notes) || undefined,
         }, { notify: false, source: PROXY_SOURCE });
       } else {
-        await submitBooking({
+        newId = await submitBooking({
           name: person.name,
           phone: person.phone,
           gender: person.gender || undefined,
@@ -1155,6 +1157,9 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
       setDone(kind === 'blessing' ? `已幫 ${person.name} 報名「${evt?.title}」`
         : kind === 'lamp' ? `已幫 ${person.name} 登記「${lampCfg?.name}${lampChoice ? `・${lampChoice}` : ''}」`
         : `已幫 ${person.name} 預約 ${sess?.sessionDate} 的問事`);
+      // 不 await：報名已經成功，先讓完成頁出來，LINE 的結果到了再補上
+      void sendProxyNotice(kind === 'blessing' ? 'blessing_registrations'
+        : kind === 'lamp' ? 'lamp_registrations' : 'bookings', newId).then(setNotice);
       onDone();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '送出失敗，請再試一次');
@@ -1176,9 +1181,18 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
         {done ? (
           <div className="p-5 space-y-4">
             <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{done}</div>
+            <div className={`rounded-lg border p-3 text-sm ${notice === 'sent' ? 'bg-green-50 border-green-200 text-green-800'
+              : notice ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+              {notice === 'sent' ? '已用 LINE 通知信眾。'
+                : notice === 'no-line' ? '這支電話沒有對到綁定 LINE 的會員，沒有通知，請自行告知信眾。'
+                : notice === 'line-off' ? 'LINE 推播尚未設定，沒有通知，請自行告知信眾。'
+                : notice === 'past' ? '這一場已經過了，視為補登，沒有通知信眾。'
+                : notice === 'failed' ? 'LINE 沒有送成功（可能沒加官方帳號好友、已封鎖，或連線問題），請自行告知信眾。報名已經成功，不用重報。'
+                : '正在用 LINE 通知信眾…'}
+            </div>
             <p className="text-xs text-gray-500">
-              狀態是「待匯款」，等款項收到後到該服務的分頁按「標記已收款」——
-              <strong>確認信在那一刻才會寄</strong>，這筆代報沒有寄出任何信。
+              等款項收到（問事為確認）後，到該服務的分頁更新狀態，
+              <strong>確認通知在那一刻才會寄</strong>。這筆代報不寄 email。
             </p>
             <button onClick={onClose} className="w-full py-2.5 bg-temple-red text-white rounded-lg text-sm font-medium">關閉</button>
           </div>
@@ -1322,7 +1336,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
             </label>
 
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800 space-y-1">
-              <p>送出後狀態是<strong>待匯款</strong>，<strong>不會寄任何信給信眾</strong>。</p>
+              <p>送出後狀態是<strong>{kind === 'booking' ? '待處理' : '待匯款'}</strong>，<strong>會用 LINE 通知信眾</strong>（電話要對得到綁定 LINE 的會員），不寄 email。</p>
               <p>報名來源會標成 <code className="font-mono">admin/line</code>，在「流量來源」那一頁跟信眾自己報的分得開。</p>
               {amount > 0 && <p>應收金額 <strong>${amount.toLocaleString()}</strong>。</p>}
             </div>

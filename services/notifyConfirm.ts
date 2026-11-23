@@ -174,3 +174,32 @@ export const sendPaymentInfo = (
   if (clean.length === 0) return;
   void post(table, clean, false, 'payinfo');
 };
+
+/** 代為報名的 LINE 通知結果，直接顯示給工作人員看 */
+export type ProxyNoticeResult = 'sent' | 'no-line' | 'line-off' | 'past' | 'failed';
+
+/**
+ * 後台「代為報名」成功之後，推一則 LINE 給信眾（廟方 2026-11-23）。只推 LINE、不寄信。
+ *
+ * 與上面幾支不同，**這支要等結果**：多數信眾沒有綁 LINE，工作人員得知道
+ * 這一位到底有沒有收到，沒收到的要自己去跟他說。永遠不丟例外——
+ * 報名已經成功，通知失敗不可以讓畫面看起來像報名失敗（會害人重報一次）。
+ */
+export const sendProxyNotice = async (table: ConfirmTable, id: string): Promise<ProxyNoticeResult> => {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return 'failed';
+    const r = await fetch('/api/notify-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ table, id, kind: 'proxy' }),
+      keepalive: true,
+    });
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; skipped?: string };
+    if (r.ok && j.ok) return 'sent';
+    return j.skipped === 'no-line' || j.skipped === 'line-off' || j.skipped === 'past' ? j.skipped : 'failed';
+  } catch {
+    return 'failed';
+  }
+};

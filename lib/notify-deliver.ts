@@ -156,17 +156,24 @@ export const sendMail = async (
  * **失敗最常見的原因是「他沒加好友或封鎖了」**，那不是壞掉、也不該讓整個請求失敗
  * ——回 ok:false 讓呼叫端退回 email。訊息裡不會有個資，仍然只取前 200 字，
  * 而且不把 userId 回給呼叫端。文字上限 5000 字，截斷只是防呆。
+ *
+ * `retryKey`（UUID）：同一個 key 24 小時內 LINE 只收一次，重送會回 409——
+ * 那代表「先前已經送過」，不是失敗。沒有蓋章欄位的通知（代為報名）靠它防重複。
  */
 export const pushLine = async (
-  env: Env, to: string, text: string,
-): Promise<{ ok: boolean; error?: string }> => {
+  env: Env, to: string, text: string, retryKey?: string,
+): Promise<{ ok: boolean; error?: string; duplicate?: boolean }> => {
   try {
     const r = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.lineToken}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${env.lineToken}`, 'Content-Type': 'application/json',
+        ...(retryKey ? { 'X-Line-Retry-Key': retryKey } : {}),
+      },
       body: JSON.stringify({ to, messages: [{ type: 'text', text: text.slice(0, 4900) }] }),
     });
     if (r.ok) return { ok: true };
+    if (retryKey && r.status === 409) return { ok: true, duplicate: true };
     const detail = (await r.text()).slice(0, 200);
     console.error('line push failed', r.status, detail);
     return { ok: false, error: `LINE 回 ${r.status}：${detail}` };

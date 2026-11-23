@@ -66,7 +66,7 @@
 
 import {
   type Row, type Parcel, clean, isEmail, readEnv, svcHeaders, uuids,
-  lookupContacts, deliver, stamp, siteSettings, bankLines, mailSignature,
+  lookupContacts, deliver, pushLine, stamp, siteSettings, bankLines, mailSignature,
 } from '../lib/notify-deliver.js';
 
 interface ResLike {
@@ -118,8 +118,14 @@ const TABLES: Record<string, {
    * 防線一樣是「建立未滿 NOTIFY_WINDOW_MIN 分鐘」＋ payinfo_sent_at 蓋章。
    */
   payinfo?: { subject: string; intro: (n: number) => string };
+  /**
+   * `kind=proxy`：後台「代為報名」送出當下推給信眾的 LINE（廟方 2026-11-23）。
+   * 有這個值才可以代報通知；內容是「本壇已代為…」後面接的動詞。
+   */
+  proxy?: string;
 }> = {
   bookings: {
+    proxy: '預約問事',
     label: '預約問事',
     subject: '預約問事已確認',
     intro: n => `您在和聖壇的預約問事已經由本壇確認${n > 1 ? `，共 ${n} 筆` : ''}：`,
@@ -137,6 +143,7 @@ const TABLES: Record<string, {
     ].join(''),
   },
   lamp_registrations: {
+    proxy: '登記點燈',
     payinfo: { subject: '點燈登記已收到，請完成匯款', intro: n => `感謝您在和聖壇登記點燈${n > 1 ? `，共 ${n} 盞` : ''}。以下是您的登記內容與匯款資訊：` },
     label: '點燈登記',
     subject: '點燈登記已確認、款項已收到',
@@ -148,6 +155,7 @@ const TABLES: Record<string, {
     amount: (r, ctx) => ctx.lamp.get(clean(r.service_id))?.fee,
   },
   blessing_registrations: {
+    proxy: '報名祈福活動',
     payinfo: { subject: '祈福報名已收到，請完成匯款', intro: n => `感謝您報名和聖壇的祈福活動${n > 1 ? `，共 ${n} 筆` : ''}。以下是您的報名內容與匯款資訊：` },
     label: '祈福活動報名',
     subject: '祈福活動報名已確認、款項已收到',
@@ -320,11 +328,12 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
    * （送出當下的匯款資訊）。兩者差在文案、蓋章欄位、以及要不要驗管理員身分。
    */
   const payinfo = clean(body?.kind) === 'payinfo';
+  const proxy = clean(body?.kind) === 'proxy';
   const stampCol = payinfo ? 'payinfo_sent_at' : 'confirm_sent_at';
   const ids = (Array.isArray(body?.id) ? body!.id as string[] : [clean(body?.id)])
     .filter(x => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x))
     .slice(0, MAX_IDS);
-  if (!spec || ids.length === 0 || (payinfo && !spec.payinfo)) {
+  if (!spec || ids.length === 0 || (payinfo && !spec.payinfo) || (proxy && (!spec.proxy || ids.length !== 1))) {
     res.status(400).json({ ok: false, error: '參數不正確' });
     return;
   }
@@ -377,6 +386,76 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     const all: Row[] = Array.isArray(fetched) ? fetched : [];
     if (all.length === 0) {
       res.status(404).json({ ok: false, error: '查無此筆' });
+      return;
+    }
+
+    /**
+     * ── 後台代為報名：只推 LINE ──
+     * 廟方 2026-10-30 拍板「代報不寄信」、2026-11-23 要求代報要有 LINE 通知，
+     * 兩條合起來就是**只推 LINE、推不出去也不退回 email**，所以不走 deliver()。
+     *
+     * **不蓋 confirm_sent_at**：蓋了的話之後按「標記已收款」就不會再通知。
+     * 防重複改用 LINE 的 Retry-Key（＝這一筆的 id，24 小時內只收一次），
+     * 加上「建立未滿 NOTIFY_WINDOW_MIN 分鐘」，舊紀錄不可能再被推一次。
+     *
+     * 開頭**不稱呼姓名**：電話可能是家人的，收到的人不一定是報名的那一位。
+     */
+    if (proxy) {
+      const row = all[0];
+      const t = Date.parse(row.created_at ?? '');
+      if (row.source !== 'admin/line' || Number.isNaN(t) || Date.now() - t > NOTIFY_WINDOW_MIN * 60000) {
+        res.status(409).json({ ok: false, error: '不是剛代為報名的紀錄，不通知' });
+        return;
+      }
+      if (!lineToken) { res.status(200).json({ ok: false, skipped: 'line-off' }); return; }
+      const phone = clean(row.phone);
+      const uid = phone
+        ? (await lookupContacts(env, [phone], { wantLine: true, needEmailFor: new Set() })).get(phone)?.lineId
+        : '';
+      if (!uid) { res.status(200).json({ ok: false, skipped: 'no-line' }); return; }
+
+      const pctx: Ctx = { lamp: new Map(), event: new Map() };
+      const [cfgTable, cfgId] = table === 'lamp_registrations' ? ['lamp_service_configs', clean(row.service_id)]
+        : table === 'blessing_registrations' ? ['blessing_events', clean(row.event_id)] : ['', ''];
+      // 台北的今天：場次已經過了就是事後補登，不要再叫人到壇或匯款
+      const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+      let past = table === 'bookings' && !!row.booking_date && clean(row.booking_date) < today;
+      if (cfgTable && uuids([cfgId]).length > 0) {
+        const c = await fetch(`${supabaseUrl}/rest/v1/${cfgTable}?id=eq.${cfgId}`, { headers: svc });
+        const list: Row[] = c.ok ? await c.json().catch(() => []) : [];
+        const x = Array.isArray(list) ? list[0] : undefined;
+        if (x && table === 'lamp_registrations') pctx.lamp.set(x.id, { name: clean(x.name), fee: Number(x.fee ?? 0) });
+        else if (x) {
+          pctx.event.set(x.id, { title: clean(x.title), fee: Number(x.fee ?? 0) });
+          past = !!x.end_date && clean(x.end_date) < today;
+        }
+      }
+      // 讀不到燈種／活動就不推：會變成「NT$0」誤導信眾，而且推出去收不回來
+      if (cfgTable && pctx.lamp.size + pctx.event.size === 0) {
+        res.status(200).json({ ok: false, skipped: 'config-missing' });
+        return;
+      }
+      if (past) { res.status(200).json({ ok: false, skipped: 'past' }); return; }
+      const fee = spec.amount?.(row, pctx) ?? 0;
+      // 免費的與現場收費的（問事）都不附匯款資訊
+      const bank = fee > 0
+        ? bankLines(await siteSettings(env, ['bank_name', 'bank_code', 'bank_branch', 'bank_account', 'bank_holder']))
+        : [];
+      const text = [
+        '您好：', '',
+        `本壇已代為${spec.proxy}，內容如下：`, '',
+        `・${spec.line(row, pctx)}`,
+        ...(spec.extra ? ['', ...spec.extra] : []),
+        ...(fee > 0
+          ? ['', ...(bank.length ? [...bank, ''] : []),
+             '匯款完成後，請提供帳號後五碼，以利核對。',
+             '若您已經繳費，請不必再匯款；款項確認後本壇會再通知您。']
+          : []),
+        '', '內容若有誤，請直接回覆告知本壇。',
+      ].join('\n');
+      const sent = await pushLine(env, uid, text, clean(row.id));
+      if (sent.ok) res.status(200).json({ ok: true, LINE: 1, ...(sent.duplicate ? { 已通知過: 1 } : {}) });
+      else res.status(200).json({ ok: false, skipped: 'line-failed', 原因: sent.error });
       return;
     }
 
@@ -446,9 +525,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
     // ── 信裡要寫得出「哪一種燈」「哪一場活動」 ──
     const ctx: Ctx = { lamp: new Map(), event: new Map() };
-    // 這些 id 要串進 `in.(…)`，先確認長得像 UUID——括號或逗號混進去會把查詢打壞
-    const uuids = (list: string[]): string[] =>
-      [...new Set(list.filter(x => /^[0-9a-f-]{36}$/i.test(x)))];
+    // 這些 id 要串進 `in.(…)`，先用共用的 uuids() 確認長得像 UUID——括號或逗號混進去會把查詢打壞
     if (table === 'lamp_registrations') {
       const idsNeeded = uuids(sendable.map(x => clean(x.service_id)));
       if (idsNeeded.length > 0) {
