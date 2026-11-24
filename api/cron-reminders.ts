@@ -285,9 +285,10 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         x => `${clean(x.name)}　${names.get(clean(x.service_id)) ?? '點燈'}　${daysAgo(x.created_at)} 天前`,
         '點燈登記尚未收到款項', compose('點燈登記'));
 
-      const blessAll = await countOf(`blessing_registrations?select=id&status=eq.${待匯款}`);
+      const blessAll = await countOf(`blessing_registrations?select=id&entries=is.null&status=eq.${待匯款}`);
       const bless = await q(`blessing_registrations?select=id,name,phone,email,event_id,package_fee,selected_addons,created_at`
-        + `&status=eq.${待匯款}&payment_reminded_at=is.null${範圍}&limit=200`);
+        // 法會報名單（entries 有值）不提醒：金額算法不同
+        + `&entries=is.null&status=eq.${待匯款}&payment_reminded_at=is.null${範圍}&limit=200`);
       const events = new Map<string, { title: string; fee: number }>();
       const evIds = [...new Set(bless.rows.map(x => clean(x.event_id)).filter(x => /^[0-9a-f-]{36}$/i.test(x)))];
       if (evIds.length > 0) {

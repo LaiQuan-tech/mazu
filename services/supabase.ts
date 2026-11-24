@@ -1544,6 +1544,7 @@ export const createBlessingEvent = async (d: BlessingEventData): Promise<boolean
     image_url: d.imageUrl || null,
     is_active: d.isActive,
     sort_order: d.sortOrder,
+    ...(d.externalForm ? { external_form: d.externalForm } : {}),
   });
   if (error) { console.error(error); throw error; }
   return true;
@@ -1564,6 +1565,7 @@ export const updateBlessingEvent = async (id: string, d: Partial<BlessingEventDa
   if (d.packages            !== undefined) payload.packages             = d.packages;
   if (d.addons              !== undefined) payload.addons               = d.addons;
   if (d.offerings           !== undefined) payload.offerings            = d.offerings;
+  if (d.externalForm        !== undefined) payload.external_form        = d.externalForm || null;
   const { error } = await supabase.from('blessing_events').update(payload).eq('id', id);
   if (error) { console.error(error); throw error; }
   return true;
@@ -1593,7 +1595,9 @@ export const getBlessingRegistrations = async (eventId?: string): Promise<Blessi
   if (eventId) q = q.eq('event_id', eventId);
   const { data, error } = await q;
   if (error || !data) return [];
-  return data.map(mapBlessingReg);
+  // 法會報名單也存在這張表（entries 有值），走 getFahuiRegistrations，這裡一律濾掉——
+  // 不濾的話應收、總覽、信眾名冊會把同一筆算兩次，而且用祈福的算法
+  return data.filter(r => r.entries == null).map(mapBlessingReg);
 };
 
 export const createBlessingRegistration = async (d: BlessingRegistrationData, opts?: SubmitOptions): Promise<string> => {
@@ -1624,13 +1628,16 @@ export const createBlessingRegistration = async (d: BlessingRegistrationData, op
 };
 
 export const updateBlessingRegistrationStatus = async (id: string, status: BlessingStatus): Promise<boolean> => {
-  const { error } = await supabase.from('blessing_registrations').update({ status }).eq('id', id);
+  // 法會報名單（entries 有值）不走這裡；欄位還沒建時那個條件會報錯，退回不帶條件的寫法
+  let { error } = await supabase.from('blessing_registrations').update({ status }).eq('id', id).is('entries', null);
+  if (isMissing(error)) ({ error } = await supabase.from('blessing_registrations').update({ status }).eq('id', id));
   if (error) { console.error(error); throw error; }
   return true;
 };
 
 export const deleteBlessingRegistration = async (id: string): Promise<boolean> => {
-  const { error } = await supabase.from('blessing_registrations').delete().eq('id', id);
+  let { error } = await supabase.from('blessing_registrations').delete().eq('id', id).is('entries', null);
+  if (isMissing(error)) ({ error } = await supabase.from('blessing_registrations').delete().eq('id', id));
   if (error) { console.error(error); throw error; }
   return true;
 };
@@ -1703,7 +1710,7 @@ export const getMyBlessingRegistrations = async (phone: string): Promise<Blessin
     .eq('phone', phone)
     .order('created_at', { ascending: false });
   if (error || !data) return [];
-  return data.map(mapBlessingReg);
+  return data.filter(r => r.entries == null).map(mapBlessingReg);   // 法會的走 getMyFahuiRegistrations
 };
 
 /**
@@ -1719,13 +1726,8 @@ export const getMyBlessingRegistrations = async (phone: string): Promise<Blessin
 export const getMyFahuiRegistrations = async (phone: string): Promise<{
   id: string; name: string; total: number; entryCount: number; createdAt: string;
 }[]> => {
-  const { data, error } = await supabase
-    .from('fahui_registrations')
-    .select('id,name,total_amount,entries,created_at')
-    .eq('phone', phone)
-    .order('created_at', { ascending: false });
-  if (error || !data) return [];
-  return data.map(r => ({
+  const rows = await fahuiRows(phone).catch(() => []);
+  return rows.map(r => ({
     id: r.id,
     name: r.name ?? '',
     total: Number(r.total_amount ?? 0),
@@ -2082,6 +2084,61 @@ export const getLineClickStats = async (): Promise<{ today: number; total: numbe
 
 // ─── 法會報名 ────────────────────────────────────────────────────────────────
 
+/* ── 法會報名的存放位置（2026-11-24 併入祈福報名表）──
+ * 法會報名單存在 `blessing_registrations`，`entries` 有值的就是（一筆＝一位聯絡人＋多個牌位）。
+ * 上層（FahuiTab、應收、名冊、匯出）仍然拿 FahuiRegistrationRecord，不必知道它存在哪。
+ * 舊表 `fahui_registrations` 搬完就改名，查不到當作沒有；還沒搬之前兩邊都讀、寫到它實際在的那邊。
+ * 金額一律用存的 total_amount，**不可以套祈福的算法**。
+ */
+/** 這張表／這個欄位還不存在（migration 還沒跑，或舊表已經搬走改名） */
+const isMissing = (e: { code?: string; message?: string } | null): boolean =>
+  !!e && ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(e.code ?? '');
+
+/** 兩邊的列整成同一種形狀（沿用舊表的欄名），新表的優先 */
+const fahuiRows = async (phone?: string): Promise<any[]> => {
+  let q1 = supabase.from('blessing_registrations').select('*').not('entries', 'is', null);
+  let q2 = supabase.from('fahui_registrations').select('*');
+  if (phone) { q1 = q1.eq('phone', phone); q2 = q2.eq('phone', phone); }
+  // 先舊後新、不併發：搬移剛好發生在兩次讀取之間時，寧可重複（下面去重）也不要漏
+  const old = await q2;
+  if (old.error && !isMissing(old.error)) throw old.error;
+  const now = await q1;
+  if (now.error && !isMissing(now.error)) throw now.error;
+  // 兩邊都說不存在一定是壞了，不可以顯示成 0 筆
+  if (now.error && old.error) throw now.error;
+  const moved = (now.data ?? []).map((r: any) => ({
+    ...r, contact_birth_date: r.birth_date, contact_zodiac: r.zodiac, contact_gender: r.gender,
+    status: r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending',
+  }));
+  const seen = new Set(moved.map((r: any) => r.id));
+  return [...moved, ...(old.data ?? []).filter((r: any) => !seen.has(r.id))]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+};
+
+/** 舊表欄名 → 祈福報名表的欄名與值 */
+const toBlessingRow = (row: Record<string, unknown>): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (k === 'contact_birth_date') out.birth_date = v;
+    else if (k === 'contact_zodiac') out.zodiac = v;
+    else if (k === 'contact_gender') out.gender = v;
+    else if (k === 'status') out.status = v === 'paid' ? BlessingStatus.CONFIRMED : BlessingStatus.PENDING;
+    else out[k] = v;
+  }
+  return out;
+};
+
+/** 寫到那一筆實際在的表。兩邊都沒有就是失敗，不可以安靜地當作存好了 */
+const updateFahuiRow = async (id: string, row: Record<string, unknown>): Promise<void> => {
+  const a = await supabase.from('blessing_registrations').update(toBlessingRow(row))
+    .eq('id', id).not('entries', 'is', null).select('id');
+  if (a.error && !isMissing(a.error)) throw a.error;
+  if ((a.data?.length ?? 0) > 0) return;
+  const b = await supabase.from('fahui_registrations').update(row).eq('id', id).select('id');
+  if (b.error) throw b.error;
+  if ((b.data?.length ?? 0) === 0) throw new Error('找不到這筆法會報名');
+};
+
 export interface FahuiRegistrationData {
   contact: { name: string; gender?: string; phone: string; address: string; lineId: string; email?: string; accountLast5?: string; birthDate?: string; zodiac?: string };
   entries: Record<string, Array<Record<string, string>>>;
@@ -2095,26 +2152,40 @@ export const submitFahuiRegistration = async (data: FahuiRegistrationData): Prom
   // 不使用 .select() 讀回：anon 角色僅有 INSERT 權限、無 SELECT 權限，
   // 讀回會觸發 RLS 阻擋。要通知廟方信箱就得知道是哪一筆，所以 id 客戶端先產。
   const id = newUuid();
-  const { error } = await supabase
-    .from('fahui_registrations')
-    .insert([{
-      id,
-      name: data.contact.name,
-      contact_gender: data.contact.gender || null,
-      phone: data.contact.phone,
-      address: data.contact.address,
-      line_id: data.contact.lineId || null,
-      email: data.contact.email?.trim() || null,
-      account_last5: data.contact.accountLast5?.trim() || null,
-      contact_birth_date: data.contact.birthDate || null,
-      contact_zodiac: data.contact.zodiac || null,
-      entries: data.entries,
-      zanpu_offering: data.zanpuOffering || null,
-      meal_sponsor: data.mealSponsor || 0,
-      notes: data.notes || null,
-      total_amount: data.total,
-      source: getSource(),
-    }]);
+  const row: Record<string, unknown> = {
+    id,
+    name: data.contact.name,
+    contact_gender: data.contact.gender || null,
+    phone: data.contact.phone,
+    address: data.contact.address,
+    line_id: data.contact.lineId || null,
+    email: data.contact.email?.trim() || null,
+    account_last5: data.contact.accountLast5?.trim() || null,
+    contact_birth_date: data.contact.birthDate || null,
+    contact_zodiac: data.contact.zodiac || null,
+    entries: data.entries,
+    zanpu_offering: data.zanpuOffering || null,
+    meal_sponsor: data.mealSponsor || 0,
+    notes: data.notes || null,
+    total_amount: data.total,
+    source: getSource(),
+  };
+  row.finance_check = false;
+  row.accounting_check = false;
+
+  // 掛到最近一場「法會報名表」活動（後台祈福管理設定）
+  const ev = await supabase.from('blessing_events').select('id')
+    .eq('external_form', 'fahui').order('start_date', { ascending: false }).limit(1);
+  if (ev.error && !isMissing(ev.error)) throw ev.error;
+  const eventId = ev.data?.[0]?.id as string | undefined;
+  let error: { code?: string; message?: string } | null = { code: '42703' };
+  if (eventId) {
+    ({ error } = await supabase.from('blessing_registrations').insert([{
+      ...toBlessingRow({ ...row, status: 'pending' }), event_id: eventId, contact_label: '本人',
+    }]));
+  }
+  // 沒有活動可掛、或欄位還沒建：退回舊表。舊表已搬走就會報錯，信眾看得到送出失敗
+  if (isMissing(error)) ({ error } = await supabase.from('fahui_registrations').insert([row]));
 
   if (error) {
     console.error('Error submitting fahui registration:', error);
@@ -2124,23 +2195,16 @@ export const submitFahuiRegistration = async (data: FahuiRegistrationData): Prom
 };
 
 export const getFahuiRegistrations = async (): Promise<FahuiRegistrationRecord[]> => {
-  const { data, error } = await supabase
-    .from('fahui_registrations')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const data = await fahuiRows();
 
-  if (error) {
-    console.error('Error fetching fahui registrations:', error);
-    throw error;
-  }
-
-  return (data || []).map((row) => ({
+  return data.map((row) => ({
     id: row.id,
+    eventId: row.event_id || undefined,
     createdAt: row.created_at,
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     name: row.name,
     phone: row.phone,
-    address: row.address,
+    address: row.address || '',
     lineId: row.line_id || undefined,
     email: row.email || undefined,
     contactGender: row.contact_gender || undefined,
@@ -2177,14 +2241,12 @@ export const updateFahuiReconcile = async (id: string, patch: FahuiReconcilePatc
   if ('adminNote' in patch)       row.admin_note       = patch.adminNote || null;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await supabase.from('fahui_registrations').update(row).eq('id', id);
-  if (error) { console.error('Error updating fahui reconcile fields:', error); throw error; }
+  await updateFahuiRow(id, row);
 };
 
 /** 更新報名項目內容（後台修正／回補欄位，例如既有報名缺的性別）。整包 entries 覆寫。 */
 export const updateFahuiEntries = async (id: string, entries: Record<string, Array<Record<string, string>>>): Promise<void> => {
-  const { error } = await supabase.from('fahui_registrations').update({ entries }).eq('id', id);
-  if (error) { console.error('Error updating fahui entries:', error); throw error; }
+  await updateFahuiRow(id, { entries });
 };
 
 /** 更新聯絡人基本資料（後台修正用；不含報名項目） */
@@ -2197,23 +2259,19 @@ export const updateFahuiContact = async (id: string, patch: { name?: string; gen
   if (patch.lineId !== undefined) row.line_id = patch.lineId || null;
   if (patch.email !== undefined) row.email = patch.email || null;
   if (Object.keys(row).length === 0) return;
-  const { error } = await supabase.from('fahui_registrations').update(row).eq('id', id);
-  if (error) { console.error('Error updating fahui contact:', error); throw error; }
+  await updateFahuiRow(id, row);
 };
 export const updateFahuiStatus = async (id: string, status: string): Promise<void> => {
-  const { error } = await supabase
-    .from('fahui_registrations')
-    .update({ status })
-    .eq('id', id);
-  if (error) { console.error('Error updating fahui status:', error); throw error; }
+  await updateFahuiRow(id, { status });
 };
 
 export const deleteFahuiRegistration = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('fahui_registrations')
-    .delete()
-    .eq('id', id);
-  if (error) { console.error('Error deleting fahui registration:', error); throw error; }
+  const a = await supabase.from('blessing_registrations').delete().eq('id', id).not('entries', 'is', null).select('id');
+  if (a.error && !isMissing(a.error)) throw a.error;
+  if ((a.data?.length ?? 0) > 0) return;
+  const b = await supabase.from('fahui_registrations').delete().eq('id', id).select('id');
+  if (b.error) throw b.error;
+  if ((b.data?.length ?? 0) === 0) throw new Error('找不到這筆法會報名');
 };
 
 // ─── 志工報名 ────────────────────────────────────────────────────────────────

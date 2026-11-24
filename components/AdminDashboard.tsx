@@ -988,7 +988,7 @@ const todayYmd = (): string => {
  * 已截止那組標紅字，由工作人員自己判斷要不要收。
  *
  * ── 絕對不碰 external_form 的活動 ──
- * `externalForm === 'fahui'` 那種的報名在 `fahui_registrations`，不在這裡。
+ * `externalForm === 'fahui'` 那種是「一位聯絡人＋多個牌位」的報名單，不是這裡的一人一筆。
  * 從這裡報下去會產生一筆對不到場次的孤兒訂單——那正是前台不給「我要報名」
  * 的原因（見 CLAUDE.md 的 blessing_events_external_form）。
  */
@@ -2114,7 +2114,7 @@ const FahuiReconcileBlock = ({ r, onSaved }: { r: FahuiRegistrationRecord; onSav
   );
 };
 
-const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrationRecord[]; onRefresh: () => void }) => {
+const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiRegistrationRecord[]; onRefresh: () => void; title?: string }) => {
   const [search, setSearch] = useState('');
   const [fPage, setFPage] = useState(0);
   const [filterStatus, setFilterStatus] = useState('');
@@ -2269,7 +2269,7 @@ const FahuiTab = ({ registrations, onRefresh }: { registrations: FahuiRegistrati
       {/* 頂端原本四張統計大卡（2026-11-18 收掉）：筆數與待匯款已經在下面的篩選鈕上，金額併進標題這一行。
           四顆匯出改成一排細框小鈕：一年用幾次，不該比名單本身還搶眼 */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <h2 className="text-xl font-bold text-gray-800">法會報名</h2>
+        <h2 className="text-xl font-bold text-gray-800">{title ?? '法會報名'}</h2>
         <span className="text-sm text-gray-500">總金額 <b className="text-temple-red">${stats.totalAmount.toLocaleString()}</b>・已收款 <b className="text-green-700">${stats.paidAmount.toLocaleString()}</b></span>
       </div>
       <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
@@ -2635,7 +2635,7 @@ function phoneKeyOf(p?: string | null): string {
 
 const OverviewTab = ({
   todos, onNavigate, canOpen, showMoney,
-  blessingEvents, blessingRegistrations, fahuiCount,
+  blessingEvents, blessingRegistrations,
   lampRegistrations, lampConfigs, fahuiRegistrations, donations,
   bookings, volunteerRegistrations, memberProfiles, serviceBadges, lineStats,
 }: {
@@ -2649,8 +2649,6 @@ const OverviewTab = ({
   showMoney:             boolean;
   blessingEvents:        BlessingEventRecord[];
   blessingRegistrations: BlessingRegistrationRecord[];
-  /** 法會報名筆數（external_form = 'fahui' 的活動，報名不在 blessing_registrations） */
-  fahuiCount:            number;
   lampRegistrations:     LampRegistrationRecord[];
   lampConfigs:           LampServiceConfig[];
   fahuiRegistrations:    FahuiRegistrationRecord[];
@@ -2760,7 +2758,7 @@ const OverviewTab = ({
 
     for (const ev of blessingEvents) {
       const count = ev.externalForm === 'fahui'
-        ? `報名 ${fahuiCount} 筆（法會報名）`
+        ? `報名 ${fahuiOfEvent(ev, blessingEvents, fahuiRegistrations).length} 筆`
         : `報名 ${blessingRegistrations.filter(r => r.eventId === ev.id && String(r.status ?? '') !== BlessingStatus.CANCELLED).length} 人`;
       const deadline = localYmdOfIso(ev.registrationDeadline);
       if (inWin(ev.startDate)) {
@@ -2792,7 +2790,7 @@ const OverviewTab = ({
       if (last && last.date === it.date) last.items.push(it); else days.push({ date: it.date, items: [it] });
     }
     return { days, today: from };
-  }, [sessions, sessionCounts, feasts, blessingEvents, blessingRegistrations, fahuiCount]);
+  }, [sessions, sessionCounts, feasts, blessingEvents, blessingRegistrations, fahuiRegistrations]);
 
   // ── 本月款項：與應收管理同一支 buildIncomeRows，不另算 ──
   const money = useMemo(() => {
@@ -6795,7 +6793,7 @@ const deriveVoluntary = (addons: BlessingAddon[] | undefined): BlessingAddon[] =
 const emptyBlessingForm = (): BlessingEventData => ({
   title: '', description: '', eventType: '法會',
   startDate: '', endDate: '', registrationDeadline: '',
-  fee: 0, packages: [], addons: [], offerings: [], imageUrl: '', isActive: true, sortOrder: 0,
+  fee: 0, packages: [], addons: [], offerings: [], imageUrl: '', isActive: true, sortOrder: 0, externalForm: '',
 });
 
 /** 將 DB 的 UTC ISO 時間轉成 datetime-local 需要的「本地時間」字串（避免每次編輯儲存都往前漂 8 小時） */
@@ -6806,15 +6804,27 @@ const toLocalDatetimeInput = (iso: string): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiCount, onGoFahui }: {
+/**
+ * 某一場法會（external_form = 'fahui' 的活動）的報名單。
+ * 還沒搬進祈福報名表的舊資料沒有 eventId，全部算在最早那一場（普渡），不可以每場都算一次。
+ */
+const fahuiOfEvent = (ev: BlessingEventRecord, events: BlessingEventRecord[], regs: FahuiRegistrationRecord[]): FahuiRegistrationRecord[] => {
+  const first = events.filter(e => e.externalForm === 'fahui')
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+  return regs.filter(r => (r.eventId ? r.eventId === ev.id : first?.id === ev.id));
+};
+
+const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiRegistrations, fahuiFailed }: {
   events: BlessingEventRecord[];
   registrations: BlessingRegistrationRecord[];
   onRefresh: () => void;
   memberProfiles: MemberProfileRecord[];
-  /** 法會報名表的筆數。給 external_form = 'fahui' 的活動顯示用，見下方 */
-  fahuiCount: number;
-  onGoFahui: () => void;
+  /** 法會報名單（牌位那一種）。external_form = 'fahui' 的活動用它，見下方 */
+  fahuiRegistrations: FahuiRegistrationRecord[];
+  /** 這次法會報名沒讀到（名單可能是舊的） */
+  fahuiFailed: boolean;
 }) => {
+  const [showOrphans, setShowOrphans] = useState(false);
   const [view, setView] = useState<'list' | 'regs'>('list');
   const blessingRegRows = useOpenRows();
   /** 生日、地址是個資，桌機也不常駐一欄：姓名格裡按「生日・地址」才就地展開（同問事管理） */
@@ -6929,6 +6939,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
       eventType: e.eventType, startDate: e.startDate, endDate: e.endDate,
       registrationDeadline: e.registrationDeadline ? toLocalDatetimeInput(e.registrationDeadline) : '',
       fee: e.fee, packages: e.packages || [], addons: e.addons || [], offerings: e.offerings || [], imageUrl: e.imageUrl || '', isActive: e.isActive, sortOrder: e.sortOrder,
+      externalForm: e.externalForm || '',
     });
     setShowModal(true);
   };
@@ -6955,7 +6966,13 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('確定刪除此祈福活動？所有報名資料也會一併刪除。')) return;
+    if (fahuiFailed) { alert('法會報名沒有讀取成功，暫時不能刪除活動，請重新整理。'); return; }
+    const ev = events.find(e => e.id === id);
+    const n = registrations.filter(r => r.eventId === id).length
+      + (ev?.externalForm === 'fahui' ? fahuiOfEvent(ev, events, fahuiRegistrations).length : 0);
+    // 報名與款項紀錄不跟著活動消失（資料庫也擋，見 fahui_merge_2_columns.sql）
+    if (n > 0) { alert(`這場活動有 ${n} 筆報名，不能刪除。要停辦請按編輯改成下架。`); return; }
+    if (!confirm('確定刪除此祈福活動？')) return;
     setDeletingId(id);
     try { await deleteBlessingEvent(id); onRefresh(); }
     catch { alert('刪除失敗'); }
@@ -7011,6 +7028,33 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
   };
 
   const isDeadlinePassed = (deadline?: string) => deadline ? new Date(deadline) < new Date() : false;
+
+  // 沒有掛在任何一場法會底下的報名單（活動被刪、或報名方式被改）。一定要有地方看得到
+  const fahuiEvents = events.filter(e => e.externalForm === 'fahui');
+  const orphans = fahuiRegistrations.filter(r => r.eventId ? !fahuiEvents.some(e => e.id === r.eventId) : fahuiEvents.length === 0);
+  if (showOrphans && orphans.length > 0) {
+    return (
+      <div>
+        <button onClick={() => setShowOrphans(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> 返回活動列表
+        </button>
+        <FahuiTab title="未歸屬的法會報名" registrations={orphans} onRefresh={onRefresh} />
+      </div>
+    );
+  }
+
+  // ── 法會的報名名單：牌位、對帳、四種匯出整頁沿用法會那一套 ──
+  if (view === 'regs' && selectedEvent && selectedEvent.externalForm === 'fahui') {
+    return (
+      <div>
+        <button onClick={() => setView('list')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> 返回活動列表
+        </button>
+        <FahuiTab key={selectedEvent.id} title={selectedEvent.title}
+          registrations={fahuiOfEvent(selectedEvent, events, fahuiRegistrations)} onRefresh={onRefresh} />
+      </div>
+    );
+  }
 
   // ── 報名管理頁 ──
   if (view === 'regs' && selectedEvent) {
@@ -7209,6 +7253,18 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                   <input type="number" min={0} value={form.fee} onChange={e => setForm(f => ({ ...f, fee: Number(e.target.value) }))}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" placeholder="0" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">報名方式</label>
+                {/* 已經有報名就不能換：換了之後原本的報名單會沒有地方看 */}
+                <select value={form.externalForm || ''} onChange={e => setForm(f => ({ ...f, externalForm: e.target.value }))}
+                  disabled={fahuiFailed || !!editingId && (registrations.some(r => r.eventId === editingId)
+                    || events.some(e => e.id === editingId && e.externalForm === 'fahui' && fahuiOfEvent(e, events, fahuiRegistrations).length > 0))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-temple-red disabled:bg-gray-100 disabled:text-gray-500">
+                  <option value="">一般祈福報名（官網直接報名）</option>
+                  <option value="fahui">法會報名表（牌位那一種）</option>
+                </select>
+                {form.externalForm === 'fahui' && <p className="mt-1 text-xs text-amber-700">法會報名表的日期、截止日與項目價錢寫在程式裡，新的一場要請工程師先更新，官網才能報名。</p>}
               </div>
               {/* 多方案設定 */}
               <div>
@@ -7477,6 +7533,15 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
         </button>
       </div>
 
+      {fahuiFailed && (
+        <div role="alert" className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">法會報名沒有讀取成功，筆數可能不對，請按右上角重新整理。</div>
+      )}
+      {orphans.length > 0 && (
+        <button type="button" onClick={() => setShowOrphans(true)}
+          className="mb-3 w-full text-left rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+          有 <b>{orphans.length}</b> 筆法會報名沒有掛在任何一場法會底下，按這裡查看。
+        </button>
+      )}
       {events.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400 text-sm">
           尚無祈福活動，請點擊「新增」建立第一個活動
@@ -7485,14 +7550,14 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
         <div className="space-y-2">
           {eSaving && <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs rounded-lg flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> 儲存排序中…</div>}
           {localEvents.map((e, idx) => {
-            const count = registrations.filter(r => r.eventId === e.id).length;
-            // 紅色待匯款跟點燈、問事同一個樣子（2026-11-18 全後台一致化）
-            const pending = registrations.filter(r => r.eventId === e.id && r.status === BlessingStatus.PENDING).length;
-            const closed = isDeadlinePassed(e.registrationDeadline);
-            // 報名走法會那套獨立表單的活動（目前只有普渡）：這裡數 blessing_registrations
-            // 一定是 0，直接寫 0 筆等於告訴廟方「沒有人報名」。改成指去正確的分頁。
-            // 見 supabase/migrations/blessing_events_external_form.sql
+            // 法會（牌位那一種）的報名單另外算，列上看起來跟一般祈福一樣（2026-11-24 併入）
             const external = e.externalForm === 'fahui';
+            const fahuiRegs = external ? fahuiOfEvent(e, events, fahuiRegistrations) : [];
+            const count = external ? fahuiRegs.length : registrations.filter(r => r.eventId === e.id).length;
+            // 紅色待匯款跟點燈、問事同一個樣子（2026-11-18 全後台一致化）
+            const pending = external ? fahuiRegs.filter(r => r.status === 'pending').length
+              : registrations.filter(r => r.eventId === e.id && r.status === BlessingStatus.PENDING).length;
+            const closed = isDeadlinePassed(e.registrationDeadline);
             return (
               <div key={e.id}
                 draggable
@@ -7521,22 +7586,15 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiC
                       ? <span>{e.packages.length} 個方案・起 NT${Math.min(...e.packages.map(p => p.fee)).toLocaleString()}</span>
                       : e.fee > 0 && <span>費用 NT${e.fee.toLocaleString()}</span>}
                     {e.registrationDeadline && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />截止 {fmtDate(e.registrationDeadline)}</span>}
-                    {external ? (
-                      <button type="button" onClick={onGoFahui}
-                        className="text-temple-red font-medium underline underline-offset-2 hover:text-[#5C1A04]">
-                        {fahuiCount} 筆報名在「法會報名」分頁 →
-                      </button>
-                    ) : (
-                      <span className="inline-flex items-center gap-2">
-                        <span className="text-temple-red font-medium">{count} 筆報名</span>
-                        {pending > 0 && <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{pending} 待匯款</span>}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-2">
+                      <span className="text-temple-red font-medium">{count} 筆報名</span>
+                      {pending > 0 && <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{pending} 待匯款</span>}
+                    </span>
                   </div>
                 </div>
                 {/* 手機：獨佔一行，左邊報名名單、右邊編輯刪除與上下移；桌機維持排在列尾 */}
                 <div className="w-full lg:w-auto flex items-center justify-between lg:justify-start gap-2 shrink-0 border-t border-dashed border-gray-100 pt-3 lg:border-0 lg:pt-0">
-                  <button onClick={() => external ? onGoFahui() : viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
+                  <button onClick={() => viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
                     <List className="w-3.5 h-3.5" /> 報名名單
                   </button>
                   <div className="flex items-center gap-1">
@@ -7981,7 +8039,8 @@ const ReceivablesTab: React.FC<{
   /** IncomeRow 的 typeKey → 資料表名。收據明細靠這個指回報名紀錄 */
   const SOURCE_TABLE = {
     lamp: 'lamp_registrations', blessing: 'blessing_registrations',
-    fahui: 'fahui_registrations', donation: 'donations',
+    // 法會併在祈福報名表（id 沿用）；舊收據的對照在 receiptsBySource
+    fahui: 'blessing_registrations', donation: 'donations',
   } as const;
 
   const rows = useMemo<IncomeRow[]>(
@@ -8672,6 +8731,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     const fallback: Tab = role === 'finance' ? 'receivables' : 'overview';
     try {
       const saved = sessionStorage.getItem('admin_tab') as Tab | null;
+      // 法會併進祈福管理了：上次停在法會報名的，改停在祈福管理（財務組仍有法會報名）
+      if (saved === 'fahui' && ROLE_ALLOWED_TABS[role].includes('blessings')) return 'blessings';
       return saved && (ROLE_ALLOWED_TABS[role] as readonly string[]).includes(saved) ? saved : fallback;
     } catch { return fallback; }
   });
@@ -8701,6 +8762,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [blessingEvents, setBlessingEvents] = useState<BlessingEventRecord[]>([]);
   const [blessingRegistrations, setBlessingRegistrations] = useState<BlessingRegistrationRecord[]>([]);
   const [fahuiRegistrations, setFahuiRegistrations] = useState<FahuiRegistrationRecord[]>([]);
+  const [fahuiFailed, setFahuiFailed] = useState(false);
   const [volunteerRegistrations, setVolunteerRegistrations] = useState<VolunteerRegistrationRecord[]>([]);
   const [lineStats, setLineStats] = useState<{ today: number; total: number }>({ today: 0, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -8718,7 +8780,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     if (initial) setLoading(true); else setRefreshing(true);
     setError(null);
     try {
-      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(() => [] as FahuiRegistrationRecord[]), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);
+      const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(e => { console.error('讀取法會報名失敗:', e); return null; }), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);
       setBookings(b);
       setDonations(d);
       setBulletins(bl);
@@ -8737,7 +8799,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
       setBlessingEvents(be);
       setBlessingRegistrations(br);
       setLineStats(ls);
-      setFahuiRegistrations(fh);
+      // 讀取失敗時保留上一次的，並明講失敗——不可以顯示成 0 筆 0 元
+      setFahuiFailed(fh === null);
+      if (fh) setFahuiRegistrations(fh);
       setVolunteerRegistrations(vol);
       setUrgentPending(up.filter(r => r.status === UrgentPrayerStatus.PENDING).length);
     } catch {
@@ -8799,14 +8863,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
     { key: 'social',     label: '社群帳號設定', icon: <Share2 className="w-4 h-4" /> },
   ];
   const allowed = ROLE_ALLOWED_TABS[role];
-  const navItems = allNavItems.filter(n => allowed.includes(n.key));
+  const fahuiPending = fahuiRegistrations.filter(r => r.status === 'pending').length;
+  /**
+   * 法會 2026-11-24 併入祈福管理（一場法會＝祈福管理裡的一列）。
+   * 看得到祈福管理的角色就不另外列「法會報名」；財務組沒有祈福管理，保留這一頁。
+   */
+  const fahuiInBlessings = allowed.includes('blessings');
+  const navItems = allNavItems.filter(n => allowed.includes(n.key) && !(n.key === 'fahui' && fahuiInBlessings));
 
   /** 各分頁的待辦數字。抽屜收起時漢堡鈕要靠總和顯示紅點，所以從 nav 內部抽出來共用。 */
   const badgeFor = (key: Tab): number =>
       key === 'lamps'     ? lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length
-    : key === 'fahui'     ? fahuiRegistrations.filter(r => r.status === 'pending').length
+    : key === 'fahui'     ? fahuiPending
     : key === 'volunteer' ? volunteerRegistrations.filter(r => r.status !== 'contacted').length
-    : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length
+    : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length + (fahuiInBlessings ? fahuiPending : 0)
     : key === 'bookings'  ? bookings.filter(b => b.status === BookingStatus.PENDING).length
     // 捐獻原本是「24 小時內的新捐款」，跟有沒有收到錢無關——放一天紅點就自己消失，
     // 還沒對帳的捐款反而看不到（2026-11-17 線上有 5 筆待匯款、紅點是 0）。改成跟點燈、祈福同一個標準。
@@ -9018,7 +9088,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
             <>
               {tab === 'overview'  && <OverviewTab todos={overviewTodos} onNavigate={goTab} canOpen={key => allowed.includes(key)}
                 showMoney={allowed.includes('receivables')}
-                blessingEvents={blessingEvents} blessingRegistrations={blessingRegistrations} fahuiCount={fahuiRegistrations.length}
+                blessingEvents={blessingEvents} blessingRegistrations={blessingRegistrations}
                 lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} fahuiRegistrations={fahuiRegistrations} donations={donations}
                 bookings={bookings} volunteerRegistrations={volunteerRegistrations} memberProfiles={memberProfiles} lineStats={lineStats}
                 serviceBadges={{ bookings: badgeFor('bookings'), lamps: badgeFor('lamps'), blessings: badgeFor('blessings'), donations: badgeFor('donations') }} />}
@@ -9043,7 +9113,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'social' && <SocialTab />}
               {tab === 'lamps'     && <LampsTab configs={lampConfigs} registrations={lampRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles} />}
               {tab === 'blessings' && <BlessingsTab events={blessingEvents} registrations={blessingRegistrations} onRefresh={fetchAll} memberProfiles={memberProfiles}
-                fahuiCount={fahuiRegistrations.length} onGoFahui={() => setTab('fahui')} />}
+                fahuiRegistrations={fahuiRegistrations} fahuiFailed={fahuiFailed} />}
               {tab === 'repairs'      && <RepairProjectsTab onRefresh={fetchAll} />}
               {tab === 'vouchers'    && <AdminVouchersTab />}
               {tab === 'traffic'     && <TrafficTab bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} lampConfigs={lampConfigs} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} fahuiRegistrations={fahuiRegistrations} volunteerRegistrations={volunteerRegistrations} />}

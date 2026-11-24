@@ -197,7 +197,10 @@ export const receiptsBySource = (list: ReceiptRecord[]): Map<string, ReceiptReco
   list.forEach(r => {
     if (r.status === 'void') return;
     r.items.forEach(i => {
-      if (i.sourceTable && i.sourceId) m.set(`${i.sourceTable}:${i.sourceId}`, r);
+      if (!i.sourceTable || !i.sourceId) return;
+      m.set(`${i.sourceTable}:${i.sourceId}`, r);
+      // 法會併入祈福報名表（id 不變）：搬移前後開的收據都要認得
+      if (i.sourceTable === 'fahui_registrations') m.set(`blessing_registrations:${i.sourceId}`, r);
     });
   });
   return m;

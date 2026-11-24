@@ -27,6 +27,8 @@ export type FahuiEntry = Record<string, string>;
 
 export interface FahuiRegistrationRecord {
   id: string;
+  /** 所屬的祈福活動（blessing_events）。還沒搬過來的舊資料沒有 */
+  eventId?: string;
   createdAt: string;
   /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
    *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
@@ -739,8 +741,8 @@ export interface BlessingEventData {
   isActive: boolean;
   sortOrder: number;
   /**
-   * 報名走哪一套外部表單。目前只有 'fahui'（法會報名表 fahui_registrations）。
-   * undefined＝走一般祈福報名（blessing_registrations）。
+   * 報名走哪一套外部表單。目前只有 'fahui'（法會報名表，一筆＝聯絡人＋多個牌位）。
+   * undefined＝走一般祈福報名。兩種都存在 blessing_registrations，法會那種 `entries` 有值。
    *
    * 普渡法會那一筆是為了讓它出現在歲時節慶上補建的，報名其實在法會那套；
    * 沒有這個欄位的話，後台會顯示「0 筆報名」（見 blessing_events_external_form.sql）。

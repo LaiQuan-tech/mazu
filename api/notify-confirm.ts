@@ -374,16 +374,32 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
   try {
     // service role 繞過 RLS（報名表的 RLS 不讓一般角色讀）
-    const r = await fetch(
-      `${supabaseUrl}/rest/v1/${table}?id=in.(${ids.join(',')})&order=created_at.asc&limit=${MAX_IDS}`,
+    const load = (t: string, extra = '') => fetch(
+      `${supabaseUrl}/rest/v1/${t}?id=in.(${ids.join(',')})${extra}&order=created_at.asc&limit=${MAX_IDS}`,
       { headers: svc },
     );
+    /**
+     * 法會報名單 2026-11-24 併入 blessing_registrations（entries 有值的就是），
+     * 呼叫端仍以 'fahui_registrations' 指名（文案與金額算法跟祈福不同）。
+     * 先找新位置，找不到才找還沒搬走的舊表；蓋章要蓋在實際那張表上。
+     */
+    let physical = table;
+    let r: Response;
+    let preload: Row[] | undefined;
+    if (table === 'fahui_registrations') {
+      r = await load('blessing_registrations', '&entries=not.is.null');
+      const got = r.ok ? await r.json().catch(() => []) : [];
+      if (Array.isArray(got) && got.length > 0) { physical = 'blessing_registrations'; preload = got; }
+      else if (r.ok || r.status === 400) r = await load(table);   // 400＝欄位還沒建；其他錯誤照實回報
+    } else r = await load(table);
     if (!r.ok) {
       res.status(502).json({ ok: false, error: `讀取報名資料失敗（${r.status}）` });
       return;
     }
-    const fetched = await r.json();
-    const all: Row[] = Array.isArray(fetched) ? fetched : [];
+    const fetched = preload ?? await r.json();
+    const all: Row[] = (Array.isArray(fetched) ? fetched : [])
+      // 以祈福的名義打進來的法會報名單一律不處理：金額與文案都會錯
+      .filter((x: Row) => table !== 'blessing_registrations' || x.entries == null);
     if (all.length === 0) {
       res.status(404).json({ ok: false, error: '查無此筆' });
       return;
@@ -648,7 +664,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
     const { sentIds, results } = await deliver(env, parcels);
 
-    const st = await stamp(env, table, stampCol, sentIds);
+    const st = await stamp(env, physical, stampCol, sentIds);
     if (!st.ok) {
       // 已經通知出去了，章沒蓋上。據實回報——下一次確認會重送，廟方要知道為什麼
       res.status(200).json({

@@ -478,7 +478,8 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
   **`ENABLE_CALENDAR` 開關要三個地方一起改**：本旗標、`scripts/prerender.js` 裡 `/calendar` 那筆的 `enabled`（sitemap 也由它產生）、`vercel.json` 的 rewrite 要排在萬用規則之前。**關閉時刻意不擋網址**——廟方要一邊在後台建資料一邊開前台核對，照 ENABLE_REPAIR 讓網址跳回首頁就沒法預覽；沒有連結指過去也不在 sitemap，信眾走不到。
   **預渲染只產生靜態殼**（meta 與 noscript 說明，見 `dist/calendar.html`），聖誕列表是執行期才向 Supabase 抓的。所以資料庫改 `is_visible` 之後前台立刻反映，不必重新建置；反過來說，開旗標前要先確認有 `is_visible = true` 的資料，否則信眾看到的是「行事曆尚未建立」。
   `prerender.js` 的 `ACTIVE_ROUTES = ROUTES.filter(r => r.enabled !== false)` 是這次加的，未開放的頁不預渲染、不進 sitemap、也不出現在各頁 noscript 的站內連結。
-- **法會的報名不在 `blessing_registrations`，後台會顯示「0 筆報名」**（2026-10-01 廟方當成 bug 回報）：普渡法會那一筆 `blessing_events` 是為了讓它出現在歲時節慶上補建的，報名其實走 `fahui_registrations`（後台「法會報名」分頁，四十幾筆）。數字沒錯，但它在說謊。
+- **法會報名 2026-11-24 起併入 `blessing_registrations`**（廟方：「資料也要合併」「要整批搬移」；取代下一條與「報名流程維持獨立」的說法）：一張法會報名單＝一筆，`entries` 有值就是法會，id 沿用舊表。**上層仍然拿 `FahuiRegistrationRecord`**，差異全在 `services/supabase.ts`（`fahuiRows`／`updateFahuiRow`）；`getBlessingRegistrations` 一律濾掉 `entries` 有值的，否則應收與名冊會算兩次。**金額用存的 `total_amount`，不可以套祈福算法**；未匯款提醒排除法會；通知端點仍用 `fahui_registrations` 這個名字指名，由後端找實際的表。後台是祈福管理裡的一列（財務組沒有祈福管理，保留「法會報名」）。`event_id` 外鍵改成 RESTRICT：有報名的活動刪不掉。SQL：`fahui_merge_2_columns.sql` → 部署程式 → `fahui_merge_3_move.sql`；舊表改名 `fahui_registrations_backup_20261124` 保留。
+- ~~**法會的報名不在 `blessing_registrations`，後台會顯示「0 筆報名」**~~（已被上一條取代，保留歷史）（2026-10-01 廟方當成 bug 回報）：普渡法會那一筆 `blessing_events` 是為了讓它出現在歲時節慶上補建的，報名其實走 `fahui_registrations`（後台「法會報名」分頁，四十幾筆）。數字沒錯，但它在說謊。
   解法是 `blessing_events.external_form`（見 `blessing_events_external_form.sql`）：值為 `'fahui'` 時，後台列表顯示「N 筆報名在『法會報名』分頁 →」並可點過去，前台則**不給「我要報名」**——那顆開的是一般祈福報名流程，跟該活動無關，信眾填了會變成對不到場次的孤兒訂單。
   **刪掉那一筆的副作用是行事曆上 9/13 空了**（2026-10-01 已被刪）。那一筆的用途就是當歲時節慶的紀錄，要補回來重跑 `blessing_event_pudu_2026.sql`。
   **`/blessing` 上寫死的普渡橫幅 2026-10-01 移除**。以後的法會一律在「祈福管理」建一筆、辦完在後台下架，不要再把活動寫進程式碼。

@@ -203,12 +203,23 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
   try {
     // service role 繞過 RLS。一次把整團撈回來，依報名順序排（名單順序＝填表順序）
-    const r = await fetch(
-      `${supabaseUrl}/rest/v1/${table}?id=in.(${ids.join(',')})&order=created_at.asc&limit=${MAX_IDS}`,
-      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
-    );
-    const fetched = r.ok ? await r.json() : [];
-    const all: Record<string, any>[] = Array.isArray(fetched) ? fetched : [];
+    const load = async (t: string, extra = ''): Promise<Record<string, any>[]> => {
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/${t}?id=in.(${ids.join(',')})${extra}&order=created_at.asc&limit=${MAX_IDS}`,
+        { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+      );
+      const got = r.ok ? await r.json() : [];
+      return Array.isArray(got) ? got : [];
+    };
+    // 法會報名單併在 blessing_registrations（entries 有值）；還沒搬走的才在舊表。理由同 notify-confirm
+    let all: Record<string, any>[] = [];
+    if (table === 'fahui_registrations') {
+      all = (await load('blessing_registrations', '&entries=not.is.null'))
+        .map(x => ({ ...x, contact_gender: x.gender, contact_birth_date: x.birth_date, contact_zodiac: x.zodiac }));
+      if (all.length === 0) all = await load(table);
+    } else {
+      all = (await load(table)).filter(x => table !== 'blessing_registrations' || x.entries == null);
+    }
     // 太舊的不寄。整批裡混進舊 id 時只丟掉那幾筆，不要讓整團都收不到通知
     const rows = all.filter(x => {
       const t = Date.parse(x.created_at ?? '');
