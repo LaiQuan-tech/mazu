@@ -30,10 +30,12 @@ import PatternMedallion from './PatternMedallion';
  * **每一句（到「。」為止）是一個不換行的單位**：手機上自然折行會把「可先知」
  * 拆成「可先／知」，念的人會在半句卡住，所以一行太長時只在句與句之間折。
  *
- * **字級照「四字咒語一行四句」算**（廟方 2026-11-09：「全文的字不用這麼大，讓四個字的咒語
- * 能四句一行」）。經本裡有一大段咒語是「驅邪縛魅。保命護身。…」，一句四字加句號 5 個字寬，
- * 四句 20 個字寬；原本照三字經文算的 ÷18 放不下，第四句一定折行。現在
- * (視窗寬 − 左右內距 40) ÷ 20.5（留半個字的餘裕），字距歸零：375 寬約 16.3px、上限 26px。
+ * **字級照「一行 16 個字寬」算**（廟方 2026-11-24 重排後台全文，要文字最適合手機頁寬）。
+ * 重排後 233 行裡最多的是 16 字（三字經文一行四句，148 行），超過 16 的只有兩行 17 字，
+ * 所以是 (視窗寬 − 左右內距 40) ÷ 16.5：375 寬約 20.3px、上限 26px。
+ * 原本照「四字咒語一行四句」的 20 字寬算（÷20.5＝16.3px），咒語改排成一行三句之後每行右邊都空一截。
+ * 行尾往右邊內距借 .6em（`marginRight`）：行尾的「。」字格大半是空白、內距又有 20px，借了不會貼邊，
+ * 17 字那兩行也排得下：320～430 寬實測 0 行折行。**全文再重排過的話要重量一次最長的行。**
  */
 
 interface Props {
@@ -175,7 +177,7 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
         </header>
 
         <div style={{
-          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 20.5))', lineHeight: 2.3, letterSpacing: 0,
+          color: SUTRA.gold, fontSize: 'min(26px, calc((100vw - 40px) / 16.5))', lineHeight: 2.3, letterSpacing: 0,
           // 桌機字級到頂之後版面很寬，收在一個好讀的行長、整塊置中
           maxWidth: '24em', margin: '0 auto',
         }}>
@@ -183,10 +185,10 @@ const ScriptureFullText: React.FC<Props> = ({ onBack, onOpenAnnotated }) => {
             line === null
               ? <div key={i} style={{ height: '1em' }} aria-hidden="true" />
               : (
-                /* **懸掛縮排**：手機上一行四句（約 20 字）放不下會折行，折下來的那截往右縮一字，
+                /* **懸掛縮排**：手機上超過 17 字的行會折行，折下來的那截往右縮一字，
                    行與行之間再多留一點距離——不這樣做，折下來的半行跟真正的下一行長得一模一樣，
                    念的人分不出原本一行在哪裡結束。 */
-                <p key={i} style={{ margin: '0 0 .3em', lineHeight: 1.9, paddingLeft: '1em', textIndent: '-1em' }}>
+                <p key={i} style={{ margin: '0 0 .3em', lineHeight: 1.9, marginRight: '-.6em', paddingLeft: '1em', textIndent: '-1em' }}>
                   {line.map((t, j) => (
                     t.kind === 'space'
                       ? <span key={j} style={{ whiteSpace: 'pre' }}>{t.text}</span>
