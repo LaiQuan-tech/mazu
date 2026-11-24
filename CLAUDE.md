@@ -113,6 +113,7 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 - 導覽列：主要七項＋「更多」下拉（祈福活動／隨喜捐獻／常見問題；神尊修復由 `ENABLE_REPAIR=false` 隱藏中）。手機選單不做下拉，用分隔線區隔；展開上限是 `max-h-[80vh]`＋內層 `overflow-y-auto`（固定 px 會裁掉最後幾項）。
 - 後台入口：`https://heshengtan.tw/?admin=1`（會自動跳管理員登入；`?admin=1` 會讓 `FAHUI_LANDING` 失效，所以這也是收件期間預覽官網首頁的方法）。管理員只有 armand7951@gmail.com 與 lqtech2026@gmail.com（admin_profiles 表控管）。
 - **後台按重新整理會留在後台**（2026-11-17 廟方：「後台網頁按重新整理後，就會直接導去前端首頁，這其實蠻困擾的」）。原本後台只是 App 記憶體裡的 `showAdmin`，重新整理就歸零（Supabase 的登入其實還在）。現在進後台時網址補 `?admin=1`、離開後台或登出就拿掉；帶著 `?admin=1` 進站先 `getSession()` 再查 `admin_profiles`，是管理員就直接進後台，不是才跳登入框（檢查那一瞬間 `adminBooting` 顯示載入中，免得先閃一下首頁）。**權限每次都回資料庫查，沒有記在瀏覽器**。後台停在哪一頁記在 `sessionStorage.admin_tab`（只屬於這個分頁），讀回來會先確認這個角色看得到。
+- **訪客與會員送出報名時，後台欄位由資料庫強制**（2026-11-24，`public_insert_guard.sql`，六張報名表的 BEFORE INSERT 觸發器）：狀態、建立時間、通知章、對帳欄位改成正確值，祈福方案費以後台為準，法會報名單只能掛法會活動。後台人員與 service role 不受影響。**報名表新增「後台才填」的欄位時，要加進那支的 patch。** 同日 `rls_holes_2026_11.sql` 移除早期手建的 `USING (true)` 規則；**不要在 Dashboard 手動加「authenticated 全放行」，登入會員也是 authenticated**。
 - 全部資料表已啟用 RLS（migration：`supabase/migrations/mainsite_rls.sql`）。訪客只能 INSERT 報名、讀公開內容；統計數字走 SECURITY DEFINER RPC。
 
 - **`vercel env rm` 只影響「之後」的部署**：移除環境變數不會改變線上那份函式，它仍帶著舊值。
