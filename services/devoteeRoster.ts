@@ -77,6 +77,10 @@ export interface DevoteeRecord {
    *     所以畫面上只能寫「報名時填：兒女」，不可以寫成「某某人的兒女」。
    */
   relation: string;
+  /** 這一筆來自哪一張志工報名（`volunteer_registrations.id`）；其他管道是空字串。
+   *  名冊的「志工」徽章靠它找回出勤與用餐習慣——**不要改用姓名或電話比對**，
+   *  合併、拆分、同名的人會對錯 */
+  volunteerId: string;
   /** 生日正規化後的值，拆分時用來分群 */
   birthKey: string;
 }
@@ -169,6 +173,7 @@ interface Sighting {
   /** 通訊錄主人的姓名（member_profiles.name），顯示「誰的兒女」用 */
   contactOwnerName?: string;
   relation?: string;
+  volunteerId?: string;
   /** 這一筆自己那個帳號的代稱，`linkMembersByPhone()` 用來排除「自己對到自己」。
    *  沒編號的帳號也要有代稱，否則它在電話比對裡會變成空字串、把別人的也濾掉。 */
   accountTag?: string;
@@ -245,7 +250,7 @@ function collectSightings(src: RosterSources): Sighting[] {
 
   (src.volunteers ?? []).forEach(v => out.push({
     name: v.name, source: '志工', at: localDate(v.createdAt), phone: v.phone,
-    address: v.address, birthDate: v.birthDate, zodiac: v.zodiac, lineId: v.lineId,
+    address: v.address, birthDate: v.birthDate, zodiac: v.zodiac, lineId: v.lineId, volunteerId: v.id,
   }));
 
   (src.members ?? []).forEach(m => out.push({
@@ -375,7 +380,7 @@ const toRecord = (s: Sighting): DevoteeRecord => ({
   memberNumber: s.memberNumber ?? '',
   contactOf: s.contactOf ?? '',
   linkedMembers: s.linkedMembers ?? [],
-  relation: clean(s.relation),
+  relation: clean(s.relation), volunteerId: s.volunteerId ?? '',
   birthKey: birthKey(s.birthDate ?? ''),
 });
 

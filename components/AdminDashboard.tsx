@@ -1357,7 +1357,9 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   );
 };
 
-const RosterTab = ({ sources, onDone, initialSearch }: { sources: RosterSources; onDone: () => void; initialSearch?: string }) => {
+const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { sources: RosterSources; onDone: () => void; initialSearch?: string;
+  /** 看得到志工報名的角色才點得開「志工」徽章（財務組不行，與志工報名頁同一個權限） */
+  canSeeVolunteer: boolean }) => {
   // initialSearch：從操作小幫手「找 某某」跳過來時，搜尋框直接帶好（2026-11-18）
   const [search, setSearch] = useState(initialSearch ?? '');
   const [sourceFilter, setSourceFilter] = useState('');
@@ -1369,6 +1371,9 @@ const RosterTab = ({ sources, onDone, initialSearch }: { sources: RosterSources;
   const rosterRows = useOpenRows();
   /** 電話、地址是個資，桌機也不常駐一欄：姓名格裡按「電話・地址」才就地展開（同問事管理；電話 2026-11-18 收進來） */
   const rosterInfo = useOpenRows();
+  /** 按「志工」徽章就地展開出勤與用餐習慣（2026-11-25 志工報名併進這一頁） */
+  const rosterVol = useOpenRows();
+  const volunteerById = useMemo(() => new Map((sources.volunteers ?? []).map(v => [v.id, v] as const)), [sources.volunteers]);
   /**
    * 統計卡兼篩選（2026-11-18 廟方：「信眾資訊頁，整體再調整優化一下」）：原本六張大卡疊在最上面、
    * 佔掉手機第一屏，數字又按不下去；另有一個「只看疑似同名」勾選框跟其中一張卡講同一件事。
@@ -1695,7 +1700,15 @@ const RosterTab = ({ sources, onDone, initialSearch }: { sources: RosterSources;
                   </td>
                   <td data-label="參與管道" className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {rosterBadges(r.counts).map(b => (
+                      {rosterBadges(r.counts).map(b => b.label === '志工' && canSeeVolunteer ? (
+                        <button key={b.label} type="button" aria-expanded={rosterVol.isOpen(r.name)}
+                          onClick={e => { e.stopPropagation(); rosterVol.toggle(r.name); }}
+                          title="看出勤時段與用餐習慣"
+                          className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap inline-flex items-center gap-0.5">
+                          {b.label}{b.total > 1 ? ` ${b.total}` : ''}
+                          <ChevronDown className={`w-3 h-3 transition-transform ${rosterVol.isOpen(r.name) ? 'rotate-180' : ''}`} aria-hidden="true" />
+                        </button>
+                      ) : (
                         <span key={b.label} className="text-[11px] px-2 py-0.5 rounded-full bg-[#C49820]/10 text-[#7C5C1E] whitespace-nowrap"
                           title={`${b.label}：${b.hint}`}>
                           {b.label}{b.total > 1 ? ` ${b.total}` : ''}
@@ -1706,6 +1719,18 @@ const RosterTab = ({ sources, onDone, initialSearch }: { sources: RosterSources;
                           所以照其他欄位的慣例給一個破折號。 */}
                       {rosterBadges(r.counts).length === 0 && <Dash />}
                     </div>
+                    {canSeeVolunteer && rosterVol.isOpen(r.name) && (
+                      <div className="mt-1.5 space-y-1.5 text-xs text-gray-600">
+                        {r.records.map(x => volunteerById.get(x.volunteerId)).filter((v): v is VolunteerRegistrationRecord => !!v).map(v => (
+                          <div key={v.id} className="border-l-2 border-green-200 pl-2">
+                            <p>出勤：{fmtAvailability(v.availability) || '未填'}</p>
+                            {v.availabilityNote && <p>其他：{v.availabilityNote}</p>}
+                            <p>飲食：{v.diet || '未填'}</p>
+                            <p className="text-gray-400">報名 {fmtDate(v.createdAt)}・{v.status === 'contacted' ? '已聯絡' : '待聯絡'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td data-label="關係" className="px-4 py-3 max-w-[200px]"><RelationCell row={r} /></td>
                   <td data-label="性別" data-more className={`px-4 py-3 text-gray-500 whitespace-nowrap${showMore ? '' : ' lg:hidden'}`}>{r.genders.join('／')}</td>
@@ -8869,13 +8894,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
    * 看得到祈福管理的角色就不另外列「法會報名」；財務組沒有祈福管理，保留這一頁。
    */
   const fahuiInBlessings = allowed.includes('blessings');
-  const navItems = allNavItems.filter(n => allowed.includes(n.key) && !(n.key === 'fahui' && fahuiInBlessings));
+  /**
+   * 志工報名 2026-11-25 併進信眾資訊（廟方選「併畫面」，**資料表不動**）：選單不另列，
+   * 在信眾資訊上方切換。`volunteer` 仍是獨立的 Tab 值——權限、重新整理停在原頁、
+   * 總覽待辦與小幫手的「前往」都靠它。財務組沒有 volunteer 權限，看不到切換。
+   */
+  const canSeeVolunteer = allowed.includes('volunteer');
+  const navItems = allNavItems.filter(n => allowed.includes(n.key)
+    && !(n.key === 'fahui' && fahuiInBlessings)
+    && !(n.key === 'volunteer' && allowed.includes('roster')));
+  /** 側邊欄要亮哪一項：志工報名畫面屬於信眾資訊 */
+  const navKey: Tab = tab === 'volunteer' && allowed.includes('roster') ? 'roster' : tab;
+  const volunteerPending = canSeeVolunteer ? volunteerRegistrations.filter(r => r.status !== 'contacted').length : 0;
 
   /** 各分頁的待辦數字。抽屜收起時漢堡鈕要靠總和顯示紅點，所以從 nav 內部抽出來共用。 */
   const badgeFor = (key: Tab): number =>
       key === 'lamps'     ? lampRegistrations.filter(r => r.status === LampRegistrationStatus.PENDING).length
     : key === 'fahui'     ? fahuiPending
-    : key === 'volunteer' ? volunteerRegistrations.filter(r => r.status !== 'contacted').length
+    // 志工報名併進信眾資訊了，紅點掛在信眾資訊上
+    : key === 'volunteer' || key === 'roster' ? volunteerPending
     : key === 'blessings' ? blessingRegistrations.filter(r => r.status === BlessingStatus.PENDING).length + (fahuiInBlessings ? fahuiPending : 0)
     : key === 'bookings'  ? bookings.filter(b => b.status === BookingStatus.PENDING).length
     // 捐獻原本是「24 小時內的新捐款」，跟有沒有收到錢無關——放一天紅點就自己消失，
@@ -8892,10 +8929,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
    */
   const TODO_LABEL: Partial<Record<Tab, string>> = {
     bookings: '問事待處理', lamps: '點燈待匯款', blessings: '祈福待匯款', fahui: '法會待匯款',
-    donations: '捐獻待匯款', volunteer: '志工待聯絡', urgent: '緊急祈願待處理',
+    donations: '捐獻待匯款', roster: '志工待聯絡', urgent: '緊急祈願待處理',
   };
   const overviewTodos = navItems
-    .map(n => ({ tab: n.key, label: TODO_LABEL[n.key] ?? `${n.label}待處理`, count: badgeFor(n.key) }))
+    // 信眾資訊的待辦就是志工待聯絡，點了直接到志工報名那一面
+    .map(n => ({ tab: n.key === 'roster' ? 'volunteer' as Tab : n.key, label: TODO_LABEL[n.key] ?? `${n.label}待處理`, count: badgeFor(n.key) }))
     .filter(t => t.count > 0);
   /** 等同點側邊欄那一項 */
   const goTab = (key: Tab) => { setTab(key); setNavOpen(false); };
@@ -8920,13 +8958,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const NAV_GROUPS: { title: string; keys: Tab[] }[] = [
     /**
      * 「常用」組內也有先後：**每天會用的排前面，檔期性的排後面**。
-     * 法會報名與志工報名是跟著一場法會跑的——辦的時候天天開，辦完就閒置
-     * （廟方 2026-10-13：「法會與志工暫時都沒有了，可以往後下移動」）。
-     * 它們**沒有離開「常用」**：下一場法會一開又是每天要看的，
-     * 到時候把這兩個 key 搬回 overview 後面就好，不必動別的地方。
+     * 法會報名（只剩財務組有）跟著一場法會跑，辦完就閒置，所以排最後。
+     * 志工報名 2026-11-25 併進信眾資訊，不在選單上。
      */
     // 緊急祈願排在捐獻之後、法會之前：它每天都可能有新的一筆，而且晚一天看就失去意義
-    { title: '常用',       keys: ['overview', 'bookings', 'lamps', 'blessings', 'donations', 'urgent', 'fahui', 'volunteer'] },
+    { title: '常用',       keys: ['overview', 'bookings', 'lamps', 'blessings', 'donations', 'urgent', 'fahui'] },
     /**
      * 下面這幾組維持 2026-10-13 之前**畫面上實際的順序**，不是這串 keys 原本寫的順序。
      * 在那之前組內順序是跟著 allNavItems 走、這串 keys 的先後沒有作用，所以兩者本來
@@ -8990,7 +9026,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
           {navGroups.map(({ title, items }) => {
             // 沒手動動過的話：「常用」與「正在看的那一組」預設展開
-            const containsActive = items.some(n => n.key === tab);
+            const containsActive = items.some(n => n.key === navKey);
             const open = openGroups[title] ?? (title === '常用' || containsActive);
             const groupBadge = items.reduce((sum, n) => sum + badgeFor(n.key), 0);
             return (
@@ -9014,7 +9050,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
                     return (
                       <button key={key} onClick={() => { setTab(key); setNavOpen(false); }}
                         className={`w-full flex items-center gap-3 px-3 py-3 lg:py-2.5 rounded-lg text-sm transition-colors ${
-                          tab === key ? 'bg-temple-red text-white' : 'text-gray-300 hover:bg-white/10'
+                          navKey === key ? 'bg-temple-red text-white' : 'text-gray-300 hover:bg-white/10'
                         }`}>
                         {icon}
                         <span className="flex-1 text-left">{label}</span>
@@ -9059,7 +9095,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               )}
             </button>
             <h2 className="font-semibold text-gray-700 truncate">
-              {navItems.find(n => n.key === tab)?.label}
+              {navItems.find(n => n.key === navKey)?.label}
             </h2>
           </div>
           <button onClick={() => fetchAll(false)} disabled={refreshing}
@@ -9093,11 +9129,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
                 bookings={bookings} volunteerRegistrations={volunteerRegistrations} memberProfiles={memberProfiles} lineStats={lineStats}
                 serviceBadges={{ bookings: badgeFor('bookings'), lamps: badgeFor('lamps'), blessings: badgeFor('blessings'), donations: badgeFor('donations') }} />}
               {tab === 'fahui'     && <FahuiTab registrations={fahuiRegistrations} onRefresh={fetchAll} />}
+              {(tab === 'roster' || tab === 'volunteer') && canSeeVolunteer && (
+                <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 mb-5" role="group" aria-label="信眾資訊切換">
+                  {([['roster', '信眾名冊'], ['volunteer', '志工報名']] as const).map(([k, text]) => (
+                    <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium inline-flex items-center gap-1.5 transition-colors ${
+                        tab === k ? 'bg-temple-red text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                      {text}
+                      {k === 'volunteer' && volunteerPending > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none"
+                          title={`志工待聯絡 ${volunteerPending} 筆`}>
+                          {volunteerPending > 9 ? '9+' : volunteerPending}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} onRefresh={fetchAll} />}
               {tab === 'members'   && <MembersTab key={`m${jump?.n ?? 0}`} initialSearch={jump?.q} bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} memberEmails={memberEmails} />}
-              {tab === 'roster'    && <RosterTab key={`r${jump?.n ?? 0}`} initialSearch={jump?.q} sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, blessings: blessingRegistrations, registrations: allRegistrations }} onDone={() => fetchAll()} />}
+              {tab === 'roster'    && <RosterTab key={`r${jump?.n ?? 0}`} canSeeVolunteer={canSeeVolunteer} initialSearch={jump?.q} sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, blessings: blessingRegistrations, registrations: allRegistrations }} onDone={() => fetchAll()} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} halls={deityHalls} onRefresh={fetchAll} />}
               {tab === 'photos'   && <PhotosTab siteImages={siteImages} heroSlides={heroSlidesList} onRefresh={fetchAll} />}
@@ -9123,7 +9176,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
         </div>
       </main>
       {/* 操作小幫手（2026-11-18）：只教操作、看不到報名資料。前往鈕只給這個角色看得到的頁 */}
-      <AdminHelpChat pages={navItems.map(n => ({ key: n.key, label: n.label }))} onGo={k => goTab(k as Tab)}
+      <AdminHelpChat pages={navItems.map(n => ({ key: n.key as string, label: n.label })).concat(canSeeVolunteer ? [{ key: 'volunteer', label: '志工報名' }] : [])} onGo={k => goTab(k as Tab)}
         onFind={(k, q) => { setJump(j => ({ q, n: (j?.n ?? 0) + 1 })); goTab(k as Tab); }} />
     </div>
   );
