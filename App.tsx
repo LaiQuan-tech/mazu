@@ -41,7 +41,7 @@ const LineIcon = ({ className }: { className?: string }) => (
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/LINE_logo.svg/330px-LINE_logo.svg.png" alt="LINE" className={className} style={{ objectFit: 'contain' }} />
 );
 
-import { AboutSection, AboutFacts, HomeVideo, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RELATION_OPTIONS, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
+import { AboutSection, AboutFacts, HomeVideo, RelocationHome, AdminRole, SocialSettings, BlessingAddon, BlessingEventRecord, BlessingRegistrationData, BlessingRegistrationRecord, BookingData, BookingSessionRecord, BulletinCategory, BulletinRecord, ConsultationType, DeityRecord, DonationData, DonationType, isRelocationType, HallRecord, HeroSlideRecord, LampRegistrationData, LampServiceConfig, MemberContact, ProfileData, RELATION_OPTIONS, RepairProject, SharedEntryData, SharedServiceType, SharedSessionConfig, SharedSessionRecord, SiteInfo, ZodiacSign, RegularSession} from './types';
 import { rememberMyShared, forgetMyShared, listMyShared, isMyShared, MySharedSession, SERVICE_PATH, SHARED_LABEL, confirmAndDeleteSharedSession } from './services/sharedSessionStore';
 import { heroSrc } from './services/assetUrl';
 import PatternMedallion from './components/PatternMedallion';
@@ -1917,12 +1917,17 @@ const App: React.FC = () => {
    * **「神尊修復」與「遷址護持」永遠排除**：兩項都走自己的專頁、金額綁在那一頁的
    * 方案上，而且遷址收的是另一個銀行帳戶——出現在這個下拉就是讓人把遷址的錢
    * 匯進一般捐獻的帳戶（同 BankInfoBox 檔頭那條）。
-   * 資料庫的 donation_types 本來就沒有這兩筆，這裡擋的是「讀取失敗退回列舉」那一條路。
+   * **「護持遷址」是例外的入口**（2026-11-24）：會出現在下拉，但選了只導到 /relocation、不能在這裡送出
+   * （`isRelocationType`）。資料庫的 donation_types 本來就沒有這兩筆，這裡擋的是「讀取失敗退回列舉」那一條路。
    */
   const EXCLUDED_TYPES: string[] = [DonationType.REPAIR, DonationType.RELOCATION];
   const [donationTypes, setDonationTypes] = useState<string[]>(
     Object.values(DonationType).filter(t => !EXCLUDED_TYPES.includes(t))
   );
+  /** 新卡片的預設類別。**不可以落在遷址**（那一項不能在這一頁送出），「不指定」被隱藏或改名時退到第一個一般類別 */
+  const defaultDonationType = (donationTypes.includes(DonationType.GENERAL)
+    ? DonationType.GENERAL
+    : donationTypes.find(t => !isRelocationType(t)) ?? donationTypes[0]) as DonationType;
 
   /**
    * 網站基本資料（地址／電話／開放時間）。後台「基本資料」分頁可改。
@@ -2387,11 +2392,13 @@ const App: React.FC = () => {
       const next = prev.map(p => {
         if (donationTypes.includes(p.type)) return p;
         changed = true;
-        return { ...p, type: donationTypes[0] as DonationType };
+        return { ...p, type: defaultDonationType };
       });
       return changed ? next : prev;
     });
-  }, [donationTypes]);
+    // 也看 donationPersons：之後才新增／重置的卡片同樣要校正，否則 select 會顯示第一個選項、
+    // state 卻是別的值（畫面寫「護持遷址」但沒被擋下來）
+  }, [donationTypes, donationPersons]);
 
   /**
    * 常見問題的 FAQPage 結構化資料，在**執行期**依當下的內容重新產生。
@@ -2607,8 +2614,11 @@ const App: React.FC = () => {
   };
 
   // ── 捐獻送出（批次） ──
+  const donationHasRelocation = donationPersons.some(p => isRelocationType(p.type));
   const handleDonationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 最後一道：遷址收的是另一個帳戶，這一頁絕對不收（按鈕已停用，這裡擋 Enter 送出）
+    if (donationHasRelocation) { alert('護持遷址有專屬的匯款帳戶，請到「遷址募款」頁登記。'); return; }
     const invalid = donationPersons.find(p => !p.name.trim() || p.amount <= 0);
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
     if (!requireMemberPhone()) return;
@@ -2636,7 +2646,7 @@ const App: React.FC = () => {
       return;
     }
     setDonationStatus('success');
-    setDonationPersons([{ id: newId(), ...selfDefaults, amount: 0, type: DonationType.GENERAL, contactLabel: '本人' }]);
+    setDonationPersons([{ id: newId(), ...selfDefaults, amount: 0, type: defaultDonationType, contactLabel: '本人' }]);
     setDonationNotes('');
   };
 
@@ -6242,6 +6252,19 @@ const App: React.FC = () => {
                           {donationTypes.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                         </label>
+                        {/* 遷址不在這一頁收：帳戶不同，導到 /relocation（廟方 2026-11-24） */}
+                        {isRelocationType(p.type) && (
+                          <div role="status" className="sm:col-span-2 rounded-lg border border-temple-gold/50 bg-temple-bg p-4 space-y-3">
+                            <p className="text-sm text-temple-dark leading-relaxed">
+                              護持遷址有專屬的匯款帳戶與護持方案，請到「遷址募款」頁登記。
+                              {donationPersons.length > 1 && '其他人的捐獻請先改選類別或移除這一位，再於本頁送出。'}
+                            </p>
+                            <button type="button" onClick={() => goToPage('relocation')}
+                              className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-temple-red text-white text-sm font-bold hover:bg-[#5C1A04] transition-colors">
+                              前往遷址募款
+                            </button>
+                          </div>
+                        )}
                         <label className="block">
                           <span className="block text-xs font-medium text-gray-600 mb-1">性別</span>
                           <select
@@ -6267,7 +6290,7 @@ const App: React.FC = () => {
                   ))}
 
                   <button type="button"
-                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: DonationType.GENERAL }])}
+                    onClick={() => setDonationPersons(prev => [...prev, { id: newId(), name: '', address: '', amount: 0, type: defaultDonationType }])}
                     className="w-full py-2 border-2 border-dashed border-temple-gold/50 rounded-xl text-temple-red text-sm font-medium hover:border-temple-gold hover:bg-temple-gold/5 transition-all flex items-center justify-center gap-1">
                     <Plus className="w-4 h-4" /> 新增人員
                   </button>
@@ -6298,9 +6321,10 @@ const App: React.FC = () => {
                   </div>
 
                   {/* 匯款資訊 */}
-                  <BankInfoBox account={BANK_GENERAL} />
+                  {/* 選了遷址就不顯示一般帳戶，免得照著匯錯 */}
+                  {!donationHasRelocation && <BankInfoBox account={BANK_GENERAL} />}
 
-                  <div>
+                  <div className={donationHasRelocation ? 'hidden' : undefined}>
                     <label htmlFor="don_notes" className="block text-sm font-medium text-gray-700 mb-1">備註 / 匯款帳號後五碼（選填）</label>
                     <input
                       id="don_notes"
@@ -6321,11 +6345,11 @@ const App: React.FC = () => {
                   <div className="pt-4">
                     <button
                       type="submit"
-                      disabled={donationStatus === 'loading'}
+                      disabled={donationStatus === 'loading' || donationHasRelocation}
                       className="w-full py-4 text-lg font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all bg-temple-red text-white hover:bg-[#5C1A04] hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                     >
                       <HeartHandshake className="w-5 h-5" />
-                      {donationStatus === 'loading' ? '送出中...' : `確認捐獻護持（共 ${donationPersons.length} 人）`}
+                      {donationStatus === 'loading' ? '送出中...' : donationHasRelocation ? '護持遷址請至遷址募款頁登記' : `確認捐獻護持（共 ${donationPersons.length} 人）`}
                     </button>
                   </div>
                 </form>

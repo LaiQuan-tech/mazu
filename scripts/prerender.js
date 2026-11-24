@@ -1050,7 +1050,8 @@ const fetchDonationTypes = async () => {
 };
 
 const aboutSections = await fetchAboutSections();
-const donationTypes = await fetchDonationTypes();
+// 「護持遷址」只是下拉裡的入口（導到 /relocation），不在這一頁收，不列進可指定的用途
+const donationTypes = (await fetchDonationTypes()).filter((d) => !String(d.name || '').includes('遷址'));
 
 /**
  * 把 `/lamps` 的 noscript 價目換成資料庫裡的。

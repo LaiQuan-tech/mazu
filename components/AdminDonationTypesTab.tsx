@@ -76,7 +76,7 @@ const TypeRow: React.FC<RowProps> = ({
         value={name}
         onChange={e => setName(e.target.value)}
         onBlur={() => { if (name.trim() && name !== item.name) onRename(name.trim()); else setName(item.name); }}
-        placeholder="類別名稱，例如：廟宇維護/修繕"
+        placeholder="類別名稱，例如：慈善救助"
         className={`${inputClass} flex-1`}
       />
 

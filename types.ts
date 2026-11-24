@@ -210,9 +210,20 @@ export interface RepairProject {
 }
 export type RepairProjectData = Omit<RepairProject, 'id' | 'createdAt'>;
 
+/**
+ * 這個捐款類別是不是遷址。**看名字有沒有「遷址」，不比對整串**：類別名稱後台可改，
+ * 改成「護持遷址」「遷址護持」「道場遷址」都要擋——遷址收的是另一個帳戶，
+ * 漏擋一種寫法就是讓信眾把錢匯錯帳戶。
+ */
+export const isRelocationType = (t: string): boolean => t.includes('遷址');
+
 export enum DonationType {
   GENERAL = '隨喜捐款 (不指定)',
-  MAINTENANCE = '廟宇維護/修繕',
+  /**
+   * 捐獻頁下拉裡的「護持遷址」（廟方 2026-11-24：取代「廟宇維護/修繕」）。
+   * **只是入口，不會寫進資料庫**：選了就導到 /relocation，那一頁才寫 RELOCATION。
+   */
+  RELOCATION_ENTRY = '護持遷址',
   CHARITY = '慈善救助',
   EDUCATION = '教育文化',
   EVENT = '法會活動',
