@@ -19,7 +19,7 @@
  * 也是有意義的文字。
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ChevronDown, RefreshCw } from 'lucide-react';
 import PatternMedallion from './PatternMedallion';
 import { TAG_GOLD, TAG_BROWN, TAG_GOLD_OUTLINE, TAG_SOLID } from './tagStyles';
 import { getDeityFeasts, getBlessingEvents, getBookingSessions, getRegularSessions } from '../services/supabase';
@@ -47,6 +47,9 @@ const KIND_CLASS: Record<EntryKind, string> = {
   booking: TAG_GOLD_OUTLINE,
   regular: TAG_SOLID,
 };
+
+/** 說明在這個字數以內直接顯示，超過就收進「看活動說明」 */
+const NOTE_INLINE_MAX = 60;
 
 interface CalendarEntry {
   key: string;
@@ -324,7 +327,20 @@ const CalendarPage: React.FC<{
                                 {x.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
                                 {x.endDate && `　至 ${x.endDate.slice(5).replace('-', ' / ')}`}
                               </p>
-                              {x.note && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{x.note}</p>}
+                              {/* 行事曆是查日子的，活動文案動輒三四百字會把整頁撐開（廟方 2026-11-26：「不需要這麼多文字說明」）。
+                                  長的收起來、按了就地展開並照後台的換行排；短的（備註、一句話）照舊常駐 */}
+                              {x.note && (x.note.length <= NOTE_INLINE_MAX
+                                ? <p className="text-sm text-gray-600 mt-2 leading-relaxed">{x.note}</p>
+                                : (
+                                  <details className="group mt-2">
+                                    <summary className="inline-flex items-center gap-1 py-1 text-sm text-temple-red cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:underline underline-offset-4">
+                                      <span className="group-open:hidden">看活動說明</span>
+                                      <span className="hidden group-open:inline">收起說明</span>
+                                      <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                                    </summary>
+                                    <p className="text-sm text-gray-600 mt-1 mb-1 leading-relaxed whitespace-pre-line">{x.note.trim()}</p>
+                                  </details>
+                                ))}
                               {/* 辦事日直接給預約的入口：看到「10/5 有辦事」的下一個念頭就是要預約，
                                   讓他再自己從導覽列找一次問事頁是多餘的。已過去或已關閉的不給連結——
                                   點進去只會看到那一場不在清單上，那是把人帶去撞牆 */}

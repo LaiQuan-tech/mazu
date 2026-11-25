@@ -19,7 +19,7 @@
  * 後台已經支援手機（見 index.css 的 .admin-table）。這一頁欄位多且每列都要
  * 顯示兩年的換算結果，硬塞表格在手機上會很擠，直接用卡片列比較實在。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Eye, EyeOff, RefreshCw, CalendarDays, CalendarClock } from 'lucide-react';
 import {
   getDeityFeasts, createDeityFeast, updateDeityFeast, deleteDeityFeast,
@@ -55,6 +55,23 @@ const fmt = (r: ResolvedFeastDate | null, when: string): React.ReactNode => {
     </>
   );
 };
+
+/**
+ * 顯示開關。原本只有一顆灰色眼睛圖示，廟方新增了「和聖壇壇慶」卻不知道還要再打開
+ * （2026-11-26：「前端並沒有顯示」），所以改成寫字的按鈕，未顯示時用實心色。
+ * **不可以因為正在儲存就 disabled**：打完名稱直接按這顆時，輸入框的 onBlur 會先開始存檔，
+ * 按鈕在滑鼠放開前變成 disabled，那一下就被吃掉、看起來像按了沒反應。
+ */
+const VisibleButton: React.FC<{ on: boolean; onClick: () => void }> = ({ on, onClick }) => (
+  <button type="button" onClick={onClick} aria-pressed={on}
+    title={on ? '點一下隱藏（前台看不到，資料還在）' : '點一下顯示在前台'}
+    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${on
+      ? 'border border-green-300 bg-green-50 text-green-800 hover:bg-green-100'
+      : 'bg-temple-red text-white hover:bg-[#5C4310]'}`}>
+    {on ? <Eye className="w-4 h-4" aria-hidden="true" /> : <EyeOff className="w-4 h-4" aria-hidden="true" />}
+    {on ? '前台顯示中' : '未顯示，按此顯示'}
+  </button>
+);
 
 const TYPE_LABEL: Record<FeastCalendarType, string> = {
   lunar: '農曆固定日',
@@ -139,7 +156,7 @@ const RegularSessions: React.FC = () => {
         <p className="text-sm text-gray-500 leading-relaxed">
           誦經祈福這類每月舉行、日期由當月決定的活動，一場一列，會顯示在前台的
           <span className="font-medium text-gray-700"> /calendar </span>分頁。
-          新增的場次預設為「未顯示」，填好日期與時段再打開。
+          新增的場次預設為「未顯示」，填好日期與時段再按「未顯示，按此顯示」。
         </p>
       </div>
 
@@ -186,12 +203,7 @@ const RegularSessions: React.FC = () => {
                     </label>
                   </div>
                   <div className="flex items-center gap-1 sm:pt-5">
-                    <button type="button" disabled={busy}
-                      title={r.isVisible ? '點一下隱藏（前台看不到，資料還在）' : '點一下顯示'}
-                      onClick={() => patch(r.id, { isVisible: !r.isVisible })}
-                      className="p-2 rounded-lg text-gray-400 hover:text-temple-red hover:bg-gray-100 disabled:opacity-50">
-                      {r.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
+                    <VisibleButton on={r.isVisible} onClick={() => patch(r.id, { isVisible: !r.isVisible })} />
                     <button type="button" disabled={busy} onClick={() => remove(r)} aria-label="刪除"
                       className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50">
                       <Trash2 className="w-4 h-4" />
@@ -247,11 +259,15 @@ const AdminFeastsTab: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
   /** 存檔一律整筆送：只改型態卻留著舊型態的欄位會撞上資料表的 CHECK */
   const save = async (id: string, next: DeityFeastData) => {
     setItems(prev => prev.map(x => (x.id === id ? { ...x, ...next } : x)));  // 先動畫面，操作才跟手
     setBusy(true);
-    try { await updateDeityFeast(id, next); }
+    // 排隊存：整筆送的兩次存檔若後發先至，先前那份舊的 isVisible 會把剛打開的又蓋回去
+    const job = saveQueue.current.then(() => updateDeityFeast(id, next));
+    saveQueue.current = job.catch(() => {});
+    try { await job; }
     catch { alert('儲存失敗，請重新整理後再試'); await load(); }
     finally { setBusy(false); }
   };
@@ -284,7 +300,7 @@ const AdminFeastsTab: React.FC = () => {
           神明聖誕與每年重複的節令，顯示在前台的
           <span className="font-medium text-gray-700"> /calendar </span>
           分頁。填的是農曆／國曆／節氣的規則，每年的國曆日期由系統換算。
-          新增的項目預設為「未顯示」，確認日期無誤再打開。
+          新增的項目預設為「未顯示」，確認日期無誤再按「未顯示，按此顯示」。
         </p>
         {/* 行事曆上有四種東西、分在三個地方維護，不講清楚廟方會在這裡找辦事日 */}
         <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600 leading-relaxed">
@@ -311,6 +327,7 @@ const AdminFeastsTab: React.FC = () => {
         <>
           <p className="text-xs text-gray-500 mb-3">
             共 {items.length} 筆，其中 {visibleCount} 筆顯示於前台
+            {items.length > visibleCount && <span className="text-temple-red font-medium">・{items.length - visibleCount} 筆未顯示（信眾看不到）</span>}
           </p>
 
           <div className="space-y-3">
@@ -322,21 +339,16 @@ const AdminFeastsTab: React.FC = () => {
                 <div key={item.id}
                   className={`rounded-xl border p-4 ${item.isVisible ? 'border-gray-200 bg-white' : 'border-gray-200 bg-gray-50'}`}>
 
-                  <div className="flex items-start gap-2 mb-3">
+                  <div className="flex flex-wrap items-start gap-2 mb-3">
                     <input
                       value={item.title}
                       onChange={e => setItems(prev => prev.map(x => x.id === item.id ? { ...x, title: e.target.value } : x))}
                       onBlur={e => patch({ title: e.target.value })}
                       placeholder="名稱，例如：天上聖母聖誕"
                       aria-label="名稱"
-                      className={`${inputClass} font-medium`}
+                      className={`${inputClass} font-medium sm:w-auto sm:flex-1`}
                     />
-                    <button type="button" disabled={busy}
-                      title={item.isVisible ? '點一下隱藏（前台看不到，資料還在）' : '點一下顯示'}
-                      onClick={() => patch({ isVisible: !item.isVisible })}
-                      className="p-2 rounded-lg text-gray-400 hover:text-temple-red hover:bg-gray-100 disabled:opacity-50 shrink-0">
-                      {item.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
+                    <VisibleButton on={item.isVisible} onClick={() => patch({ isVisible: !item.isVisible })} />
                     <button type="button" disabled={busy}
                       onClick={() => removeItem(item.id, item.title)}
                       aria-label="刪除"

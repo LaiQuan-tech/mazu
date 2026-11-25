@@ -27,3 +27,5 @@
   **`ENABLE_CALENDAR` 開關要三個地方一起改**：本旗標、`scripts/prerender.js` 裡 `/calendar` 那筆的 `enabled`（sitemap 也由它產生）、`vercel.json` 的 rewrite 要排在萬用規則之前。**關閉時刻意不擋網址**——廟方要一邊在後台建資料一邊開前台核對，照 ENABLE_REPAIR 讓網址跳回首頁就沒法預覽；沒有連結指過去也不在 sitemap，信眾走不到。
   **預渲染只產生靜態殼**（meta 與 noscript 說明，見 `dist/calendar.html`），聖誕列表是執行期才向 Supabase 抓的。所以資料庫改 `is_visible` 之後前台立刻反映，不必重新建置；反過來說，開旗標前要先確認有 `is_visible = true` 的資料，否則信眾看到的是「行事曆尚未建立」。
   `prerender.js` 的 `ACTIVE_ROUTES = ROUTES.filter(r => r.enabled !== false)` 是這次加的，未開放的頁不預渲染、不進 sitemap、也不出現在各頁 noscript 的站內連結。
+
+- **活動說明超過 60 字收起來**（2026-11-26 廟方：「不需要這麼多文字說明，像新春祭改法會太多字了」）：`NOTE_INLINE_MAX`，按「看活動說明」就地展開、照後台換行；短備註照舊顯示。只改行事曆，/blessing 的說明不動。
