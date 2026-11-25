@@ -36,6 +36,8 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 | 未完成待辦 | `docs/handbook/todo.md` |
 | 已完成或已被取代的紀錄 | `docs/handbook/history.md` |
 
+技能：改資料庫用 `heshengtan-sql`、辦法會用 `heshengtan-fahui`（都在 `.claude/skills/`）；部署後用 `deploy-verify`（個人技能，另一台可能沒有，沒有就照下面的部署後三驗）。
+
 ## 紅線（違反會外洩、算錯錢或弄壞正式站）
 
 **資料與權限**
@@ -115,7 +117,7 @@ vercel --prod --yes  # 部署正式站（已連結專案 machu）
 ## 未完成待辦（細節 docs/handbook/todo.md）
 
 - 7 支 2026-10 的 SQL 是否執行過待確認：blessing_contact_label、member_auth_email、registration_email、notify_features_2026_10、lamp_blessing_payment_status、fahui_member_read、relocation_donation_fields。
-- 後台「關於我們」第二卡數字、主官網上線 checklist（`FAHUI_LANDING`）、收入憑證選取介面。
+- 後台「關於我們」第二卡數字、收入憑證選取介面。
 
 ## 維護規則
 

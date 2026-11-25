@@ -55,5 +55,7 @@
 - **後台「關於我們」第二張卡的數字還是舊的**：要改成 `80+` / `祀奉神尊`（資料庫目前仍是 `10萬+` / `年度信眾`）。前台已經先顯示 80+ 的過渡值，所以畫面是對的、資料庫是舊的。
 
 <!-- 原 L1121-1122 -->
+> 【已過時：FAHUI_LANDING 必須維持 true，改 false 會讓 /fahui 失效（App.tsx shouldShowFahui）；Event 節點已不在 index.html。其餘未查證】
+
 - 主官網上線 checklist：`FAHUI_LANDING` 改 false、index.html title／OG 換回官網用、hero 圖 fallback 是外連 Unsplash 建議換本地圖、Google Maps iframe 在部分環境載入失敗待驗證。
   **同時要處理 index.html 的法會 Event JSON-LD**：`url` 與 `offers.url` 指向 `machu-five.vercel.app` 根路徑，而 `FAHUI_LANDING` 一關那裡就不再是報名表；法會 9/13 過後整個 Event 節點也該移除或換成下一場，否則 Search Console 會回報過期活動。

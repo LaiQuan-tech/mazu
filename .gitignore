@@ -13,7 +13,9 @@ dist-ssr
 *.local
 .env
 .env.*
-.claude/
+# 只有技能要跟著 git 同步到另一台
+.claude/*
+!.claude/skills/
 
 # Editor directories and files
 .vscode/*
