@@ -113,6 +113,8 @@ const CalendarPage: React.FC<{
    * 想看整年再展開。切到明年時整年都還沒到，這個開關自然不出現。
    */
   const [showPast, setShowPast] = useState(false);
+  /** 哪幾筆的長說明是展開的 */
+  const [openNotes, setOpenNotes] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let alive = true;
@@ -305,9 +307,11 @@ const CalendarPage: React.FC<{
                     <ul className="space-y-3">
                       {byMonth.get(mo)!.map(x => {
                         const past = x.date < today && year === thisYear;
+                        const longNote = (x.note?.length ?? 0) > NOTE_INLINE_MAX;
+                        const noteOpen = !!openNotes[x.key];
                         return (
                           <li key={x.key}
-                            className={`rounded-xl border bg-white px-4 py-4 sm:px-5 flex gap-4 ${
+                            className={`rounded-xl border bg-white px-4 py-4 sm:px-5 flex flex-wrap sm:items-center gap-x-4 gap-y-2 ${
                               past ? 'border-gray-100 opacity-60' : 'border-temple-gold/25'
                             }`}>
                             {/* 日期欄固定寬，讓各列的名稱對齊 */}
@@ -315,61 +319,63 @@ const CalendarPage: React.FC<{
                               <p className="font-serif text-2xl leading-none text-temple-dark">{Number(x.date.slice(8, 10))}</p>
                               <p className="text-xs text-gray-500 mt-1">週{weekdayLabel(x.date)}</p>
                             </div>
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1 basis-40">
                               <div className="flex items-baseline gap-2 flex-wrap">
                                 <p className="font-serif text-lg text-temple-dark">{x.title}</p>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${KIND_CLASS[x.kind]}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${KIND_CLASS[x.kind]}`}>
                                   {KIND_LABEL[x.kind]}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-500 mt-1">
+                              {x.note && !longNote && <p className="text-sm text-gray-600 mt-1 leading-relaxed">{x.note}</p>}
+                            </div>
+                            {/* 右半邊：農曆日期、說明、按鈕（廟方 2026-11-26：「不要都把資料擠在左邊，右邊都空空的」）。
+                                桌機靠右排成一行、一筆一行高；手機排在名稱下面，說明靠左、按鈕靠右 */}
+                            <div className="w-full pl-[4.5rem] sm:w-auto sm:max-w-[62%] sm:pl-0 flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+                              <p className="w-full sm:w-auto text-sm text-gray-500 sm:text-right">
                                 {x.ruleLabel}
                                 {x.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
                                 {x.endDate && `　至 ${x.endDate.slice(5).replace('-', ' / ')}`}
                               </p>
                               {/* 行事曆是查日子的，活動文案動輒三四百字會把整頁撐開（廟方 2026-11-26：「不需要這麼多文字說明」）。
                                   長的收起來、按了就地展開並照後台的換行排；短的（備註、一句話）照舊常駐 */}
-                              {x.note && (x.note.length <= NOTE_INLINE_MAX
-                                ? <p className="text-sm text-gray-600 mt-2 leading-relaxed">{x.note}</p>
-                                : (
-                                  <details className="group mt-2">
-                                    <summary className="inline-flex items-center gap-1 py-1 text-sm text-temple-red cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:underline underline-offset-4">
-                                      <span className="group-open:hidden">看活動說明</span>
-                                      <span className="hidden group-open:inline">收起說明</span>
-                                      <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-                                    </summary>
-                                    <p className="text-sm text-gray-600 mt-1 mb-1 leading-relaxed whitespace-pre-line">{x.note.trim()}</p>
-                                  </details>
-                                ))}
+                              {longNote && (
+                                <button type="button" aria-expanded={noteOpen} aria-controls={`note-${x.key}`}
+                                  onClick={() => setOpenNotes(prev => ({ ...prev, [x.key]: !prev[x.key] }))}
+                                  className="inline-flex items-center gap-1 py-1.5 text-sm text-temple-red hover:underline underline-offset-4 whitespace-nowrap">
+                                  {noteOpen ? '收起說明' : '看活動說明'}
+                                  <ChevronDown className={`w-4 h-4 transition-transform ${noteOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                                </button>
+                              )}
+                              {/* 祝賀寶燈等活動的報名：可報名的給一顆實心鈕，直接開那一場的報名表；
+                                  截止的據實寫「報名已截止」，不給按鈕（點進去只會撞牆） */}
+                              {x.signups && !past && x.signups.map(sg => sg.open && onSignup ? (
+                                <button key={sg.id} type="button" onClick={() => onSignup(sg.id)}
+                                  className="ml-auto sm:ml-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium text-left hover:bg-[#5C4310]">
+                                  {x.kind === 'feast' ? `報名${sg.title}` : '我要報名'} →
+                                </button>
+                              ) : (
+                                <span key={sg.id} className="ml-auto sm:ml-0 text-sm text-gray-500">
+                                  {x.kind === 'feast' ? `${sg.title}：` : ''}報名已截止
+                                </span>
+                              ))}
                               {/* 辦事日直接給預約的入口：看到「10/5 有辦事」的下一個念頭就是要預約，
                                   讓他再自己從導覽列找一次問事頁是多餘的。已過去或已關閉的不給連結——
                                   點進去只會看到那一場不在清單上，那是把人帶去撞牆 */}
-                              {/* 祝賀寶燈等活動的報名：可報名的給一顆實心鈕，直接開那一場的報名表；
-                                  截止的據實寫「報名已截止」，不給按鈕（點進去只會撞牆） */}
-                              {x.signups && !past && x.signups.length > 0 && (
-                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                  {x.signups.map(sg => sg.open && onSignup ? (
-                                    <button key={sg.id} type="button" onClick={() => onSignup(sg.id)}
-                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
-                                      {x.kind === 'feast' ? `報名${sg.title}` : '我要報名'} →
-                                    </button>
-                                  ) : (
-                                    <span key={sg.id} className="text-sm text-gray-500">
-                                      {x.kind === 'feast' ? `${sg.title}：` : ''}報名已截止
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
                               {x.kind === 'booking' && !past && (
                                 x.bookingOpen
                                   // 與聖誕的報名鈕同一個樣子（2026-11-20 廟方：「辦事日的連結，也像聖誕一樣，要用按鈕的方式呈現」）
                                   ? <button type="button" onClick={() => onBook ? onBook(x.sessionId!) : window.location.assign('/booking')}
-                                      className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
+                                      className="ml-auto sm:ml-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
                                       預約這一場問事 →
                                     </button>
-                                  : <p className="mt-2 text-sm text-gray-500">這一場的線上預約已關閉，請洽本壇。</p>
+                                  : <p className="text-sm text-gray-500">這一場的線上預約已關閉，請洽本壇。</p>
                               )}
                             </div>
+                            {longNote && noteOpen && (
+                              <p id={`note-${x.key}`} className="w-full sm:pl-[4.5rem] pt-3 border-t border-temple-gold/20 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                                {x.note!.trim()}
+                              </p>
+                            )}
                           </li>
                         );
                       })}
