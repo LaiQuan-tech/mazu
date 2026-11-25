@@ -48,6 +48,14 @@ const KIND_CLASS: Record<EntryKind, string> = {
   regular: TAG_SOLID,
 };
 
+/**
+ * 「晚上 19:00–21:00」→「19:00–21:00」（廟方 2026-11-26：「24 小時制就看得出來」）。
+ * 只在真的是 24 小時制時拿掉：後台是自由文字，「下午 2:00」拿掉會變成凌晨兩點。
+ */
+const time24 = (t?: string): string => (t ?? '')
+  .replace(/(上午|早上)\s*(?=(0\d|10|11):)/g, '')
+  .replace(/(中午|下午|晚上)\s*(?=(1[2-9]|2[0-3]):)/g, '');
+
 /** 說明在這個字數以內直接顯示，超過就收進「看活動說明」 */
 const NOTE_INLINE_MAX = 60;
 
@@ -194,7 +202,7 @@ const CalendarPage: React.FC<{
       if (!s.sessionDate?.startsWith(String(year))) return;
       list.push({
         key: `b-${s.id}`, date: s.sessionDate, title: '辦事日', kind: 'booking',
-        ruleLabel: [solarToLunarLabel(s.sessionDate), s.sessionTime].filter(Boolean).join('　'),
+        ruleLabel: [solarToLunarLabel(s.sessionDate), time24(s.sessionTime)].filter(Boolean).join('　'),
         bookingOpen: s.isActive, sessionId: s.id,
       });
     });
@@ -203,7 +211,7 @@ const CalendarPage: React.FC<{
       if (!rs.sessionDate?.startsWith(String(year))) return;
       list.push({
         key: `r-${rs.id}`, date: rs.sessionDate, title: rs.title, kind: 'regular',
-        ruleLabel: [solarToLunarLabel(rs.sessionDate), rs.sessionTime].filter(Boolean).join('　'),
+        ruleLabel: [solarToLunarLabel(rs.sessionDate), time24(rs.sessionTime)].filter(Boolean).join('　'),
         note: rs.note || undefined,
       });
     });
@@ -309,53 +317,65 @@ const CalendarPage: React.FC<{
                         const past = x.date < today && year === thisYear;
                         const longNote = (x.note?.length ?? 0) > NOTE_INLINE_MAX;
                         const noteOpen = !!openNotes[x.key];
+                        // 長說明收起來、按了就地展開並照後台的換行排；短的（備註、一句話）照舊常駐（廟方 2026-11-26：「不需要這麼多文字說明」）
+                        const noteToggle = (
+                          <button type="button" aria-expanded={noteOpen} aria-controls={`note-${x.key}`}
+                            onClick={() => setOpenNotes(prev => ({ ...prev, [x.key]: !prev[x.key] }))}
+                            className="inline-flex items-center gap-1 py-1.5 text-sm text-temple-red hover:underline underline-offset-4 whitespace-nowrap">
+                            {noteOpen ? '收起說明' : '看活動說明'}
+                            <ChevronDown className={`w-4 h-4 transition-transform ${noteOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                          </button>
+                        );
                         return (
                           <li key={x.key}
-                            className={`rounded-xl border bg-white px-4 py-4 sm:px-5 flex flex-wrap sm:items-center gap-x-4 gap-y-2 ${
+                            className={`rounded-xl border bg-white px-3 py-3 sm:px-5 sm:py-4 flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 ${
                               past ? 'border-gray-100 opacity-60' : 'border-temple-gold/25'
                             }`}>
                             {/* 日期欄固定寬，讓各列的名稱對齊 */}
-                            <div className="shrink-0 w-14 text-center">
+                            <div className="shrink-0 w-10 sm:w-14 text-center">
                               <p className="font-serif text-2xl leading-none text-temple-dark">{Number(x.date.slice(8, 10))}</p>
                               <p className="text-xs text-gray-500 mt-1">週{weekdayLabel(x.date)}</p>
                             </div>
-                            <div className="min-w-0 flex-1 basis-40">
+                            <div className="min-w-0 flex-1 basis-0 sm:basis-40">
                               <div className="flex items-baseline gap-2 flex-wrap">
                                 <p className="font-serif text-lg text-temple-dark">{x.title}</p>
-                                <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${KIND_CLASS[x.kind]}`}>
+                                <span className={`hidden sm:inline text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${KIND_CLASS[x.kind]}`}>
                                   {KIND_LABEL[x.kind]}
                                 </span>
                               </div>
+                              {/* 手機只留三樣：日期、名稱（下面一行農曆）、一顆短按鈕。類別標籤與靠右那一欄是桌機的
+                                  （廟方 2026-11-26：「手機端，怪怪的，太複雜」） */}
+                              <p className="sm:hidden text-sm text-gray-500 mt-0.5 flex flex-wrap gap-x-2">
+                                {/* 「農曆冬月初二　晚上 19:00–21:00」：辦事日省掉「農曆」二字，日期與時段才排得進一行，時間也不會從中間斷開 */}
+                                {(x.kind === 'booking' ? x.ruleLabel.replace(/^農曆/, '') : x.ruleLabel).split('　')
+                                  .map(t => <span key={t} className="whitespace-nowrap">{t}</span>)}
+                                {x.adjusted && <span className="text-amber-700">（改列廿九）</span>}
+                                {x.endDate && <span>至 {x.endDate.slice(5).replace('-', ' / ')}</span>}
+                              </p>
+                              {longNote && <div className="sm:hidden">{noteToggle}</div>}
                               {x.note && !longNote && <p className="text-sm text-gray-600 mt-1 leading-relaxed">{x.note}</p>}
                             </div>
                             {/* 右半邊：農曆日期、說明、按鈕（廟方 2026-11-26：「不要都把資料擠在左邊，右邊都空空的」）。
-                                桌機靠右排成一行、一筆一行高；手機排在名稱下面，說明靠左、按鈕靠右 */}
-                            <div className="w-full pl-[4.5rem] sm:w-auto sm:max-w-[62%] sm:pl-0 flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
-                              <p className="w-full sm:w-auto text-sm text-gray-500 sm:text-right">
+                                桌機靠右排成一行、一筆一行高；手機只剩按鈕 */}
+                            <div className="max-w-[42%] sm:max-w-[62%] flex flex-wrap items-center justify-end gap-x-4 gap-y-2 empty:hidden">
+                              <p className="hidden sm:block text-sm text-gray-500 text-right">
                                 {x.ruleLabel}
                                 {x.adjusted && <span className="text-amber-700">（今年小月，改列廿九）</span>}
                                 {x.endDate && `　至 ${x.endDate.slice(5).replace('-', ' / ')}`}
                               </p>
-                              {/* 行事曆是查日子的，活動文案動輒三四百字會把整頁撐開（廟方 2026-11-26：「不需要這麼多文字說明」）。
-                                  長的收起來、按了就地展開並照後台的換行排；短的（備註、一句話）照舊常駐 */}
-                              {longNote && (
-                                <button type="button" aria-expanded={noteOpen} aria-controls={`note-${x.key}`}
-                                  onClick={() => setOpenNotes(prev => ({ ...prev, [x.key]: !prev[x.key] }))}
-                                  className="inline-flex items-center gap-1 py-1.5 text-sm text-temple-red hover:underline underline-offset-4 whitespace-nowrap">
-                                  {noteOpen ? '收起說明' : '看活動說明'}
-                                  <ChevronDown className={`w-4 h-4 transition-transform ${noteOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
-                                </button>
-                              )}
+                              {longNote && <div className="hidden sm:block">{noteToggle}</div>}
                               {/* 祝賀寶燈等活動的報名：可報名的給一顆實心鈕，直接開那一場的報名表；
                                   截止的據實寫「報名已截止」，不給按鈕（點進去只會撞牆） */}
                               {x.signups && !past && x.signups.map(sg => sg.open && onSignup ? (
-                                <button key={sg.id} type="button" onClick={() => onSignup(sg.id)}
-                                  className="ml-auto sm:ml-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium text-left hover:bg-[#5C4310]">
-                                  {x.kind === 'feast' ? `報名${sg.title}` : '我要報名'} →
+                                <button key={sg.id} type="button" onClick={() => onSignup(sg.id)} aria-label={`報名${sg.title}`}
+                                  className="inline-flex items-center gap-1 px-4 sm:px-3 py-2 sm:py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium text-left hover:bg-[#5C4310]">
+                                  {/* 同一天掛兩場以上時手機也要寫名稱，不然兩顆「報名」分不出來 */}
+                                  <span className="sm:hidden">{x.signups!.length > 1 ? sg.title : '報名'}</span>
+                                  <span className="hidden sm:inline">{x.kind === 'feast' ? `報名${sg.title}` : '我要報名'} →</span>
                                 </button>
                               ) : (
-                                <span key={sg.id} className="ml-auto sm:ml-0 text-sm text-gray-500">
-                                  {x.kind === 'feast' ? `${sg.title}：` : ''}報名已截止
+                                <span key={sg.id} className="text-xs sm:text-sm text-gray-500">
+                                  <span className="hidden sm:inline">{x.kind === 'feast' ? `${sg.title}：` : ''}</span>報名已截止
                                 </span>
                               ))}
                               {/* 辦事日直接給預約的入口：看到「10/5 有辦事」的下一個念頭就是要預約，
@@ -365,10 +385,15 @@ const CalendarPage: React.FC<{
                                 x.bookingOpen
                                   // 與聖誕的報名鈕同一個樣子（2026-11-20 廟方：「辦事日的連結，也像聖誕一樣，要用按鈕的方式呈現」）
                                   ? <button type="button" onClick={() => onBook ? onBook(x.sessionId!) : window.location.assign('/booking')}
-                                      className="ml-auto sm:ml-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
-                                      預約這一場問事 →
+                                      aria-label="預約這一場問事"
+                                      className="inline-flex items-center gap-1 px-4 sm:px-3 py-2 sm:py-1.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
+                                      <span className="sm:hidden">預約</span>
+                                      <span className="hidden sm:inline">預約這一場問事 →</span>
                                     </button>
-                                  : <p className="text-sm text-gray-500">這一場的線上預約已關閉，請洽本壇。</p>
+                                  : <p className="text-xs sm:text-sm text-gray-500">
+                                      <span className="sm:hidden">線上預約已關閉</span>
+                                      <span className="hidden sm:inline">這一場的線上預約已關閉，請洽本壇。</span>
+                                    </p>
                               )}
                             </div>
                             {longNote && noteOpen && (
