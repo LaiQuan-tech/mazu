@@ -80,7 +80,7 @@ BEGIN
     IF strpos(r.d, CASE r.t WHEN 'bookings' THEN '待處理' WHEN 'urgent_prayers' THEN '待處理' WHEN 'volunteer_registrations' THEN 'pending' ELSE '待匯款' END) = 0 THEN
       RAISE EXCEPTION '% 的狀態限制不含初始狀態：%', r.t, r.d; END IF;
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_trigger WHERE NOT tgisinternal AND tgname <> 'guard_public_insert' AND tgrelid::regclass::text IN
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE NOT tgisinternal AND tgname NOT IN ('guard_public_insert', 'guard_insert_rate') AND tgrelid::regclass::text IN
       ('bookings','lamp_registrations','blessing_registrations','donations','urgent_prayers','volunteer_registrations')) THEN
     RAISE EXCEPTION '這幾張表已有其他觸發器，請先確認'; END IF;
 

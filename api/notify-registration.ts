@@ -205,7 +205,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     // service role 繞過 RLS。一次把整團撈回來，依報名順序排（名單順序＝填表順序）
     const load = async (t: string, extra = ''): Promise<Record<string, any>[]> => {
       const r = await fetch(
-        `${supabaseUrl}/rest/v1/${t}?id=in.(${ids.join(',')})${extra}&order=created_at.asc&limit=${MAX_IDS}`,
+        `${supabaseUrl}/rest/v1/${t}?id=in.(${ids.join(',')})${extra}&order=created_at.asc,id.asc&limit=${MAX_IDS}`,
         { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
       );
       const got = r.ok ? await r.json() : [];
@@ -259,10 +259,16 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
     const send = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json',
+        // 同一筆報名 24 小時內只寄一次：這支是公開端點，拿同一個 id 狂打會把寄信額度用完
+        'Idempotency-Key': `notify-${table}-${row.id}`,
+      },
       // 主旨要讓人在手機通知列上就看得懂是哪一種、誰報的
       body: JSON.stringify({ from, to: to.split(',').map(s => s.trim()), subject: `[和聖壇] ${spec.label}　${標題}`, text }),
     });
+    // 409＝這一筆已經寄過（或正在寄），不是失敗
+    if (send.status === 409) { res.status(200).json({ ok: true, skipped: '已通知過' }); return; }
     if (!send.ok) {
       const detail = await send.text();
       console.error('notify send failed', send.status, detail.slice(0, 300));

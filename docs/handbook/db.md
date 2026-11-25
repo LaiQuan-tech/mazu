@@ -29,3 +29,6 @@
 - **會員的信箱不在 `member_profiles`，在 `auth.users`**（2026-10-29 廟方要求用信箱搜尋會員時確認）。那張表只有姓名／電話／生日／生肖／性別／地址。前端是 anon key，讀不到 auth schema，**也不該為了這件事把 service key 放進瀏覽器**，所以走 SECURITY DEFINER 的 RPC（`get_member_emails()`，權限一律 `public.is_admin()`）。
   **不要去 `CREATE OR REPLACE` 既有的 `get_users_last_login`**：那支是在 Supabase 後台手動建的、repo 裡沒有定義，用猜的內容覆蓋一支看不見的函式，猜錯權限判斷就會把全站會員的信箱放寬給任何登入者，而那不會報錯。所以是**新增一支**，前端兩支併發呼叫。
   **信箱搜尋永遠找不到 LINE 登入的會員**——LINE 不給信箱，那種帳號在 auth 裡的 email 是 NULL。所以會員搜尋必須同時吃姓名與電話，不可以只靠信箱。
+
+- **防灌報名限流**（2026-11-26，`insert_rate_limit_2.sql`，已執行）：八張表 BEFORE INSERT 觸發器 `guard_insert_rate`，同一來源 10 分鐘 120 筆、一天 200 筆（台北早上 8 點換日），超過回 P0001、整筆回滾。來源用 `cf-connecting-ip`（實測不可偽造；`x-forwarded-for` 可偽造，不要改用）。後台人員與 service role 不限；拿不到來源或計數出錯一律放行。`insert_rate` 只存雜湊、RLS 零政策。新增報名表要加進清單。還原：`insert_rate_limit_rollback.sql`。信眾反映送不出去（P0001「短時間內送出太多筆」）先看是不是共用網路。
+- 通知廟方的信同一筆 24 小時只寄一次（`notify-registration.ts` 的 Resend `Idempotency-Key`，以第一筆 id 為準；409 視為已寄）。
