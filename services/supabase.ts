@@ -1243,12 +1243,16 @@ export const getMemberContacts = async (): Promise<MemberContact[]> => {
 
 /** 後台信眾管理用：取「全部會員」的通訊錄（需管理員權限；RLS 由 is_admin 政策把關） */
 export const getAllMemberContactsAdmin = async (): Promise<MemberContact[]> => {
-  const { data, error } = await supabase
-    .from('member_contacts')
-    .select('*')
-    .order('created_at', { ascending: true });
-  if (error) { console.error('Error fetching all member contacts:', error); return []; }
-  return (data || []).map((row) => ({
+  // 一次最多回 1000 列，超過要分頁抓，不然親友人數會少算
+  const data: any[] = [];
+  for (let from = 0; ; from += 1000) {
+    const page = await supabase.from('member_contacts').select('*')
+      .order('created_at', { ascending: true }).order('id').range(from, from + 999);
+    if (page.error) { console.error('Error fetching all member contacts:', page.error); return []; }
+    data.push(...(page.data ?? []));
+    if ((page.data?.length ?? 0) < 1000) break;
+  }
+  return data.map((row) => ({
     id: row.id,
     userId: row.user_id,
     contactNumber: row.contact_number ?? undefined,

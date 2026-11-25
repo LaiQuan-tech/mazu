@@ -4149,10 +4149,12 @@ function toPersonKey(p: MemberProfileRecord): string {
  * 於是同一個人在列表與詳情會看到兩個不同的祈福數字，列表那個基本上恆為 0。
  * 名字留著 `activities` 只會讓下一個人再踩一次。
  */
-type MemberSortKey = 'default' | 'lamps' | 'bookings' | 'blessings' | 'donation' | 'lastLogin';
+type MemberSortKey = 'default' | 'contacts' | 'lamps' | 'bookings' | 'blessings' | 'donation' | 'lastLogin';
 type MemberSortDir = 'asc' | 'desc';
 
-const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin, memberEmails, initialSearch }: {
+const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin, memberEmails, initialSearch }: {
+  /** 全部會員的通訊錄（父層 fetchAll 抓好的），只用來數每位會員的親友人數 */
+  contacts: MemberContact[];
   /** 從操作小幫手「找 某某」跳過來時，搜尋框直接帶好 */
   initialSearch?: string;
   bookings: BookingRecord[];
@@ -4217,6 +4219,8 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
 
   // ── 計算排序後的 rows ──
   const sortedProfiles = useMemo(() => {
+    const contactCount = new Map<string, number>();
+    contacts.forEach(c => contactCount.set(c.userId, (contactCount.get(c.userId) ?? 0) + 1));
     const all = memberProfiles.map(p => {
       const lamps = lampRegistrations.filter(l => samePhone(l.phone, p.phone)).length;
       const bookingCount = bookings.filter(b => samePhone(b.phone, p.phone)).length;
@@ -4252,10 +4256,13 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
          */
         createdAt: list.map(r => r.createdAt).sort()[0],
         accounts: sortedByUse,
+        /** 通訊錄綁 user_id：一個人有幾個帳號就把幾邊加起來，與點進去看到的「N 筆」同一個數法 */
+        contactCount: list.reduce((n, r) => n + (contactCount.get(r.userId) ?? 0), 0),
       };
     });
 
     rows.sort((a, b) => {
+      if (sortBy === 'contacts')    { const d = a.contactCount - b.contactCount; return sortDir === 'asc' ? d : -d; }
       if (sortBy === 'lamps')       { const d = a.stats.lamps - b.stats.lamps; return sortDir === 'asc' ? d : -d; }
       if (sortBy === 'bookings')    { const d = a.stats.bookingCount - b.stats.bookingCount; return sortDir === 'asc' ? d : -d; }
       if (sortBy === 'blessings')   { const d = a.stats.blessings - b.stats.blessings; return sortDir === 'asc' ? d : -d; }
@@ -4270,7 +4277,7 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     return rows;
-  }, [memberProfiles, lampRegistrations, bookings, donations, blessingRegistrations, usersLastLogin, sortBy, sortDir]);
+  }, [memberProfiles, contacts, lampRegistrations, bookings, donations, blessingRegistrations, usersLastLogin, sortBy, sortDir]);
 
   /**
    * 搜尋：姓名／電話／信箱／會員編號／地址。
@@ -4636,11 +4643,12 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-temple-gold/30 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="admin-table w-full min-w-[640px]">
+            <table className="admin-table w-full min-w-[760px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">編號</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">姓名</th>
+                  <SortTh col="contacts"   label="親友通訊錄" align="center" />
                   <SortTh col="lamps"      label="點燈"   align="center" />
                   <SortTh col="blessings"  label="祈福"   align="center" />
                   <SortTh col="donation"   label="捐獻"   align="right" />
@@ -4686,6 +4694,17 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
                       {p.accounts.length > 1 && (
                         <span className="ml-2 text-[11px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                           {p.accounts.length} 個帳號
+                        </span>
+                      )}
+                    </td>
+                    {/* 廟方 2026-11-26：親友人數「是重要資訊，要第一眼就看到」——緊接姓名、手機卡片也常駐，不要收進「更多資料」。
+                        整份通訊錄是空的多半是沒讀到，不可以顯示成每個人都 0 */}
+                    <td data-label="親友" className="px-4 py-3 text-center whitespace-nowrap">
+                      {contacts.length === 0 ? <Dash /> : (
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm ${p.contactCount > 0
+                          ? 'bg-temple-red text-white font-bold' : 'bg-gray-100 text-gray-400'}`}
+                          title="會員中心「親友通訊錄」的人數">
+                          <BookUser className="w-4 h-4" aria-hidden="true" />親友 {p.contactCount} 人
                         </span>
                       )}
                     </td>
@@ -9150,7 +9169,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
               {tab === 'volunteer' && <VolunteerTab registrations={volunteerRegistrations} onRefresh={fetchAll} />}
               {tab === 'bookings'  && <BookingsTab bookings={bookings} onStatusChange={handleStatusChange} updatingId={updatingId} memberProfiles={memberProfiles} />}
               {tab === 'donations' && <DonationsTab donations={donations} memberProfiles={memberProfiles} onRefresh={fetchAll} />}
-              {tab === 'members'   && <MembersTab key={`m${jump?.n ?? 0}`} initialSearch={jump?.q} bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} memberEmails={memberEmails} />}
+              {tab === 'members'   && <MembersTab key={`m${jump?.n ?? 0}`} contacts={allContacts} initialSearch={jump?.q} bookings={bookings} donations={donations} lampRegistrations={lampRegistrations} blessingRegistrations={blessingRegistrations} blessingEvents={blessingEvents} lampConfigs={lampConfigs} memberProfiles={memberProfiles} usersLastLogin={usersLastLogin} memberEmails={memberEmails} />}
               {tab === 'roster'    && <RosterTab key={`r${jump?.n ?? 0}`} canSeeVolunteer={canSeeVolunteer} initialSearch={jump?.q} sources={{ fahui: fahuiRegistrations, volunteers: volunteerRegistrations, members: memberProfiles, contacts: allContacts, bookings, donations, lamps: lampRegistrations, blessings: blessingRegistrations, registrations: allRegistrations }} onDone={() => fetchAll()} />}
               {tab === 'bulletins' && <BulletinsTab bulletins={bulletins} onRefresh={fetchAll} />}
               {tab === 'deities'  && <DeitiesTab deities={deitiesList} halls={deityHalls} onRefresh={fetchAll} />}

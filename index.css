@@ -131,6 +131,8 @@
   .admin-table td:not([data-label]):not([colspan]):not(.admin-more-toggle) { flex: 0 1 auto; }
   /* 會員編號接在姓名前面同一行（「#007 王美玲」），不要自己佔一行 */
   .admin-table td[data-label="編號"] + td[data-label="姓名"] { flex: 1 1 8rem; }
+  /* 會員清單：親友人數跟姓名同一行，常駐 */
+  .admin-table td[data-label="親友"] { flex: 0 0 auto; }
   .admin-table td[data-label="編號"]:not(:has(> .admin-empty:only-child)) + td[data-label="姓名"] { padding-left: 0; }
 
   /* 問事名單的卡片排成兩行（2026-11-22 廟方：「手機版變全靠左一列，這樣區塊變很大，也很醜」）：
@@ -256,6 +258,7 @@
      新增表格時，欄位屬於前者就把它的 data-label 加進這一串。 */
   .admin-table td[data-label="操作"]::before,
   .admin-table td[data-label="姓名"]::before,
+  .admin-table td[data-label="親友"]::before,
   .admin-table td[data-label="電話"]::before,
   .admin-table td[data-label="信眾資訊"]::before,
   .admin-table td[data-label="狀態"]::before,
