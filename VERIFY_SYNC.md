@@ -86,7 +86,7 @@ git log -1 --pretty=format:'%h - %s - %an (%ae)'
 
 **應該看到類似：**
 ```
-abc1234 - Update: 本機端改動 - lqtech2026 (lqtech2026@gmail.com)
+abc1234 - Update: 本機端改動 - lqtech2026 (（信箱不公開）)
 ```
 
 ### 5️⃣ 檢查遠端倉庫

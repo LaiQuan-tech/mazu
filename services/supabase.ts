@@ -1731,7 +1731,9 @@ export const getMyFahuiRegistrations = async (phone: string): Promise<{
     id: r.id,
     name: r.name ?? '',
     total: Number(r.total_amount ?? 0),
-    entryCount: Array.isArray(r.entries) ? r.entries.length : 0,
+    // entries 是「品項 key → 陣列」的物件，不是陣列（原本一律算成 0）；與後台牌位數同一種數法
+    entryCount: Object.values((r.entries ?? {}) as Record<string, unknown>)
+      .reduce<number>((n, v) => n + (Array.isArray(v) ? v.length : 0), 0),
     createdAt: r.created_at,
   }));
 };

@@ -3,7 +3,7 @@
 > 2026-11-26 自 CLAUDE.md 原文搬來，未改寫。「上一條／下面」等字眼依原順序；`原 L` 是搬移前行號。
 
 <!-- 原 L114-114 -->
-- 後台入口：`https://heshengtan.tw/?admin=1`（會自動跳管理員登入；`?admin=1` 會讓 `FAHUI_LANDING` 失效，所以這也是收件期間預覽官網首頁的方法）。管理員只有 armand7951@gmail.com 與 lqtech2026@gmail.com（admin_profiles 表控管）。
+- 後台入口：`https://heshengtan.tw/?admin=1`（會自動跳管理員登入；`?admin=1` 會讓 `FAHUI_LANDING` 失效，所以這也是收件期間預覽官網首頁的方法）。管理員由 admin_profiles 表控管（信箱不寫進公開 repo）。
 
 <!-- 原 L115-115 -->
 - **後台按重新整理會留在後台**（2026-11-17 廟方：「後台網頁按重新整理後，就會直接導去前端首頁，這其實蠻困擾的」）。原本後台只是 App 記憶體裡的 `showAdmin`，重新整理就歸零（Supabase 的登入其實還在）。現在進後台時網址補 `?admin=1`、離開後台或登出就拿掉；帶著 `?admin=1` 進站先 `getSession()` 再查 `admin_profiles`，是管理員就直接進後台，不是才跳登入框（檢查那一瞬間 `adminBooting` 顯示載入中，免得先閃一下首頁）。**權限每次都回資料庫查，沒有記在瀏覽器**。後台停在哪一頁記在 `sessionStorage.admin_tab`（只屬於這個分頁），讀回來會先確認這個角色看得到。

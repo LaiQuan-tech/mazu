@@ -154,7 +154,7 @@ echo -e "${BLUE}檢查總結${NC}"
 echo -e "${BLUE}========================================${NC}\n"
 
 echo -e "${YELLOW}已確認的信息：${NC}"
-echo "• GitHub 帳號: lqtech2026@gmail.com"
+echo "• GitHub 帳號: （信箱不公開）"
 echo "• 本地路徑: $LOCAL_PATH"
 echo "• 遠端倉庫: $REMOTE_URL"
 echo "• 當前分支: $CURRENT_BRANCH"

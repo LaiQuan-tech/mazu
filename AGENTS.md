@@ -7,7 +7,7 @@
 
 - **法會報名表上線收件中**（太上慈悲普渡禮懺法會，9/13 舉行、9/06 截止）。`App.tsx` 的 `showFahui=true` 讓報名表蓋住主官網首頁——**這是刻意的**。主官網上線時改回 `false` 再部署。
 - **志工報名表也上線了**（VolunteerRegistration.tsx，migration：`supabase/migrations/volunteer_registration.sql`）。入口只在**法會報名成功頁**（刻意不放主表單，避免拉低法會報名轉換率）。點入口會把法會表已填的聯絡資料自動帶入（precedence：連結帶入 > 志工草稿 > 法會草稿）。後台「志工報名」分頁可看名單、標記已聯絡、匯出 Excel。只收 5 項基本資料（姓名/電話/地址/生日/LINE），無排班。
-- 後台入口：`https://machu-five.vercel.app/?admin=1`（會自動跳管理員登入）。管理員只有 armand7951@gmail.com 與 lqtech2026@gmail.com（admin_profiles 表控管）。
+- 後台入口：`https://machu-five.vercel.app/?admin=1`（會自動跳管理員登入）。管理員由 admin_profiles 表控管（信箱不寫進公開 repo）。
 - 全部資料表已啟用 RLS（migration：`supabase/migrations/mainsite_rls.sql`）。訪客只能 INSERT 報名、讀公開內容；統計數字走 SECURITY DEFINER RPC。
 
 ## 常用指令（nvm 環境，直接跑 npm/vercel 會 command not found）
