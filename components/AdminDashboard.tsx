@@ -4178,6 +4178,9 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
   const [historyTab, setHistoryTab] = useState<'lamp' | 'booking' | 'blessing' | 'donation'>('lamp');
   // 搜尋
   const [search, setSearch] = useState(initialSearch ?? '');
+  // hook 一律放在「會員詳情」那個提早 return 之前：放後面的話點任一會員整頁崩潰成空白（2026-11-26）
+  const [mPage, setMPage] = useState(0);
+  useEffect(() => { setMPage(0); }, [search]);
   // 排序
   const [sortBy, setSortBy] = useState<MemberSortKey>('default');
   const [sortDir, setSortDir] = useState<MemberSortDir>('desc');
@@ -4598,8 +4601,6 @@ const MembersTab = ({ bookings, donations, lampRegistrations, blessingRegistrati
   }
 
   // ── 列表頁（排序表格） ──
-  const [mPage, setMPage] = useState(0);
-  useEffect(() => { setMPage(0); }, [search]);
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
