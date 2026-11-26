@@ -13,6 +13,7 @@ import AdminVouchersTab from './AdminVouchersTab';
 import { useOpenRows, RowMoreCell } from './AdminRowMore';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
+import { ThanksCell, NEED_THANKS_NO, type ThanksSource } from './AdminThanks';
 import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import { resolveFeastDate, feastRuleLabel, weekdayLabel, solarToLunarLabel } from '../services/lunarCalendar';
@@ -67,9 +68,11 @@ const fmtDate = (s: any) => {
  * 應收都會把它排除），不能挨著每天要按幾十次的那顆。同揪團刪除鈕的理由。
  * 已取消的那一列給「還原」，按錯才回得來。
  */
-const PaymentActions = <T extends string>({ status, pending, confirmed, cancelled, busy, onChange }: {
+const PaymentActions = <T extends string>({ status, pending, confirmed, cancelled, busy, onChange, needThanksNo }: {
   status: T; pending: T; confirmed: T; cancelled: T;
   busy: boolean; onChange: (next: T) => void;
+  /** 感謝狀編號還沒填：標記已收款鎖住（廟方 2026-11-27，見 AdminThanks.tsx） */
+  needThanksNo?: boolean;
 }) => {
   const isPaid = status === confirmed;
   const isCancelled = status === cancelled;
@@ -82,8 +85,9 @@ const PaymentActions = <T extends string>({ status, pending, confirmed, cancelle
         </button>
       ) : (
         <>
-          <button onClick={() => onChange(isPaid ? pending : confirmed)} disabled={busy}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+          <button onClick={() => onChange(isPaid ? pending : confirmed)} disabled={busy || (!isPaid && needThanksNo)}
+            title={!isPaid && needThanksNo ? '先填感謝狀編號' : undefined}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               isPaid ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-temple-red text-white hover:bg-[#5C4310]'
             }`}>
             {isPaid ? '改回待匯款' : '標記已收款'}
@@ -2062,11 +2066,9 @@ const FahuiEntriesEditor = ({ r, onSaved }: { r: FahuiRegistrationRecord; onSave
 const FahuiReconcileBlock = ({ r, onSaved }: { r: FahuiRegistrationRecord; onSaved: () => void }) => {
   const [saving, setSaving] = useState(false);
   const [last5, setLast5] = useState(r.accountLast5 || '');
-  const [thanksNo, setThanksNo] = useState(r.thanksLetter || '');
   const [note, setNote] = useState(r.adminNote || '');
 
   useEffect(() => { setLast5(r.accountLast5 || ''); setNote(r.adminNote || ''); }, [r.accountLast5, r.adminNote]);
-  useEffect(() => { setThanksNo(r.thanksLetter || ''); }, [r.thanksLetter]);
 
   const save = async (patch: FahuiReconcilePatch) => {
     setSaving(true);
@@ -2107,14 +2109,7 @@ const FahuiReconcileBlock = ({ r, onSaved }: { r: FahuiRegistrationRecord; onSav
             onBlur={() => { if (last5 !== (r.accountLast5 || '')) save({ accountLast5: last5 }); }}
             className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:border-temple-red" />
         </label>
-        {/* 感謝狀編號：印在實體感謝狀上的號碼，由財務人員自行填寫，不預設任何值。
-            不限制只能數字——實務上可能寫成 456-1 或帶字首，擋掉反而卡住填表的人。 */}
-        <label className="text-xs text-gray-500">感謝狀編號
-          <input value={thanksNo} maxLength={20} placeholder="例：456"
-            onChange={e => setThanksNo(e.target.value)}
-            onBlur={() => { if (thanksNo !== (r.thanksLetter || '')) save({ thanksLetter: thanksNo }); }}
-            className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:border-temple-red" />
-        </label>
+        {/* 感謝狀編號 2026-11-27 搬到名單那一列（ThanksCell），跟「標記已收款」並排：沒填不能按收款 */}
         <div className="text-xs text-gray-500">確認項目
           <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
             {checks.map(c => (
@@ -2175,6 +2170,7 @@ const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiReg
     setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const handleStatusToggle = async (r: FahuiRegistrationRecord) => {
+    if (r.status !== 'paid' && !r.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setBusyId(r.id);
     try {
       const next = r.status === 'paid' ? 'pending' : 'paid';
@@ -2349,9 +2345,12 @@ const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiReg
                     <p className="font-bold text-temple-red whitespace-nowrap">${r.totalAmount.toLocaleString()}</p>
                   </div>
                   <div className="shrink-0">{fahuiStatusBadge(r.status)}</div>
+                  <ThanksCell onSaved={onRefresh} src={{ table: 'blessing_registrations', id: r.id, no: r.thanksLetter,
+                    name: r.name, item: title && !title.startsWith('未歸屬') ? title : '法會', amount: r.totalAmount, paid: r.status === 'paid' }} />
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => handleStatusToggle(r)} disabled={busyId === r.id}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                    <button onClick={() => handleStatusToggle(r)} disabled={busyId === r.id || (r.status !== 'paid' && !r.thanksLetter?.trim())}
+                      title={r.status !== 'paid' && !r.thanksLetter?.trim() ? '先填感謝狀編號' : undefined}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         r.status === 'paid' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-temple-red text-white hover:bg-[#5C4310]'
                       }`}>
                       {r.status === 'paid' ? '改回待匯款' : '標記已收款'}
@@ -3782,6 +3781,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
   const donationInfo = useOpenRows();
   const [donBusyId, setDonBusyId] = useState<string | null>(null);
   const handleDonationStatus = async (id: string, next: DonationStatus) => {
+    if (next === DonationStatus.CONFIRMED && !donations.find(d => d.id === id)?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setDonBusyId(id);
     try { await updateDonationStatus(id, next); onRefresh(); }
     catch { alert('更新收款狀態失敗，請再試一次'); }
@@ -4057,8 +4057,11 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           confirmed={DonationStatus.CONFIRMED}
                           cancelled={DonationStatus.CANCELLED}
                           busy={donBusyId === d.id}
+                          needThanksNo={!d.thanksLetter?.trim()}
                           onChange={next => handleDonationStatus(d.id, next)}
                         />
+                        <ThanksCell onSaved={onRefresh} src={{ table: 'donations', id: d.id, no: d.thanksLetter,
+                          name: d.name, item: d.type, amount: Number(d.amount) || 0, paid: d.status === DonationStatus.CONFIRMED }} />
                       </div>
                     </td>
                     <RowMoreCell open={donationRows.isOpen(d.id)} onToggle={() => donationRows.toggle(d.id)} hint="指定項目、備註" />
@@ -6356,6 +6359,7 @@ const LampsTab = ({
     configs.find(c => c.id === serviceId)?.name || serviceId;
 
   const handleRegStatusChange = async (id: string, status: LampRegistrationStatus) => {
+    if (status === LampRegistrationStatus.CONFIRMED && !registrations.find(r => r.id === id)?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setUpdatingRegId(id);
     try {
       await updateLampRegistrationStatus(id, status);
@@ -6596,13 +6600,17 @@ const LampsTab = ({
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end" onClick={e => e.stopPropagation()}>
+                  <ThanksCell onSaved={onRefresh} src={{ table: 'lamp_registrations', id: r.id, no: r.thanksLetter,
+                    name: r.name, item: [getServiceName(r.serviceId), readChoiceTag(r.notes)?.value].filter(Boolean).join('・'),
+                    amount: lampAmount(r, configs), paid: r.status === LampRegistrationStatus.CONFIRMED }} />
                   <PaymentActions
                     status={r.status}
                     pending={LampRegistrationStatus.PENDING}
                     confirmed={LampRegistrationStatus.CONFIRMED}
                     cancelled={LampRegistrationStatus.CANCELLED}
                     busy={updatingRegId === r.id}
+                    needThanksNo={!r.thanksLetter?.trim()}
                     onChange={next => handleRegStatusChange(r.id, next)}
                   />
                   <button
@@ -7024,6 +7032,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
   };
 
   const handleRegStatus = async (id: string, status: BlessingStatus) => {
+    if (status === BlessingStatus.CONFIRMED && !registrations.find(r => r.id === id)?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setUpdatingRegId(id);
     try {
       await updateBlessingRegistrationStatus(id, status);
@@ -7222,8 +7231,12 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                             confirmed={BlessingStatus.CONFIRMED}
                             cancelled={BlessingStatus.CANCELLED}
                             busy={updatingRegId === r.id}
+                            needThanksNo={!r.thanksLetter?.trim()}
                             onChange={next => handleRegStatus(r.id, next)}
                           />
+                          <ThanksCell onSaved={onRefresh} src={{ table: 'blessing_registrations', id: r.id, no: r.thanksLetter,
+                            name: r.name, item: events.find(e => e.id === r.eventId)?.title || '祈福',
+                            amount: blessingAmount(r, events), paid: r.status === BlessingStatus.CONFIRMED }} />
                         </div>
                       </td>
                       <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
@@ -7934,6 +7947,8 @@ type IncomeRow = {
   pay: PayState;
   /** 法會才有，用來展開既有的對帳區塊（整套搬過來，不另寫一份） */
   fahui?: FahuiRegistrationRecord;
+  /** 感謝狀（編號、受謝人、項目、金額），四種服務都有 */
+  thanks: ThanksSource;
 };
 
 
@@ -7954,7 +7969,10 @@ function buildIncomeRows(src: {
       type: '點燈', typeKey: 'lamp', detail: cfg?.name || '—',
       amount: lampAmount(r, lampConfigs),
       pay: r.status === LampRegistrationStatus.CANCELLED ? 'cancelled'
-         : r.status === LampRegistrationStatus.CONFIRMED ? 'paid' : 'pending' };
+         : r.status === LampRegistrationStatus.CONFIRMED ? 'paid' : 'pending',
+      thanks: { table: 'lamp_registrations', id: r.id, no: r.thanksLetter, name: r.name,
+        item: [cfg?.name, readChoiceTag(r.notes)?.value].filter(Boolean).join('・') || '點燈',
+        amount: lampAmount(r, lampConfigs), paid: r.status === LampRegistrationStatus.CONFIRMED } };
   });
   const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
     const ev = blessingEvents.find(e => e.id === r.eventId);
@@ -7963,7 +7981,9 @@ function buildIncomeRows(src: {
       type: '祈福', typeKey: 'blessing', detail: ev?.title || '—',
       amount: blessingAmount(r, blessingEvents),
       pay: r.status === BlessingStatus.CANCELLED ? 'cancelled'
-         : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending' };
+         : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending',
+      thanks: { table: 'blessing_registrations', id: r.id, no: r.thanksLetter, name: r.name,
+        item: ev?.title || '祈福', amount: blessingAmount(r, blessingEvents), paid: r.status === BlessingStatus.CONFIRMED } };
   });
   // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
   const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
@@ -7973,6 +7993,8 @@ function buildIncomeRows(src: {
     amount: r.totalAmount,
     pay: r.status === 'paid' ? 'paid' : 'pending',
     fahui: r,
+    thanks: { table: 'blessing_registrations', id: r.id, no: r.thanksLetter, name: r.name,
+      item: blessingEvents.find(e => e.id === r.eventId)?.title || '法會', amount: r.totalAmount, paid: r.status === 'paid' },
   }));
   const donationRows: IncomeRow[] = donations.map(r => ({
     id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
@@ -7982,6 +8004,8 @@ function buildIncomeRows(src: {
     pay: r.status === undefined ? 'unchecked'
        : r.status === DonationStatus.CANCELLED ? 'cancelled'
        : r.status === DonationStatus.CONFIRMED ? 'paid' : 'pending',
+    thanks: { table: 'donations', id: r.id, no: r.thanksLetter, name: r.name, item: r.type,
+      amount: Number(r.amount) || 0, paid: r.status === DonationStatus.CONFIRMED },
   }));
   return [...lampRows, ...blessingRows, ...fahuiRows, ...donationRows]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -8172,6 +8196,7 @@ const ReceivablesTab: React.FC<{
   const setPayState = async (row: IncomeRow, next: 'pending' | 'paid' | 'cancelled') => {
     const rawId = row.id.split(':')[1];
     const paid = next === 'paid';
+    if (paid && !row.thanks.no?.trim()) { alert(NEED_THANKS_NO); return; }
     setBusyId(row.id);
     try {
       if (row.typeKey === 'lamp') {
@@ -8416,8 +8441,11 @@ const ReceivablesTab: React.FC<{
                             </button>
                           ) : (
                             <>
-                              <button onClick={() => setPayState(row, row.pay === 'paid' ? 'pending' : 'paid')} disabled={busy}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                              <ThanksCell onSaved={onRefresh} src={row.thanks} compact />
+                              <button onClick={() => setPayState(row, row.pay === 'paid' ? 'pending' : 'paid')}
+                                disabled={busy || (row.pay !== 'paid' && !row.thanks.no?.trim())}
+                                title={row.pay !== 'paid' && !row.thanks.no?.trim() ? '先填感謝狀編號' : undefined}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                   row.pay === 'paid'
                                     ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     : 'bg-temple-red text-white hover:bg-[#5C4310]'

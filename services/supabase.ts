@@ -409,7 +409,91 @@ export const getDonations = async (): Promise<DonationRecord[]> => {
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     email: row.email || undefined,
     confirmSentAt: row.confirm_sent_at || undefined,
+    thanksLetter: typeof row.thanks_letter === 'string' ? (row.thanks_letter || undefined) : undefined,
   }));
+};
+
+// ─── 感謝狀（thanks_certificates.sql，見 components/ThanksCertificate.tsx） ─────
+
+/** 感謝狀對應的報名表。法會與祈福共用 blessing_registrations */
+export type ThanksSourceTable = 'lamp_registrations' | 'blessing_registrations' | 'donations';
+
+export interface ThanksCertificateRecord {
+  id: string;
+  sourceTable: ThanksSourceTable;
+  sourceId: string;
+  no: string;
+  name: string;
+  item: string;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+  templeName: string;
+  thanksText: string;
+  sentAt?: string;
+  sentVia?: string;
+}
+
+const mapThanksCert = (r: any): ThanksCertificateRecord => ({
+  id: r.id, sourceTable: r.source_table, sourceId: String(r.source_id),
+  no: r.cert_no, name: r.name, item: r.item, amount: Number(r.amount) || 0,
+  date: r.cert_date, templeName: r.temple_name || '和聖壇', thanksText: r.thanks_text || '',
+  sentAt: r.sent_at || undefined, sentVia: r.sent_via || undefined,
+});
+
+/** SQL 還沒跑：表不存在（42P01／PGRST205）或欄位不存在（42703／PGRST204） */
+export const isThanksSchemaMissing = (e: any): boolean =>
+  ['42P01', 'PGRST205', '42703', 'PGRST204'].includes(e?.code);
+
+export const THANKS_SQL_HINT = '感謝狀功能的資料表還沒建立：請到 Supabase SQL Editor 執行 supabase/migrations/thanks_certificates.sql。';
+
+/** 後台用：一次抓全部，key 是「表:id」。表還沒建就回空的，不讓清單整頁壞掉 */
+export const getThanksCertificates = async (): Promise<Map<string, ThanksCertificateRecord>> => {
+  const { data, error } = await supabase.from('thanks_certificates').select('*');
+  const map = new Map<string, ThanksCertificateRecord>();
+  if (error) { if (!isThanksSchemaMissing(error)) console.error('Error fetching thanks certificates:', error); return map; }
+  for (const r of data || []) { const c = mapThanksCert(r); map.set(`${c.sourceTable}:${c.sourceId}`, c); }
+  return map;
+};
+
+/** 財務填的感謝狀編號。清空存 NULL */
+export const updateThanksLetter = async (table: ThanksSourceTable, id: string, no: string): Promise<void> => {
+  const { error } = await supabase.from(table).update({ thanks_letter: no.trim() || null }).eq('id', id);
+  if (error) {
+    console.error('Error updating thanks letter:', error);
+    if (isThanksSchemaMissing(error)) throw new Error(THANKS_SQL_HINT);
+    throw error;
+  }
+};
+
+/**
+ * 存（或更新）一張感謝狀快照，回傳它的 id（連結用）。同一筆報名永遠是同一個 id：
+ * 編號或姓名改了再存一次，信眾手上的連結打開就是新的內容。
+ */
+export const saveThanksCertificate = async (
+  sourceTable: ThanksSourceTable, sourceId: string,
+  d: { no: string; name: string; item: string; amount: number; date: string; templeName: string; thanksText: string },
+): Promise<ThanksCertificateRecord> => {
+  const { data, error } = await supabase.from('thanks_certificates').upsert({
+    source_table: sourceTable, source_id: sourceId,
+    cert_no: d.no.trim(), name: d.name, item: d.item, amount: Math.max(0, Math.round(d.amount || 0)),
+    cert_date: d.date.slice(0, 10), temple_name: d.templeName, thanks_text: d.thanksText || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'source_table,source_id' }).select('*').single();
+  if (error) {
+    console.error('Error saving thanks certificate:', error);
+    if (isThanksSchemaMissing(error)) throw new Error(THANKS_SQL_HINT);
+    throw error;
+  }
+  return mapThanksCert(data);
+};
+
+/** 信眾打開電子版：走 RPC，只拿得到這一張 */
+export const getPublicThanksCertificate = async (id: string): Promise<ThanksCertificateRecord | null> => {
+  const { data, error } = await supabase.rpc('get_thanks_certificate', { p_id: id });
+  const r = Array.isArray(data) ? data[0] : data;
+  if (error || !r) return null;
+  return mapThanksCert({ ...r, id, source_table: '', source_id: '' });
 };
 
 // ─── Bulletins (公佈欄) ─────────────────────────────────────────────────────
@@ -1152,6 +1236,7 @@ export const getLampRegistrations = async (): Promise<LampRegistrationRecord[]> 
     source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
     email: row.email || undefined,
     confirmSentAt: row.confirm_sent_at || undefined,
+    thanksLetter: typeof row.thanks_letter === 'string' ? (row.thanks_letter || undefined) : undefined,
   }));
 };
 
@@ -1517,6 +1602,7 @@ const mapBlessingReg = (row: any): BlessingRegistrationRecord => ({
   source: row.source ?? undefined,   // 舊資料是 NULL＝早於追蹤上線
   email: row.email || undefined,
   confirmSentAt: row.confirm_sent_at || undefined,
+  thanksLetter: typeof row.thanks_letter === 'string' ? (row.thanks_letter || undefined) : undefined,
 });
 
 export const getBlessingEvents = async (activeOnly = false): Promise<BlessingEventRecord[]> => {

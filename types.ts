@@ -277,6 +277,8 @@ export interface DonationData {
 
 export interface DonationRecord extends DonationData {
   id: string;
+  /** 感謝狀編號（財務自填，填了才能標記已收款、發感謝狀）。見 components/ThanksCertificate.tsx */
+  thanksLetter?: string;
   /** 收款狀態。`undefined`＝這筆早於 `donation_payment_status.sql`，從未核對過
    *  （**不是**「還沒收到」，見 `DonationStatus`）。 */
   status?: DonationStatus;
@@ -601,6 +603,8 @@ export interface LampRegistrationData {
 
 export interface LampRegistrationRecord extends LampRegistrationData {
   id: string;
+  /** 感謝狀編號（財務自填，填了才能標記已收款、發感謝狀）。見 components/ThanksCertificate.tsx */
+  thanksLetter?: string;
   /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
    *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
    *  （見 api/notify-confirm.ts）。 */
@@ -780,6 +784,8 @@ export interface BlessingRegistrationData {
 
 export interface BlessingRegistrationRecord extends BlessingRegistrationData {
   id: string;
+  /** 感謝狀編號（財務自填，填了才能標記已收款、發感謝狀）。見 components/ThanksCertificate.tsx */
+  thanksLetter?: string;
   /** 確認信寄出的時間（ISO）。`undefined` ＝還沒寄過。
    *  廟方在後台改狀態是下拉選單、會改來改去，靠這一欄才不會每改一次就寄一封
    *  （見 api/notify-confirm.ts）。 */

@@ -528,3 +528,54 @@ select:not([multiple]):not([size]) {
   .receipt-print-root .rc-sheet-break { break-after: page; page-break-after: always; }
   @page { size: A4 portrait; margin: 0; }
 }
+
+/* ── 感謝狀（components/ThanksCertificate.tsx，2026-11-27）──────────────────
+   A4 直式，版面一律用 mm：螢幕上由元件等比縮放，列印才會剛好一頁。
+   古紙底與赭色線沿用天上聖母經的 SCROLL 色票（#EFE4C9／#8A6634），全站看起來是同一個廟。 */
+.thx-root { width: 210mm; color: #33291E; font-family: "Noto Serif TC", "思源宋體", serif; }
+.thx-root.thx-print { display: none; }
+.thx-fit { width: 100%; overflow: hidden; }
+.thx-sheet {
+  position: relative; width: 210mm; height: 297mm; box-sizing: border-box;
+  padding: 12mm; background: #F6EDD6;
+}
+.thx-screen .thx-sheet { box-shadow: 0 2px 24px rgba(0,0,0,.18); }
+.thx-frame {
+  position: relative; height: 100%; box-sizing: border-box; overflow: hidden;
+  border: 1.2mm solid #8A6634; outline: .4mm solid #8A6634; outline-offset: -3.2mm;
+  padding: 26mm 22mm 20mm; text-align: center;
+  display: flex; flex-direction: column;
+}
+.thx-orn { position: absolute; width: 62mm; opacity: .16; pointer-events: none; }
+.thx-orn-l { left: -20mm; top: -18mm; }
+.thx-orn-r { right: -20mm; top: -18mm; }
+.thx-no { position: absolute; right: 12mm; top: 9mm; font-size: 11pt; color: #5B4A34; letter-spacing: .1em; }
+.thx-no span { font-size: 14pt; font-weight: 700; color: #9B2C1C; letter-spacing: .04em; }
+.thx-title { margin: 6mm 0 0; font-size: 44pt; font-weight: 900; color: #7C5C1E; letter-spacing: .12em; line-height: 1.2; }
+.thx-rule { display: flex; align-items: center; justify-content: center; gap: 4mm; margin: 6mm 0 14mm; }
+.thx-rule span { width: 28mm; height: .4mm; background: #8A6634; }
+.thx-rule i { width: 3mm; height: 3mm; transform: rotate(45deg); background: #8A6634; }
+.thx-body { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7mm; }
+.thx-line { margin: 0; font-size: 17pt; line-height: 1.7; letter-spacing: .08em; }
+.thx-name { margin: 0; font-size: 17pt; letter-spacing: .08em; }
+.thx-name span {
+  display: inline-block; min-width: 46mm; margin-right: 3mm; padding: 0 4mm 1mm;
+  border-bottom: .4mm solid #8A6634; font-size: 26pt; font-weight: 700; color: #33291E; letter-spacing: .14em;
+}
+.thx-amount b { font-weight: 700; color: #33291E; }
+.thx-amount small { display: block; font-size: 12pt; color: #5B4A34; letter-spacing: .04em; }
+.thx-quote { margin: 4mm 0 0; font-size: 13pt; color: #5B4A34; letter-spacing: .1em; }
+.thx-foot { text-align: right; }
+.thx-temple { margin: 0; font-size: 20pt; font-weight: 700; letter-spacing: .18em; color: #33291E; }
+.thx-date { margin: 4mm 0 0; font-size: 12pt; letter-spacing: .1em; color: #5B4A34; }
+
+@media print {
+  /* 跟收據同一套：#root 已經 display:none，感謝狀是 portal 到 body 的。
+     -webkit-print-color-adjust 要開，不然古紙底色與金框會被印表機省略掉。 */
+  /* 預覽視窗是 fixed、還開著，不收掉的話它的高度會在列印時多出空白頁 */
+  .thx-modal { display: none !important; }
+  .thx-root.thx-print, .thx-root.thx-print * { visibility: visible; }
+  .thx-root.thx-print { display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* 296 不是 297：剛好等於整頁高的東西，印表機差一點點就被擠出第二張空白頁（同收據 90mm 那條） */
+  .thx-print .thx-sheet { height: 296mm; break-inside: avoid; page-break-inside: avoid; }
+}

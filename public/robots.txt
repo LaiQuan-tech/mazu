@@ -3,8 +3,9 @@
 
 User-agent: *
 Allow: /
+Disallow: /thanks/
 
-# 後台與 API 不需要被索引
+# 後台與 API 不需要被索引；/thanks/ 是信眾個人的電子感謝狀（有姓名與金額），每一組都要擋
 Disallow: /?admin=1
 Disallow: /api/
 
@@ -12,46 +13,60 @@ Disallow: /api/
 # 宮廟資訊本來就希望被問到「台北 媽祖廟」「古亭 問事」時能被引用。
 User-agent: GPTBot
 Allow: /
+Disallow: /thanks/
 
 User-agent: OAI-SearchBot
 Allow: /
+Disallow: /thanks/
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /thanks/
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /thanks/
 
 User-agent: Claude-Web
 Allow: /
+Disallow: /thanks/
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /thanks/
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /thanks/
 
 User-agent: Applebot-Extended
 Allow: /
+Disallow: /thanks/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /thanks/
 
 User-agent: Applebot
 Allow: /
+Disallow: /thanks/
 
 # Common Crawl：很多模型的訓練與檢索資料都來自它，擋掉等於從源頭消失
 User-agent: CCBot
 Allow: /
+Disallow: /thanks/
 
 User-agent: meta-externalagent
 Allow: /
+Disallow: /thanks/
 
 User-agent: Amazonbot
 Allow: /
+Disallow: /thanks/
 
 User-agent: cohere-ai
 Allow: /
+Disallow: /thanks/
 
 # 給 AI 助理的站台摘要（服務、別名、容易混淆的地方）
 # https://heshengtan.tw/llms.txt

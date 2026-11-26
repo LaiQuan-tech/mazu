@@ -276,6 +276,96 @@ const header = (req: ReqLike, name: string): string => {
   return Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
 };
 
+/**
+ * ── 電子感謝狀（kind=thanks）──
+ * 一次只發一張。內容不在這裡組：後台按「發送」時已經把看到的那一張存成快照
+ * （thanks_certificates，見那支 SQL），這裡只負責把連結送到信眾手上。
+ *
+ * 三道檢查都要過才發，任何一道不對就照實告訴後台：
+ * 1. 這筆已經收款（感謝狀是謝「已經護持」，錢還沒到就寄等於先開收據）。
+ * 2. 報名紀錄上填了感謝狀編號、而且跟快照上的一樣（財務剛改號碼卻沒重存，寄出去就是舊號）。
+ * 3. 有 LINE 或 email 可以送。
+ * LINE 優先、推不出去退回 email、成功才記 sent_at，全部走共用層的 deliver()。
+ * **不擋重發**：後台會先問「已經發過一次，確定要再發？」——信眾說沒收到時要能再送。
+ */
+const THANKS_TABLES = new Set(['lamp_registrations', 'blessing_registrations', 'donations']);
+const PAID = new Set(['已收款', '已確認', 'paid']);
+const SITE = 'https://heshengtan.tw';
+
+async function sendThanks(env: ReturnType<typeof readEnv>, table: string, id: string, res: ResLike): Promise<void> {
+  const svc = svcHeaders(env);
+  try {
+    const [rowRes, certRes] = await Promise.all([
+      fetch(`${env.supabaseUrl}/rest/v1/${table}?id=eq.${id}&select=id,name,phone,email,status,thanks_letter&limit=1`, { headers: svc }),
+      fetch(`${env.supabaseUrl}/rest/v1/thanks_certificates?source_table=eq.${table}&source_id=eq.${id}&select=*&limit=1`, { headers: svc }),
+    ]);
+    if (!certRes.ok) {
+      res.status(certRes.status === 404 ? 409 : 502).json({ ok: false, error: certRes.status === 404
+        ? '感謝狀的資料表還沒建立，請執行 supabase/migrations/thanks_certificates.sql'
+        : `讀取感謝狀失敗（${certRes.status}）` });
+      return;
+    }
+    if (!rowRes.ok) {
+      res.status(502).json({ ok: false, error: rowRes.status === 400
+        ? '這張表還沒有感謝狀編號欄位，請執行 supabase/migrations/thanks_certificates.sql'
+        : `讀取報名資料失敗（${rowRes.status}）` });
+      return;
+    }
+    const row = ((await rowRes.json()) as Row[])[0];
+    const cert = ((await certRes.json()) as Row[])[0];
+    if (!row) { res.status(404).json({ ok: false, error: '查無此筆' }); return; }
+    if (!PAID.has(clean(row.status))) { res.status(409).json({ ok: false, error: '這筆還沒標記已收款，收到款項後才能發感謝狀' }); return; }
+    const no = clean(row.thanks_letter);
+    if (!no) { res.status(409).json({ ok: false, error: '還沒填感謝狀編號' }); return; }
+    if (!cert || clean(cert.cert_no) !== no) {
+      res.status(409).json({ ok: false, error: '感謝狀編號跟預覽的那一張不一樣，請關掉視窗重新打開再發送' });
+      return;
+    }
+
+    const phone = clean(row.phone);
+    const own = clean(row.email);
+    const contacts = await lookupContacts(env, phone ? [phone] : [], {
+      wantLine: !!env.lineToken, needEmailFor: new Set(isEmail(own) || !phone ? [] : [phone]),
+    });
+    const contact = contacts.get(phone) ?? { email: '', lineId: '', isMember: false };
+    if (!(env.lineToken && contact.lineId) && !isEmail(own) && !contact.email) {
+      res.status(200).json({ ok: false, error: '這位信眾沒有綁 LINE、也沒有留 email，無法發送電子版。請改用列印紙本。' });
+      return;
+    }
+
+    const amount = Number(cert.amount) || 0;
+    const info = await siteSettings(env, ['info_address', 'info_phone']);
+    const body = [
+      '您好：',
+      `感謝 ${clean(cert.name)} 大德發心護持本壇「${clean(cert.item)}」${amount > 0 ? `（新臺幣 ${amount.toLocaleString()} 元）` : ''}，功德無量。`,
+      `本壇特頒感謝狀第 ${no} 號，以表謝忱。點下面的連結就能查看，也可以下載或列印留念：`,
+      `${SITE}/thanks/${clean(cert.id)}`,
+      ...(clean(cert.thanks_text) ? ['', clean(cert.thanks_text)] : []),
+    ].join('\n');
+
+    const { sentIds, results } = await deliver(env, [{
+      ids: [id], contact, ownEmail: own,
+      subject: `[和聖壇] 感謝狀第 ${no} 號`, body, mailTail: mailSignature(info),
+    }]);
+    if (sentIds.length === 0) {
+      res.status(502).json({ ok: false, error: results[0]?.error || '發送失敗', 結果: results });
+      return;
+    }
+    const via = results.find(x => !x.error)?.via === 'line' ? 'line' : 'email';
+    const sentAt = new Date().toISOString();
+    const st = await fetch(`${env.supabaseUrl}/rest/v1/thanks_certificates?id=eq.${clean(cert.id)}`, {
+      method: 'PATCH',
+      headers: { ...svc, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ sent_at: sentAt, sent_via: via }),
+    });
+    res.status(200).json({ ok: true, via, sentAt, 結果: results,
+      ...(st.ok ? {} : { 警告: '已經發出去了，但發送時間沒記進資料庫' }) });
+  } catch (e) {
+    console.error('thanks error', e);
+    res.status(500).json({ ok: false, error: '發送感謝狀失敗' });
+  }
+}
+
 export default async function handler(req: ReqLike, res: ResLike): Promise<void> {
   /**
    * 設定一次讀齊（共用層的 readEnv）。`lineToken` 沒設就整個不推 LINE、email 照常
@@ -329,11 +419,14 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
    */
   const payinfo = clean(body?.kind) === 'payinfo';
   const proxy = clean(body?.kind) === 'proxy';
+  /** `kind=thanks`：後台按「發送給信眾」把電子感謝狀的連結發出去（廟方 2026-11-27） */
+  const thanks = clean(body?.kind) === 'thanks';
   const stampCol = payinfo ? 'payinfo_sent_at' : 'confirm_sent_at';
   const ids = (Array.isArray(body?.id) ? body!.id as string[] : [clean(body?.id)])
     .filter(x => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x))
     .slice(0, MAX_IDS);
-  if (!spec || ids.length === 0 || (payinfo && !spec.payinfo) || (proxy && (!spec.proxy || ids.length !== 1))) {
+  if (!spec || ids.length === 0 || (payinfo && !spec.payinfo) || (proxy && (!spec.proxy || ids.length !== 1))
+      || (thanks && (!THANKS_TABLES.has(table) || ids.length !== 1))) {
     res.status(400).json({ ok: false, error: '參數不正確' });
     return;
   }
@@ -344,7 +437,8 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
    * 那條路的防線是下面的「建立未滿 NOTIFY_WINDOW_MIN 分鐘」＋ confirm_sent_at 蓋章。
    * 其餘幾種是廟方確認後才寄的，一律要管理員——不然猜中 UUID 就能對特定人寄信。
    */
-  if (!spec.open && !payinfo) {
+  // 感謝狀一律要管理員——捐獻那張表平常是公開的，但發感謝狀是廟方的動作
+  if (thanks || (!spec.open && !payinfo)) {
     const auth = header(req, 'authorization');
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (!token) {
@@ -371,6 +465,8 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
   }
 
   const svc = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+
+  if (thanks) { await sendThanks(env, table, ids[0], res); return; }
 
   try {
     // service role 繞過 RLS（報名表的 RLS 不讓一般角色讀）
@@ -585,7 +681,7 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
         '',
         payinfo ? spec.payinfo!.intro(rows.length) : spec.intro(rows.length),
         '',
-        ...rows.map(x => `・${spec.line(x, ctx)}`),
+        ...rows.map(x => `・${spec.line(x, ctx)}${clean(x.thanks_letter) ? `（感謝狀第 ${clean(x.thanks_letter)} 號）` : ''}`),
         /**
          * 多筆才印合計，而且**每一筆都算得出金額才印**。
          * 少算一筆的「合計」比沒有合計糟：信眾會拿它去對自己匯的金額，對不上就要打電話。

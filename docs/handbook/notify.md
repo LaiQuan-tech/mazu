@@ -98,3 +98,9 @@
   **LINE 那則不要署名、不要「請勿回覆」、不要邀請入會**：官方帳號的對話框本來就知道是誰傳的、而且可以回覆；而收得到推播就表示他用 LINE 登入過、**本來就是會員**。本文兩邊共用一份（`bodyOf`），差別只在 email 的信尾（`mailTail`）。
   **`LINE_CHANNEL_ACCESS_TOKEN` 沒設就整個不推、email 照常**——LINE 是加分的那一層，不是必要條件。那是 Messaging API channel 的權杖（不是 Channel secret、不是 Login channel 的），**不加 `VITE_` 前綴**。
   **覆蓋率現在幾乎是零**：要用 LINE 登入過（才有 userId）又要加了官方帳號好友，而 LINE 登入 2026-10-13 才上線、報名又根本不需要帳號。推播另外要算官方帳號方案的訊息則數。
+
+
+## 電子感謝狀 kind=thanks（2026-11-27）
+
+`POST /api/notify-confirm {table, id:[一筆], kind:'thanks'}`，table 限 lamp_registrations／blessing_registrations（法會也是這張）／donations。一律要管理員。
+檢查：已收款、報名紀錄上有編號、而且等於 thanks_certificates 快照上的編號（不一致回 409 要後台重開視窗）。走 deliver()：LINE 優先、推不出去退回 email、都沒有回「請改印紙本」。成功記 thanks_certificates.sent_at／sent_via。**不擋重發**（後台會先問）。細節見 admin-finance.md「感謝狀」。

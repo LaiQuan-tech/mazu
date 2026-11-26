@@ -88,3 +88,17 @@
   **經手人記在 localStorage**：`admin_profiles` 沒有姓名欄位（只有 user_id 與 role），auth 的信箱又不是人名。每天開幾十張，每張重打姓名不合理。那是「這台電腦前面坐的是誰」，不是廟方的設定，所以不進資料庫。
 
   **收據的廟方欄位（感謝詞／寺廟登記證／統編／簽章頭銜）走 `site_settings`，不塞進 `SiteInfo`**：那一份是給 schema.org、頁尾與地圖用的，多塞幾個只有收據會用到的欄位，等於讓每一個讀 `SiteInfo` 的地方都要繞過它們。沒填就留白——收據上印一個假號碼比留白糟。
+
+
+## 感謝狀（2026-11-27）
+
+廟方：法會、點燈、祈福、捐獻都要有感謝狀，後台可預覽、列印紙本、發電子版；「感謝狀編號都是自填好了，要填好才能發送」。
+
+- **編號財務自填，不自動配號**。存在各報名表的 `thanks_letter`（點燈、捐獻由 `thanks_certificates.sql` 新增；祈福與法會共用 blessing_registrations 早就有）。訪客送出報名時 public_insert_guard 一律清成 NULL。
+- **沒填編號不能標記已收款**：`PaymentActions` 的 `needThanksNo`，加上四個 handler 與應收管理的 `setPayState` 各再擋一次（應收那顆不走 PaymentActions）。法會的編號欄從展開區的對帳資料搬到列上，同一欄不出現兩次。
+- **沒收款不能發送**。發送是後台的動作，`/api/notify-confirm` 的 `kind=thanks` 一律驗管理員（捐獻平常是公開的那條路也一樣）。
+- 一份版面三種用途：`components/ThanksCertificate.tsx`（後台預覽、紙本列印、信眾電子版）。後台元件 `components/AdminThanks.tsx` 的 `<ThanksCell>`，五個地方共用。
+- **內容是快照、存在另一張表 `thanks_certificates`**（只有 is_admin 寫得進去）。不存在報名表上，是因為報名表的 INSERT 對訪客開放，存在那裡等於讓人自己造一張「和聖壇頒發」的假感謝狀。列印、複製連結、發送前都會先 upsert 一次（同一筆報名同一個 id，連結不變）。
+- 信眾的電子版：`/thanks/<uuid>`，`index.tsx` 直接掛 `ThanksPublicPage`、不掛整個網站；讀 RPC `get_thanks_certificate`（anon 可執行，只回印在狀上的字）。noindex，robots.txt 每一組都 Disallow /thanks/（爬蟲只看最符合自己的那一組，只寫在 * 擋不到 GPTBot）。
+- 沒有畫印章：紙本由廟方親自用印，電子版畫假的印反而像偽造。
+- 確認通知（已收款那封）每一行後面會帶「（感謝狀第 N 號）」。
