@@ -266,7 +266,7 @@ const AdminAccountingAccountsTab: React.FC<{ onChanged?: () => void }> = ({ onCh
                   <button
                     onClick={() => removeItem(a)} disabled={busy}
                     aria-label="刪除此科目"
-                    className="p-2 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -280,7 +280,7 @@ const AdminAccountingAccountsTab: React.FC<{ onChanged?: () => void }> = ({ onCh
 
           <button
             onClick={() => add(null)} disabled={busy}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-gold/60 text-[#7C5C1E] text-sm font-medium hover:bg-temple-gold/10 transition-colors disabled:opacity-50"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-red/40 text-temple-red text-sm font-medium hover:bg-temple-red/5 transition-colors disabled:opacity-50"
           >
             <Plus className="w-4 h-4" /> 新增項目
           </button>

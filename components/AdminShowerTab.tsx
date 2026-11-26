@@ -238,7 +238,7 @@ const AdminShowerTab: React.FC = () => {
           </div>
 
           <button type="button" onClick={add} disabled={busy}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50">
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310] disabled:opacity-50">
             <Plus className="w-4 h-4" aria-hidden="true" />新增沐浴車
           </button>
         </>

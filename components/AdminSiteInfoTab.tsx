@@ -119,7 +119,7 @@ const AdminSiteInfoTab: React.FC = () => {
 
         <div className="flex items-center gap-3 pt-2">
           <button type="button" onClick={save} disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50">
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310] disabled:opacity-50">
             <Save className="w-4 h-4" /> {saving ? '儲存中…' : '儲存'}
           </button>
           {saved && <span className="text-sm text-green-600">已儲存，網站上立刻生效。</span>}
@@ -139,7 +139,7 @@ const AdminSiteInfoTab: React.FC = () => {
         </p>
         <div className="flex items-center gap-3 flex-wrap">
           <button type="button" onClick={doRepublish} disabled={republish === 'sending'}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-gold text-temple-dark text-sm font-medium hover:bg-temple-gold/10 disabled:opacity-50">
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-red/40 text-temple-red text-sm font-medium hover:bg-temple-red/5 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${republish === 'sending' ? 'animate-spin' : ''}`} />
             {republish === 'sending' ? '發布中…' : '重新發布'}
           </button>

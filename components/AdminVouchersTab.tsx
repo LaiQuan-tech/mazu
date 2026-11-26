@@ -181,11 +181,11 @@ const AdminVouchersTab: React.FC = () => {
 
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => addVoucher('expense')} disabled={busy}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-gold/60 text-[#7C5C1E] text-sm font-medium hover:bg-temple-gold/10 transition-colors disabled:opacity-50">
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-red/40 text-temple-red text-sm font-medium hover:bg-temple-red/5 transition-colors disabled:opacity-50">
             <Plus className="w-4 h-4" /> 支出
           </button>
           <button onClick={() => addVoucher('income')} disabled={busy}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310] transition-colors disabled:opacity-50">
             <Plus className="w-4 h-4" /> 收入
           </button>
         </div>

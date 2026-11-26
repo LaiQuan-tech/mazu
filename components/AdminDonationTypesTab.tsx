@@ -102,7 +102,7 @@ const TypeRow: React.FC<RowProps> = ({
         title={usedCount > 0 ? '已有捐款紀錄使用這個類別，請改用隱藏' : '刪除這個類別'}
         onClick={onDelete}
         disabled={busy}
-        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50 shrink-0"
+        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 shrink-0"
       >
         <Trash2 className="w-4 h-4" />
       </button>
@@ -284,7 +284,7 @@ const AdminDonationTypesTab: React.FC<{ donations: DonationRecord[]; onRefresh: 
               </div>
 
               <button type="button" onClick={add} disabled={busy}
-                className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-temple-red text-white text-xs font-medium hover:bg-[#5C1A04] disabled:opacity-50">
+                className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-temple-red text-white text-xs font-medium hover:bg-[#5C4310] disabled:opacity-50">
                 <Plus className="w-3.5 h-3.5" /> 新增類別
               </button>
             </>

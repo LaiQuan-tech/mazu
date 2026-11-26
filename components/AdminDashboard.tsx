@@ -84,7 +84,7 @@ const PaymentActions = <T extends string>({ status, pending, confirmed, cancelle
         <>
           <button onClick={() => onChange(isPaid ? pending : confirmed)} disabled={busy}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-              isPaid ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-600 text-white hover:bg-green-700'
+              isPaid ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-temple-red text-white hover:bg-[#5C4310]'
             }`}>
             {isPaid ? '改回待匯款' : '標記已收款'}
           </button>
@@ -119,8 +119,7 @@ const BookingActions = ({ status, busy, onChange }: {
   return (
     <div className="flex items-center gap-1">
       <button onClick={() => onChange(isConfirmed ? BookingStatus.COMPLETED : BookingStatus.CONFIRMED)} disabled={busy}
-        className={`px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50 whitespace-nowrap ${
-          isConfirmed ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+        className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-temple-red hover:bg-[#5C4310] transition-colors disabled:opacity-50 whitespace-nowrap">
         {isConfirmed ? '標記已完成' : '確認預約'}
       </button>
       <button onClick={() => onChange(BookingStatus.CANCELLED)} disabled={busy}
@@ -1548,7 +1547,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
             已校正 {overrides.length}
           </button>
           <button onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-[#7C5C1E] text-white rounded-lg text-sm hover:bg-[#5C441A] transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-temple-red/40 text-temple-red rounded-lg text-sm hover:bg-temple-red/5 transition-colors">
             <Download className="w-4 h-4" /> 匯出名冊
           </button>
         </div>
@@ -1751,7 +1750,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                                 if (from) setCompare({ from, to: r });
                               }}
                               disabled={busy}
-                              className="text-xs px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-40">
+                              className="text-xs px-2 py-1 rounded-lg border border-temple-red/40 text-temple-red hover:bg-temple-red/5 disabled:opacity-40">
                               比對併入
                             </button>
                       ) : (
@@ -1844,7 +1843,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                       </p>
                       {!forceSplit && (
                         <button onClick={() => setForceSplit(true)}
-                          className="mt-1.5 text-xs underline text-green-700 hover:text-green-900">
+                          className="mt-1.5 text-xs underline text-temple-red hover:text-[#5C4310]">
                           其實是兩個不同的人？依生日拆開比對
                         </button>
                       )}
@@ -1873,7 +1872,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                         <span className="text-xs text-gray-400">{g.records.length} 筆</span>
                         {g.key && (
                           <button onClick={() => doSplit(inspect, g.key)} disabled={busy}
-                            className="ml-auto text-xs px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40">
+                            className="ml-auto text-xs px-2.5 py-1 rounded-lg border border-temple-red/40 text-temple-red hover:bg-temple-red/5 disabled:opacity-40">
                             拆分，未填生日者歸這位
                           </button>
                         )}
@@ -1886,7 +1885,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                 <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-2 flex-wrap">
                   {inspect.nameConflict && (
                     <button onClick={() => { confirmSame(inspect); setInspect(null); }} disabled={busy}
-                      className="px-4 py-2 rounded-lg text-sm border border-green-300 text-green-700 hover:bg-green-50 disabled:opacity-40">
+                      className="px-4 py-2 rounded-lg text-sm border border-temple-red/40 text-temple-red hover:bg-temple-red/5 disabled:opacity-40">
                       確認是同一人（消除警示）
                     </button>
                   )}
@@ -1937,7 +1936,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
 
               <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-2">
                 <button onClick={() => doMerge(compare.from, compare.to)} disabled={busy}
-                  className="px-5 py-2 rounded-lg text-sm bg-temple-red text-white hover:bg-[#5C1A04] disabled:opacity-40">
+                  className="px-5 py-2 rounded-lg text-sm bg-temple-red text-white hover:bg-[#5C4310] disabled:opacity-40">
                   {busy ? '處理中…' : `確認合併為「${compare.to.name}」`}
                 </button>
                 <button onClick={() => setCompare(null)} className="px-4 py-2 rounded-lg text-sm bg-gray-100 text-gray-600 hover:bg-gray-200">
@@ -2049,7 +2048,7 @@ const FahuiEntriesEditor = ({ r, onSaved }: { r: FahuiRegistrationRecord; onSave
 
       <div className="flex items-center gap-2">
         <button onClick={save} disabled={saving}
-          className="px-4 py-2 rounded-lg bg-[#C49820] text-white text-sm font-medium hover:bg-[#A87F16] transition-colors disabled:opacity-50">
+          className="px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310] transition-colors disabled:opacity-50">
           {saving ? '儲存中…' : '儲存修改'}
         </button>
         <span className="text-xs text-gray-400">修改會直接覆寫報名資料，並反映在匯出的表單</span>
@@ -2301,7 +2300,7 @@ const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiReg
         <span className="text-gray-400">匯出</span>
         {([['法會表單（分頁）', handleExportWorkbook], ['完整報名表', handleExportTemplate], ['對帳總表', handleExportSummary], ['牌位明細', handleExportDetail]] as const).map(([label, fn]) => (
           <button key={label} onClick={fn}
-            className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:border-temple-red hover:text-temple-red transition-colors">
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-temple-red/40 rounded-lg text-temple-red hover:bg-temple-red/5 transition-colors">
             <Download className="w-3.5 h-3.5" /> {label}
           </button>
         ))}
@@ -2353,12 +2352,12 @@ const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiReg
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => handleStatusToggle(r)} disabled={busyId === r.id}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                        r.status === 'paid' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-600 text-white hover:bg-green-700'
+                        r.status === 'paid' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-temple-red text-white hover:bg-[#5C4310]'
                       }`}>
                       {r.status === 'paid' ? '改回待匯款' : '標記已收款'}
                     </button>
                     <button onClick={() => handleDelete(r)} disabled={busyId === r.id}
-                      className="p-1.5 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50">
+                      className="p-1.5 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -2380,7 +2379,7 @@ const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiReg
                       </p>
                       <button
                         onClick={() => setEditingId(editingId === r.id ? null : r.id)}
-                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-[#C49820]/50 text-[#7C5C1E] hover:bg-[#C49820]/10 transition-colors"
+                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-temple-red/40 text-temple-red hover:bg-temple-red/5 transition-colors"
                       >
                         {editingId === r.id ? '取消編輯' : '編輯報名內容'}
                       </button>
@@ -2514,7 +2513,7 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
           <span className="ml-2 text-sm font-normal text-gray-400">共 {filtered.length} 筆</span>
         </h2>
         <button onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-temple-red/40 text-temple-red rounded-lg text-sm hover:bg-temple-red/5 transition-colors">
           <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
@@ -2575,12 +2574,12 @@ const VolunteerTab = ({ registrations, onRefresh }: { registrations: VolunteerRe
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => handleStatusToggle(r)} disabled={busyId === r.id}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                    r.status === 'contacted' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-600 text-white hover:bg-green-700'
+                    r.status === 'contacted' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-temple-red text-white hover:bg-[#5C4310]'
                   }`}>
                   {r.status === 'contacted' ? '改回待聯絡' : '標記已聯絡'}
                 </button>
                 <button onClick={() => handleDelete(r)} disabled={busyId === r.id}
-                  className="p-1.5 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50">
+                  className="p-1.5 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -3028,7 +3027,7 @@ const OverviewTab = ({
                 {/* 按鈕的字要說出「會發生什麼事」（廟方 2026-10-16 定名「寄送提醒通知」） */}
                 <button type="button" onClick={() => void runReminders()} disabled={remindBusy || remindTotal === 0}
                   title={`寄給下面那 ${remindTotal} 位（寄過的不會再寄一次）`}
-                  className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C4310] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   寄送提醒通知
                 </button>
               </div>
@@ -3450,7 +3449,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             <CalendarClock className="w-5 h-5 text-temple-red" /> 場次管理
           </h3>
           <button onClick={() => setShowSessionForm(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C4310] transition-colors">
             <Plus className="w-4 h-4" /> 新增場次
           </button>
         </div>
@@ -3475,7 +3474,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
             </div>
             <div className="flex items-end">
               <button onClick={handleAddSession} disabled={savingSession || !newSessionDate}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 transition-colors">
+                className="w-full px-4 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C4310] disabled:opacity-50 transition-colors">
                 {savingSession ? '儲存中...' : '確認新增'}
               </button>
             </div>
@@ -3510,7 +3509,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                   </div>
                   <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
                     <button onClick={() => openSessionList(s.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors">
                       <List className="w-3.5 h-3.5" /> 預約名單
                     </button>
                     <button onClick={() => handleToggleSession(s)}
@@ -3555,7 +3554,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                       )}
                     </div>
                     <button onClick={() => openSessionList(NO_SESSION)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors">
                       <List className="w-3.5 h-3.5" /> 預約名單
                     </button>
                   </div>
@@ -3584,7 +3583,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
           <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{pendingBySession[filterSession]} 待處理</span>
         )}
         <button onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-temple-red/40 text-temple-red rounded-lg text-sm hover:bg-temple-red/5 transition-colors">
           <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
@@ -3764,7 +3763,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                 取消
               </button>
               <button onClick={handleSaveDivine} disabled={divineSaving}
-                className="flex-1 px-4 py-2 bg-temple-gold text-white rounded-lg text-sm hover:bg-temple-gold/90 disabled:opacity-50 transition-colors font-medium">
+                className="flex-1 px-4 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C4310] disabled:opacity-50 transition-colors font-medium">
                 {divineSaving ? '儲存中...' : '儲存'}
               </button>
             </div>
@@ -3898,7 +3897,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
             </button>
             <button onClick={() => sendStatement(false)} disabled={stmtBusy}
               title="把這一年的捐獻明細寄給每一位捐款人（LINE 或 email）"
-              className="flex items-center gap-1.5 px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-2 bg-temple-red text-white rounded-lg text-sm hover:bg-[#5C4310] transition-colors disabled:opacity-50">
               <Send className="w-4 h-4" /> 寄年度明細
             </button>
           </div>
@@ -3929,7 +3928,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
               </div>
             </div>
             <button onClick={() => openType(t)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors">
               <List className="w-3.5 h-3.5" /> 捐款名單
             </button>
           </div>
@@ -3954,7 +3953,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
           <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{typeStats.find(([t]) => t === filterType)![1].pending} 待匯款</span>
         )}
         <button onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-temple-red/40 text-temple-red rounded-lg text-sm hover:bg-temple-red/5 transition-colors">
           <Download className="w-4 h-4" /> 匯出 Excel
         </button>
       </div>
@@ -4829,7 +4828,7 @@ const AnalyticsTab = () => {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] disabled:opacity-50 transition-colors"
         >
           {saving ? '儲存中…' : '儲存設定'}
         </button>
@@ -4927,7 +4926,7 @@ const SocialTab = () => {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] disabled:opacity-50 transition-colors"
         >
           {saving ? '儲存中…' : '儲存設定'}
         </button>
@@ -5119,7 +5118,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red" />
         </div>
         <button onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors shadow-sm">
+          className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] transition-colors shadow-sm">
           <Plus className="w-4 h-4" /> 新增公告
         </button>
       </div>
@@ -5168,7 +5167,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                 </td>
                 <td data-label="操作" className="px-5 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => openEdit(b)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onClick={() => openEdit(b)} className="p-1.5 text-temple-red hover:bg-temple-red/5 rounded-lg transition-colors">
                       <Edit2 className="w-4 h-4" />
                     </button>
                     {/* 群發：發過的就變成灰色標記、按不下去（真正的防線在後端的蓋章） */}
@@ -5183,7 +5182,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
                       </button>
                     )}
                     <button onClick={() => handleDelete(b.id)} disabled={deletingId === b.id}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -5278,7 +5277,7 @@ const BulletinsTab = ({ bulletins, onRefresh }: { bulletins: BulletinRecord[]; o
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C4310] transition-colors disabled:opacity-50">
                 <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : '儲存'}
               </button>
@@ -5422,7 +5421,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
           <h3 className="text-lg font-bold text-gray-800 mb-1">神明管理</h3>
           <p className="text-sm text-gray-500">管理前台「神明介紹」區塊的神明資料。</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors">
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] transition-colors">
           <Plus className="w-4 h-4" /> 新增神明
         </button>
       </div>
@@ -5433,7 +5432,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
           <h4 className="text-sm font-semibold text-gray-700">殿管理</h4>
           {!addingHall && (
             <button onClick={() => setAddingHall(true)}
-              className="flex items-center gap-1 text-xs px-3 py-1.5 bg-temple-red/10 text-temple-red rounded-lg hover:bg-temple-red/20 transition-colors">
+              className="flex items-center gap-1 text-xs px-3 py-1.5 bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors">
               <Plus className="w-3 h-3" /> 新增殿
             </button>
           )}
@@ -5447,7 +5446,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                     onKeyDown={e => { if (e.key === 'Enter') handleUpdateHall(h.id); if (e.key === 'Escape') setEditingHallId(null); }}
                     className="text-sm border border-gray-300 rounded px-2 py-0.5 w-24 focus:outline-none focus:ring-1 focus:ring-temple-red/40" />
                   <button onClick={() => handleUpdateHall(h.id)} disabled={savingHall}
-                    className="text-xs text-green-600 hover:text-green-800 font-medium disabled:opacity-40">確認</button>
+                    className="text-xs text-temple-red hover:text-[#5C4310] font-medium disabled:opacity-40">確認</button>
                   <button onClick={() => setEditingHallId(null)} className="text-xs text-gray-400 hover:text-gray-600">取消</button>
                 </>
               ) : (
@@ -5456,7 +5455,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                   <button onClick={() => { setEditingHallId(h.id); setEditingHallName(h.name); }}
                     className="text-gray-400 hover:text-blue-500 transition-colors"><Edit2 className="w-3 h-3" /></button>
                   <button onClick={() => handleDeleteHall(h.id, h.name)}
-                    className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                    className="text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="w-3 h-3" /></button>
                 </>
               )}
             </div>
@@ -5470,7 +5469,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                 onKeyDown={e => { if (e.key === 'Enter') handleAddHall(); if (e.key === 'Escape') setAddingHall(false); }}
                 placeholder="殿名稱" className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 w-32 focus:outline-none focus:ring-1 focus:ring-temple-red/40" />
               <button onClick={handleAddHall} disabled={savingHall || !newHallName.trim()}
-                className="text-xs px-3 py-1.5 bg-temple-red text-white rounded-lg hover:bg-[#5C1A04] disabled:opacity-40 transition-colors">新增</button>
+                className="text-xs px-3 py-1.5 bg-temple-red text-white rounded-lg hover:bg-[#5C4310] disabled:opacity-40 transition-colors">新增</button>
               <button onClick={() => { setAddingHall(false); setNewHallName(''); }}
                 className="text-xs text-gray-400 hover:text-gray-600">取消</button>
             </div>
@@ -5541,8 +5540,8 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
                     className={`transition-colors disabled:opacity-40 ${d.isVisible ? 'text-gray-400 hover:text-orange-500' : 'text-orange-500 hover:text-gray-400'}`}>
                     {d.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
-                  <button onClick={() => openEdit(d)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(d.id, d.name)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => openEdit(d)} className="p-1.5 text-temple-red hover:bg-temple-red/5 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(d.id, d.name)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </td>
                 <RowMoreCell open={deityRows.isOpen(d.id)} onToggle={() => deityRows.toggle(d.id)} hint="殿、尊稱" />
               </tr>
@@ -5633,7 +5632,7 @@ const DeitiesTab = ({ deities, halls, onRefresh }: { deities: DeityRecord[]; hal
               <button onClick={() => setShowModal(false)} disabled={saving}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving || !form.name.trim() || !form.description.trim()}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C4310] transition-colors disabled:opacity-50">
                 <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : (editingId ? '更新' : '新增')}
               </button>
@@ -5701,7 +5700,7 @@ const HeroSlidesSection = ({ slides, onRefresh }: { slides: HeroSlideRecord[]; o
           <p className="text-xs text-gray-400 mt-0.5">自動每 5 秒切換，至少上傳 2 張才會開始輪播</p>
           <p className="text-xs text-gray-400">建議尺寸：1920 × 1080 px（橫式 16:9）・JPG、PNG、WebP，最大 5MB</p>
         </div>
-        <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400' : 'bg-temple-red text-white hover:bg-[#5C1A04]'}`}>
+        <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400' : 'bg-temple-red text-white hover:bg-[#5C4310]'}`}>
           {uploading ? <><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</> : <><Upload className="w-4 h-4" /> 新增投影片</>}
           <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
@@ -5858,7 +5857,7 @@ const PhotosTab = ({ siteImages, heroSlides, onRefresh }: { siteImages: SiteImag
                         </div>
                         <div className="flex gap-2">
                           <button onClick={handleUpload} disabled={isUploading}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] transition-colors disabled:opacity-50">
                             {isUploading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> 上傳中...</>) : (<><Upload className="w-4 h-4" /> 確認上傳</>)}
                           </button>
                           <button onClick={handleCancelPreview} disabled={isUploading}
@@ -6055,7 +6054,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
                 <td data-label="操作" className="px-4 py-3 text-center">
                   <button
                     onClick={() => openEdit(v)}
-                    className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                    className="p-1.5 rounded-lg text-temple-red hover:bg-temple-red/5 transition-colors"
                     title="編輯"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -6167,7 +6166,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 text-sm text-white bg-temple-red rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 text-sm text-white bg-temple-red rounded-lg hover:bg-[#5C4310] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : '儲存'}
@@ -6406,7 +6405,7 @@ const LampsTab = ({
             </div>
             <button
               onClick={openAddConfig}
-              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C1A04] transition-colors whitespace-nowrap shrink-0"
+              className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-[#5C4310] transition-colors whitespace-nowrap shrink-0"
             >
               <Plus className="w-4 h-4" /> 新增服務
             </button>
@@ -6476,7 +6475,7 @@ const LampsTab = ({
                           </span>
                         )}
                         <button onClick={() => openRegs(c)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors">
                           <List className="w-3.5 h-3.5" /> 報名名單
                         </button>
                       </div>
@@ -6485,7 +6484,7 @@ const LampsTab = ({
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => openEditConfig(c)}
-                          className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                          className="p-1.5 rounded-lg text-temple-red hover:bg-temple-red/5 transition-colors"
                           title="編輯"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -6493,7 +6492,7 @@ const LampsTab = ({
                         <button
                           onClick={() => handleDeleteConfig(c.id)}
                           disabled={deletingId === c.id}
-                          className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                           title="刪除"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -6547,7 +6546,7 @@ const LampsTab = ({
               }))} />
             <button
               onClick={exportRegsExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-temple-red/40 text-temple-red rounded-lg text-sm font-medium hover:bg-temple-red/5 transition-colors"
             >
               <Download className="w-4 h-4" /> 匯出 Excel
             </button>
@@ -6608,7 +6607,7 @@ const LampsTab = ({
                   />
                   <button
                     onClick={() => handleDeleteReg(r.id)}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                     title="刪除"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -6769,7 +6768,7 @@ const LampsTab = ({
               <button
                 onClick={handleSaveConfig}
                 disabled={savingConfig}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C4310] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {savingConfig ? '儲存中...' : '儲存'}
@@ -7138,7 +7137,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
               <input value={regSearch} onChange={e => setRegSearch(e.target.value)}
                 placeholder="搜尋姓名、電話…" className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-temple-red" />
             </div>
-            <button onClick={exportRegs} className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button onClick={exportRegs} className="flex items-center gap-2 px-3 py-2 text-sm bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors">
               <Download className="w-4 h-4" /> 匯出 Excel
             </button>
           </div>
@@ -7230,7 +7229,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                       <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
                       <td data-label="操作" className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleDeleteReg(r.id)} disabled={deletingRegId === r.id}
-                          className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40">
+                          className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-40">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
@@ -7358,7 +7357,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                           </div>
                           <button type="button"
                             onClick={() => setForm(f => ({ ...f, packages: f.packages.filter((_, i) => i !== idx) }))}
-                            className="text-red-400 hover:text-red-600 transition-colors shrink-0 mt-0.5">
+                            className="text-gray-400 hover:text-red-600 transition-colors shrink-0 mt-0.5">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -7430,7 +7429,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                           </span>
                           <button type="button"
                             onClick={() => setForm(f => ({ ...f, addons: (f.addons || []).filter((_, i) => i !== idx) }))}
-                            className="text-red-400 hover:text-red-600 transition-colors shrink-0">
+                            className="text-gray-400 hover:text-red-600 transition-colors shrink-0">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -7462,8 +7461,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                         onClick={() => toggleOfferingPreset(name)}
                         aria-pressed={on}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs transition-colors ${
-                          on ? 'bg-orange-100 border-orange-300 text-orange-800 font-medium'
-                             : 'bg-white border-gray-300 text-gray-600 hover:border-orange-300 hover:text-orange-700'}`}>
+                          on ? 'bg-temple-gold/20 border-temple-gold text-temple-red font-medium'
+                             : 'bg-white border-gray-300 text-gray-600 hover:border-temple-gold hover:text-temple-red'}`}>
                         {/* 方框／打勾用圖示而不是真的 checkbox：整顆要能點，
                             真的 input 會讓點標籤與點方框變成兩種行為 */}
                         {on ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 border border-current rounded-[3px]" />}
@@ -7505,7 +7504,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                             className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400" />
                           <button type="button"
                             onClick={() => setForm(f => ({ ...f, offerings: (f.offerings || []).filter((_, i) => i !== idx) }))}
-                            className="text-red-400 hover:text-red-600 transition-colors shrink-0">
+                            className="text-gray-400 hover:text-red-600 transition-colors shrink-0">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -7560,7 +7559,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 mt-4">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C4310] transition-colors disabled:opacity-50">
                 <Save className="w-4 h-4" />
                 {saving ? '儲存中…' : '儲存'}
               </button>
@@ -7573,7 +7572,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
         <h2 className="text-xl font-bold text-gray-800">祈福管理
           <span className="ml-2 text-sm font-normal text-gray-400">{events.length} 個活動</span>
         </h2>
-        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-temple-red/90 transition-colors">
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white text-sm font-semibold rounded-xl hover:bg-[#5C4310] transition-colors">
           <Plus className="w-4 h-4" /> 新增祈福活動
         </button>
       </div>
@@ -7639,15 +7638,15 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                 </div>
                 {/* 手機：獨佔一行，左邊報名名單、右邊編輯刪除與上下移；桌機維持排在列尾 */}
                 <div className="w-full lg:w-auto flex items-center justify-between lg:justify-start gap-2 shrink-0 border-t border-dashed border-gray-100 pt-3 lg:border-0 lg:pt-0">
-                  <button onClick={() => viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
+                  <button onClick={() => viewRegs(e)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-temple-red/40 text-temple-red rounded-lg hover:bg-temple-red/5 transition-colors whitespace-nowrap">
                     <List className="w-3.5 h-3.5" /> 報名名單
                   </button>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => openEdit(e)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" aria-label="編輯">
+                    <button onClick={() => openEdit(e)} className="p-1.5 text-temple-red hover:bg-temple-red/5 rounded-lg transition-colors" aria-label="編輯">
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
-                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" aria-label="刪除">
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" aria-label="刪除">
                       <Trash2 className="w-4 h-4" />
                     </button>
                     {/* 手機沒有拖拉：HTML5 的 drag 事件在觸控裝置不會觸發，改用上下鍵搬移 */}
@@ -7748,7 +7747,7 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
           <p className="text-xs text-gray-400 mt-0.5">管理需要樂捐修復的神尊，信眾捐獻時可指定專案</p>
         </div>
         <button onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C4310] transition-colors">
           <Plus className="w-4 h-4" /> 新增修復專案
         </button>
       </div>
@@ -7810,16 +7809,16 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
                     className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${
                       proj.isActive
                         ? 'text-gray-500 border-gray-200 hover:bg-gray-100'
-                        : 'text-green-600 border-green-200 hover:bg-green-50'
+                        : 'text-temple-red border-temple-red/40 hover:bg-temple-red/5'
                     }`}>
                     {proj.isActive ? '下架' : '啟用'}
                   </button>
                   <button onClick={() => openEdit(proj)} title="編輯"
-                    className="p-2 text-blue-500 border border-blue-100 rounded-lg hover:bg-blue-50 transition-colors">
+                    className="p-2 text-temple-red border border-temple-red/40 rounded-lg hover:bg-temple-red/5 transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(proj.id)} disabled={deletingId === proj.id} title="刪除"
-                    className="p-2 text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                    className="p-2 text-gray-400 border border-gray-200 rounded-lg hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -7906,7 +7905,7 @@ const RepairProjectsTab = ({ onRefresh }: { onRefresh: () => void }) => {
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
               <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2 bg-temple-red text-white text-sm font-medium rounded-lg hover:bg-[#5C4310] transition-colors disabled:opacity-50">
                 <Save className="w-4 h-4" />
                 {saving ? '儲存中...' : '儲存'}
               </button>
@@ -8254,7 +8253,7 @@ const ReceivablesTab: React.FC<{
         {(['work', 'receipts'] as const).map(k => (
           <button key={k} onClick={() => setView(k)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              view === k ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+              view === k ? 'bg-temple-red text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
             }`}>
             {k === 'work' ? '待辦清單' : `收據 ${receipts.length}`}
           </button>
@@ -8293,7 +8292,7 @@ const ReceivablesTab: React.FC<{
               return (
                 <button key={key} onClick={() => setFilter(key)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    filter === key ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    filter === key ? 'bg-temple-red text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}>{label}</button>
               );
             })}
@@ -8324,7 +8323,7 @@ const ReceivablesTab: React.FC<{
             title={pickedRows.length === 0 ? '先勾選左邊的方框選取要開收據的項目' : ''}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
               pickedRows.length > 0
-                ? 'bg-temple-red text-white hover:bg-temple-red/90'
+                ? 'bg-temple-red text-white hover:bg-[#5C4310]'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}>
             開立收據{pickedGroups.length > 1 ? ` ${pickedGroups.length} 張`
@@ -8421,7 +8420,7 @@ const ReceivablesTab: React.FC<{
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
                                   row.pay === 'paid'
                                     ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                    : 'bg-temple-red text-white hover:bg-[#5C4310]'
                                 }`}>
                                 {row.pay === 'paid' ? '改回待匯款' : '標記已收款'}
                               </button>
@@ -8679,7 +8678,7 @@ const TrafficTab = ({ bookings, donations, lampRegistrations, lampConfigs, bless
         )}
         <button onClick={view === 'summary' ? exportSummary : exportDetail}
           disabled={(view === 'summary' ? groups.length : detail.length) === 0}
-          className="ml-auto shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-temple-red text-white rounded-lg text-sm font-medium hover:bg-temple-red/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          className="ml-auto shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-white border border-temple-red/40 text-temple-red rounded-lg text-sm font-medium hover:bg-temple-red/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
           <Download className="w-4 h-4" />
           匯出{view === 'summary' ? '總表' : '明細'}
         </button>
@@ -9138,7 +9137,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
                   `initial` 永遠是真，判斷就失效了。這裡從錯誤畫面重載，整頁
                   loading 才是對的，所以明寫 true。
                   （2026-10-30 補上 @types/react 之後才看得見這個錯。） */}
-              <button onClick={() => fetchAll(true)} className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg">重試</button>
+              <button onClick={() => fetchAll(true)} className="mt-4 px-4 py-2 bg-temple-red text-white hover:bg-[#5C4310] rounded-lg">重試</button>
             </div>
           ) : (
             <>

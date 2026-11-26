@@ -90,7 +90,7 @@ const FaqCard: React.FC<FaqCardProps> = ({
             title="刪除這一題"
             onClick={onDelete}
             disabled={busy}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -263,7 +263,7 @@ const AdminFaqTab: React.FC = () => {
           </div>
 
           <button type="button" onClick={addItem} disabled={busy}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04] disabled:opacity-50">
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310] disabled:opacity-50">
             <Plus className="w-4 h-4" /> 新增問題
           </button>
 
@@ -282,7 +282,7 @@ const AdminFaqTab: React.FC = () => {
             </p>
             <div className="flex items-center gap-3 flex-wrap">
               <button type="button" onClick={doRepublish} disabled={republish === 'sending'}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-gold text-temple-dark text-sm font-medium hover:bg-temple-gold/10 disabled:opacity-50">
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-temple-red/40 text-temple-red text-sm font-medium hover:bg-temple-red/5 disabled:opacity-50">
                 <RefreshCw className={`w-4 h-4 ${republish === 'sending' ? 'animate-spin' : ''}`} />
                 {republish === 'sending' ? '發布中…' : '重新發布'}
               </button>

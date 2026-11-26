@@ -110,7 +110,7 @@ const ScriptureFullTextEditor: React.FC<{ verses: ScriptureVerseRecord[] }> = ({
 
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={save} disabled={saving || (!changed && !!saved)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+              className="flex items-center gap-2 px-5 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] transition-colors disabled:opacity-50">
               {saving ? <><RefreshCw className="w-4 h-4 animate-spin" /> 儲存中...</> : <><Save className="w-4 h-4" /> 儲存全文</>}
             </button>
             <button type="button" onClick={resetFromVerses}

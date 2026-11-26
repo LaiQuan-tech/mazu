@@ -164,7 +164,7 @@ const AdminHomeVideoSection: React.FC = () => {
             )}
 
             <button onClick={save} disabled={saving || looking || !parsedId || !changed}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C1A04] transition-colors disabled:opacity-50">
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-temple-red text-white rounded-xl text-sm font-medium hover:bg-[#5C4310] transition-colors disabled:opacity-50">
               {saving ? <><RefreshCw className="w-4 h-4 animate-spin" /> 儲存中...</> : <><Save className="w-4 h-4" /> 儲存</>}
             </button>
           </div>

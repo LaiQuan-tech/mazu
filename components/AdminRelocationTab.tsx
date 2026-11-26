@@ -246,7 +246,7 @@ const PlansEditor = () => {
             )}
           </div>
           <button type="button" onClick={addPlan}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C1A04]">
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-temple-red text-white text-sm font-medium hover:bg-[#5C4310]">
             <Plus className="w-4 h-4" /> 新增方案表
           </button>
         </>
