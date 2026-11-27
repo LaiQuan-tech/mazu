@@ -50,7 +50,7 @@ const linkify = (text: string): React.ReactNode[] =>
  * 空畫面給幾個起手式：長輩不一定知道可以問什麼，給一片空白等於沒人會用。
  *
  * **第三題放「在哪裡／怎麼過去」而不是點燈價錢**（2026-10-30 廟方：「這比點燈更重要」）。
- * 點燈的價錢在太歲點燈頁一眼就看得到，而「怎麼過去」是人站在捷運站時才會問的，
+ * 點燈的價錢在新春點燈頁一眼就看得到，而「怎麼過去」是人站在捷運站時才會問的，
  * 那一刻他手上只有手機。
  *
  * **字要與常見問題第一題一模一樣**：知識庫是官網內容的快照，問句與來源同字
@@ -136,7 +136,7 @@ export type ChatTarget = 'booking' | 'blessing' | 'lamps';
 const ACTIONS: { topic: string; page: ChatTarget; label: string }[] = [
   { topic: '問事', page: 'booking', label: '前往預約問事' },
   { topic: '法會', page: 'blessing', label: '前往報名祈福活動' },
-  { topic: '點燈', page: 'lamps', label: '前往太歲點燈' },
+  { topic: '點燈', page: 'lamps', label: '前往新春點燈' },
 ];
 
 const pickActions = (msgs: Msg[]) => {

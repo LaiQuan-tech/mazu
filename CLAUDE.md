@@ -29,7 +29,7 @@ Apex 用 A 記錄指 `216.198.79.1`（Vercel 新 IP 段，不是網路上常見�
 | 聊天機器人、後台小幫手 | `docs/handbook/assistant.md` |
 | 照片、影片、素材 | `docs/handbook/media.md` |
 | 歲時節慶行事曆 | `docs/handbook/calendar.md` |
-| 太歲點燈 | `docs/handbook/lamps.md` |
+| 新春點燈 | `docs/handbook/lamps.md` |
 | 公佈欄 | `docs/handbook/bulletins.md` |
 | HiNet 封鎖與 DNS | `docs/handbook/dns.md` |
 | TS／腳本／本機開發的坑 | `docs/handbook/dev.md` |

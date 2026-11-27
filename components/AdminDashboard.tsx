@@ -969,7 +969,7 @@ const todayYmd = (): string => {
 };
 
 /**
- * 代為報名：廟方在後台直接幫信眾報名祈福活動、問事或太歲點燈。
+ * 代為報名：廟方在後台直接幫信眾報名祈福活動、問事或新春點燈。
  *
  * ── 為什麼需要這個 ──
  * 廟方 2026-10-30：「目前還是有大量的信眾從 LINE 官方帳號手動通知報名。」
@@ -981,7 +981,7 @@ const todayYmd = (): string => {
  * 2. **不寄「報名成功」信，改推 LINE**（2026-11-23 起，見 sendProxyNotice；`notify: false` 關的是給廟方的信）：對方剛在 LINE 跟廟方講完話，
  *    再收一封信只會困惑，而且多數 LINE 來的人沒留信箱。
  *    「已收款」那封不受影響，還是廟方在後台按下去才寄。
- * 3. 涵蓋祈福活動、問事、**太歲點燈**。點燈原本刻意不做（「不是檔期性的報名」），
+ * 3. 涵蓋祈福活動、問事、**新春點燈**。點燈原本刻意不做（「不是檔期性的報名」），
  *    **2026-11-18 廟方改口要加**：「信眾管理可以協助報名，目前有祈福活動跟問事，也加上點燈」。
  *    專屬神明燈一樣要選指定神明、一樣扣名額（同前台，見 services/lampChoice.ts）。
  * 4. 重複報名**只提醒不擋**：真的有人要報兩個名額。
@@ -1213,7 +1213,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
 
             {/* 服務 */}
             <div className="flex gap-2">
-              {([['blessing', '祈福活動'], ['booking', '問事'], ['lamp', '太歲點燈']] as const).map(([k, label]) => (
+              {([['blessing', '祈福活動'], ['booking', '問事'], ['lamp', '新春點燈']] as const).map(([k, label]) => (
                 <button key={k} onClick={() => { setKind(k); setErr(''); }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border ${kind === k
                     ? 'bg-temple-red text-white border-temple-red'
@@ -1763,7 +1763,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                       ) : (
                         <>
                           {/* 日常最常按的放最前面；校正（檢視／合併／拆分）是偶爾才做的事 */}
-                          <button onClick={() => setProxyRow(r)} disabled={busy} title="直接幫這個人報名祈福活動、問事或太歲點燈"
+                          <button onClick={() => setProxyRow(r)} disabled={busy} title="直接幫這個人報名祈福活動、問事或新春點燈"
                             className="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-lg bg-temple-red text-white shadow-sm hover:bg-[#5C4310] disabled:opacity-40">
                             {/* 實心深底（2026-11-18 廟方：「代為報名，這是重要的按鈕，請凸顯」）；旁邊的檢視／合併維持細框小字 */}
                             <UserPlus className="w-4 h-4" aria-hidden="true" />代為報名
@@ -6207,7 +6207,7 @@ const ScriptureTab = ({ verses, onRefresh }: { verses: ScriptureVerseRecord[]; o
   );
 };
 
-// ─── Lamps Tab (太歲點燈管理) ─────────────────────────────────────────────────
+// ─── Lamps Tab (新春點燈管理) ─────────────────────────────────────────────────
 
 const LampsTab = ({
   configs, registrations, onRefresh, memberProfiles,
@@ -6430,7 +6430,7 @@ const LampsTab = ({
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">太歲點燈管理</h3>
+              <h3 className="text-lg font-semibold text-gray-800">新春點燈管理</h3>
               <p className="text-sm text-gray-500 mt-1">共 {configs.length} 種燈・報名數為本季（{seasonStart.slice(0, 4)} 年 9 月起）</p>
             </div>
             <button

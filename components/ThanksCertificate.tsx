@@ -24,7 +24,7 @@ export interface ThanksCertData {
   no: string;
   /** 受謝人（報名人或捐款人姓名） */
   name: string;
-  /** 護持項目，例如「太歲點燈・光明燈」「普渡法會」「遷址護持」 */
+  /** 護持項目，例如「新春點燈・光明燈」「普渡法會」「遷址護持」 */
   item: string;
   /** 金額（新台幣，0 就不印金額那一行） */
   amount: number;

@@ -29,7 +29,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 /**
- * 太歲點燈的干支年，**與 services/lampChoice.ts 的 lampYearGanZhi 同一條規則**（這裡 import 不了 TS）：
+ * 新春點燈的干支年，**與 services/lampChoice.ts 的 lampYearGanZhi 同一條規則**（這裡 import 不了 TS）：
  * 國曆九月起算下一年。日期一定要釘台北時間——建置機跑在 UTC，八月三十一日晚上八點以後會差一天。
  */
 const lampYearGanZhi = () => {
@@ -314,11 +314,11 @@ images: [
   },
   {
     path: '/lamps',
-    service: { name: '太歲點燈', description: '年度點燈（安太歲），一年一期：太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈。可線上登記。' },
+    service: { name: '新春點燈', description: '年度點燈（安太歲），一年一期：太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈。可線上登記。' },
     priority: '0.8',
-    title: '太歲點燈｜安太歲・太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
-    desc: '台北古亭和聖壇太歲點燈（安太歲）線上登記，一年一期。提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂、元辰光彩。天赦日等單場次的祈福點燈請見祈福活動。',
-    h1: '太歲點燈',
+    title: '新春點燈｜安太歲・太歲祈安燈・光明前程祈福燈・財利燈・本命神明燈',
+    desc: '台北古亭和聖壇新春點燈（安太歲）線上登記，一年一期。提供太歲祈安燈、光明前程祈福燈、財源廣進財利燈、本命神明祈願燈，祈求流年順遂、元辰光彩。天赦日等單場次的祈福點燈請見祈福活動。',
+    h1: '新春點燈',
     // noscript 的大標用頁面上那一句；h1 欄位還要當麵包屑與站內連結的名稱，所以另開一欄
     headline: () => `${lampYearGanZhi()}點燈，太歲護佑`,
     body: [
@@ -1385,7 +1385,7 @@ for (const r of ACTIVE_ROUTES) {
 
   // 法會的 Event 只留在首頁。
   // 這些分頁是拿 index.html 當模板產的，會連同模板裡的 @graph 一起繼承，
-  // 結果「關於我們」「太歲點燈」「遷址募款」也各自宣告了一次同一場法會——
+  // 結果「關於我們」「新春點燈」「遷址募款」也各自宣告了一次同一場法會——
   // 那些頁面根本不是在講這場法會，Google 會回報活動結構化資料問題。
   // 首頁有法會的行動呼籲，留在那裡才對得上「標記的內容使用者看得到」。
   /**
@@ -1742,11 +1742,11 @@ if (site || lampServices.length > 0 || relocationPlans.length > 0) {
       /**
        * **一定要用 replacer 函式，不能用字串**：價目裡有 `NT$1,200`，
        * 而字串形式的替換會把 `$1` 當成捕獲群組塞進去
-       * （實測產出 `每年 NT- [太歲點燈](...)：,200`）。
+       * （實測產出 `每年 NT- [新春點燈](...)：,200`）。
        * 函式形式的回傳值不做任何 `$` 展開。
        */
       txt = txt.replace(
-        /(- \[太歲點燈\]\(https:\/\/heshengtan\.tw\/lamps\)：)[^。]*。/,
+        /(- \[新春點燈\]\(https:\/\/heshengtan\.tw\/lamps\)：)[^。]*。/,
         (_m, head) => `${head}${lampPriceLine()}。`,
       );
     }

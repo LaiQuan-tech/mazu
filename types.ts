@@ -550,7 +550,7 @@ export interface ScriptureVerseRecord extends ScriptureVerseData {
   updatedAt: string;
 }
 
-// ─── Lamp Services (太歲點燈) ────────────────────────────
+// ─── Lamp Services (新春點燈) ────────────────────────────
 /**
  * 點燈的狀態。**講的是收款，不是處理進度**（廟方 2026-10-13：「點燈／祈福跟法會一樣，
  * 要匯款，由後台按標記已收款，只有問事是現場收費」）。

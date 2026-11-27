@@ -4,7 +4,7 @@ import PosterImage, { POSTER_LIST_MAX_H } from './PosterImage';
 import type { LampServiceConfig } from '../types';
 
 /**
- * 太歲點燈頁的燈種卡片（2026-11-17 廟方：「因為每個燈說明長度不同，幫我設計好看一點」）。
+ * 新春點燈頁的燈種卡片（2026-11-17 廟方：「因為每個燈說明長度不同，幫我設計好看一點」）。
  *
  * ── 問題在哪 ──
  * 廟方在後台打的說明是一整篇（85～201 字），**而且是有結構的**：
