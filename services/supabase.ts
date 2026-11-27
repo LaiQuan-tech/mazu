@@ -1515,7 +1515,21 @@ export const getAllMemberProfiles = async (): Promise<MemberProfileRecord[]> => 
     address: row.address || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at || undefined,
+    lastSeenAt: row.last_seen_at || undefined,
   }));
+};
+
+/**
+ * 會員打開官網：記下今天來過（後台「超過一個月沒來官網」的提示用，見 member_last_seen.sql）。
+ * **每天最多寫一次**（記在 localStorage），不必每換一頁就打一次資料庫。
+ * 失敗一律安靜：欄位還沒建、私密瀏覽存不了 localStorage，都不能影響會員使用網站。
+ */
+export const touchMemberLastSeen = (userId: string): void => {
+  const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+  const key = `last_seen_${userId}`;
+  try { if (localStorage.getItem(key) === today) return; } catch { /* 存不了就每次寫，無妨 */ }
+  void supabase.from('member_profiles').update({ last_seen_at: new Date().toISOString() }).eq('user_id', userId)
+    .then(({ error }) => { if (!error) { try { localStorage.setItem(key, today); } catch { /* 同上 */ } } });
 };
 
 export const getProfile = async (): Promise<ProfileData | null> => {

@@ -54,7 +54,7 @@ import BankInfoBox, { BANK_GENERAL } from './components/BankInfoBox';
 import PrivacyContent from './components/PrivacyContent';
 import { notifyRegistration } from './services/notifyRegistration';
 import { sendDonationThanks, sendPaymentInfo } from './services/notifyConfirm';
-import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, getLampChoices, getLampChoiceCounts, submitLampRegistration, getMemberContacts, getProfile, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
+import { submitBooking, submitDonation, getBulletins, getSiteImages, getSiteImagePublicUrl, getDeities, getDeityHalls, getHeroSlides, getLampServiceConfigs, getLampChoices, getLampChoiceCounts, submitLampRegistration, getMemberContacts, getProfile, touchMemberLastSeen, getBlessingEvents, getBlessingEventStats, createBlessingRegistration, createSharedSession, getSharedSession, getMySharedSessions, addSharedEntry, markSharedSessionSubmitted, autoSaveContactsForMember, getRepairProjects, getRepairProjectTotals, trackLineClick, getSocialSettings, DEFAULT_SOCIAL, getAboutSections, getAboutFacts, DEFAULT_ABOUT_FACTS, getHomeVideo, DEFAULT_HOME_VIDEO, homeVideoCover, getRelocationHome, getBookingSessions, getBookingCountsBySession, getRegularSessions, getFaqItems, getDonationTypes, getSiteInfo, DEFAULT_SITE_INFO, supabase } from './services/supabase';
 import SharedFormPanel from './components/SharedFormPanel';
 import ChatWidget from './components/ChatWidget';
 import Analytics from './components/Analytics';
@@ -2139,6 +2139,7 @@ const App: React.FC = () => {
   const loadMemberDataOnce = async (userId: string | undefined): Promise<void> => {
     if (!userId || memberDataLoadedFor.current === userId) return;
     memberDataLoadedFor.current = userId;
+    touchMemberLastSeen(userId);   // 後台「一個月沒來官網」的提示（member_last_seen.sql）
     const ok = await Promise.all([loadMemberContacts(), loadMemberProfile()]);
     // 失敗就把記號清掉：去重之後只會嘗試一次，網路瞬斷若不放行，
     // 會員的通訊錄會一直是空的直到重新登入。另一個入口稍後還會再試一次。

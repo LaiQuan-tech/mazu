@@ -663,6 +663,8 @@ export interface MemberProfileRecord extends ProfileData {
   memberNumber?: number;
   createdAt: string;
   updatedAt?: string;
+  /** 最後一次打開官網（member_last_seen.sql，每天最多記一次）。沒值＝那支還沒跑或還沒回來過 */
+  lastSeenAt?: string;
 }
 
 // ─── Blessing Events (祈福活動) ──────────────────────────

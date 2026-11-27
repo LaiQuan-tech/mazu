@@ -4159,7 +4159,30 @@ function toPersonKey(p: MemberProfileRecord): string {
  * 於是同一個人在列表與詳情會看到兩個不同的祈福數字，列表那個基本上恆為 0。
  * 名字留著 `activities` 只會讓下一個人再踩一次。
  */
-type MemberSortKey = 'default' | 'contacts' | 'lamps' | 'bookings' | 'blessings' | 'donation' | 'lastLogin';
+type MemberSortKey = 'default' | 'contacts' | 'lamps' | 'bookings' | 'blessings' | 'donation';
+
+/**
+ * 會員多久沒回官網（2026-11-27 廟方：「最後登入時間也還好，這其實是要知道信眾多久沒有回到官網，
+ * 做成一個月沒有到官網有提示即可」）。所以不再列「最後登入」那一欄，只在超過一個月時掛一個提示。
+ *
+ * 「最後一次來」取**最後到官網（last_seen_at）與最後登入兩者較晚的**：只看登入會把一直保持登入、
+ * 天天來的人誤判成好久沒來（見 member_last_seen.sql）。last_seen_at 2026-11-27 才開始記，
+ * 頭一個月多數人只有登入時間，提示可能偏多；之後會越來越準。兩個都沒有就從加入那天算。
+ */
+const AWAY_DAYS = 30;
+const daysAway = (lastSeen: string | null | undefined, createdAt: string): number =>
+  Math.floor((Date.now() - new Date(lastSeen || createdAt).getTime()) / 86_400_000);
+const awayLabel = (days: number): string =>
+  days >= 60 ? `${Math.floor(days / 30)} 個月沒來官網` : '超過一個月沒來官網';
+const AwayTag: React.FC<{ days: number; className?: string }> = ({ days, className }) =>
+  days >= AWAY_DAYS ? (
+    <span title={`已經 ${days} 天沒有回到官網`}
+      className={`inline-flex items-center text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full whitespace-nowrap ${className ?? ''}`}>
+      {awayLabel(days)}
+    </span>
+  ) : null;
+const laterOf = (a?: string | null, b?: string | null): string | null =>
+  !a ? (b ?? null) : !b ? a : (new Date(a) > new Date(b) ? a : b);
 type MemberSortDir = 'asc' | 'desc';
 
 const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessingRegistrations, blessingEvents, lampConfigs, memberProfiles, usersLastLogin, memberEmails, initialSearch }: {
@@ -4252,14 +4275,14 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
       const blessings = blessingRegistrations.filter(br => samePhone(br.phone, p.phone)).length;
       const donation = donations.filter(d => samePhone(d.phone, p.phone)).reduce((s, d) => s + Number(d.amount), 0);
       const lastLogin = usersLastLogin[p.userId] ?? null;
-      return { ...p, stats: { lamps, bookingCount, blessings, donation }, lastLogin };
+      return { ...p, stats: { lamps, bookingCount, blessings, donation }, lastLogin, lastSeen: laterOf(p.lastSeenAt, lastLogin) };
     });
 
     /**
      * 同一個人的帳號折成一列。
      * **代表那一筆取最近登入的**（沒登入過就取最新建立的）：那是他現在實際在用的帳號，
      * 顯示的姓名／性別／地址以它為準才是最新的。其餘帳號收進 `accounts`，
-     * 編號與最後登入都看得到——廟方要有辦法知道「到底是哪幾個帳號」才處理得掉。
+     * 詳細頁列出每個帳號的登入方式與最近使用日期——廟方要有辦法知道「到底是哪幾個帳號」才處理得掉。
      */
     const groups = new Map<string, typeof all>();
     all.forEach(r => {
@@ -4274,6 +4297,8 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
         ...main,
         // 整個人的最後登入＝所有帳號裡最晚的那一次
         lastLogin: sortedByUse.map(r => r.lastLogin).filter(Boolean)[0] ?? null,
+        // 整個人最後一次來官網＝所有帳號裡最晚的那一次
+        lastSeen: list.reduce<string | null>((m, r) => laterOf(m, r.lastSeen), null),
         /**
          * 「加入」要取**最早**那個帳號，不是代表帳號的。
          * 代表取的是最近在用的，而那常常是今年才開的 LINE 帳號——照它顯示，
@@ -4292,12 +4317,6 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
       if (sortBy === 'bookings')    { const d = a.stats.bookingCount - b.stats.bookingCount; return sortDir === 'asc' ? d : -d; }
       if (sortBy === 'blessings')   { const d = a.stats.blessings - b.stats.blessings; return sortDir === 'asc' ? d : -d; }
       if (sortBy === 'donation')    { const d = a.stats.donation - b.stats.donation; return sortDir === 'asc' ? d : -d; }
-      if (sortBy === 'lastLogin') {
-        const ta = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
-        const tb = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
-        const d = ta - tb;
-        return sortDir === 'asc' ? d : -d;
-      }
       // default: 加入時間 desc
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
@@ -4313,12 +4332,15 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
    *
    * 編號接受「7」「007」「#007」三種寫法：廟方口頭講的是「七號」，紙本上寫的是 #007。
    */
+  const [awayOnly, setAwayOnly] = useState(false);
+  const awayCount = useMemo(() => sortedProfiles.filter(p => daysAway(p.lastSeen, p.createdAt) >= AWAY_DAYS).length, [sortedProfiles]);
   const visibleProfiles = useMemo(() => {
     const q = search.trim();
-    if (!q) return sortedProfiles;
+    const base = awayOnly ? sortedProfiles.filter(p => daysAway(p.lastSeen, p.createdAt) >= AWAY_DAYS) : sortedProfiles;
+    if (!q) return base;
     const ql = q.toLowerCase();
     const digits = q.replace(/\D/g, '');
-    return sortedProfiles.filter(p => {
+    return base.filter(p => {
       const accounts = p.accounts ?? [p];
       if (p.name?.includes(q)) return true;
       if (accounts.some(a => (a.phone ?? '').includes(q))) return true;
@@ -4329,7 +4351,7 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
           || String(a.memberNumber).padStart(3, '0') === digits))) return true;
       return false;
     });
-  }, [sortedProfiles, search, memberEmails]);
+  }, [sortedProfiles, search, memberEmails, awayOnly]);
 
   // ── 可排序表頭 ──
   const SortTh = ({ col, label, align = 'left' }: { col: MemberSortKey; label: string; align?: 'left' | 'center' | 'right' }) => (
@@ -4402,7 +4424,6 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
                 {selectedProfile.name || '（未填姓名）'}
                 <LineNameOf className="text-xs font-normal" refs={memberLineRefs({ ...selectedProfile, accounts: selectedAccounts })} />
                 {selectedProfile.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-normal">{selectedProfile.gender}</span>}
-                {selectedProfile.memberNumber && <span className="text-xs font-mono bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-normal">#{String(selectedProfile.memberNumber).padStart(3, '0')}</span>}
               </h2>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-sm text-gray-500">
                 {selectedProfile.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{selectedProfile.phone}</span>}
@@ -4412,7 +4433,9 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
               </div>
               <div className="flex flex-wrap gap-x-4 mt-1 text-xs text-gray-400">
                 <span>{new Date(selectedProfile.createdAt).toLocaleDateString('zh-TW')} 加入</span>
-                {lastLogin && <span>最後登入：{new Date(lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+                <AwayTag days={daysAway(
+                  selectedAccounts.reduce<string | null>((m, a) => laterOf(laterOf(m, a.lastSeenAt), usersLastLogin[a.userId]), laterOf(selectedProfile.lastSeenAt, lastLogin)),
+                  selectedProfile.createdAt)} />
               </div>
             </div>
           </div>
@@ -4432,12 +4455,10 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
               <div className="flex flex-wrap gap-2 mb-2">
                 {selectedAccounts.map(a => (
                   <span key={a.userId} className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 text-gray-600">
-                    <span className="font-mono text-gray-400 mr-1.5">
-                      {a.memberNumber ? `#${String(a.memberNumber).padStart(3, '0')}` : '（無編號）'}
-                    </span>
-                    {usersLastLogin[a.userId]
-                      ? new Date(usersLastLogin[a.userId]).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
-                      : '未登入過'}
+                    {/* 不用編號（廟方不要）：用登入方式認帳號，再附最近一次使用的日期看得出哪一個還在用 */}
+                    <span className="text-gray-500 mr-1.5">{memberEmails[a.userId] || 'LINE 帳號'}</span>
+                    {(() => { const t = laterOf(a.lastSeenAt, usersLastLogin[a.userId]);
+                      return t ? `最近使用 ${new Date(t).toLocaleDateString('zh-TW')}` : '未使用過'; })()}
                   </span>
                 ))}
               </div>
@@ -4656,11 +4677,21 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="搜尋姓名 / 電話 / 信箱 / 編號"
+            placeholder="搜尋姓名 / 電話 / 信箱"
             className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
         </div>
       )}
-      {search.trim() && <p className="-mt-2 mb-3 text-xs text-gray-500">符合條件 {visibleProfiles.length} 人</p>}
+      {/* 一鍵只看「超過一個月沒來官網」的會員：廟方要的是找出該關心的人，不是看每個人的時間 */}
+      {awayCount > 0 && (
+        <div className="-mt-1 mb-3">
+          <button type="button" onClick={() => { setAwayOnly(v => !v); setMPage(0); }} aria-pressed={awayOnly}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${awayOnly
+              ? 'bg-amber-100 border-amber-300 text-amber-900 font-semibold' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'}`}>
+            超過一個月沒來官網 {awayCount} 人{awayOnly ? '（顯示中，再按一次看全部）' : ''}
+          </button>
+        </div>
+      )}
+      {(search.trim() || awayOnly) && <p className="-mt-2 mb-3 text-xs text-gray-500">符合條件 {visibleProfiles.length} 人</p>}
 
       {memberProfiles.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 text-sm">
@@ -4672,14 +4703,12 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
             <table className="admin-table w-full min-w-[760px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">編號</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">姓名</th>
                   <SortTh col="contacts"   label="親友通訊錄" align="center" />
                   <SortTh col="lamps"      label="點燈"   align="center" />
                   <SortTh col="blessings"  label="祈福"   align="center" />
                   <SortTh col="donation"   label="捐獻"   align="right" />
                   <SortTh col="bookings"   label="問事"   align="center" />
-                  <SortTh col="lastLogin"  label="最後登入" align="right" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -4704,18 +4733,13 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
                     }}
                     className={`cursor-pointer hover:bg-temple-bg/60 transition-all group${memberRows.isOpen(p.userId) ? ' admin-open' : ''}`}
                   >
-                    {/* 沒編號時 <Dash /> 要直接放在格子底下：包在 span 裡，卡片版「空格整格不畫」那條認不出來，
-                        手機上每張卡頂端都多一行「編號 —」（2026-11-22） */}
-                    <td data-label="編號" className="px-4 py-3">
-                      {p.memberNumber
-                        ? <span className="text-xs font-mono text-gray-400">#{String(p.memberNumber).padStart(3, '0')}</span>
-                        : <Dash />}
-                    </td>
+                    {/* 「編號」「最後登入」兩欄 2026-11-27 拿掉（廟方：不要編號；最後登入改成一個月沒來才提示） */}
                     <td data-label="姓名" className="px-4 py-3">
                       <span className="text-sm font-semibold text-gray-800 group-hover:text-temple-red transition-colors">
                         {p.name || <span className="text-gray-400 font-normal italic">（未填）</span>}
                       </span>
                       <LineNameOf className="ml-2" refs={memberLineRefs(p)} />
+                      <AwayTag className="ml-2" days={daysAway(p.lastSeen, p.createdAt)} />
                       {/* 折起來的那幾個帳號要講出來，不然廟方只會覺得「剛剛那兩筆呢」。
                           用灰色不用警示色：這不是錯誤，是同一個人用了不只一種方式登入 */}
                       {p.accounts.length > 1 && (
@@ -4754,11 +4778,6 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
                       <span className="inline-flex items-center gap-1 text-purple-700 text-sm font-medium">
                         <BookOpen className="w-3.5 h-3.5" />{p.stats.bookingCount}
                       </span>
-                    </td>
-                    <td data-label="最後登入" className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
-                      {p.lastLogin
-                        ? new Date(p.lastLogin).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })
-                        : <Dash />}
                     </td>
                     <RowMoreCell open={memberRows.isOpen(p.userId)} onToggle={() => memberRows.toggle(p.userId)} hint="點燈、祈福、捐獻、問事" />
                   </tr>

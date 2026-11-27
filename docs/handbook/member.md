@@ -157,3 +157,7 @@
 
 <!-- 原 L1102-1103 -->
 - **祈福報名原本整個不在信眾名冊裡**（2026-10-29 修）：`RosterTab` 的來源有 fahui／volunteers／members／contacts／bookings／donations／lamps／registrations，**漏了 blessings**。只參加過祈福的人在那一頁上不存在，而祈福是最常報的項目之一。`DevoteeSource` 也跟著補上 `'祈福'`。
+
+- **會員資訊拿掉「編號」與「最後登入」兩欄**（2026-11-27 廟方：「不要編號；最後登入時間也還好，這其實是要知道信眾多久沒有回到官網，做成一個月沒有到官網有提示即可」）。改成超過 30 天沒來，姓名旁掛黃色「超過一個月沒來官網／N 個月沒來官網」，並有一顆篩選鈕只看這些人。
+  **不能用最後登入判斷**：Supabase 的 last_sign_in_at 只在按登入時更新，保持登入、天天來的人會被當成好久沒來。所以新增 `member_profiles.last_seen_at`（`member_last_seen.sql`），會員打開官網時由前台寫入自己那列（`touchMemberLastSeen`，每天最多一次，沿用 own_all 政策）。後台取 last_seen_at 與最後登入較晚的；兩者都無就從加入日算。last_seen_at 剛開始記，頭一個月提示會偏多。
+  會員編號的資料與搜尋還在（打數字仍搜得到），只是畫面上不顯示；信眾資訊那邊的「會員 #012」徽章沒動。
