@@ -76,6 +76,10 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       ok: true,
       設定狀態: {
         LINE_CHANNEL_SECRET: !!process.env.LINE_CHANNEL_SECRET,
+        // Channel secret 是 32 個 0-9a-f。不是這個樣子＝貼錯（貼成 LINE Login 那個 channel、
+        // 貼成很長的 access token），LINE 後台按 Verify 就會 401。只回對錯，不回內容
+        LINE_CHANNEL_SECRET格式正確: /^[0-9a-f]{32}$/.test((process.env.LINE_CHANNEL_SECRET ?? '').trim()),
+        LINE_CHANNEL_SECRET前後有空白或換行: (process.env.LINE_CHANNEL_SECRET ?? '') !== (process.env.LINE_CHANNEL_SECRET ?? '').trim(),
         LINE_CHANNEL_ACCESS_TOKEN: !!env.lineToken,
         SUPABASE_SERVICE_ROLE_KEY: !!env.serviceKey,
       },
@@ -90,7 +94,8 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
 
   // ── LINE webhook ──
   if (signature) {
-    const secret = process.env.LINE_CHANNEL_SECRET ?? '';
+    // trim：從網頁複製常常多帶一個換行，簽章就整個對不上（2026-11-27 Verify 回 401）
+    const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
     if (!secret) { res.status(500).json({ ok: false, error: '沒有設定 LINE_CHANNEL_SECRET' }); return; }
     const expect = createHmac('sha256', secret).update(raw).digest();
     const got = Buffer.from(signature, 'base64');
