@@ -71,8 +71,9 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
   const svc = svcHeaders(env);
 
   if ((req.method || 'GET').toUpperCase() === 'GET') {
-    // 自我檢查：只回「設了沒」
+    // 自我檢查：只回「設了沒」「對不對」，不回任何值
     res.status(200).json({
+      secret跟推播權杖是同一個channel: await secretMatchesToken(env.lineToken),
       ok: true,
       設定狀態: {
         LINE_CHANNEL_SECRET: !!process.env.LINE_CHANNEL_SECRET,
@@ -161,6 +162,33 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
     console.error('line code error', e);
     res.status(200).json({ ok: false, skipped: 'error' });
   }
+}
+
+/**
+ * Channel secret 是不是「推播權杖那個 channel」的（2026-11-27 Verify 一直 401、格式卻正確：
+ * LINE Login channel 的 secret 也是 32 碼，貼錯了從外表看不出來）。
+ * 做法：先問 LINE 推播權杖屬於哪個 channel（verify 回 client_id），再拿那個 channel id ＋ secret
+ * 去換一張 15 分鐘的無狀態權杖（v3，不佔名額、不影響現有權杖）——換得到就是同一組。
+ */
+async function secretMatchesToken(token: string): Promise<boolean | string> {
+  const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
+  if (!token || !secret) return '缺少設定';
+  try {
+    // 後台發的長期權杖要用 v2 的 verify；v2.1 發的權杖用 v2.1 的。兩個都試
+    let v = await fetch('https://api.line.me/v2/oauth/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ access_token: token }).toString(),
+    });
+    if (!v.ok) v = await fetch(`https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(token)}`);
+    if (!v.ok) return '推播權杖查不到所屬 channel，無法檢查';
+    const channelId = clean(((await v.json()) as { client_id?: string }).client_id);
+    const t = await fetch('https://api.line.me/oauth2/v3/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'client_credentials', client_id: channelId, client_secret: secret }).toString(),
+    });
+    return t.ok;
+  } catch { return '檢查失敗'; }
 }
 
 const reply = async (token: string, replyToken: string, text: string) => {
