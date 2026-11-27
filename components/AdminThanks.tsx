@@ -176,11 +176,12 @@ export interface ThanksSource {
  * 名單上那一格：編號輸入框＋（有編號才出現的）「感謝狀」按鈕。
  * `onSaved` 讓呼叫端重抓資料——標記已收款的按鈕要看到新編號才會解鎖。
  */
-export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean }> = (props) =>
+/** `bare`：放在自己那一欄（表頭已寫「感謝狀」）時不再印一次「感謝狀」字樣 */
+export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean; bare?: boolean }> = (props) =>
   // 親友列什麼都不畫（hook 在 ThanksCellInner 裡，這裡提早 return 不違反 hook 規則）
   isThanksRelative(props.src.label) ? null : <ThanksCellInner {...props} />;
 
-const ThanksCellInner: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean }> = ({ src, onSaved, compact }) => {
+const ThanksCellInner: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean; bare?: boolean }> = ({ src, onSaved, compact, bare }) => {
   const all = useCerts();
   const rows = usePool();
   const cert = all.get(trimNo(src.no));
@@ -207,7 +208,7 @@ const ThanksCellInner: React.FC<{ src: ThanksSource; onSaved?: () => void; compa
   return (
     <div className={`flex items-center gap-1 ${compact ? '' : 'flex-wrap'}`} onClick={e => e.stopPropagation()}>
       <label className="inline-flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
-        <span className="sr-only sm:not-sr-only">感謝狀</span>
+        <span className={bare ? 'sr-only' : 'sr-only sm:not-sr-only'}>感謝狀</span>
         <input
           value={val} onChange={e => setVal(e.target.value)} onBlur={save}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}

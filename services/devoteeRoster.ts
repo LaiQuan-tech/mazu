@@ -208,9 +208,25 @@ const birthKey = (s: string): string => s.replace(/[（(].*?[）)]/g, '').replac
 const memberNo = (m: MemberProfileRecord): string =>
   m.memberNumber == null ? '' : `#${String(m.memberNumber).padStart(3, '0')}`;
 
-/** 會員帳號在畫面上的代稱。**沒編號也一定要給得出一個名字**——不然那個帳號
- *  在「帳號」這一欄會整個不存在，看起來就像這個人不是會員。 */
-const memberTag = (m: MemberProfileRecord): string => memberNo(m) || '未編號會員';
+/**
+ * 會員帳號在畫面上的代稱：**用姓名，不用編號**（2026-11-27 廟方：「不要顯示編號，這沒有意義」；
+ * 更早 2026-11-18 也說過「#1041 的兒女」不知道是誰）。
+ * 它同時是辨認帳號的 key（「自己對到自己」要排除、算有幾個帳號），所以**不同帳號要拿到不同代稱**：
+ * 同名的不同帳號依建立先後加「（2）」「（3）」；沒填姓名的寫「未填姓名的會員」再加序號。
+ * 同一個名單算出來的結果固定，collectSightings 與 linkMembersByPhone 各算一次也會一致。
+ */
+const makeTagger = (members: MemberProfileRecord[]): ((m: MemberProfileRecord) => string) => {
+  const tags = new Map<string, string>();
+  const seen = new Map<string, number>();
+  [...members].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || '') || a.userId.localeCompare(b.userId))
+    .forEach(m => {
+      const base = clean(m.name) || '未填姓名的會員';
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      tags.set(m.userId, n === 1 ? base : `${base}（${n}）`);
+    });
+  return m => tags.get(m.userId) ?? (clean(m.name) || '會員');
+};
 
 function pushUnique(arr: string[], v?: string): void {
   const x = clean(v);
@@ -232,6 +248,7 @@ export interface RosterSources {
 /** 把各來源攤平成「一次出現」的清單 */
 function collectSightings(src: RosterSources): Sighting[] {
   const out: Sighting[] = [];
+  const memberTag = makeTagger(src.members ?? []);
 
   (src.fahui ?? []).forEach(r => {
     const at = localDate(r.createdAt);
@@ -276,7 +293,7 @@ function collectSightings(src: RosterSources): Sighting[] {
     phone: c.phone, address: c.address, birthDate: c.birthDate, zodiac: c.zodiac,
     // 抓不到那個帳號的資料（有通訊錄卻沒有 member_profiles 那一列）時也要說得出
     // 「這是某個帳號的通訊錄」，那比留白誠實
-    contactOf: ownerTag.get(c.userId) ?? '未編號會員',
+    contactOf: ownerTag.get(c.userId) ?? '某位會員',
     contactOwnerName: ownerName.get(c.userId),
     relation: c.label,
   }));
@@ -329,6 +346,7 @@ function collectSightings(src: RosterSources): Sighting[] {
  * 互相對上，整欄變成雜訊。
  */
 function linkMembersByPhone(list: Sighting[], members: MemberProfileRecord[]): Sighting[] {
+  const memberTag = makeTagger(members);
   const byPhone = new Map<string, string[]>();
   members.forEach(m => {
     const phone = clean(m.phone);

@@ -126,7 +126,7 @@
     [data-label="狀態"], [data-label="收款"], [data-label="金額"], [data-label="捐款金額"], [data-label="費用"],
     [data-label="啟用"], [data-label="圖片"], [data-label="插圖"], [data-label="操作"], [data-label="選取"],
     [data-label="性別"], [data-label="生肖"], [data-label="日期"], [data-label="時間"], [data-label="報名時間"],
-    [data-label="編號"]
+    [data-label="編號"], [data-label="感謝狀"]
   ),
   .admin-table td:not([data-label]):not([colspan]):not(.admin-more-toggle) { flex: 0 1 auto; }
   /* 會員編號接在姓名前面同一行（「#007 王美玲」），不要自己佔一行 */
@@ -214,6 +214,11 @@
   }
   /* 刪除鈕排在狀態那一欄的右邊、跟按鈕同一條底線，不要自己再佔一行 */
   .admin-table.reg-list td[data-label="操作"] { grid-column: 3; grid-row: 1 / span 2; align-self: end; padding-left: 0; padding-bottom: .625rem; }
+  /* 感謝狀（2026-11-27 自成一欄）：卡片版自己一整行、靠右。不可以塞進右欄——
+     編號格加「感謝狀」按鈕很寬，會把右欄撐開、左欄的姓名金額被擠成一字一行 */
+  .admin-table.reg-list td[data-label="感謝狀"] { grid-column: 1 / -1; justify-self: end; padding-top: 0; }
+  /* 「感謝狀」標籤跟編號格放同一行，不要自己佔一行 */
+  .admin-table td[data-label="感謝狀"] { display: flex; align-items: center; gap: .375rem; }
   .admin-table.reg-list td[data-more],
   .admin-table.reg-list td.admin-more-toggle,
   .admin-table.reg-list td[colspan] { grid-column: 1 / -1; }

@@ -88,7 +88,7 @@ const PaymentActions = <T extends string>({ status, pending, confirmed, cancelle
         <>
           <button onClick={() => onChange(isPaid ? pending : confirmed)} disabled={busy || (!isPaid && needThanksNo)}
             title={!isPaid && needThanksNo ? '先填感謝狀編號' : undefined}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               isPaid ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-temple-red text-white hover:bg-[#5C4310]'
             }`}>
             {isPaid ? '改回待匯款' : '標記已收款'}
@@ -639,7 +639,7 @@ const AccountCell = ({ rec, own }: { rec: DevoteeRecord; own: string[] }) => {
   if (rec.isMemberSelf) return (
     <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium"
       title="這一筆就是這個會員帳號自己的資料">
-      {rec.memberNumber || '會員（未編號）'}
+      會員本人
     </span>
   );
 
@@ -1513,8 +1513,8 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
   const handleExport = () => {
     exportExcel('和聖壇信眾名冊.xlsx', filtered.map(r => [
       r.name,
-      // 空白＝不是會員；未編號的會員要講出來，否則廟方照這一欄篩就會漏掉他們
-      r.memberAccounts > 0 ? (r.memberNumbers.join('、') || '（未編號）') : '',
+      // 空白＝不是會員（編號 2026-11-27 起不顯示，廟方：沒有意義）
+      r.memberAccounts > 0 ? '是' : '',
       r.genders.join('／'),
       r.phones.join('、'),
       r.addresses.join('；'),
@@ -1532,7 +1532,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
       r.relatives.join('、'),
       r.nameConflict ? '是' : '',
       r.conflictHint,
-    ]), ['姓名', '會員編號', '性別', '電話', '地址', '生日', '生肖', 'LINE', '信箱', '關係（通訊錄，確定）', '關係（報名填，未知對誰）', '參與管道', '參與次數', '累計金額', '首次參與', '最近參與', '可能親屬（同電話）', '疑似同名不同人', '判斷依據']);
+    ]), ['姓名', '會員', '性別', '電話', '地址', '生日', '生肖', 'LINE', '信箱', '關係（通訊錄，確定）', '關係（報名填，未知對誰）', '參與管道', '參與次數', '累計金額', '首次參與', '最近參與', '可能親屬（同電話）', '疑似同名不同人', '判斷依據']);
   };
 
   return (
@@ -1616,7 +1616,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
       {/* 搜尋一整行；底下是「哪一群人」與「哪個管道」兩排按鈕 */}
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 關係 / 信箱 / LINE / 地址 / 會員編號"
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名 / 電話 / 關係 / 信箱 / LINE / 地址"
           className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
       </div>
       <div className="space-y-2 mb-5">
@@ -1677,7 +1677,7 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                     {r.memberAccounts > 0 && (
                       <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"
                         title="此信眾同時是註冊會員">
-                        {r.memberNumbers.length > 0 ? `會員 ${r.memberNumbers.join('、')}` : '會員（未編號）'}
+                        會員
                       </span>
                     )}
                     {r.nameConflict && (
@@ -3993,7 +3993,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                   {/* 一整欄都空的不畫：一般捐獻幾乎沒有「指定項目」，備註也多半沒寫（2026-11-17） */}
                   {/* 「類型」欄拿掉：整份名單都是同一類 */}
                   {['信眾資訊', '捐款金額',
-                    ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間', '收款'].map(h => (
+                    ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間', '感謝狀', '收款'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -4054,6 +4054,15 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     <td data-label="時間" className="px-5 py-4">
                       <p className="text-xs text-gray-500">{fmtDate(d.createdAt)}</p>
                     </td>
+                    {/* 感謝狀自己一欄、放在收款左邊（2026-11-27 廟方：原本疊在收款格裡變三層，每列很高）。
+                        順序就是作業順序：先填編號，才按得了收款 */}
+                    <td data-label="感謝狀" className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                      {isThanksRelative(d.contactLabel) ? <Dash /> : (
+                        <ThanksCell bare onSaved={onRefresh} src={{ table: 'donations', id: d.id, no: d.thanksLetter,
+                          name: d.name, item: d.type, amount: Number(d.amount) || 0, paid: d.status === DonationStatus.CONFIRMED,
+                          label: d.contactLabel, phone: d.phone, createdAt: d.createdAt }} />
+                      )}
+                    </td>
                     {/* 收款按鈕直接放在名單上（2026-11-18）：原本只有應收管理改得了，捐獻管理的紅點寫「N 待匯款」卻沒有地方按 */}
                     <td data-label="收款" className="px-5 py-4" onClick={e => e.stopPropagation()}>
                       <div className="flex flex-col items-end lg:items-start gap-1.5">
@@ -4067,9 +4076,6 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           needThanksNo={!isThanksRelative(d.contactLabel) && !d.thanksLetter?.trim()}
                           onChange={next => handleDonationStatus(d.id, next)}
                         />
-                        <ThanksCell onSaved={onRefresh} src={{ table: 'donations', id: d.id, no: d.thanksLetter,
-                          name: d.name, item: d.type, amount: Number(d.amount) || 0, paid: d.status === DonationStatus.CONFIRMED,
-                          label: d.contactLabel, phone: d.phone, createdAt: d.createdAt }} />
                       </div>
                     </td>
                     <RowMoreCell open={donationRows.isOpen(d.id)} onToggle={() => donationRows.toggle(d.id)} hint="指定項目、備註" />
@@ -7212,6 +7218,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                     {regCols.pkg && <th className="px-4 py-3 text-left">方案</th>}
                     {regCols.addon && <th className="px-4 py-3 text-left">加購</th>}
                     {regCols.notes && <th className="px-4 py-3 text-left">備註</th>}
+                    <th className="px-4 py-3 text-left">感謝狀</th>
                     <th className="px-4 py-3 text-left">狀態</th>
                     <th className="px-4 py-3 text-left">報名時間</th>
                     <th className="px-4 py-3 text-center">操作</th>
@@ -7271,6 +7278,15 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                         )}
                       </td>}
                       {regCols.notes && <td data-label="備註" data-more className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{r.notes || <Dash />}</td>}
+                      {/* 感謝狀自己一欄、在狀態左邊（同捐獻名單，2026-11-27） */}
+                      <td data-label="感謝狀" className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        {isThanksRelative(r.contactLabel) ? <Dash /> : (
+                          <ThanksCell bare onSaved={onRefresh} src={{ table: 'blessing_registrations', id: r.id, no: r.thanksLetter,
+                            name: r.name, item: events.find(e => e.id === r.eventId)?.title || '祈福',
+                            amount: blessingAmount(r, events), paid: r.status === BlessingStatus.CONFIRMED,
+                            label: r.contactLabel, phone: r.phone, createdAt: r.createdAt }} />
+                        )}
+                      </td>
                       <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-end lg:items-start gap-1.5">
                           {statusBadge(r.status)}
@@ -7283,10 +7299,6 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                             needThanksNo={!isThanksRelative(r.contactLabel) && !r.thanksLetter?.trim()}
                             onChange={next => handleRegStatus(r.id, next)}
                           />
-                          <ThanksCell onSaved={onRefresh} src={{ table: 'blessing_registrations', id: r.id, no: r.thanksLetter,
-                            name: r.name, item: events.find(e => e.id === r.eventId)?.title || '祈福',
-                            amount: blessingAmount(r, events), paid: r.status === BlessingStatus.CONFIRMED,
-                            label: r.contactLabel, phone: r.phone, createdAt: r.createdAt }} />
                         </div>
                       </td>
                       <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
