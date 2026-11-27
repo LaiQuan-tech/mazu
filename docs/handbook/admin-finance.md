@@ -112,3 +112,4 @@
 - 組員來自 `setThanksPool`（AdminDashboard 用 buildIncomeRows 攤平、排除已取消）；單一服務的名單看不到別的服務。
 - 快照改成一個編號一張（`thanks_certificates_merge.sql`：cert_no 唯一，拿掉 source 唯一；source＝報名人那筆＝發送對象）。
 - 發送：`kind=thanks` 傳報名人那筆，API 查三張表裡同一號、未取消的每一筆都已收款才發。
+- **只有報名人那一列放「感謝狀」按鈕與「合開 N 筆」**，闔家其他列只留編號格（廟方 2026-11-27：好找、不重複）。

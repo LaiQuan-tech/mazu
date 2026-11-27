@@ -20,7 +20,8 @@
  * - 受謝人寫「報名人　闔家」（廟方選的）。報名人＝標「本人」的那一筆，沒有就是最早那筆。
  * - 項目逐一列出，金額加總；跨服務也可以（點燈＋捐獻同一號）。
  * - 發送只發一次，發給報名人；整組每一筆都收款了才能發。
- * - 列上會標「合開 N 筆」，打錯號碼把兩個不相干的人併在一起時看得出來。
+ * - **只有報名人那一列**有「感謝狀」按鈕和「合開 N 筆」；闔家其他人只留編號格（滑上去會說併入誰）。
+ *   廟方：每一列都放按鈕不好找、又是同一件事講好幾次。打錯號碼時，報名人那列的筆數會不對。
  * 組員從 `setThanksPool` 來：AdminDashboard 把四種報名攤平後（buildIncomeRows）整包交過來，
  * 單一服務的名單本身看不到別的服務。
  */
@@ -164,6 +165,9 @@ export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; com
 
   const no = (src.no ?? '').trim();
   const missing = !no && !src.paid;
+  /** 合開時只有報名人那一列放「感謝狀」按鈕；闔家其他人只留編號格（廟方 2026-11-27：好找、不重複） */
+  const merged = !!group && group.members.length > 1;
+  const isPrimary = !group || sameRow(group.primary, src);
   return (
     <div className={`flex items-center gap-1 ${compact ? '' : 'flex-wrap'}`} onClick={e => e.stopPropagation()}>
       <label className="inline-flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
@@ -172,11 +176,12 @@ export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; com
           value={val} onChange={e => setVal(e.target.value)} onBlur={save}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           disabled={saving} maxLength={20} placeholder="編號" aria-label="感謝狀編號"
-          title={missing ? '先填感謝狀編號才能標記已收款' : '感謝狀編號'}
+          title={missing ? '先填感謝狀編號才能標記已收款'
+            : merged && !isPrimary ? `併入 ${group!.primary.name} 的感謝狀（在那一列開）` : '感謝狀編號'}
           className={`w-16 px-1.5 py-1 rounded border text-xs text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-temple-gold disabled:opacity-50 ${
             missing ? 'border-amber-400' : 'border-gray-200'}`} />
       </label>
-      {no && (
+      {no && isPrimary && (
         <button type="button" onClick={() => setOpen(true)}
           title={cert?.sentAt ? `已發送 ${fmtSent(cert.sentAt)}` : '預覽、列印、發送感謝狀'}
           className="inline-flex items-center gap-0.5 px-2 py-1 rounded border border-temple-red/40 text-temple-red text-xs font-medium hover:bg-temple-red/5 whitespace-nowrap">
@@ -184,7 +189,7 @@ export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; com
           {cert?.sentAt ? <>已發送<Check className="w-3 h-3" aria-hidden="true" /></> : '感謝狀'}
         </button>
       )}
-      {group && group.members.length > 1 && (
+      {merged && isPrimary && (
         <span className="text-[11px] text-temple-dark/70 whitespace-nowrap" title={group.members.map(m => m.name).join('、')}>
           合開 {group.members.length} 筆
         </span>
