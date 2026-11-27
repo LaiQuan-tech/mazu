@@ -9,8 +9,20 @@
  * - **沒收款不能發送**：感謝狀是謝「已經護持」，錢還沒到就寄，等於先開了收據。
  * - 預覽、列印、發送都在同一個視窗，看到的就是會印出／寄出的那一張。
  *
- * 列印與發送前都會先存一份快照到 thanks_certificates（同一筆報名永遠同一個 id，
+ * 列印與發送前都會先存一份快照到 thanks_certificates（同一個編號永遠同一個 id，
  * 信眾手上的連結不會因為重存而失效）。為什麼不存在報名表上，見那支 SQL 的檔頭。
+ *
+ * ── 合開：同一個編號＝同一張（廟方 2026-11-27）──
+ * 會員幫很多親友報名，廟方通常只開一張感謝狀。做法是財務在那幾筆填**同一個號碼**，
+ * 不另外做「勾選合開」：編號本來就必填，填一樣的號碼就是合開，不用多學一套操作。
+ * 系統沒有「這幾筆是同一次送出」的紀錄、親友的電話也不一定是會員的，自動猜會合錯，
+ * 所以由財務的號碼決定。合開的那一張：
+ * - 受謝人寫「報名人　闔家」（廟方選的）。報名人＝標「本人」的那一筆，沒有就是最早那筆。
+ * - 項目逐一列出，金額加總；跨服務也可以（點燈＋捐獻同一號）。
+ * - 發送只發一次，發給報名人；整組每一筆都收款了才能發。
+ * - 列上會標「合開 N 筆」，打錯號碼把兩個不相干的人併在一起時看得出來。
+ * 組員從 `setThanksPool` 來：AdminDashboard 把四種報名攤平後（buildIncomeRows）整包交過來，
+ * 單一服務的名單本身看不到別的服務。
  */
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -39,12 +51,61 @@ const load = () => {
   return loading;
 };
 const putCert = (c: ThanksCertificateRecord) => {
-  certs = new Map(certs).set(`${c.sourceTable}:${c.sourceId}`, c);
+  certs = new Map(certs).set(c.no, c);
   emit();
 };
 const useCerts = () => {
   useEffect(() => { void load(); }, []);
   return useSyncExternalStore(f => { listeners.add(f); return () => listeners.delete(f); }, () => certs);
+};
+
+// ── 所有報名（已取消的不算），用來找同一個編號的其他筆 ──
+let pool: ThanksSource[] = [];
+const poolListeners = new Set<() => void>();
+export const setThanksPool = (list: ThanksSource[]) => { pool = list; poolListeners.forEach(f => f()); };
+const usePool = () => useSyncExternalStore(f => { poolListeners.add(f); return () => poolListeners.delete(f); }, () => pool);
+
+const trimNo = (n?: string) => (n ?? '').trim();
+const sameRow = (a: ThanksSource, b: ThanksSource) => a.table === b.table && a.id === b.id;
+
+export interface ThanksGroup {
+  no: string;
+  /** 報名人：發送對象，也是快照的 source */
+  primary: ThanksSource;
+  members: ThanksSource[];
+  name: string; item: string; amount: number;
+  /** 還沒收款的筆數（整組收齊才能發送） */
+  unpaid: number;
+}
+
+/** 同一個編號的那幾筆合成一張。名單還沒傳進來時至少有自己這一筆 */
+export const buildThanksGroup = (src: ThanksSource, all: ThanksSource[]): ThanksGroup => {
+  const no = trimNo(src.no);
+  const found = all.filter(r => trimNo(r.no) === no);
+  const members = (found.some(r => sameRow(r, src)) ? found : [...found, src])
+    .slice().sort((a, b) =>
+      Number(b.label === '本人') - Number(a.label === '本人')
+      || (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+  const primary = members[0];
+  const names = [...new Set(members.map(m => m.name))];
+  let item: string;
+  if (names.length === 1) item = [...new Set(members.map(m => m.item))].join('、');
+  else {
+    // 「光明燈（王美玲、王大明）、太歲燈（王小華）」：同一個項目的人收在一起
+    const byItem = new Map<string, string[]>();
+    members.forEach(m => {
+      const ns = byItem.get(m.item) ?? [];
+      if (!ns.includes(m.name)) ns.push(m.name);
+      byItem.set(m.item, ns);
+    });
+    item = [...byItem].map(([it, ns]) => `${it}（${ns.join('、')}）`).join('、');
+  }
+  return {
+    no, primary, members, item,
+    name: names.length > 1 ? `${primary.name}　闔家` : primary.name,
+    amount: members.reduce((t, m) => t + (m.amount || 0), 0),
+    unpaid: members.filter(m => !m.paid).length,
+  };
 };
 
 let templeCache: Promise<ThanksCertTemple> | null = null;
@@ -73,6 +134,9 @@ export interface ThanksSource {
   item: string;
   amount: number;
   paid: boolean;
+  /** 報名表上的稱謂（「本人」那筆是報名人，合開時寫在感謝狀上） */
+  label?: string;
+  createdAt?: string;
 }
 
 /**
@@ -81,7 +145,9 @@ export interface ThanksSource {
  */
 export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean }> = ({ src, onSaved, compact }) => {
   const all = useCerts();
-  const cert = all.get(`${src.table}:${src.id}`);
+  const rows = usePool();
+  const cert = all.get(trimNo(src.no));
+  const group = trimNo(src.no) ? buildThanksGroup(src, rows) : null;
   const [val, setVal] = useState(src.no ?? '');
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -118,12 +184,18 @@ export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; com
           {cert?.sentAt ? <>已發送<Check className="w-3 h-3" aria-hidden="true" /></> : '感謝狀'}
         </button>
       )}
-      {open && <ThanksModal src={{ ...src, no }} cert={cert} onClose={() => setOpen(false)} />}
+      {group && group.members.length > 1 && (
+        <span className="text-[11px] text-temple-dark/70 whitespace-nowrap" title={group.members.map(m => m.name).join('、')}>
+          合開 {group.members.length} 筆
+        </span>
+      )}
+      {open && group && <ThanksModal group={group} cert={cert} onClose={() => setOpen(false)} />}
     </div>
   );
 };
 
-const ThanksModal: React.FC<{ src: ThanksSource & { no: string }; cert?: ThanksCertificateRecord; onClose: () => void }> = ({ src, cert, onClose }) => {
+const ThanksModal: React.FC<{ group: ThanksGroup; cert?: ThanksCertificateRecord; onClose: () => void }> = ({ group, cert, onClose }) => {
+  const src = { ...group, table: group.primary.table, id: group.primary.id, paid: group.unpaid === 0 };
   const [temple, setTemple] = useState<ThanksCertTemple>({ name: TEMPLE_NAME, thanksText: '' });
   const [busy, setBusy] = useState<'' | 'print' | 'send' | 'link'>('');
   const [printing, setPrinting] = useState(false);
@@ -168,7 +240,7 @@ const ThanksModal: React.FC<{ src: ThanksSource & { no: string }; cert?: ThanksC
   const doSend = async () => {
     if (!src.paid) return;
     const again = cert?.sentAt ? `\n\n這張在 ${fmtSent(cert.sentAt)} 已經發過一次，確定要再發？` : '';
-    if (!confirm(`把感謝狀第 ${src.no} 號發給 ${src.name}？\n（有綁 LINE 就用 LINE，沒有就寄 email）${again}`)) return;
+    if (!confirm(`把感謝狀第 ${src.no} 號發給 ${group.primary.name}？\n（有綁 LINE 就用 LINE，沒有就寄 email）${again}`)) return;
     setBusy('send');
     try {
       await snapshot();
@@ -183,7 +255,7 @@ const ThanksModal: React.FC<{ src: ThanksSource & { no: string }; cert?: ThanksC
         alert(typeof j.error === 'string' && j.error ? j.error : `發送失敗（${r.status}）`);
         return;
       }
-      putCert({ ...(certs.get(`${src.table}:${src.id}`) as ThanksCertificateRecord), sentAt: String(j.sentAt || new Date().toISOString()), sentVia: String(j.via || '') });
+      putCert({ ...(certs.get(src.no) as ThanksCertificateRecord), sentAt: String(j.sentAt || new Date().toISOString()), sentVia: String(j.via || '') });
       alert(j.via === 'line' ? '已用 LINE 發送。' : '已寄出 email。');
     } catch (e) {
       alert(e instanceof Error && e.message ? e.message : '發送失敗');
@@ -209,7 +281,14 @@ const ThanksModal: React.FC<{ src: ThanksSource & { no: string }; cert?: ThanksC
                 {!same && <span className="text-amber-700">；內容已改過，信眾打開連結會看到新的版本</span>}
               </p>
             )}
-            {!src.paid && <p className="text-xs text-amber-700">還沒標記已收款，收到款項後才能發送。</p>}
+            {group.members.length > 1 && (
+              <p className="text-xs text-gray-500">
+                合開 {group.members.length} 筆：{group.members.map(m => `${m.name}（${m.item}）`).join('、')}。發送對象是 {group.primary.name}。
+              </p>
+            )}
+            {!src.paid && <p className="text-xs text-amber-700">
+              {group.members.length > 1 ? `其中 ${group.unpaid} 筆還沒標記已收款，整組收齊後才能發送。` : '還沒標記已收款，收到款項後才能發送。'}
+            </p>}
             <div className="flex flex-wrap items-center justify-end gap-2">
               <button type="button" onClick={doCopy} disabled={!!busy}
                 className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50">

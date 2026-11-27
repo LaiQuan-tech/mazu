@@ -280,9 +280,11 @@ const header = (req: ReqLike, name: string): string => {
  * ── 電子感謝狀（kind=thanks）──
  * 一次只發一張。內容不在這裡組：後台按「發送」時已經把看到的那一張存成快照
  * （thanks_certificates，見那支 SQL），這裡只負責把連結送到信眾手上。
+ * **同一個編號＝同一張**（合開，thanks_certificates_merge.sql）：後台傳來的 id 是報名人那一筆，
+ * 發給他；但三張報名表裡填了同一號的每一筆都要檢查。
  *
  * 三道檢查都要過才發，任何一道不對就照實告訴後台：
- * 1. 這筆已經收款（感謝狀是謝「已經護持」，錢還沒到就寄等於先開收據）。
+ * 1. 同一號的每一筆都已經收款（感謝狀是謝「已經護持」，錢還沒到就寄等於先開收據）。
  * 2. 報名紀錄上填了感謝狀編號、而且跟快照上的一樣（財務剛改號碼卻沒重存，寄出去就是舊號）。
  * 3. 有 LINE 或 email 可以送。
  * LINE 優先、推不出去退回 email、成功才記 sent_at，全部走共用層的 deliver()。
@@ -290,21 +292,13 @@ const header = (req: ReqLike, name: string): string => {
  */
 const THANKS_TABLES = new Set(['lamp_registrations', 'blessing_registrations', 'donations']);
 const PAID = new Set(['已收款', '已確認', 'paid']);
+const CANCELLED = '已取消';
 const SITE = 'https://heshengtan.tw';
 
 async function sendThanks(env: ReturnType<typeof readEnv>, table: string, id: string, res: ResLike): Promise<void> {
   const svc = svcHeaders(env);
   try {
-    const [rowRes, certRes] = await Promise.all([
-      fetch(`${env.supabaseUrl}/rest/v1/${table}?id=eq.${id}&select=id,name,phone,email,status,thanks_letter&limit=1`, { headers: svc }),
-      fetch(`${env.supabaseUrl}/rest/v1/thanks_certificates?source_table=eq.${table}&source_id=eq.${id}&select=*&limit=1`, { headers: svc }),
-    ]);
-    if (!certRes.ok) {
-      res.status(certRes.status === 404 ? 409 : 502).json({ ok: false, error: certRes.status === 404
-        ? '感謝狀的資料表還沒建立，請執行 supabase/migrations/thanks_certificates.sql'
-        : `讀取感謝狀失敗（${certRes.status}）` });
-      return;
-    }
+    const rowRes = await fetch(`${env.supabaseUrl}/rest/v1/${table}?id=eq.${id}&select=id,name,phone,email,status,thanks_letter&limit=1`, { headers: svc });
     if (!rowRes.ok) {
       res.status(502).json({ ok: false, error: rowRes.status === 400
         ? '這張表還沒有感謝狀編號欄位，請執行 supabase/migrations/thanks_certificates.sql'
@@ -312,12 +306,34 @@ async function sendThanks(env: ReturnType<typeof readEnv>, table: string, id: st
       return;
     }
     const row = ((await rowRes.json()) as Row[])[0];
-    const cert = ((await certRes.json()) as Row[])[0];
     if (!row) { res.status(404).json({ ok: false, error: '查無此筆' }); return; }
-    if (!PAID.has(clean(row.status))) { res.status(409).json({ ok: false, error: '這筆還沒標記已收款，收到款項後才能發感謝狀' }); return; }
     const no = clean(row.thanks_letter);
     if (!no) { res.status(409).json({ ok: false, error: '還沒填感謝狀編號' }); return; }
-    if (!cert || clean(cert.cert_no) !== no) {
+    const eqNo = `eq.${encodeURIComponent(no)}`;
+
+    const [certRes, ...groupRes] = await Promise.all([
+      fetch(`${env.supabaseUrl}/rest/v1/thanks_certificates?cert_no=${eqNo}&select=*&limit=1`, { headers: svc }),
+      ...[...THANKS_TABLES].map(t =>
+        fetch(`${env.supabaseUrl}/rest/v1/${t}?thanks_letter=${eqNo}&select=name,status`, { headers: svc })),
+    ]);
+    if (!certRes.ok) {
+      res.status(certRes.status === 404 ? 409 : 502).json({ ok: false, error: certRes.status === 404
+        ? '感謝狀的資料表還沒建立，請執行 supabase/migrations/thanks_certificates.sql'
+        : `讀取感謝狀失敗（${certRes.status}）` });
+      return;
+    }
+    const cert = ((await certRes.json()) as Row[])[0];
+    if (groupRes.some(g => !g.ok)) { res.status(502).json({ ok: false, error: '讀取同一編號的報名資料失敗' }); return; }
+    const group = (await Promise.all(groupRes.map(g => g.json() as Promise<Row[]>))).flat()
+      .filter(x => clean(x.status) !== CANCELLED);
+    const unpaid = group.filter(x => !PAID.has(clean(x.status)));
+    if (unpaid.length > 0) {
+      res.status(409).json({ ok: false, error: group.length > 1
+        ? `第 ${no} 號合開的 ${group.length} 筆裡，還有 ${unpaid.length} 筆沒標記已收款（${unpaid.map(x => clean(x.name)).join('、')}），收齊後才能發`
+        : '這筆還沒標記已收款，收到款項後才能發感謝狀' });
+      return;
+    }
+    if (!cert || clean(cert.source_table) !== table || clean(cert.source_id) !== id) {
       res.status(409).json({ ok: false, error: '感謝狀編號跟預覽的那一張不一樣，請關掉視窗重新打開再發送' });
       return;
     }

@@ -447,12 +447,12 @@ export const isThanksSchemaMissing = (e: any): boolean =>
 
 export const THANKS_SQL_HINT = '感謝狀功能的資料表還沒建立：請到 Supabase SQL Editor 執行 supabase/migrations/thanks_certificates.sql。';
 
-/** 後台用：一次抓全部，key 是「表:id」。表還沒建就回空的，不讓清單整頁壞掉 */
+/** 後台用：一次抓全部，key 是感謝狀編號（同一個編號＝同一張，見 thanks_certificates_merge.sql）。表還沒建就回空的 */
 export const getThanksCertificates = async (): Promise<Map<string, ThanksCertificateRecord>> => {
   const { data, error } = await supabase.from('thanks_certificates').select('*');
   const map = new Map<string, ThanksCertificateRecord>();
   if (error) { if (!isThanksSchemaMissing(error)) console.error('Error fetching thanks certificates:', error); return map; }
-  for (const r of data || []) { const c = mapThanksCert(r); map.set(`${c.sourceTable}:${c.sourceId}`, c); }
+  for (const r of data || []) { const c = mapThanksCert(r); map.set(c.no, c); }
   return map;
 };
 
@@ -467,8 +467,8 @@ export const updateThanksLetter = async (table: ThanksSourceTable, id: string, n
 };
 
 /**
- * 存（或更新）一張感謝狀快照，回傳它的 id（連結用）。同一筆報名永遠是同一個 id：
- * 編號或姓名改了再存一次，信眾手上的連結打開就是新的內容。
+ * 存（或更新）一張感謝狀快照，回傳它的 id（連結用）。**一個編號一張**：同一個號碼再存一次
+ * 是更新同一張、id 不變，信眾手上的連結打開就是新的內容。source 是「主要的那一筆」（發送對象）。
  */
 export const saveThanksCertificate = async (
   sourceTable: ThanksSourceTable, sourceId: string,
@@ -479,10 +479,12 @@ export const saveThanksCertificate = async (
     cert_no: d.no.trim(), name: d.name, item: d.item, amount: Math.max(0, Math.round(d.amount || 0)),
     cert_date: d.date.slice(0, 10), temple_name: d.templeName, thanks_text: d.thanksText || null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'source_table,source_id' }).select('*').single();
+  }, { onConflict: 'cert_no' }).select('*').single();
   if (error) {
     console.error('Error saving thanks certificate:', error);
     if (isThanksSchemaMissing(error)) throw new Error(THANKS_SQL_HINT);
+    // 42P10＝沒有 cert_no 的唯一約束，合開那支還沒跑
+    if (error.code === '42P10') throw new Error('感謝狀合開的資料庫設定還沒套用：請到 Supabase SQL Editor 執行 supabase/migrations/thanks_certificates_merge.sql。');
     throw error;
   }
   return mapThanksCert(data);

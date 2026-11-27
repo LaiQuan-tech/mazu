@@ -13,7 +13,7 @@ import AdminVouchersTab from './AdminVouchersTab';
 import { useOpenRows, RowMoreCell } from './AdminRowMore';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
-import { ThanksCell, NEED_THANKS_NO, type ThanksSource } from './AdminThanks';
+import { ThanksCell, NEED_THANKS_NO, setThanksPool, type ThanksSource } from './AdminThanks';
 import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import { resolveFeastDate, feastRuleLabel, weekdayLabel, solarToLunarLabel } from '../services/lunarCalendar';
@@ -7972,7 +7972,8 @@ function buildIncomeRows(src: {
          : r.status === LampRegistrationStatus.CONFIRMED ? 'paid' : 'pending',
       thanks: { table: 'lamp_registrations', id: r.id, no: r.thanksLetter, name: r.name,
         item: [cfg?.name, readChoiceTag(r.notes)?.value].filter(Boolean).join('・') || '點燈',
-        amount: lampAmount(r, lampConfigs), paid: r.status === LampRegistrationStatus.CONFIRMED } };
+        amount: lampAmount(r, lampConfigs), paid: r.status === LampRegistrationStatus.CONFIRMED,
+        label: r.contactLabel, createdAt: r.createdAt } };
   });
   const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
     const ev = blessingEvents.find(e => e.id === r.eventId);
@@ -7983,7 +7984,8 @@ function buildIncomeRows(src: {
       pay: r.status === BlessingStatus.CANCELLED ? 'cancelled'
          : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending',
       thanks: { table: 'blessing_registrations', id: r.id, no: r.thanksLetter, name: r.name,
-        item: ev?.title || '祈福', amount: blessingAmount(r, blessingEvents), paid: r.status === BlessingStatus.CONFIRMED } };
+        item: ev?.title || '祈福', amount: blessingAmount(r, blessingEvents), paid: r.status === BlessingStatus.CONFIRMED,
+        label: r.contactLabel, createdAt: r.createdAt } };
   });
   // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
   const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
@@ -7994,7 +7996,9 @@ function buildIncomeRows(src: {
     pay: r.status === 'paid' ? 'paid' : 'pending',
     fahui: r,
     thanks: { table: 'blessing_registrations', id: r.id, no: r.thanksLetter, name: r.name,
-      item: blessingEvents.find(e => e.id === r.eventId)?.title || '法會', amount: r.totalAmount, paid: r.status === 'paid' },
+      item: blessingEvents.find(e => e.id === r.eventId)?.title || '法會', amount: r.totalAmount, paid: r.status === 'paid',
+      // 法會一張報名單就是填表的那個人（整家的牌位都在 entries 裡）
+      label: '本人', createdAt: r.createdAt },
   }));
   const donationRows: IncomeRow[] = donations.map(r => ({
     id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
@@ -8005,7 +8009,8 @@ function buildIncomeRows(src: {
        : r.status === DonationStatus.CANCELLED ? 'cancelled'
        : r.status === DonationStatus.CONFIRMED ? 'paid' : 'pending',
     thanks: { table: 'donations', id: r.id, no: r.thanksLetter, name: r.name, item: r.type,
-      amount: Number(r.amount) || 0, paid: r.status === DonationStatus.CONFIRMED },
+      amount: Number(r.amount) || 0, paid: r.status === DonationStatus.CONFIRMED,
+      label: r.contactLabel, createdAt: r.createdAt },
   }));
   return [...lampRows, ...blessingRows, ...fahuiRows, ...donationRows]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -8885,6 +8890,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   };
 
   useEffect(() => { fetchAll(true); }, []);
+
+  // 感謝狀合開要看得到四種服務的每一筆（同一個編號＝同一張，見 AdminThanks.tsx）
+  useEffect(() => {
+    setThanksPool(buildIncomeRows({ lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations })
+      .filter(r => r.pay !== 'cancelled').map(r => r.thanks));
+  }, [lampRegistrations, lampConfigs, blessingRegistrations, blessingEvents, fahuiRegistrations, donations]);
 
   const handleStatusChange = async (id: string, status: BookingStatus) => {
     setUpdatingId(id);

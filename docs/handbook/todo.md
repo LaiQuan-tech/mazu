@@ -60,3 +60,4 @@
 - 主官網上線 checklist：`FAHUI_LANDING` 改 false、index.html title／OG 換回官網用、hero 圖 fallback 是外連 Unsplash 建議換本地圖、Google Maps iframe 在部分環境載入失敗待驗證。
   **同時要處理 index.html 的法會 Event JSON-LD**：`url` 與 `offers.url` 指向 `machu-five.vercel.app` 根路徑，而 `FAHUI_LANDING` 一關那裡就不再是報名表；法會 9/13 過後整個 Event 節點也該移除或換成下一場，否則 Search Console 會回報過期活動。
 - **`supabase/migrations/thanks_certificates.sql` 要在 Supabase SQL Editor 跑過**（2026-11-27 新增）：點燈、捐獻加 `thanks_letter`，新表 `thanks_certificates`、RPC `get_thanks_certificate`。沒跑之前：點燈與捐獻填編號會跳提示、無法標記已收款；感謝狀不能存也不能發。
+- **`supabase/migrations/thanks_certificates_merge.sql` 要跑**（2026-11-27 合開感謝狀）：快照改成一個編號一張。沒跑之前按預覽的列印／複製連結／發送會跳提示。
