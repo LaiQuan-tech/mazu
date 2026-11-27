@@ -2532,6 +2532,29 @@ const App: React.FC = () => {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   /** 會員已登入但尚未填聯絡電話時，擋下送出並導引補填（避免電話存成空字串、廟方無法聯絡） */
+  /**
+   * 「本人」只能是填表的那個人（2026-11-27 廟方：會員鍾介凡幫鍾木森點燈，名單上卻寫「鍾木森 #本人」）。
+   * 第一張卡預設是本人、帶入會員自己的資料；會員直接把姓名改成家人的，稱謂就一直停在「本人」。
+   * 這會讓感謝狀的抬頭、親友合併、名冊的關係全部判斷錯，所以送出前擋兩件事：
+   * - 不只一位「本人」：一定錯，擋下來。
+   * - 「本人」那張的姓名跟會員姓名不同：多半是改了名字忘了改稱謂，問一次（不直接擋：
+   *   會員資料可能寫的是舊名或少一個字）。訪客沒有會員姓名可以比，只檢查第一條。
+   */
+  const confirmSelfLabels = (persons: { name: string; contactLabel?: string }[]): boolean => {
+    const selfs = persons.map((p, i) => ({ name: p.name.trim(), i })).filter((_, i) => persons[i].contactLabel === '本人');
+    if (selfs.length > 1) {
+      alert(`稱謂「本人」只能有一位（目前第 ${selfs.map(x => x.i + 1).join('、')} 位都是本人）。\n請把家人的稱謂改成他和您的關係，例如父母親、兒女。`);
+      return false;
+    }
+    const me = member ? (memberProfile?.name ?? '').replace(/\s/g, '') : '';
+    const s = selfs[0];
+    if (me && s && s.name && s.name.replace(/\s/g, '') !== me) {
+      return confirm(`第 ${s.i + 1} 位「${s.name}」的稱謂是「本人」，但您的會員姓名是「${memberProfile?.name}」。\n\n`
+        + '如果是幫家人報名，請按「取消」，把稱謂改成他和您的關係（例如父母親、兒女）。\n確定就是您本人，請按「確定」送出。');
+    }
+    return true;
+  };
+
   const requireMemberPhone = (): boolean => {
     if (member && !memberProfile?.phone) {
       alert('請先至會員中心填寫聯絡電話，以便廟方與您聯繫。');
@@ -2552,6 +2575,7 @@ const App: React.FC = () => {
     const invalid = lampPersons.find(p => !p.serviceId || !p.name.trim());
     if (invalid) { alert('請填寫所有人員的服務項目與姓名。'); return; }
     if (!requireMemberPhone()) return;
+    if (!confirmSelfLabels(lampPersons)) return;
     // 名額：送出前重抓一次計數再比——頁面開著的這段時間可能已經有人把最後幾盞報走
     if (lampPersons.some(p => p.choice && lampChoices[p.serviceId]?.quotas)) {
       const fresh = await refreshLampChoiceCounts();
@@ -2590,6 +2614,7 @@ const App: React.FC = () => {
     const selectedSession = bookingSessions.find(s => s.id === selectedSessionId);
     if (!selectedSession) { alert('場次不存在，請重新選擇。'); return; }
     if (!requireMemberPhone()) return;
+    if (!confirmSelfLabels(bookingPersons)) return;
     // 送出前重抓一次即時名額，降低超賣機率
     const freshCounts = await getBookingCountsBySession().catch(() => sessionCounts);
     setSessionCounts(freshCounts);
@@ -2628,6 +2653,7 @@ const App: React.FC = () => {
     const invalid = donationPersons.find(p => !p.name.trim() || p.amount <= 0);
     if (invalid) { alert('請填寫所有人員的姓名與捐款金額。'); return; }
     if (!requireMemberPhone()) return;
+    if (!confirmSelfLabels(donationPersons)) return;
     setDonationStatus('loading');
     const ids = await submitSequentially(donationPersons, (p: DonationPersonEntry) => {
       const proj = repairProjects.find(r => r.id === p.repairProjectId);
@@ -2669,6 +2695,7 @@ const App: React.FC = () => {
       return;
     }
     if (!requireMemberPhone()) return;
+    if (!confirmSelfLabels(blessingPersons)) return;
     setBlessingStatus('loading');
     // 加購金額已包含在報名記錄的 selected_addons 內，後台應收管理會直接計算；
     // 不再另寫一筆捐獻記錄，避免同一筆金額重複入帳。
