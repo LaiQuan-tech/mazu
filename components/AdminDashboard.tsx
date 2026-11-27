@@ -13,7 +13,7 @@ import AdminVouchersTab from './AdminVouchersTab';
 import { useOpenRows, RowMoreCell } from './AdminRowMore';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
-import { ThanksCell, NEED_THANKS_NO, setThanksPool, type ThanksSource } from './AdminThanks';
+import { ThanksCell, NEED_THANKS_NO, setThanksPool, isThanksRelative, type ThanksSource } from './AdminThanks';
 import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
 import { resolveFeastDate, feastRuleLabel, weekdayLabel, solarToLunarLabel } from '../services/lunarCalendar';
@@ -3781,7 +3781,8 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
   const donationInfo = useOpenRows();
   const [donBusyId, setDonBusyId] = useState<string | null>(null);
   const handleDonationStatus = async (id: string, next: DonationStatus) => {
-    if (next === DonationStatus.CONFIRMED && !donations.find(d => d.id === id)?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
+    const dn = donations.find(d => d.id === id);
+    if (next === DonationStatus.CONFIRMED && !isThanksRelative(dn?.contactLabel) && !dn?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setDonBusyId(id);
     try { await updateDonationStatus(id, next); onRefresh(); }
     catch { alert('更新收款狀態失敗，請再試一次'); }
@@ -4057,11 +4058,12 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           confirmed={DonationStatus.CONFIRMED}
                           cancelled={DonationStatus.CANCELLED}
                           busy={donBusyId === d.id}
-                          needThanksNo={!d.thanksLetter?.trim()}
+                          needThanksNo={!isThanksRelative(d.contactLabel) && !d.thanksLetter?.trim()}
                           onChange={next => handleDonationStatus(d.id, next)}
                         />
                         <ThanksCell onSaved={onRefresh} src={{ table: 'donations', id: d.id, no: d.thanksLetter,
-                          name: d.name, item: d.type, amount: Number(d.amount) || 0, paid: d.status === DonationStatus.CONFIRMED }} />
+                          name: d.name, item: d.type, amount: Number(d.amount) || 0, paid: d.status === DonationStatus.CONFIRMED,
+                          label: d.contactLabel, phone: d.phone, createdAt: d.createdAt }} />
                       </div>
                     </td>
                     <RowMoreCell open={donationRows.isOpen(d.id)} onToggle={() => donationRows.toggle(d.id)} hint="指定項目、備註" />
@@ -6359,7 +6361,8 @@ const LampsTab = ({
     configs.find(c => c.id === serviceId)?.name || serviceId;
 
   const handleRegStatusChange = async (id: string, status: LampRegistrationStatus) => {
-    if (status === LampRegistrationStatus.CONFIRMED && !registrations.find(r => r.id === id)?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
+    const lr = registrations.find(r => r.id === id);
+    if (status === LampRegistrationStatus.CONFIRMED && !isThanksRelative(lr?.contactLabel) && !lr?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setUpdatingRegId(id);
     try {
       await updateLampRegistrationStatus(id, status);
@@ -6603,14 +6606,15 @@ const LampsTab = ({
                 <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end" onClick={e => e.stopPropagation()}>
                   <ThanksCell onSaved={onRefresh} src={{ table: 'lamp_registrations', id: r.id, no: r.thanksLetter,
                     name: r.name, item: [getServiceName(r.serviceId), readChoiceTag(r.notes)?.value].filter(Boolean).join('・'),
-                    amount: lampAmount(r, configs), paid: r.status === LampRegistrationStatus.CONFIRMED }} />
+                    amount: lampAmount(r, configs), paid: r.status === LampRegistrationStatus.CONFIRMED,
+                    label: r.contactLabel, phone: r.phone, createdAt: r.createdAt }} />
                   <PaymentActions
                     status={r.status}
                     pending={LampRegistrationStatus.PENDING}
                     confirmed={LampRegistrationStatus.CONFIRMED}
                     cancelled={LampRegistrationStatus.CANCELLED}
                     busy={updatingRegId === r.id}
-                    needThanksNo={!r.thanksLetter?.trim()}
+                    needThanksNo={!isThanksRelative(r.contactLabel) && !r.thanksLetter?.trim()}
                     onChange={next => handleRegStatusChange(r.id, next)}
                   />
                   <button
@@ -7032,7 +7036,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
   };
 
   const handleRegStatus = async (id: string, status: BlessingStatus) => {
-    if (status === BlessingStatus.CONFIRMED && !registrations.find(r => r.id === id)?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
+    const br = registrations.find(r => r.id === id);
+    if (status === BlessingStatus.CONFIRMED && !isThanksRelative(br?.contactLabel) && !br?.thanksLetter?.trim()) { alert(NEED_THANKS_NO); return; }
     setUpdatingRegId(id);
     try {
       await updateBlessingRegistrationStatus(id, status);
@@ -7231,12 +7236,13 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                             confirmed={BlessingStatus.CONFIRMED}
                             cancelled={BlessingStatus.CANCELLED}
                             busy={updatingRegId === r.id}
-                            needThanksNo={!r.thanksLetter?.trim()}
+                            needThanksNo={!isThanksRelative(r.contactLabel) && !r.thanksLetter?.trim()}
                             onChange={next => handleRegStatus(r.id, next)}
                           />
                           <ThanksCell onSaved={onRefresh} src={{ table: 'blessing_registrations', id: r.id, no: r.thanksLetter,
                             name: r.name, item: events.find(e => e.id === r.eventId)?.title || '祈福',
-                            amount: blessingAmount(r, events), paid: r.status === BlessingStatus.CONFIRMED }} />
+                            amount: blessingAmount(r, events), paid: r.status === BlessingStatus.CONFIRMED,
+                            label: r.contactLabel, phone: r.phone, createdAt: r.createdAt }} />
                         </div>
                       </td>
                       <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
@@ -7973,7 +7979,7 @@ function buildIncomeRows(src: {
       thanks: { table: 'lamp_registrations', id: r.id, no: r.thanksLetter, name: r.name,
         item: [cfg?.name, readChoiceTag(r.notes)?.value].filter(Boolean).join('・') || '點燈',
         amount: lampAmount(r, lampConfigs), paid: r.status === LampRegistrationStatus.CONFIRMED,
-        label: r.contactLabel, createdAt: r.createdAt } };
+        label: r.contactLabel, phone: r.phone, createdAt: r.createdAt } };
   });
   const blessingRows: IncomeRow[] = blessingRegistrations.map(r => {
     const ev = blessingEvents.find(e => e.id === r.eventId);
@@ -7985,7 +7991,7 @@ function buildIncomeRows(src: {
          : r.status === BlessingStatus.CONFIRMED ? 'paid' : 'pending',
       thanks: { table: 'blessing_registrations', id: r.id, no: r.thanksLetter, name: r.name,
         item: ev?.title || '祈福', amount: blessingAmount(r, blessingEvents), paid: r.status === BlessingStatus.CONFIRMED,
-        label: r.contactLabel, createdAt: r.createdAt } };
+        label: r.contactLabel, phone: r.phone, createdAt: r.createdAt } };
   });
   // 法會的金額用報名紀錄上的 totalAmount（與法會分頁、信眾名冊同一個來源）
   const fahuiRows: IncomeRow[] = fahuiRegistrations.map(r => ({
@@ -7998,7 +8004,7 @@ function buildIncomeRows(src: {
     thanks: { table: 'blessing_registrations', id: r.id, no: r.thanksLetter, name: r.name,
       item: blessingEvents.find(e => e.id === r.eventId)?.title || '法會', amount: r.totalAmount, paid: r.status === 'paid',
       // 法會一張報名單就是填表的那個人（整家的牌位都在 entries 裡）
-      label: '本人', createdAt: r.createdAt },
+      label: '本人', phone: r.phone, createdAt: r.createdAt },
   }));
   const donationRows: IncomeRow[] = donations.map(r => ({
     id: `donation:${r.id}`, date: r.createdAt, name: r.name, phone: r.phone,
@@ -8010,7 +8016,7 @@ function buildIncomeRows(src: {
        : r.status === DonationStatus.CONFIRMED ? 'paid' : 'pending',
     thanks: { table: 'donations', id: r.id, no: r.thanksLetter, name: r.name, item: r.type,
       amount: Number(r.amount) || 0, paid: r.status === DonationStatus.CONFIRMED,
-      label: r.contactLabel, createdAt: r.createdAt },
+      label: r.contactLabel, phone: r.phone, createdAt: r.createdAt },
   }));
   return [...lampRows, ...blessingRows, ...fahuiRows, ...donationRows]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -8201,7 +8207,7 @@ const ReceivablesTab: React.FC<{
   const setPayState = async (row: IncomeRow, next: 'pending' | 'paid' | 'cancelled') => {
     const rawId = row.id.split(':')[1];
     const paid = next === 'paid';
-    if (paid && !row.thanks.no?.trim()) { alert(NEED_THANKS_NO); return; }
+    if (paid && !isThanksRelative(row.thanks.label) && !row.thanks.no?.trim()) { alert(NEED_THANKS_NO); return; }
     setBusyId(row.id);
     try {
       if (row.typeKey === 'lamp') {
@@ -8448,8 +8454,8 @@ const ReceivablesTab: React.FC<{
                             <>
                               <ThanksCell onSaved={onRefresh} src={row.thanks} compact />
                               <button onClick={() => setPayState(row, row.pay === 'paid' ? 'pending' : 'paid')}
-                                disabled={busy || (row.pay !== 'paid' && !row.thanks.no?.trim())}
-                                title={row.pay !== 'paid' && !row.thanks.no?.trim() ? '先填感謝狀編號' : undefined}
+                                disabled={busy || (row.pay !== 'paid' && !isThanksRelative(row.thanks.label) && !row.thanks.no?.trim())}
+                                title={row.pay !== 'paid' && !isThanksRelative(row.thanks.label) && !row.thanks.no?.trim() ? '先填感謝狀編號' : undefined}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                   row.pay === 'paid'
                                     ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'

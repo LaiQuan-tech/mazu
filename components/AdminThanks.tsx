@@ -13,15 +13,15 @@
  * 信眾手上的連結不會因為重存而失效）。為什麼不存在報名表上，見那支 SQL 的檔頭。
  *
  * ── 合開：同一個編號＝同一張（廟方 2026-11-27）──
- * 會員幫很多親友報名，廟方通常只開一張感謝狀。做法是財務在那幾筆填**同一個號碼**，
- * 不另外做「勾選合開」：編號本來就必填，填一樣的號碼就是合開，不用多學一套操作。
- * 系統沒有「這幾筆是同一次送出」的紀錄、親友的電話也不一定是會員的，自動猜會合錯，
- * 所以由財務的號碼決定。合開的那一張：
+ * 會員幫很多親友報名，廟方通常只開一張感謝狀。親友自動併進報名人那張（見下），
+ * 報名人自己的幾筆（例如點燈＋捐獻）則由財務填**同一個號碼**合開。合開的那一張：
  * - 受謝人寫「報名人　闔家」（廟方選的）。報名人＝標「本人」的那一筆，沒有就是最早那筆。
  * - 項目逐一列出，金額加總；跨服務也可以（點燈＋捐獻同一號）。
  * - 發送只發一次，發給報名人；整組每一筆都收款了才能發。
- * - **只有報名人那一列**有「感謝狀」按鈕和「合開 N 筆」；闔家其他人只留編號格（滑上去會說併入誰）。
- *   廟方：每一列都放按鈕不好找、又是同一件事講好幾次。打錯號碼時，報名人那列的筆數會不對。
+ * - **親友列（稱謂不是「本人」）完全不顯示感謝狀**，也不必填編號就能標記已收款：
+ *   自動併進同一次送出的報名人那一張（同一張表、同一支電話、建立時間十分鐘內）。
+ *   同一次送出裡沒有「本人」的話，親友就沒有感謝狀——前台第一張卡預設就是本人，實務上少見。
+ * - 合開的那張只有一個「感謝狀」按鈕、標「合開 N 筆」，在報名人那一列。
  * 組員從 `setThanksPool` 來：AdminDashboard 把四種報名攤平後（buildIncomeRows）整包交過來，
  * 單一服務的名單本身看不到別的服務。
  */
@@ -79,11 +79,41 @@ export interface ThanksGroup {
   unpaid: number;
 }
 
-/** 同一個編號的那幾筆合成一張。名單還沒傳進來時至少有自己這一筆 */
+/**
+ * 親友那一列：報名表上稱謂不是「本人」（兒女、配偶…）。**親友列完全不顯示感謝狀**，
+ * 也不必填編號就能標記已收款——他們併在報名人那一張裡（廟方 2026-11-27：
+ * 「親友在報名清單上根本不要顯示感謝狀」）。沒有稱謂的舊資料當作報名人。
+ */
+export const isThanksRelative = (label?: string): boolean => !!label && label.trim() !== '本人';
+
+/** 同一次送出：前台表單一次送出的每一筆都存報名人的電話，建立時間相差幾秒 */
+const SAME_SUBMIT_MS = 10 * 60_000;
+const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : NaN);
+
+/** 親友這一列屬於哪一位報名人：同一張表、同一支電話、時間最接近的「本人」那筆（十分鐘內） */
+export const thanksOwnerOf = (row: ThanksSource, all: ThanksSource[]): ThanksSource | null => {
+  if (!isThanksRelative(row.label) || !row.phone) return null;
+  const t = timeOf(row.createdAt);
+  let best: ThanksSource | null = null; let gap = Infinity;
+  for (const r of all) {
+    if (r.table !== row.table || isThanksRelative(r.label) || r.phone !== row.phone) continue;
+    const d = Math.abs(timeOf(r.createdAt) - t);
+    if (d <= SAME_SUBMIT_MS && d < gap) { best = r; gap = d; }
+  }
+  return best;
+};
+
+/**
+ * 一張感謝狀的成員：填了這個編號的報名人（可以跨服務，例如點燈＋捐獻同一號），
+ * 加上掛在他們底下的親友。名單還沒傳進來時至少有自己這一筆。
+ */
 export const buildThanksGroup = (src: ThanksSource, all: ThanksSource[]): ThanksGroup => {
   const no = trimNo(src.no);
-  const found = all.filter(r => trimNo(r.no) === no);
-  const members = (found.some(r => sameRow(r, src)) ? found : [...found, src])
+  const heads = all.filter(r => trimNo(r.no) === no && !isThanksRelative(r.label));
+  if (!heads.some(r => sameRow(r, src))) heads.push(src);
+  const kin = all.filter(r => { const o = thanksOwnerOf(r, all); return !!o && heads.some(h => sameRow(h, o)); });
+  const found = [...heads, ...kin.filter(k => !heads.some(h => sameRow(h, k)))];
+  const members = found
     .slice().sort((a, b) =>
       Number(b.label === '本人') - Number(a.label === '本人')
       || (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
@@ -137,6 +167,8 @@ export interface ThanksSource {
   paid: boolean;
   /** 報名表上的稱謂（「本人」那筆是報名人，合開時寫在感謝狀上） */
   label?: string;
+  /** 電話：親友列靠它（加上建立時間）找到同一次送出的報名人 */
+  phone?: string;
   createdAt?: string;
 }
 
@@ -144,7 +176,11 @@ export interface ThanksSource {
  * 名單上那一格：編號輸入框＋（有編號才出現的）「感謝狀」按鈕。
  * `onSaved` 讓呼叫端重抓資料——標記已收款的按鈕要看到新編號才會解鎖。
  */
-export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean }> = ({ src, onSaved, compact }) => {
+export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean }> = (props) =>
+  // 親友列什麼都不畫（hook 在 ThanksCellInner 裡，這裡提早 return 不違反 hook 規則）
+  isThanksRelative(props.src.label) ? null : <ThanksCellInner {...props} />;
+
+const ThanksCellInner: React.FC<{ src: ThanksSource; onSaved?: () => void; compact?: boolean }> = ({ src, onSaved, compact }) => {
   const all = useCerts();
   const rows = usePool();
   const cert = all.get(trimNo(src.no));
@@ -165,7 +201,7 @@ export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; com
 
   const no = (src.no ?? '').trim();
   const missing = !no && !src.paid;
-  /** 合開時只有報名人那一列放「感謝狀」按鈕；闔家其他人只留編號格（廟方 2026-11-27：好找、不重複） */
+  /** 同一號有好幾筆「本人」（例如同一人點燈＋捐獻）時，按鈕只放在第一筆；其他筆只留編號格 */
   const merged = !!group && group.members.length > 1;
   const isPrimary = !group || sameRow(group.primary, src);
   return (
@@ -177,7 +213,7 @@ export const ThanksCell: React.FC<{ src: ThanksSource; onSaved?: () => void; com
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           disabled={saving} maxLength={20} placeholder="編號" aria-label="感謝狀編號"
           title={missing ? '先填感謝狀編號才能標記已收款'
-            : merged && !isPrimary ? `併入 ${group!.primary.name} 的感謝狀（在那一列開）` : '感謝狀編號'}
+            : merged && !isPrimary ? `併入 ${group!.primary.name} 那一列的感謝狀` : '感謝狀編號'}
           className={`w-16 px-1.5 py-1 rounded border text-xs text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-temple-gold disabled:opacity-50 ${
             missing ? 'border-amber-400' : 'border-gray-200'}`} />
       </label>

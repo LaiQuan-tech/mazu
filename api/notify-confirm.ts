@@ -314,7 +314,7 @@ async function sendThanks(env: ReturnType<typeof readEnv>, table: string, id: st
     const [certRes, ...groupRes] = await Promise.all([
       fetch(`${env.supabaseUrl}/rest/v1/thanks_certificates?cert_no=${eqNo}&select=*&limit=1`, { headers: svc }),
       ...[...THANKS_TABLES].map(t =>
-        fetch(`${env.supabaseUrl}/rest/v1/${t}?thanks_letter=${eqNo}&select=name,status`, { headers: svc })),
+        fetch(`${env.supabaseUrl}/rest/v1/${t}?thanks_letter=${eqNo}&select=name,status,phone,created_at,contact_label`, { headers: svc })),
     ]);
     if (!certRes.ok) {
       res.status(certRes.status === 404 ? 409 : 502).json({ ok: false, error: certRes.status === 404
@@ -324,8 +324,26 @@ async function sendThanks(env: ReturnType<typeof readEnv>, table: string, id: st
     }
     const cert = ((await certRes.json()) as Row[])[0];
     if (groupRes.some(g => !g.ok)) { res.status(502).json({ ok: false, error: '讀取同一編號的報名資料失敗' }); return; }
-    const group = (await Promise.all(groupRes.map(g => g.json() as Promise<Row[]>))).flat()
-      .filter(x => clean(x.status) !== CANCELLED);
+    const tables = [...THANKS_TABLES];
+    const heads = (await Promise.all(groupRes.map(g => g.json() as Promise<Row[]>)))
+      .flatMap((rows, i) => rows.map((x): Row => ({ ...x, _t: tables[i] })));
+    /**
+     * 親友列沒有編號，自動併在同一次送出的報名人底下（後台 AdminThanks.tsx 的 thanksOwnerOf）：
+     * 同一張表、同一支電話、稱謂不是「本人」、建立時間前後十分鐘內。他們也要收齊才能發。
+     * 這裡寧可多算（兩次送出隔不到十分鐘會一起檢查）：多算只是晚一點發，少算是先謝了還沒收到的錢。
+     */
+    const kinRes = await Promise.all(heads
+      .filter(h => clean(h.phone) && (!clean(h.contact_label) || clean(h.contact_label) === '本人') && h.created_at)
+      .map(h => {
+        const t = new Date(h.created_at).getTime();
+        const iso = (ms: number) => encodeURIComponent(new Date(ms).toISOString());
+        return fetch(`${env.supabaseUrl}/rest/v1/${h._t}?phone=eq.${encodeURIComponent(clean(h.phone))}`
+          + `&contact_label=neq.${encodeURIComponent('本人')}&created_at=gte.${iso(t - 600_000)}&created_at=lte.${iso(t + 600_000)}`
+          + `&select=name,status`, { headers: svc });
+      }));
+    if (kinRes.some(k => !k.ok)) { res.status(502).json({ ok: false, error: '讀取同一次報名的親友資料失敗' }); return; }
+    const kin = (await Promise.all(kinRes.map(k => k.json() as Promise<Row[]>))).flat();
+    const group = [...heads, ...kin].filter(x => clean(x.status) !== CANCELLED);
     const unpaid = group.filter(x => !PAID.has(clean(x.status)));
     if (unpaid.length > 0) {
       res.status(409).json({ ok: false, error: group.length > 1
