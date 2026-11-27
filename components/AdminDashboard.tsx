@@ -13,6 +13,7 @@ import AdminVouchersTab from './AdminVouchersTab';
 import { useOpenRows, RowMoreCell } from './AdminRowMore';
 import { ReceiptIssueDialog, ReceiptGroup, ReceiptListPanel, ReceiptSettingsPanel, useTempleInfo } from './AdminReceipts';
 import ReceiptPrint from './ReceiptPrint';
+import { LineName, LineNameOf, reloadLineNames } from './AdminLineName';
 import { ThanksCell, NEED_THANKS_NO, setThanksPool, isThanksRelative, type ThanksSource } from './AdminThanks';
 import { ReceiptRecord, getReceipts, receiptsBySource } from '../services/receipts';
 import AdminFeastsTab from './AdminFeastsTab';
@@ -1668,6 +1669,8 @@ const RosterTab = ({ sources, onDone, initialSearch, canSeeVolunteer }: { source
                 <tr key={r.name} className={`hover:bg-gray-50/60${rosterRows.isOpen(r.name) ? ' admin-open' : ''}`}>
                   <td data-label="姓名" className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">
                     {r.name}
+                    {/* LINE 名稱：只看本人那幾筆與會員帳號，親友那幾筆是報名人的 LINE（AdminLineName.tsx） */}
+                    <LineNameOf className="ml-2" refs={r.records.filter(x => !x.relation || x.relation === '本人').map(x => x.ref).filter(Boolean)} />
                     {/* 此人同時是註冊會員，可回「會員資訊」看登入紀錄。
                         **判斷用 memberAccounts 不是 memberNumbers**：編號是廟方給的，
                         沒編號的帳號照樣是會員，用編號判斷會讓他顯示成非會員。 */}
@@ -2335,6 +2338,7 @@ const FahuiTab = ({ registrations, onRefresh, title }: { registrations: FahuiReg
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-800">{r.name}</span>
+                      <LineName table="blessing_registrations" id={r.id} />
                       {/* 電話、LINE、信箱、報名時間 2026-11-18 收進展開區；後五碼留著——對帳收款就是看它 */}
                       <span className="text-xs text-gray-400">{countEntries(r)} 個項目</span>
                       {r.accountLast5 && <span className="text-xs bg-[#C49820]/10 text-[#7C5C1E] px-2 py-0.5 rounded-full">後五碼: {r.accountLast5}</span>}
@@ -3646,6 +3650,7 @@ const BookingsTab = ({ bookings, onStatusChange, updatingId, memberProfiles }: {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold text-gray-900">{b.name}</p>
+                            <LineName table="bookings" id={b.id} />
                           </div>
                           <button type="button" aria-expanded={openInfo.has(b.id)}
                             onClick={e => { e.stopPropagation(); toggleIn(setOpenInfo, b.id); }}
@@ -4005,6 +4010,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold text-gray-900">{d.name}</p>
                             {d.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{d.contactLabel}</span>}
+                            <LineName table="donations" id={d.id} />
                           </div>
                           {(d.phone || d.gender || d.birthDate || d.address) && (
                             <button type="button" aria-expanded={donationInfo.isOpen(d.id)}
@@ -4190,6 +4196,21 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
   // 排序
   const [sortBy, setSortBy] = useState<MemberSortKey>('default');
   const [sortDir, setSortDir] = useState<MemberSortDir>('desc');
+
+  /**
+   * 這位會員的 LINE 名稱從哪裡找（AdminLineName.tsx）：他每個帳號用 LINE 登入時的名稱，
+   * 加上他自己（同電話、稱謂是本人或空白）報名後用 LINE 確認的那幾筆。親友那幾筆不算。
+   */
+  const memberLineRefs = (p: { userId: string; phone?: string; accounts?: MemberProfileRecord[] }): string[] => {
+    const self = (label?: string) => !label || label === '本人';
+    const mine = <T extends { id: string; phone: string; contactLabel?: string }>(list: T[], t: string) =>
+      list.filter(x => samePhone(x.phone, p.phone) && self(x.contactLabel)).map(x => `${t}:${x.id}`);
+    return [
+      ...[p, ...(p.accounts ?? [])].map(a => `member:${a.userId}`),
+      ...mine(bookings, 'bookings'), ...mine(lampRegistrations, 'lamp_registrations'),
+      ...mine(blessingRegistrations, 'blessing_registrations'), ...mine(donations, 'donations'),
+    ];
+  };
 
   const handleSort = (key: MemberSortKey) => {
     if (key === 'default') return;
@@ -4379,6 +4400,7 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 {selectedProfile.name || '（未填姓名）'}
+                <LineNameOf className="text-xs font-normal" refs={memberLineRefs({ ...selectedProfile, accounts: selectedAccounts })} />
                 {selectedProfile.gender && <span className="text-xs bg-temple-red/10 text-temple-red px-2 py-0.5 rounded-full font-normal">{selectedProfile.gender}</span>}
                 {selectedProfile.memberNumber && <span className="text-xs font-mono bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-normal">#{String(selectedProfile.memberNumber).padStart(3, '0')}</span>}
               </h2>
@@ -4693,6 +4715,7 @@ const MembersTab = ({ contacts, bookings, donations, lampRegistrations, blessing
                       <span className="text-sm font-semibold text-gray-800 group-hover:text-temple-red transition-colors">
                         {p.name || <span className="text-gray-400 font-normal italic">（未填）</span>}
                       </span>
+                      <LineNameOf className="ml-2" refs={memberLineRefs(p)} />
                       {/* 折起來的那幾個帳號要講出來，不然廟方只會覺得「剛剛那兩筆呢」。
                           用灰色不用警示色：這不是錯誤，是同一個人用了不只一種方式登入 */}
                       {p.accounts.length > 1 && (
@@ -6571,6 +6594,7 @@ const LampsTab = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-800">{r.name}</p>
                     {r.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{r.contactLabel}</span>}
+                    <LineName table="lamp_registrations" id={r.id} />
                     {/* 整份名單都是同一盞燈，燈名不再每張卡印一次；只留專屬神明燈點給哪一尊（存在備註開頭，見 services/lampChoice.ts） */}
                     {readChoiceTag(r.notes) && (
                       <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
@@ -7182,6 +7206,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                     >
                       <td data-label="姓名" className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
+                        <LineName table="blessing_registrations" id={r.id} className="mt-0.5" />
                         {(r.phone || r.gender || r.birthDate || r.zodiac || r.address) && <div>
                           <button type="button" aria-expanded={blessingRegInfo.isOpen(r.id)}
                             onClick={e => { e.stopPropagation(); blessingRegInfo.toggle(r.id); }}
@@ -8429,7 +8454,7 @@ const ReceivablesTab: React.FC<{
                         )}
                       </td>
                       <td data-label="日期" className="px-5 py-3 text-gray-400 whitespace-nowrap text-xs">{fmtDay(row.date)}</td>
-                      <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{row.name}</td>
+                      <td data-label="姓名" className="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{row.name}<LineName table={row.thanks.table} id={row.thanks.id} className="ml-1.5" /></td>
                       <td data-label="電話" data-more className="px-5 py-3 text-gray-500 whitespace-nowrap">{row.phone || <Dash />}</td>
                       <td data-label="項目" className="px-5 py-3 max-w-[220px]">
                         <div className="flex items-center gap-2">
@@ -8861,6 +8886,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, role }) => {
   const [urgentPending, setUrgentPending] = useState(0);
   const fetchAll = async (initial = false) => {
     if (initial) setLoading(true); else setRefreshing(true);
+    void reloadLineNames();   // 報名完用 LINE 確認過的人（AdminLineName.tsx）
     setError(null);
     try {
       const [b, d, bl, si, dt, hl, hs, sv, lc, lr, mp, ac, ll, ar, be, br, ls, fh, vol, up] = await Promise.all([getBookings(), getDonations(), getBulletins(true), getSiteImages(), getDeities(), getDeityHalls().catch(() => [] as HallRecord[]), getHeroSlides(), getScriptureVerses(), getLampServiceConfigs().catch(() => [] as LampServiceConfig[]), getLampRegistrations().catch(() => [] as LampRegistrationRecord[]), getAllMemberProfiles().catch(() => [] as MemberProfileRecord[]), getAllMemberContactsAdmin().catch(() => [] as MemberContact[]), getUsersLastLogin().catch(() => ({ lastLogin: {}, emails: {} })), getRegistrations().catch(() => [] as RegistrationRecord[]), getBlessingEvents().catch(() => [] as BlessingEventRecord[]), getBlessingRegistrations().catch(() => [] as BlessingRegistrationRecord[]), getLineClickStats().catch(() => ({ today: 0, total: 0 })), getFahuiRegistrations().catch(e => { console.error('讀取法會報名失敗:', e); return null; }), getVolunteerRegistrations().catch(() => [] as VolunteerRegistrationRecord[]), getUrgentPrayers().catch(() => [] as UrgentPrayerRecord[])]);

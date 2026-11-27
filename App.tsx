@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect, useRef, useMemo} from 'react';
+import LineLinkCard, { type LineLinkTable } from './components/LineLinkCard';
 import type { User } from '@supabase/supabase-js';
 import {
   Calendar, ClipboardList, Trash2,
@@ -1907,6 +1908,8 @@ const App: React.FC = () => {
   };
   const [lampNotes, setLampNotes] = useState('');
   const [lampStatus, setLampStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  /** 剛送出的那幾筆：完成頁拿它換 LINE 確認碼（components/LineLinkCard.tsx） */
+  const [lineLink, setLineLink] = useState<{ table: LineLinkTable; ids: string[] } | null>(null);
   const [member, setMember] = useState<User | null>(null);
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
   /** 常見問題。先用保底內容渲染，資料庫回來再換掉——避免首屏空一塊 */
@@ -2573,6 +2576,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(lampPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
     }
+    setLineLink({ table: 'lamp_registrations', ids });
     setLampStatus('success');
     setLampPersons([{ id: newId(), serviceId: '', ...selfWithBirth, contactLabel: '本人' }]);
     setLampNotes('');
@@ -2609,6 +2613,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(bookingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
     }
+    setLineLink({ table: 'bookings', ids });
     setBookingStatus('success');
     setBookingPersons([{ id: newId(), ...selfWithBirth, type: ConsultationType.CAREER, contactLabel: '本人' }]);
   };
@@ -2645,6 +2650,7 @@ const App: React.FC = () => {
       setDonationStatus('error');
       return;
     }
+    setLineLink({ table: 'donations', ids });
     setDonationStatus('success');
     setDonationPersons([{ id: newId(), ...selfDefaults, amount: 0, type: defaultDonationType, contactLabel: '本人' }]);
     setDonationNotes('');
@@ -2710,6 +2716,7 @@ const App: React.FC = () => {
       autoSaveContactsForMember(blessingPersons, memberProfile?.phone ?? '', new Set(memberContacts.map(c => c.name)))
         .then(() => loadMemberContacts()).catch(() => {});
     }
+    setLineLink({ table: 'blessing_registrations', ids });
     setBlessingStatus('success');
     setBlessingPersons([{ id: newId(), ...selfWithBirth, contactLabel: '本人' }]);
     setBlessingNotes('');
@@ -4446,6 +4453,7 @@ const App: React.FC = () => {
                   <p className="text-gray-600 mb-6">
                     感謝您的預約。廟方人員將於收到資料後，<br />透過電話與您確認最終問事時間。
                   </p>
+                  {lineLink?.table === 'bookings' && <LineLinkCard table={lineLink.table} ids={lineLink.ids} className="mb-6" />}
                   {!member && (
                     <div className="mb-6 mx-auto max-w-sm bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-5 text-center">
                       {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
@@ -4827,6 +4835,7 @@ const App: React.FC = () => {
                     </div>
                     <h5 className="text-xl font-bold text-gray-800 mb-2">登記成功！</h5>
                     <p className="text-gray-500 mb-6">感謝您的登記，廟方人員將盡快與您聯繫確認。</p>
+                    {lineLink?.table === 'lamp_registrations' && <LineLinkCard table={lineLink.table} ids={lineLink.ids} className="mb-6" />}
                     {!member && (
                       <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
                       {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
@@ -5299,6 +5308,7 @@ const App: React.FC = () => {
                     <h4 className="text-xl font-bold text-gray-800 mb-2">報名成功！</h4>
                     <p className="text-gray-500 text-sm mb-2">感謝您的報名，廟方將與您確認相關細節。</p>
                     <p className="text-gray-400 text-xs mb-4">共 {blessingPersons.length} 人</p>
+                    {lineLink?.table === 'blessing_registrations' && <LineLinkCard table={lineLink.table} ids={lineLink.ids} className="mb-6" />}
                     {!member && (
                       <div className="mb-4 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
                       {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事
@@ -6177,6 +6187,7 @@ const App: React.FC = () => {
                   <p className="text-gray-600 mb-6">
                     功德無量。我們已收到您的捐款意向，<br />廟方人員將會與您聯繫後續事宜。
                   </p>
+                  {lineLink?.table === 'donations' && <LineLinkCard table={lineLink.table} ids={lineLink.ids} className="mb-6" />}
                   {!member && (
                     <div className="mb-6 mx-auto max-w-xs bg-temple-gold/10 border border-temple-gold/40 rounded-xl p-4 text-center">
                       {/* **要點名 LINE**（2026-10-16）：長輩的門檻是「要記密碼」，而那件事

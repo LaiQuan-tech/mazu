@@ -83,6 +83,11 @@ export interface DevoteeRecord {
   volunteerId: string;
   /** 生日正規化後的值，拆分時用來分群 */
   birthKey: string;
+  /**
+   * 這一筆來自哪一張表的哪一列（`lamp_registrations:<id>`；會員是 `member:<user_id>`）。
+   * 名冊要顯示 LINE 名稱（2026-11-27）：LINE 是綁在那一筆報名上的（line_links），要回頭找得到。
+   */
+  ref: string;
 }
 
 export interface DevoteeRow {
@@ -179,6 +184,7 @@ interface Sighting {
   accountTag?: string;
   /** 由 linkMembersByPhone() 事後補上；見 DevoteeRecord.linkedMembers */
   linkedMembers?: string[];
+  ref?: string;
 }
 
 /** ISO 時間 → 本地時區 yyyy-mm-dd（不可用 toISOString，台灣早上 8 點前會差一天） */
@@ -233,7 +239,7 @@ function collectSightings(src: RosterSources): Sighting[] {
     out.push({
       name: r.name, source: '法會報名', at, gender: r.contactGender, phone: r.phone,
       address: r.address, birthDate: r.contactBirthDate, zodiac: r.contactZodiac,
-      lineId: r.lineId, amount: r.totalAmount,
+      lineId: r.lineId, amount: r.totalAmount, ref: `blessing_registrations:${r.id}`,
     });
     // 各項目的陽上姓名也是真實的信眾，但金額不重複計算
     FAHUI_SERVICE_META.forEach(meta => {
@@ -257,6 +263,7 @@ function collectSightings(src: RosterSources): Sighting[] {
     name: m.name, source: '會員', at: localDate(m.createdAt), gender: m.gender,
     phone: m.phone, address: m.address, birthDate: m.birthDate, zodiac: m.zodiac,
     isMemberSelf: true, memberNumber: memberNo(m) || undefined, accountTag: memberTag(m),
+    ref: `member:${m.userId}`,
   }));
 
   // 通訊錄綁 `user_id`，所以「這是誰的通訊錄」是**查得到的事實**，不必拿電話去猜
@@ -277,18 +284,19 @@ function collectSightings(src: RosterSources): Sighting[] {
   (src.bookings ?? []).forEach(b => out.push({
     name: b.name, source: '問事', at: localDate(b.createdAt) || b.bookingDate, gender: b.gender,
     phone: b.phone, address: b.address, birthDate: b.birthDate, zodiac: b.zodiac,
-    relation: b.contactLabel, email: b.email,
+    relation: b.contactLabel, email: b.email, ref: `bookings:${b.id}`,
   }));
 
   (src.donations ?? []).forEach(d => out.push({
     name: d.name, source: '捐款', at: localDate(d.createdAt), gender: d.gender,
     phone: d.phone, address: d.address, amount: d.amount, relation: d.contactLabel, email: d.email,
+    ref: `donations:${d.id}`,
   }));
 
   (src.lamps ?? []).forEach(l => out.push({
     name: l.name, source: '點燈', at: localDate(l.createdAt), gender: l.gender,
     phone: l.phone, address: l.address, birthDate: l.birthDate, zodiac: l.zodiac,
-    relation: l.contactLabel, email: l.email,
+    relation: l.contactLabel, email: l.email, ref: `lamp_registrations:${l.id}`,
   }));
 
   // 祈福報名原本**整個不在名冊裡**（2026-10-29 補）：只參加過祈福的人在這一頁上
@@ -296,7 +304,7 @@ function collectSightings(src: RosterSources): Sighting[] {
   (src.blessings ?? []).forEach(b => out.push({
     name: b.name, source: '祈福', at: localDate(b.createdAt), gender: b.gender,
     phone: b.phone, address: b.address, birthDate: b.birthDate, zodiac: b.zodiac,
-    relation: b.contactLabel, email: b.email,
+    relation: b.contactLabel, email: b.email, ref: `blessing_registrations:${b.id}`,
   }));
 
   (src.registrations ?? []).forEach(r => out.push({
@@ -382,6 +390,7 @@ const toRecord = (s: Sighting): DevoteeRecord => ({
   linkedMembers: s.linkedMembers ?? [],
   relation: clean(s.relation), volunteerId: s.volunteerId ?? '',
   birthKey: birthKey(s.birthDate ?? ''),
+  ref: s.ref ?? '',
 });
 
 /** 把一組「出現紀錄」壓成一列 */

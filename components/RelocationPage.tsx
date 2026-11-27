@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, HeartHandshake } from 'lucide-react';
 import BankInfoBox, { BANK_RELOCATION } from './BankInfoBox';
+import LineLinkCard from './LineLinkCard';
 import StoryPage, { StoryBlock, splitParagraphs, renderInline } from './StoryPage';
 import BirthDatePicker from './BirthDatePicker';
 import { getAboutSections, getRelocationPlans, getSiteImagePublicUrl, submitDonation } from '../services/supabase';
@@ -222,7 +223,7 @@ const RelocationDonationForm: React.FC<{
   const [notes, setNotes]       = useState('');
   const [status, setStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   /** 送出成功時的金額與方案，成功畫面要照著講 */
-  const [done, setDone]         = useState<{ amount: number; label: string } | null>(null);
+  const [done, setDone]         = useState<{ amount: number; label: string; id: string } | null>(null);
   /**
    * BirthDatePicker 的年月日是內部 state、只在掛載時讀一次 value，
    * 所以帶入會員生日時要換 key 強迫重新掛載（同四個表單的 `_bKey`）。
@@ -277,7 +278,7 @@ const RelocationDonationForm: React.FC<{
       // 捐獻不等廟方確認，送出當下就寄感謝信（廟方 2026-10-13）。
       // 沒填信箱、電話也對不上會員帳號時後端會安靜跳過，這裡不必判斷。
       sendDonationThanks([id]);
-      setDone({ amount, label });
+      setDone({ amount, label, id });
       setStatus('success');
     } catch {
       setStatus('error');
@@ -300,6 +301,8 @@ const RelocationDonationForm: React.FC<{
               要講的是「錢還沒付、往下看」，不是把帳號複製一份。 */}
           <p className="text-gray-700">請依<span className="font-semibold text-temple-red">下方的遷址募資專屬帳號</span>完成匯款，金額如上。</p>
         </div>
+        {/* 加 LINE 好友（廟方 2026-11-27）：之後的確認與感謝狀用 LINE 通知 */}
+        <LineLinkCard table="donations" ids={[done.id]} className="mt-6" />
       </section>
     );
   }

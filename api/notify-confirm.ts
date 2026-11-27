@@ -290,6 +290,21 @@ const header = (req: ReqLike, name: string): string => {
  * LINE 優先、推不出去退回 email、成功才記 sent_at，全部走共用層的 deliver()。
  * **不擋重發**：後台會先問「已經發過一次，確定要再發？」——信眾說沒收到時要能再送。
  */
+/** 報名完成頁用 LINE 確認過的報名 → LINE userId（line_links.sql 沒跑就回空的，照舊用電話對會員） */
+async function linkedLines(env: ReturnType<typeof readEnv>, table: string, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const list = uuids(ids);
+  if (!env.lineToken || list.length === 0) return out;
+  const tables = table === 'blessing_registrations' ? ['blessing_registrations', 'fahui_registrations'] : [table];
+  try {
+    const r = await fetch(`${env.supabaseUrl}/rest/v1/line_links?source_table=in.(${tables.join(',')})`
+      + `&source_id=in.(${list.join(',')})&select=source_id,line_user_id`, { headers: svcHeaders(env) });
+    if (!r.ok) return out;
+    for (const x of (await r.json()) as Row[]) out.set(clean(x.source_id), clean(x.line_user_id));
+  } catch { /* 查不到就照舊 */ }
+  return out;
+}
+
 const THANKS_TABLES = new Set(['lamp_registrations', 'blessing_registrations', 'donations']);
 const PAID = new Set(['已收款', '已確認', 'paid']);
 const CANCELLED = '已取消';
@@ -361,7 +376,9 @@ async function sendThanks(env: ReturnType<typeof readEnv>, table: string, id: st
     const contacts = await lookupContacts(env, phone ? [phone] : [], {
       wantLine: !!env.lineToken, needEmailFor: new Set(isEmail(own) || !phone ? [] : [phone]),
     });
-    const contact = contacts.get(phone) ?? { email: '', lineId: '', isMember: false };
+    const linkedId = (await linkedLines(env, table, [id])).get(id);
+    const base0 = contacts.get(phone) ?? { email: '', lineId: '', isMember: false };
+    const contact = linkedId ? { ...base0, lineId: linkedId } : base0;
     if (!(env.lineToken && contact.lineId) && !isEmail(own) && !contact.email) {
       res.status(200).json({ ok: false, error: '這位信眾沒有綁 LINE、也沒有留 email，無法發送電子版。請改用列印紙本。' });
       return;
@@ -639,8 +656,16 @@ export default async function handler(req: ReqLike, res: ResLike): Promise<void>
       wantLine: !!lineToken,
       needEmailFor: new Set(fresh.filter(x => !isEmail(clean(x.email))).map(x => clean(x.phone))),
     });
-    const contactOf = (x: Row) =>
-      contacts.get(clean(x.phone)) ?? { email: '', lineId: '', isMember: false };
+    /**
+     * 報名完成頁用 LINE 確認過的那幾筆（api/line.ts → line_links）：直接推到他確認的那個 LINE。
+     * 綁在報名本身、不是電話（理由見 line_links.sql），所以只認這幾筆的 id。
+     */
+    const linked = await linkedLines(env, physical, fresh.map(x => clean(x.id)));
+    const contactOf = (x: Row) => {
+      const c = contacts.get(clean(x.phone)) ?? { email: '', lineId: '', isMember: false };
+      const l = linked.get(clean(x.id));
+      return l ? { ...c, lineId: l } : c;
+    };
 
     /** 這一筆要寄到哪個信箱（自己填的優先，沒填就用會員帳號的） */
     const emailOf = (x: Row): string => {

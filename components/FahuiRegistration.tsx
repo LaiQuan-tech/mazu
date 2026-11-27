@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { BANK_GENERAL } from './BankInfoBox';
 import { ArrowLeft, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import { submitFahuiRegistration } from '../services/supabase';
+import LineLinkCard from './LineLinkCard';
 import { getLineUrl, trackLine } from '../services/lineLink';
 import { ZodiacSign } from '../types';
 import BirthDatePicker from './BirthDatePicker';
@@ -329,6 +330,8 @@ export default function FahuiRegistration({ onBack, onVolunteer, onJoinMember }:
   const [notes, setNotes] = useState<string>(draft?.notes ?? '');
   const [draftRestored, setDraftRestored] = useState<boolean>(!!draft?.contact?.name || !!draft?.contact?.phone);
   const [submitted, setSubmitted] = useState(false);
+  /** 剛送出的那一筆（完成頁換 LINE 確認碼用） */
+  const [linkId, setLinkId] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -455,7 +458,7 @@ export default function FahuiRegistration({ onBack, onVolunteer, onJoinMember }:
 
     setSubmitting(true);
     try {
-      await submitFahuiRegistration({
+      const saved = await submitFahuiRegistration({
         contact,
         entries: entriesJson,
         total,
@@ -464,6 +467,7 @@ export default function FahuiRegistration({ onBack, onVolunteer, onJoinMember }:
         notes: notes.trim(),
       });
       clearDraft();
+      setLinkId(saved.id);
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
@@ -474,7 +478,7 @@ export default function FahuiRegistration({ onBack, onVolunteer, onJoinMember }:
   };
 
   if (submitted) {
-    return <SuccessScreen onBack={onBack} onVolunteer={onVolunteer} onJoinMember={onJoinMember} contact={contact} summary={summary} total={total} />;
+    return <SuccessScreen onBack={onBack} onVolunteer={onVolunteer} onJoinMember={onJoinMember} contact={contact} summary={summary} total={total} linkId={linkId} />;
   }
 
   // 報名截止後不再開放送出（避免收了款卻來不及製作牌位）；工作人員可用 ?preview=1 預覽表單
@@ -1115,7 +1119,9 @@ function SuccessScreen({
   contact,
   summary,
   total,
+  linkId,
 }: {
+  linkId?: string;
   onBack?: () => void;
   onVolunteer?: (contact: FahuiVolunteerHandoff) => void;
   onJoinMember?: (phone: string) => void;
@@ -1134,6 +1140,9 @@ function SuccessScreen({
           <h2 className="font-bold text-2xl text-[#2E2A22] font-serif">報名成功！</h2>
           <p className="text-gray-500 text-sm mt-1">感謝 {contact.name} 的護持</p>
         </div>
+
+        {/* 先請他加 LINE 好友（廟方 2026-11-27）：之後的確認、匯款、感謝狀都用 LINE 通知 */}
+        {linkId && <LineLinkCard table="fahui_registrations" ids={[linkId]} />}
 
         {/* Summary */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#C49820]/20">

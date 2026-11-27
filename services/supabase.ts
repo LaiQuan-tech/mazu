@@ -2242,7 +2242,8 @@ export interface FahuiRegistrationData {
   notes?: string;
 }
 
-export const submitFahuiRegistration = async (data: FahuiRegistrationData): Promise<void> => {
+/** 回傳剛建立的那一筆 id（完成頁換 LINE 確認碼用）；呼叫端不用的話照舊忽略 */
+export const submitFahuiRegistration = async (data: FahuiRegistrationData): Promise<{ id: string }> => {
   // 不使用 .select() 讀回：anon 角色僅有 INSERT 權限、無 SELECT 權限，
   // 讀回會觸發 RLS 阻擋。要通知廟方信箱就得知道是哪一筆，所以 id 客戶端先產。
   const id = newUuid();
@@ -2286,6 +2287,7 @@ export const submitFahuiRegistration = async (data: FahuiRegistrationData): Prom
     throw error;
   }
   notifyRegistration('fahui_registrations', id);
+  return { id };
 };
 
 export const getFahuiRegistrations = async (): Promise<FahuiRegistrationRecord[]> => {

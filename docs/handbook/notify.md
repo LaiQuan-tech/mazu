@@ -104,3 +104,18 @@
 
 `POST /api/notify-confirm {table, id:[一筆], kind:'thanks'}`，table 限 lamp_registrations／blessing_registrations（法會也是這張）／donations。一律要管理員。
 檢查：已收款、報名紀錄上有編號、而且等於 thanks_certificates 快照上的編號（不一致回 409 要後台重開視窗）。走 deliver()：LINE 優先、推不出去退回 email、都沒有回「請改印紙本」。成功記 thanks_certificates.sent_at／sent_via。**不擋重發**（後台會先問）。細節見 admin-finance.md「感謝狀」。
+
+
+## 報名後加 LINE 好友、記下 LINE 名稱（2026-11-27）
+
+廟方：「報名後常常沒辦法聯絡信眾，報名完就請他加和聖壇 LINE 好友，並讓我們知道他在 LINE 的名稱」。
+
+- **流程**：問事、點燈、祈福、捐獻、遷址護持、法會的完成頁最上面一張綠卡「加入和聖壇 LINE 好友，完成報名確認」（`components/LineLinkCard.tsx`）。卡片向 `/api/line` 要一組 6 碼確認碼（只替一小時內剛送出的報名發），按鈕是 `https://line.me/R/oaMessage/<basicId>/?報名確認 XXXXXX`，打開 LINE、訊息已帶好，信眾按傳送。
+- **webhook**：`api/line.ts`（同一支也發確認碼——Vercel Hobby 一次部署最多 12 支函式，api/ 已 11 支）。**驗 x-line-signature（LINE_CHANNEL_SECRET 的 HMAC-SHA256）**，否則誰都能假冒 LINE 把任意報名綁到自己的 LINE。原始內容要從串流讀（Vercel 的 req.body 是讀到才解析，沒碰就還在），解析後再轉字串簽章會對不上。
+- 收到「報名確認 XXXXXX」→ 向 LINE 拿顯示名稱；**拿不到＝還沒加好友**（LINE 只給好友資料），回一句請他先加再傳。拿到就寫 `line_links`、回「收到了」（回覆訊息不計則數）。**其他訊息一律不回**，聊天留給廟方的人。一組碼第一個用的人之後只有他能再用。
+- **綁的是那幾筆報名，不是電話**：任何人都能拿別人的電話報名，以電話綁的話冒名報一次就能把那支電話之後的通知（姓名、金額、感謝狀）收走。代價是下次報名要再按一次（已是好友就只是按傳送）。
+- **用途**：後台名單姓名旁「LINE：美玲」（`AdminLineName.tsx`，問事、點燈、祈福、法會、捐獻、應收）；`notify-confirm` 的確認通知與感謝狀優先推到綁定的 LINE（`linkedLines()`）。cron 提醒與匯款資訊（送出當下、還沒綁）仍走電話對會員。
+- 資料表：`supabase/migrations/line_links.sql`（line_link_codes 零政策只有 service role；line_links 只給 is_admin 讀）。
+- **設定（廟方做）**：LINE Developers → Messaging API channel → Webhook URL `https://heshengtan.tw/api/line`、開「Use webhook」、按 Verify；Vercel 環境變數 `LINE_CHANNEL_SECRET`（不加 VITE_）。LINE 官方帳號後台的自動回應／聊天可以與 webhook 並存，開了 webhook 後要確認回應設定還在。`GET /api/line` 會回三個變數設了沒。
+- **會員資訊、信眾資訊也顯示 LINE 名稱**（2026-11-27 廟方追加）：`LineNameOf`（AdminLineName.tsx）收一個人的多個來源——會員帳號用 LINE 登入時的名稱（RPC `get_member_line_names`，讀 auth.identities `custom:line` 的 identity_data.name，限 is_admin，寫在 line_links.sql）＋他**本人**那幾筆報名的 line_links。名冊的 `DevoteeRecord.ref` 記來源列（`表:id`、會員是 `member:<user_id>`）。**親友那幾筆不算**：家人報名時確認的是報名人的 LINE，掛到兒女身上會被當成兒女的 LINE。（各服務的報名名單則每一列都顯示，那是「這一筆要聯絡的 LINE」。）
+

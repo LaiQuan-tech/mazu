@@ -61,3 +61,4 @@
   **同時要處理 index.html 的法會 Event JSON-LD**：`url` 與 `offers.url` 指向 `machu-five.vercel.app` 根路徑，而 `FAHUI_LANDING` 一關那裡就不再是報名表；法會 9/13 過後整個 Event 節點也該移除或換成下一場，否則 Search Console 會回報過期活動。
 - **`supabase/migrations/thanks_certificates.sql` 要在 Supabase SQL Editor 跑過**（2026-11-27 新增）：點燈、捐獻加 `thanks_letter`，新表 `thanks_certificates`、RPC `get_thanks_certificate`。沒跑之前：點燈與捐獻填編號會跳提示、無法標記已收款；感謝狀不能存也不能發。
 - **`supabase/migrations/thanks_certificates_merge.sql` 要跑**（2026-11-27 合開感謝狀）：快照改成一個編號一張。沒跑之前按預覽的列印／複製連結／發送會跳提示。
+- **LINE 報名確認（2026-11-27）要三件事才會動**：跑 `supabase/migrations/line_links.sql`；Vercel 加 `LINE_CHANNEL_SECRET` 後重新部署；LINE Developers 設 Webhook URL `https://heshengtan.tw/api/line` 並開啟。缺任何一件，完成頁的綠卡不會出現或傳了沒反應（報名本身不受影響）。
