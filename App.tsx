@@ -2555,6 +2555,30 @@ const App: React.FC = () => {
     return true;
   };
 
+  /**
+   * 填寫當下的防呆（2026-11-27 廟方：「有辦法預防嗎？防呆」），送出前的 confirmSelfLabels 是最後一道：
+   * 1. 「本人」那張的姓名改成別人，**離開姓名欄就把稱謂清空**，選單變紅要他重選——
+   *    第一張卡預設本人並帶入會員資料，改姓名卻沒改稱謂就是這樣來的。
+   * 2. 「本人」只能一位：別張已經選了，這張的「本人」變灰不能選。
+   * 3. 稱謂必填（required），沒選送不出去。
+   * 會員才比得了姓名；訪客沒有會員姓名，只有 2、3 兩條。
+   */
+  const myName = (): string => (member ? (memberProfile?.name ?? '').replace(/\s/g, '') : '');
+  const releaseSelfLabel = <T extends { id: string; name: string; contactLabel?: string }>(
+    set: React.Dispatch<React.SetStateAction<T[]>>, id: string,
+  ) => set(prev => prev.map(x => {
+    const me = myName();
+    const nm = x.name.replace(/\s/g, '');
+    return x.id === id && x.contactLabel === '本人' && me && nm && nm !== me ? { ...x, contactLabel: '' } : x;
+  }));
+  const relationOptions = (persons: { id: string; contactLabel?: string }[], id: string) =>
+    RELATION_OPTIONS.map(r => {
+      const taken = r === '本人' && persons.some(x => x.id !== id && x.contactLabel === '本人');
+      return <option key={r} value={r} disabled={taken}>{taken ? '本人（已有一位）' : r}</option>;
+    });
+  /** 稱謂沒選時選單變紅，提醒「這位是您的誰」 */
+  const relationCls = (label?: string) => label ? 'border-gray-300' : 'border-temple-red ring-1 ring-temple-red/30';
+
   const requireMemberPhone = (): boolean => {
     if (member && !memberProfile?.phone) {
       alert('請先至會員中心填寫聯絡電話，以便廟方與您聯繫。');
@@ -4581,15 +4605,16 @@ const App: React.FC = () => {
                             <input required type="text"
                             value={p.name}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                            onBlur={() => releaseSelfLabel(setBookingPersons, p.id)}
                             className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
                           </label>
                           <label className="block">
-                            <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
-                            <select value={p.contactLabel || ''}
+                            <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係 *</span>
+                            <select required value={p.contactLabel || ''}
                             onChange={e => setBookingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">稱謂 / 關係</option>
-                            {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                            className={`w-full px-3 py-2.5 rounded-lg border ${relationCls(p.contactLabel)} text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white`}>
+                            <option value="">請選擇（這位是您的誰）</option>
+                            {relationOptions(bookingPersons, p.id)}
                           </select>
                           </label>
                         </div>
@@ -4951,15 +4976,16 @@ const App: React.FC = () => {
                             <input required type="text"
                             value={p.name}
                             onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                            onBlur={() => releaseSelfLabel(setLampPersons, p.id)}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
                           </label>
                           <label className="block">
-                            <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
-                            <select value={p.contactLabel || ''}
+                            <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係 *</span>
+                            <select required value={p.contactLabel || ''}
                             onChange={e => setLampPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                            <option value="">稱謂 / 關係</option>
-                            {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                            className={`w-full px-3 py-2.5 border ${relationCls(p.contactLabel)} rounded-lg text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white`}>
+                            <option value="">請選擇（這位是您的誰）</option>
+                            {relationOptions(lampPersons, p.id)}
                           </select>
                           </label>
                         </div>
@@ -5380,6 +5406,7 @@ const App: React.FC = () => {
                             <label className="block">
                               <span className="block text-xs font-medium text-gray-600 mb-1">姓名 *</span>
                               <input required value={p.name} onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                              onBlur={() => releaseSelfLabel(setBlessingPersons, p.id)}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none" />
                             </label>
                           </div>
@@ -5395,12 +5422,12 @@ const App: React.FC = () => {
                           </div>
                           <div className="col-span-2">
                             <label className="block">
-                              <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係</span>
-                              <select value={p.contactLabel || ''}
+                              <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係 *</span>
+                              <select required value={p.contactLabel || ''}
                               onChange={e => setBlessingPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white">
-                              <option value="">請選擇稱謂 / 關係</option>
-                              {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                              className={`w-full border ${relationCls(p.contactLabel)} rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red outline-none bg-white`}>
+                              <option value="">請選擇（這位是您的誰）</option>
+                              {relationOptions(blessingPersons, p.id)}
                             </select>
                             </label>
                           </div>
@@ -6258,7 +6285,7 @@ const App: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         <label className="block">
                           <span className="block text-xs font-medium text-gray-600 mb-1">大德姓名 *</span>
                           <input
@@ -6266,8 +6293,19 @@ const App: React.FC = () => {
                           type="text"
                           value={p.name}
                           onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))}
+                          onBlur={() => releaseSelfLabel(setDonationPersons, p.id)}
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none text-sm"
                         />
+                        </label>
+                        {/* 捐獻原本沒有稱謂欄：第一張預設本人，改了姓名就沒地方改回（2026-11-27 補） */}
+                        <label className="block">
+                          <span className="block text-xs font-medium text-gray-600 mb-1">稱謂 / 關係 *</span>
+                          <select required value={p.contactLabel || ''}
+                          onChange={e => setDonationPersons(prev => prev.map(x => x.id === p.id ? { ...x, contactLabel: e.target.value } : x))}
+                          className={`w-full px-3 py-2 rounded-lg border ${relationCls(p.contactLabel)} focus:ring-2 focus:ring-temple-red/20 focus:border-temple-red transition-all outline-none bg-white text-sm`}>
+                            <option value="">請選擇（這位是您的誰）</option>
+                            {relationOptions(donationPersons, p.id)}
+                          </select>
                         </label>
                         <label className="block">
                           <span className="block text-xs font-medium text-gray-600 mb-1">捐款金額（NTD）*</span>
