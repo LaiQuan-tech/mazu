@@ -59,6 +59,23 @@ const fmtDate = (s: any) => {
 };
 
 /**
+ * 日期與時間分成兩段、各自不斷行（2026-11-28 廟方：「2026/11/25 下午 / 07:18」被拆在字中間很醜）。
+ * 欄寬夠就排一行，不夠就在日期與時間之間換行，不會切在數字中間。
+ */
+const DateTimeText: React.FC<{ at: string; className?: string }> = ({ at, className }) => {
+  const t = fmtDate(at);
+  const k = t.indexOf(' ');
+  return (
+    <span className={className}>
+      {k < 0 ? <span className="whitespace-nowrap">{t}</span> : <>
+        <span className="whitespace-nowrap">{t.slice(0, k)}</span>{' '}
+        <span className="whitespace-nowrap">{t.slice(k + 1)}</span>
+      </>}
+    </span>
+  );
+};
+
+/**
  * 收款操作鈕：點燈／祈福共用，刻意與法會那顆長得一樣。
  *
  * 廟方 2026-10-13：「點燈／祈福跟法會一樣，要匯款，由後台按標記已收款」。
@@ -4013,7 +4030,7 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                   {/* 「類型」欄拿掉：整份名單都是同一類 */}
                   {['信眾資訊', '捐款金額',
                     ...(showDesignated ? ['指定項目'] : []), ...(showDonNotes ? ['備註'] : []), '時間', '感謝狀', '收款'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -4023,18 +4040,18 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                     className={`hover:bg-green-50/40 transition-colors cursor-pointer${donationRows.isOpen(d.id) ? ' admin-open' : ''}`}
                     onClick={() => setQuickView({ name: d.name, phone: d.phone, gender: d.gender || undefined, address: d.address || undefined, notes: d.notes || undefined, serviceLabel: `捐獻 · ${d.type}　NT$${Number(d.amount).toLocaleString()}`, createdAt: d.createdAt, contactLabel: d.contactLabel, source: d.source, email: d.email, confirmSentAt: d.confirmSentAt, mailKind: 'thanks' })}
                   >
-                    <td data-label="信眾資訊" className="px-5 py-4">
+                    <td data-label="信眾資訊" className="px-3 py-4">
                       <div className="flex items-center gap-3">
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-sm font-semibold text-gray-900">{d.name}</p>
-                            {d.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium">#{d.contactLabel}</span>}
+                            <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{d.name}</p>
+                            {d.contactLabel && <span className="text-xs bg-temple-gold/20 text-temple-dark px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap">#{d.contactLabel}</span>}
                             <LineName table="donations" id={d.id} />
                           </div>
                           {(d.phone || d.gender || d.birthDate || d.address) && (
                             <button type="button" aria-expanded={donationInfo.isOpen(d.id)}
                               onClick={e => { e.stopPropagation(); donationInfo.toggle(d.id); }}
-                              className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5">
+                              className="mt-1 text-xs text-gray-500 hover:text-temple-red inline-flex items-center gap-0.5 whitespace-nowrap">
                               {donationInfo.isOpen(d.id) ? '收合資料' : '個人資料'}
                               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${donationInfo.isOpen(d.id) ? 'rotate-180' : ''}`} aria-hidden="true" />
                             </button>
@@ -4051,8 +4068,8 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                         </div>
                       </div>
                     </td>
-                    <td data-label="捐款金額" className="px-5 py-4">
-                      <p className="text-base font-bold text-green-700">NT$ {Number(d.amount).toLocaleString()}</p>
+                    <td data-label="捐款金額" className="px-3 py-4">
+                      <p className="text-base font-bold text-green-700 whitespace-nowrap">NT$ {Number(d.amount).toLocaleString()}</p>
                     </td>
                     {showDesignated && <td data-label="指定項目" data-more className="px-4 py-3 text-sm text-gray-500">
                       {d.repairProjectName ? (
@@ -4062,20 +4079,20 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                       ) : d.relocationPlan ? (
                         // 方案與級距分兩行：方案名最長十個字，跟級距擠一行在手機的卡片版會換行換得很醜
                         <span className="inline-flex flex-col gap-0.5 text-xs px-2 py-1 rounded-lg bg-temple-gold/15 border border-temple-gold/40 text-temple-dark">
-                          <span className="inline-flex items-center gap-1"><Home className="w-3 h-3" />{d.relocationPlan}</span>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap"><Home className="w-3 h-3 shrink-0" />{d.relocationPlan}</span>
                           {d.relocationTier && <span className="font-semibold">{d.relocationTier}</span>}
                         </span>
                       ) : <Dash />}
                     </td>}
-                    {showDonNotes && <td data-label="備註" data-more className="px-5 py-4 max-w-[180px]">
+                    {showDonNotes && <td data-label="備註" data-more className="px-3 py-4 max-w-[180px]">
                       <p className="text-sm text-gray-700 truncate">{d.notes || <Dash />}</p>
                     </td>}
-                    <td data-label="時間" className="px-5 py-4">
-                      <p className="text-xs text-gray-500">{fmtDate(d.createdAt)}</p>
+                    <td data-label="時間" className="px-3 py-4">
+                      <DateTimeText at={d.createdAt} className="text-xs text-gray-500" />
                     </td>
                     {/* 感謝狀自己一欄、放在收款左邊（2026-11-27 廟方：原本疊在收款格裡變三層，每列很高）。
                         順序就是作業順序：先填編號，才按得了收款 */}
-                    <td data-label="感謝狀" className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                    <td data-label="感謝狀" className="px-3 py-4" onClick={e => e.stopPropagation()}>
                       {isThanksRelative(d.contactLabel) ? <Dash /> : (
                         <ThanksCell bare onSaved={onRefresh} src={{ table: 'donations', id: d.id, no: d.thanksLetter,
                           name: d.name, item: d.type, amount: Number(d.amount) || 0, paid: d.status === DonationStatus.CONFIRMED,
@@ -4083,9 +4100,10 @@ const DonationsTab = ({ donations, memberProfiles, onRefresh }: { donations: Don
                       )}
                     </td>
                     {/* 收款按鈕直接放在名單上（2026-11-18）：原本只有應收管理改得了，捐獻管理的紅點寫「N 待匯款」卻沒有地方按 */}
-                    <td data-label="收款" className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                    <td data-label="收款" className="px-3 py-4" onClick={e => e.stopPropagation()}>
                       <div className="flex flex-col items-end lg:items-start gap-1.5">
-                        {statusBadge(d.status || DonationStatus.PENDING)}
+                        {/* 待匯款不再另掛一顆「待匯款」：旁邊的「標記已收款」已經說了同一件事（2026-11-28 廟方：優化） */}
+                        {(d.status || DonationStatus.PENDING) !== DonationStatus.PENDING && statusBadge(d.status!)}
                         <PaymentActions
                           status={(d.status || DonationStatus.PENDING) as DonationStatus}
                           pending={DonationStatus.PENDING}
@@ -7228,7 +7246,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
           ) : (
             <div className="overflow-x-auto">
               <table className="admin-table reg-list w-full min-w-[700px]">
-                <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
+                <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   <tr>
                     <th className="px-4 py-3 text-left">姓名</th>
                     {/* 電話 2026-11-18 收進姓名格的「個人資料」 */}
@@ -7308,7 +7326,8 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                       </td>
                       <td data-label="狀態" className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-end lg:items-start gap-1.5">
-                          {statusBadge(r.status)}
+                          {/* 同捐獻：待匯款時按鈕已經說了，不另掛徽章 */}
+                          {r.status !== BlessingStatus.PENDING && statusBadge(r.status)}
                           <PaymentActions
                             status={r.status}
                             pending={BlessingStatus.PENDING}
@@ -7320,7 +7339,7 @@ const BlessingsTab = ({ events, registrations, onRefresh, memberProfiles, fahuiR
                           />
                         </div>
                       </td>
-                      <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
+                      <td data-label="報名時間" data-more className="px-4 py-3 text-xs text-gray-400"><DateTimeText at={r.createdAt} /></td>
                       <td data-label="操作" className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleDeleteReg(r.id)} disabled={deletingRegId === r.id}
                           className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-40">
