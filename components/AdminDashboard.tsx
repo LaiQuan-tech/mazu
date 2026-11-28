@@ -1017,6 +1017,14 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
   const [sessionId, setSessionId] = useState('');
   const [consultType, setConsultType] = useState<ConsultationType>(ConsultationType.CAREER);
   const [notes, setNotes] = useState('');
+  /**
+   * 稱謂（2026-11-28 廟方：鍾木森、鍾宇航、鍾采邑是會員鍾介凡的家人，代為報名卻全部存成「本人」）。
+   * 原本這裡寫死「本人」，理由是「代報的對象就是這一列本人」——但家人用的是報名人的電話，
+   * 存成本人之後，感謝狀不會併進報名人那張「闔家」、信眾資訊的關係也全錯。
+   * 預設：名冊上知道他是某位會員的什麼人（通訊錄），就帶那個；報名表填過別的關係也帶；都沒有才是本人。
+   */
+  const [relation, setRelation] = useState<string>(() =>
+    row.relationOf[0]?.relation || row.relations.find(r => r && r !== '本人') || '本人');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState('');
@@ -1124,7 +1132,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           zodiac: (person.zodiac || undefined) as ZodiacSign | undefined,
           gender: person.gender || undefined,
           address: person.address || undefined,
-          contactLabel: '本人',   // 代報的對象就是這一列本人，不是他的家人
+          contactLabel: relation,
           notes: notes || undefined,
           packageName: pkg?.name,
           packageFee: pkg?.fee,
@@ -1138,7 +1146,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           birthDate: person.birthDate,
           zodiac: (person.zodiac || undefined) as ZodiacSign | undefined,
           address: person.address || undefined,
-          contactLabel: '本人',
+          contactLabel: relation,
           // 指定神明寫進備註開頭，與前台同一個格式（後台列表與匯出才讀得到）
           notes: (lampCh ? withChoiceTag(notes || undefined, lampCh.label, lampChoice) : notes) || undefined,
         }, { notify: false, source: PROXY_SOURCE });
@@ -1150,7 +1158,7 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
           birthDate: person.birthDate,
           zodiac: (person.zodiac || undefined) as ZodiacSign | undefined,
           address: person.address || undefined,
-          contactLabel: '本人',
+          contactLabel: relation,
           bookingDate: sess!.sessionDate,
           bookingTime: sess!.sessionTime,
           sessionId: sess!.id,
@@ -1333,6 +1341,17 @@ const ProxyRegisterModal = ({ row, sources, onClose, onDone }: {
               </div>
             )}
 
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-600 mb-1">稱謂／關係 *</span>
+              <select value={relation} onChange={e => setRelation(e.target.value)} className={field}>
+                {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r === '本人' ? '本人（他自己報名、自己出錢）' : r}</option>)}
+              </select>
+              <span className="block mt-1 text-xs text-gray-500">
+                {row.relationOf[0]
+                  ? `名冊上他是 ${row.relationOf[0].who || row.relationOf[0].tag} 的${row.relationOf[0].relation}，已幫您帶入。`
+                  : '家人代為報名時請選他和報名人的關係，感謝狀才會併進報名人那張「闔家」。'}
+              </span>
+            </label>
             <label className="block">
               <span className="block text-xs font-medium text-gray-600 mb-1">備註（選填）</span>
               <input value={notes} onChange={e => setNotes(e.target.value)} className={field}
